@@ -615,4 +615,67 @@ watch(() => route.query.category, (newCat) => {
     min-width: 140px;
   }
 }
+
+@media (max-width: 640px) {
+  .catalog__hero {
+    padding: 2rem 0;
+  }
+  
+  .filter-section {
+    padding: 1rem;
+  }
+  
+  .filter-item {
+    min-width: 100%;
+    padding: 0.75rem;
+  }
+  
+  .filter-icon {
+    display: none;
+  }
+  
+  .price-range {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .price-separator {
+    display: none;
+  }
+  
+  .price-input {
+    width: 100%;
+  }
+  
+  .catalog__bar {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  
+  .sort-select select {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  .products-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .product-content {
+    padding: 1rem;
+  }
+  
+  .product-title {
+    font-size: 1rem;
+  }
+  
+  .product-desc {
+    font-size: 0.8rem;
+  }
+  
+  .price-value {
+    font-size: 1.25rem;
+  }
+}
 </style>

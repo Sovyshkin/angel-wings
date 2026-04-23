@@ -420,13 +420,71 @@ onMounted(async () => {
     grid-template-columns: 1fr;
     gap: 2rem;
   }
-  
+
   .product-gallery {
     position: static;
   }
-  
+
   .product-guarantee {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .product-detail {
+    padding: 1rem 0 2rem;
+  }
+
+  .breadcrumb {
+    font-size: 0.75rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .product-meta {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .product-title {
+    font-size: 1.5rem;
+  }
+
+  .product-price {
+    font-size: 2rem;
+  }
+
+  .product-price-block {
+    flex-wrap: wrap;
+  }
+
+  .product-actions {
+    flex-direction: column;
+    padding: 1rem;
+  }
+
+  .quantity-selector {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .btn-add-cart {
+    width: 100%;
+  }
+
+  .specs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .product-guarantee {
+    gap: 0.75rem;
+  }
+
+  .guarantee-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 1rem;
+    text-align: left;
   }
 }
 </style>

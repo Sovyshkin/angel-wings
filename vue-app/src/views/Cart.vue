@@ -533,20 +533,20 @@ async function placeOrder() {
   .cart__layout {
     grid-template-columns: 1fr;
   }
-  
+
   .cart__summary {
     position: static;
   }
-  
+
   .cart-header {
     display: none;
   }
-  
+
   .cart-item {
     grid-template-columns: 1fr;
     gap: 0.75rem;
   }
-  
+
   .col-price,
   .col-quantity,
   .col-total {
@@ -554,23 +554,77 @@ async function placeOrder() {
     justify-content: space-between;
     align-items: center;
   }
-  
+
   .col-price::before { content: 'Цена:'; color: var(--text-muted); font-size: 0.8rem; }
   .col-total::before { content: 'Сумма:'; color: var(--text-muted); font-size: 0.8rem; }
-  
+
   .col-remove {
     position: absolute;
     top: 1rem;
     right: 1rem;
   }
-  
+
   .cart-item {
     position: relative;
     padding-right: 3rem;
   }
-  
+
   .form-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .cart__hero {
+    padding: 2rem 0;
+  }
+
+  .col-product {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .item-image {
+    width: 60px;
+    height: 60px;
+  }
+
+  .item-info h4 {
+    font-size: 0.9rem;
+  }
+
+  .empty {
+    padding: 3rem 0;
+  }
+
+  .empty-icon svg {
+    width: 40px;
+    height: 40px;
+  }
+
+  .empty h3 {
+    font-size: 1.25rem;
+  }
+
+  .cart__summary {
+    padding: 1.5rem;
+  }
+
+  .summary-header h3 {
+    font-size: 1rem;
+  }
+
+  .total-value {
+    font-size: 1.25rem;
+  }
+
+  .checkout-form h4 {
+    font-size: 0.8rem;
+  }
+
+  .btn-submit {
+    padding: 0.875rem;
+    font-size: 0.9rem;
   }
 }
 </style>

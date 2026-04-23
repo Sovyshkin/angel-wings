@@ -520,34 +520,82 @@ onMounted(() => {
   .profile__layout {
     grid-template-columns: 1fr;
   }
-  
+
   .profile__sidebar {
     position: static;
   }
-  
+
   .user-card {
     margin-bottom: 1rem;
   }
-  
+
   .profile-nav {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  
+
   .profile-nav__item {
     flex: 1;
     min-width: 140px;
   }
-  
+
   .profile-nav__item.logout-btn {
     flex: 0 0 100%;
     justify-content: center;
     margin-top: 0.5rem;
   }
-  
+
   .info-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .profile__hero {
+    padding: 2rem 0;
+  }
+
+  .profile-nav {
+    flex-direction: column;
+  }
+
+  .profile-nav__item {
+    min-width: auto;
+  }
+
+  .profile-nav__item.logout-btn {
+    flex: none;
+  }
+
+  .user-card {
+    padding: 1rem;
+  }
+
+  .user-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 1rem;
+  }
+
+  .section-card {
+    padding: 1.5rem;
+  }
+
+  .section-title {
+    font-size: 1.1rem;
+  }
+
+  .info-grid {
+    gap: 1rem;
+  }
+
+  .settings-form {
+    gap: 1rem;
+  }
+
+  .btn-danger {
+    width: 100%;
   }
 }
 </style>

@@ -305,4 +305,39 @@ async function handleSubmit() {
 .link-btn:hover {
   text-decoration: underline;
 }
+
+@media (max-width: 640px) {
+  .auth {
+    padding: 2rem 1rem;
+  }
+
+  .auth__card {
+    padding: 1.5rem;
+    border-radius: 20px;
+  }
+
+  .auth__title {
+    font-size: 1.5rem;
+  }
+
+  .auth__subtitle {
+    font-size: 0.85rem;
+  }
+
+  .auth__form {
+    gap: 1rem;
+  }
+
+  .form-group label {
+    font-size: 0.75rem;
+  }
+
+  .btn-submit {
+    padding: 0.875rem;
+  }
+
+  .password-toggle {
+    right: 0.5rem;
+  }
+}
 </style>
