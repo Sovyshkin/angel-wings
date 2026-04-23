@@ -45,7 +45,7 @@
       </div>
     </section>
 
-    <section class="features" id="features">
+    <section class="features animate-on-scroll" id="features">
       <div class="container">
         <div class="features__grid">
           <div class="feature-card">
@@ -91,7 +91,7 @@
       </div>
     </section>
 
-    <section class="categories-preview">
+    <section class="categories-preview animate-on-scroll">
       <div class="container">
         <div class="section-header">
           <h2 class="section-title">Категории</h2>
@@ -145,7 +145,7 @@
       </div>
     </section>
 
-    <section class="featured-products">
+    <section class="featured-products animate-on-scroll">
       <div class="container">
         <div class="section-header">
           <h2 class="section-title">Популярные товары</h2>
@@ -183,7 +183,7 @@
       </div>
     </section>
 
-    <section class="cta">
+    <section class="cta animate-on-scroll">
       <div class="container">
         <div class="cta__inner">
           <div class="cta__content">
@@ -203,7 +203,7 @@
       </div>
     </section>
 
-    <section class="benefits">
+    <section class="benefits animate-on-scroll">
       <div class="container">
         <div class="section-header">
           <h2 class="section-title">Почему выбирают нас</h2>
@@ -233,7 +233,7 @@
       </div>
     </section>
 
-    <section class="promo-banner">
+    <section class="promo-banner animate-on-scroll">
       <div class="promo-bg">
         <div class="promo-orb promo-orb-1"></div>
         <div class="promo-orb promo-orb-2"></div>
@@ -252,7 +252,7 @@
       </div>
     </section>
 
-    <section class="testimonials">
+    <section class="testimonials animate-on-scroll">
       <div class="container">
         <div class="section-header">
           <h2 class="section-title">Отзывы клиентов</h2>
@@ -295,7 +295,7 @@
       </div>
     </section>
 
-    <section class="newsletter">
+    <section class="newsletter animate-on-scroll">
       <div class="container">
         <div class="newsletter__inner">
           <div class="newsletter__content">
@@ -322,13 +322,33 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useProductStore } from '../store/products'
 
 const productStore = useProductStore()
 
 const featuredProducts = computed(() => {
   return productStore.products.slice(0, 4)
+})
+
+const observerOptions = {
+  threshold: 0.1,
+  rootMargin: '0px 0px -50px 0px'
+}
+
+onMounted(() => {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible')
+        observer.unobserve(entry.target)
+      }
+    })
+  }, observerOptions)
+
+  document.querySelectorAll('.animate-on-scroll').forEach(el => {
+    observer.observe(el)
+  })
 })
 </script>
 
@@ -1413,4 +1433,251 @@ const featuredProducts = computed(() => {
     width: 100%;
   }
 }
-</style>
+
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-on-scroll.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.feature-card {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.feature-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.category-card {
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.category-card.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.featured-card {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.featured-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.benefit-card {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.benefit-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.testimonial-card {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.testimonial-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease;
+}
+
+.btn:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+.feature-card {
+  cursor: pointer;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(163, 255, 18, 0.05), transparent);
+  transition: left 0.5s ease;
+}
+
+.feature-card:hover::before {
+  left: 100%;
+}
+
+.category-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 0;
+  background: var(--accent);
+  transition: height 0.4s ease;
+}
+
+.category-card:hover::before {
+  height: 100%;
+}
+
+@keyframes ripple {
+  0% { transform: scale(0); opacity: 0.5; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+.add-to-cart-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.add-to-cart-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: var(--accent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease;
+}
+
+.add-to-cart-btn:not(:disabled):hover::before {
+  width: 60px;
+  height: 60px;
+}
+
+.add-to-cart-btn svg {
+  position: relative;
+  z-index: 1;
+}
+
+.product-card {
+  cursor: pointer;
+}
+
+.product-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--accent-dim), transparent);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.product-card:hover::after {
+  opacity: 1;
+}
+
+.nav-link {
+  position: relative;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--accent);
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-link:hover::after,
+.nav-link.router-link-active::after {
+  width: 100%;
+}
+
+.theme-toggle {
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-toggle::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.theme-toggle:hover::after {
+  opacity: 0.2;
+}
+
+.theme-toggle svg {
+  position: relative;
+  z-index: 1;
+}
+
+.cart-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.cart-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cart-btn:hover::after {
+  opacity: 0.2;
+}
+
+.cart-btn .cart-icon {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes countBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+}
+
+.cart-count {
+  animation: countBounce 0.3s ease;
+}

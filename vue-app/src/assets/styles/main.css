@@ -289,3 +289,194 @@ input, textarea, select {
 [data-theme="light"] ::selection {
   color: #ffffff;
 }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes bounceIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fadeInScale {
+  animation: fadeInScale 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-bounceIn {
+  animation: bounceIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+.stagger-6 { animation-delay: 0.6s; }
+
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px var(--shadow);
+}
+
+.hover-scale {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hover-scale:hover {
+  transform: scale(1.03);
+}
+
+.hover-glow {
+  transition: box-shadow 0.3s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 30px var(--accent-dim);
+}
+
+.btn-click {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-click:active {
+  transform: scale(0.96);
+}
+
+.card-appear {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-appear.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+:root {
+  --btn-click-scale: 0.96;
+  --btn-click-duration: 0.15s;
+}
+
+button,
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-outline,
+.btn-accent,
+.add-to-cart-btn,
+.cart-btn,
+.theme-toggle,
+.nav-link,
+.profile-nav__item,
+.filter-item,
+.auth-btn,
+.mobile-menu-btn,
+.mobile-menu__nav .nav-link {
+  transition: transform var(--btn-click-duration) ease,
+              box-shadow 0.3s ease,
+              background 0.3s ease,
+              border-color 0.3s ease,
+              opacity 0.3s ease;
+  cursor: pointer;
+}
+
+button:active,
+.btn:active,
+.btn-primary:active,
+.btn-secondary:active,
+.btn-outline:active,
+.btn-accent:active,
+.add-to-cart-btn:active,
+.cart-btn:active,
+.theme-toggle:active,
+.nav-link:active,
+.profile-nav__item:active,
+.filter-item:active,
+.auth-btn:active,
+.mobile-menu-btn:active,
+.mobile-menu__nav .nav-link:active {
+  transform: scale(var(--btn-click-scale)) !important;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
