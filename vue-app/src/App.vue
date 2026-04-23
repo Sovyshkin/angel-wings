@@ -713,7 +713,7 @@ onMounted(() => {
   }
 
   .mobile-menu {
-    display: block;
+    display: none;
     position: fixed;
     top: 64px;
     left: 0;
@@ -722,17 +722,10 @@ onMounted(() => {
     background: var(--bg-card);
     border-top: 1px solid var(--border);
     z-index: 99;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
-    transition: all 0.3s ease;
-    overflow-y: auto;
   }
 
   .mobile-menu.open {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
+    display: block;
   }
 
   .mobile-menu__nav {
