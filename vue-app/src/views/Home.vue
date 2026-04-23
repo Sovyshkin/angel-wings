@@ -1681,3 +1681,4 @@ onMounted(() => {
 .cart-count {
   animation: countBounce 0.3s ease;
 }
+</style>
