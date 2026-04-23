@@ -308,16 +308,21 @@ async function handleSubmit() {
 
 @media (max-width: 640px) {
   .auth {
-    padding: 2rem 1rem;
+    padding: 1.5rem 1rem;
+    min-height: auto;
+  }
+
+  .auth__container {
+    max-width: 100%;
   }
 
   .auth__card {
-    padding: 1.5rem;
-    border-radius: 20px;
+    padding: 1.5rem 1rem;
+    border-radius: 16px;
   }
 
   .auth__title {
-    font-size: 1.5rem;
+    font-size: 1.375rem;
   }
 
   .auth__subtitle {
@@ -325,19 +330,28 @@ async function handleSubmit() {
   }
 
   .auth__form {
-    gap: 1rem;
+    gap: 0.875rem;
   }
 
   .form-group label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+  }
+
+  .form-group {
+    margin-bottom: 0.25rem;
   }
 
   .btn-submit {
     padding: 0.875rem;
+    margin-top: 0.25rem;
   }
 
   .password-toggle {
     right: 0.5rem;
+  }
+
+  .password-input .input {
+    padding-right: 2.5rem;
   }
 }
 </style>

@@ -599,16 +599,16 @@ watch(() => route.query.category, (newCat) => {
   .catalog__layout {
     grid-template-columns: 1fr;
   }
-  
+
   .sidebar {
     position: static;
   }
-  
+
   .filter-list {
     flex-direction: row;
     flex-wrap: wrap;
   }
-  
+
   .filter-item {
     width: auto;
     flex: 1;
@@ -620,62 +620,77 @@ watch(() => route.query.category, (newCat) => {
   .catalog__hero {
     padding: 2rem 0;
   }
-  
+
+  .page-title {
+    font-size: 1.75rem;
+  }
+
   .filter-section {
     padding: 1rem;
+    margin-bottom: 1rem;
   }
-  
+
   .filter-item {
-    min-width: 100%;
-    padding: 0.75rem;
+    min-width: calc(50% - 0.25rem);
+    padding: 0.625rem 0.5rem;
+    font-size: 0.8rem;
   }
-  
+
   .filter-icon {
     display: none;
   }
-  
+
   .price-range {
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
-  
+
   .price-separator {
     display: none;
   }
-  
+
   .price-input {
     width: 100%;
+    padding: 0.625rem;
   }
-  
+
   .catalog__bar {
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
     align-items: flex-start;
   }
-  
+
+  .results-count {
+    font-size: 0.8rem;
+  }
+
   .sort-select select {
     width: 100%;
     min-width: auto;
+    padding: 0.625rem;
+    font-size: 0.875rem;
   }
-  
+
   .products-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
-  
+
   .product-content {
     padding: 1rem;
   }
-  
+
   .product-title {
-    font-size: 1rem;
+    font-size: 0.9375rem;
   }
-  
+
   .product-desc {
     font-size: 0.8rem;
+    display: none;
   }
-  
+
   .price-value {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
   }
 }
 </style>

@@ -1254,23 +1254,54 @@ const featuredProducts = computed(() => {
 
 @media (max-width: 768px) {
   .hero {
-    padding: 5rem 0;
+    padding: 4rem 0;
     min-height: auto;
   }
-  
+
+  .hero__container {
+    padding: 0 1rem;
+  }
+
+  .hero__badge {
+    padding: 0.5rem 1rem;
+    font-size: 0.7rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero__title {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .hero__desc {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+  }
+
   .hero__stats {
     flex-wrap: wrap;
-    gap: 2rem;
+    gap: 1.5rem;
   }
-  
+
+  .stat-value {
+    font-size: 2rem;
+  }
+
   .hero__actions {
     flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 3rem;
   }
-  
-  .hero__title {
-    font-size: 2.5rem;
+
+  .btn {
+    padding: 0.875rem 1.5rem;
+    font-size: 0.875rem;
   }
-  
+
+  .features {
+    padding: 4rem 0;
+  }
+
   .features__grid,
   .categories-grid,
   .featured-grid,
@@ -1278,31 +1309,98 @@ const featuredProducts = computed(() => {
   .testimonials__grid {
     grid-template-columns: 1fr;
   }
-  
-  .cta__decoration {
-    display: none;
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 2rem;
   }
-  
-  .cta__inner {
-    padding: 2.5rem;
-  }
-  
-  .cta__content h2 {
+
+  .section-title {
     font-size: 1.75rem;
   }
 
+  .feature-card {
+    padding: 1.5rem;
+  }
+
+  .category-card {
+    padding: 1.5rem 1rem;
+  }
+
+  .cta {
+    padding: 3rem 0 4rem;
+  }
+
+  .cta__decoration {
+    display: none;
+  }
+
+  .cta__inner {
+    padding: 1.5rem;
+  }
+
+  .cta__content h2 {
+    font-size: 1.5rem;
+  }
+
+  .cta__content p {
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .benefits {
+    padding: 4rem 0;
+  }
+
+  .benefit-card {
+    padding: 1.5rem 1rem;
+  }
+
+  .promo-banner {
+    padding: 3rem 0;
+    margin: 2rem 0 4rem;
+  }
+
   .promo-content h2 {
-    font-size: 2rem;
+    font-size: 1.5rem;
+  }
+
+  .promo-content p {
+    font-size: 1rem;
   }
 
   .promo-actions {
     flex-direction: column;
+    gap: 1rem;
+  }
+
+  .promo-timer {
+    font-size: 0.8rem;
+  }
+
+  .testimonials {
+    padding: 4rem 0;
+  }
+
+  .testimonial-card {
+    padding: 1.5rem;
+  }
+
+  .newsletter {
+    padding: 2rem 0 4rem;
   }
 
   .newsletter__inner {
     flex-direction: column;
     text-align: center;
-    gap: 2rem;
+    gap: 1.5rem;
+    padding: 1.5rem;
+  }
+
+  .newsletter__content h2 {
+    font-size: 1.5rem;
   }
 
   .newsletter__form {

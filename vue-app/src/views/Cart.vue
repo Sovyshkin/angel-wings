@@ -579,22 +579,30 @@ async function placeOrder() {
     padding: 2rem 0;
   }
 
+  .page-title {
+    font-size: 1.75rem;
+  }
+
   .col-product {
     flex-direction: column;
     align-items: flex-start;
   }
 
   .item-image {
-    width: 60px;
-    height: 60px;
+    width: 56px;
+    height: 56px;
   }
 
   .item-info h4 {
-    font-size: 0.9rem;
+    font-size: 0.875rem;
+  }
+
+  .col-quantity {
+    padding: 0.5rem 0;
   }
 
   .empty {
-    padding: 3rem 0;
+    padding: 2rem 0;
   }
 
   .empty-icon svg {
@@ -603,28 +611,43 @@ async function placeOrder() {
   }
 
   .empty h3 {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
   }
 
   .cart__summary {
-    padding: 1.5rem;
+    padding: 1.25rem;
   }
 
   .summary-header h3 {
     font-size: 1rem;
   }
 
+  .summary-row {
+    font-size: 0.875rem;
+    padding: 0.75rem 0;
+  }
+
   .total-value {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
   }
 
   .checkout-form h4 {
     font-size: 0.8rem;
+    margin-bottom: 1rem;
+  }
+
+  .form-group {
+    margin-bottom: 0.75rem;
+  }
+
+  .form-group label {
+    font-size: 0.7rem;
   }
 
   .btn-submit {
     padding: 0.875rem;
-    font-size: 0.9rem;
+    font-size: 0.875rem;
+    margin-top: 0.75rem;
   }
 }
 </style>

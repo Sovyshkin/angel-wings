@@ -436,31 +436,62 @@ onMounted(async () => {
   }
 
   .breadcrumb {
-    font-size: 0.75rem;
-    gap: 0.5rem;
+    font-size: 0.7rem;
+    gap: 0.375rem;
     flex-wrap: wrap;
+    margin-bottom: 1rem;
   }
 
   .product-meta {
     flex-wrap: wrap;
     gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .product-category {
+    font-size: 0.65rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .product-stock {
+    font-size: 0.7rem;
   }
 
   .product-title {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
   }
 
   .product-price {
-    font-size: 2rem;
+    font-size: 1.75rem;
   }
 
   .product-price-block {
     flex-wrap: wrap;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .product-description h3,
+  .product-specs h3 {
+    font-size: 0.875rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .product-description p {
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .product-specs {
+    padding: 1rem;
+    margin-bottom: 1rem;
   }
 
   .product-actions {
     flex-direction: column;
     padding: 1rem;
+    margin-bottom: 1rem;
   }
 
   .quantity-selector {
@@ -470,21 +501,39 @@ onMounted(async () => {
 
   .btn-add-cart {
     width: 100%;
+    padding: 0.875rem;
   }
 
   .specs-grid {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .spec-item {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .spec-label {
+    font-size: 0.7rem;
+  }
+
+  .spec-value {
+    font-size: 0.8rem;
   }
 
   .product-guarantee {
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .guarantee-item {
     flex-direction: row;
     justify-content: flex-start;
-    gap: 1rem;
+    gap: 0.75rem;
+    padding: 0.75rem;
     text-align: left;
+    font-size: 0.75rem;
   }
 }
 </style>

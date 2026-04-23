@@ -556,12 +556,18 @@ onMounted(() => {
     padding: 2rem 0;
   }
 
+  .page-title {
+    font-size: 1.75rem;
+  }
+
   .profile-nav {
     flex-direction: column;
   }
 
   .profile-nav__item {
     min-width: auto;
+    padding: 0.75rem;
+    font-size: 0.875rem;
   }
 
   .profile-nav__item.logout-btn {
@@ -573,29 +579,54 @@ onMounted(() => {
   }
 
   .user-avatar {
-    width: 48px;
-    height: 48px;
-    font-size: 1rem;
+    width: 44px;
+    height: 44px;
+    font-size: 0.875rem;
+    border-radius: 10px;
+  }
+
+  .user-info h3 {
+    font-size: 0.9rem;
+  }
+
+  .user-info p {
+    font-size: 0.75rem;
   }
 
   .section-card {
-    padding: 1.5rem;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
   }
 
   .section-title {
-    font-size: 1.1rem;
+    font-size: 1rem;
+    margin-bottom: 1rem;
   }
 
   .info-grid {
-    gap: 1rem;
+    gap: 0.75rem;
+  }
+
+  .info-label {
+    font-size: 0.7rem;
+  }
+
+  .info-value {
+    font-size: 0.875rem;
   }
 
   .settings-form {
-    gap: 1rem;
+    gap: 0.875rem;
+  }
+
+  .form-group label {
+    font-size: 0.7rem;
   }
 
   .btn-danger {
     width: 100%;
+    padding: 0.75rem;
+    font-size: 0.8rem;
   }
 }
 </style>
