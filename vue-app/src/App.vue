@@ -23,14 +23,6 @@
     </div>
     <header class="header">
       <div class="header__container">
-        <button class="mobile-menu-btn" @click="mobileMenuOpen = !mobileMenuOpen">
-          <svg v-if="!mobileMenuOpen" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-          <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
         <router-link to="/" class="header__logo">
           <svg class="logo-icon" width="28" height="28" viewBox="0 0 28 28" fill="none">
             <path d="M14 2L4 8v12l10 6 10-6V8L14 2z" stroke="currentColor" stroke-width="2" fill="none"/>
@@ -43,15 +35,6 @@
           <router-link to="/" class="nav-link">Главная</router-link>
           <router-link to="/catalog" class="nav-link">Каталог</router-link>
         </nav>
-        <div class="mobile-menu" :class="{ open: mobileMenuOpen }">
-          <nav class="mobile-menu__nav">
-            <router-link to="/" class="nav-link" @click="mobileMenuOpen = false">Главная</router-link>
-            <router-link to="/catalog" class="nav-link" @click="mobileMenuOpen = false">Каталог</router-link>
-            <router-link v-if="authStore.isAuthenticated" to="/profile" class="nav-link" @click="mobileMenuOpen = false">Профиль</router-link>
-            <router-link v-else to="/auth" class="nav-link" @click="mobileMenuOpen = false">Войти</router-link>
-            <router-link to="/cart" class="nav-link" @click="mobileMenuOpen = false">Корзина</router-link>
-          </nav>
-        </div>
         <div class="header__actions">
           <button class="theme-toggle" @click="themeStore.toggle()" :title="themeStore.isDark ? 'Светлая тема' : 'Тёмная тема'">
             <svg v-if="themeStore.isDark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -69,11 +52,11 @@
               <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
             </svg>
           </button>
-          
+
           <router-link v-if="authStore.isAuthenticated" to="/profile" class="user-btn" :title="authStore.user?.name">
             <span class="user-avatar">{{ getInitials }}</span>
           </router-link>
-          
+
           <router-link v-else to="/auth" class="auth-btn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
@@ -81,7 +64,7 @@
             </svg>
             <span>Войти</span>
           </router-link>
-          
+
           <router-link to="/cart" class="cart-btn">
             <svg class="cart-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -90,6 +73,59 @@
             </svg>
             <span class="cart-count" v-if="cartStore.items.length">{{ cartStore.items.length }}</span>
           </router-link>
+
+          <button class="mobile-menu-btn" @click="mobileMenuOpen = !mobileMenuOpen">
+            <svg v-if="!mobileMenuOpen" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+            <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="mobile-menu" :class="{ open: mobileMenuOpen }">
+          <nav class="mobile-menu__nav">
+            <router-link to="/" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+              </svg>
+              Главная
+            </router-link>
+            <router-link to="/catalog" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+              </svg>
+              Каталог
+            </router-link>
+            <router-link v-if="authStore.isAuthenticated" to="/profile" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              Профиль
+            </router-link>
+            <router-link v-else to="/auth" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              Войти
+            </router-link>
+            <router-link to="/cart" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 00-8 0"/>
+              </svg>
+              Корзина
+              <span class="mobile-cart-count" v-if="cartStore.items.length">{{ cartStore.items.length }}</span>
+            </router-link>
+            <button class="nav-link theme-link" @click="themeStore.toggle(); mobileMenuOpen = false">
+              <svg v-if="themeStore.isDark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+              <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+              </svg>
+              {{ themeStore.isDark ? 'Светлая тема' : 'Тёмная тема' }}
+            </button>
+          </nav>
         </div>
       </div>
     </header>
@@ -641,15 +677,16 @@ onMounted(() => {
 
 .mobile-menu-btn {
   display: none;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   align-items: center;
   justify-content: center;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   color: var(--text-primary);
   transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
 .mobile-menu {
@@ -658,6 +695,103 @@ onMounted(() => {
 
 .mobile-menu__nav {
   display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  .header__actions {
+    gap: 0.375rem;
+  }
+
+  .theme-toggle,
+  .user-btn .user-avatar,
+  .cart-btn {
+    display: none;
+  }
+
+  .mobile-menu {
+    display: block;
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    z-index: 99;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    overflow-y: auto;
+  }
+
+  .mobile-menu.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .mobile-menu__nav {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    gap: 0.375rem;
+  }
+
+  .mobile-menu__nav .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 1rem 1.25rem;
+    font-size: 1rem;
+    font-weight: 500;
+    border-radius: 12px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    transition: all 0.2s ease;
+    width: 100%;
+    text-align: left;
+  }
+
+  .mobile-menu__nav .nav-link:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-hover);
+  }
+
+  .mobile-menu__nav .nav-link.router-link-active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .mobile-menu__nav .nav-link svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  .mobile-menu__nav .nav-link:hover svg {
+    opacity: 1;
+  }
+
+  .mobile-cart-count {
+    margin-left: auto;
+    background: var(--accent);
+    color: var(--bg-primary);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 10px;
+  }
+
+  .theme-link {
+    margin-top: 0.5rem;
+    background: var(--bg-primary);
+  }
 }
 
 @media (max-width: 1024px) {
@@ -673,80 +807,27 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .mobile-menu-btn {
-    display: flex;
-  }
-
-  .mobile-menu {
-    display: block;
-    position: fixed;
-    top: 72px;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--bg-primary);
-    z-index: 99;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s ease;
-  }
-
-  .mobile-menu.open {
-    opacity: 1;
-    visibility: visible;
-  }
-
-  .mobile-menu__nav {
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    gap: 0.25rem;
-  }
-
-  .mobile-menu__nav .nav-link {
-    display: block;
-    padding: 0.875rem 1rem;
-    font-size: 1rem;
-    border-radius: 10px;
-  }
-
-  .mobile-menu__nav .nav-link:hover {
-    background: var(--bg-card);
-  }
-
   .header__nav {
+    display: none;
+  }
+
+  .auth-btn span {
     display: none;
   }
 
   .header__container {
     padding: 0 0.75rem;
-    gap: 0.375rem;
-    height: 60px;
+    gap: 0.5rem;
+    height: 64px;
   }
 
-  .header__actions {
-    gap: 0.375rem;
+  .header__logo {
+    gap: 0.5rem;
   }
 
-  .theme-toggle,
-  .user-btn .user-avatar,
-  .cart-btn,
-  .mobile-menu-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-  }
-
-  .mobile-menu-btn {
-    padding: 0;
-  }
-
-  .auth-btn {
-    padding: 0.5rem;
-  }
-
-  .auth-btn span {
-    display: none;
+  .logo-icon {
+    width: 24px;
+    height: 24px;
   }
 
   .logo-text {
