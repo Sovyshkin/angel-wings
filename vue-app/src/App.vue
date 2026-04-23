@@ -23,6 +23,14 @@
     </div>
     <header class="header">
       <div class="header__container">
+        <button class="mobile-menu-btn" @click="mobileMenuOpen = !mobileMenuOpen">
+          <svg v-if="!mobileMenuOpen" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+          <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
         <router-link to="/" class="header__logo">
           <svg class="logo-icon" width="28" height="28" viewBox="0 0 28 28" fill="none">
             <path d="M14 2L4 8v12l10 6 10-6V8L14 2z" stroke="currentColor" stroke-width="2" fill="none"/>
@@ -35,6 +43,15 @@
           <router-link to="/" class="nav-link">Главная</router-link>
           <router-link to="/catalog" class="nav-link">Каталог</router-link>
         </nav>
+        <div class="mobile-menu" :class="{ open: mobileMenuOpen }">
+          <nav class="mobile-menu__nav">
+            <router-link to="/" class="nav-link" @click="mobileMenuOpen = false">Главная</router-link>
+            <router-link to="/catalog" class="nav-link" @click="mobileMenuOpen = false">Каталог</router-link>
+            <router-link v-if="authStore.isAuthenticated" to="/profile" class="nav-link" @click="mobileMenuOpen = false">Профиль</router-link>
+            <router-link v-else to="/auth" class="nav-link" @click="mobileMenuOpen = false">Войти</router-link>
+            <router-link to="/cart" class="nav-link" @click="mobileMenuOpen = false">Корзина</router-link>
+          </nav>
+        </div>
         <div class="header__actions">
           <button class="theme-toggle" @click="themeStore.toggle()" :title="themeStore.isDark ? 'Светлая тема' : 'Тёмная тема'">
             <svg v-if="themeStore.isDark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -168,7 +185,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useCartStore } from './store/cart'
 import { useThemeStore } from './store/theme'
 import { useAuthStore } from './store/auth'
@@ -177,6 +194,7 @@ import PageLoader from './components/PageLoader.vue'
 const cartStore = useCartStore()
 const themeStore = useThemeStore()
 const authStore = useAuthStore()
+const mobileMenuOpen = ref(false)
 
 const getInitials = computed(() => {
   if (!authStore.user?.name) return '?'
@@ -617,31 +635,161 @@ onMounted(() => {
   transition: color 0.4s ease;
 }
 
+.mobile-menu-btn {
+  display: none;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.mobile-menu {
+  display: none;
+}
+
+.mobile-menu__nav {
+  display: none;
+}
+
 @media (max-width: 1024px) {
   .footer__grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 2rem;
   }
-  
+
   .footer__col--brand {
     grid-column: span 2;
     padding-right: 0;
   }
 }
 
-@media (max-width: 640px) {
-  .footer__grid {
-    grid-template-columns: 1fr;
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex;
   }
-  
-  .footer__col--brand {
-    grid-column: span 1;
+
+  .mobile-menu {
+    display: block;
+    position: fixed;
+    top: 72px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-primary);
+    z-index: 99;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
   }
-  
-  .footer__bottom {
+
+  .mobile-menu.open {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .mobile-menu__nav {
+    display: flex;
     flex-direction: column;
-    gap: 1.5rem;
-    text-align: center;
+    padding: 2rem;
+    gap: 0.5rem;
+  }
+
+  .mobile-menu__nav .nav-link {
+    display: block;
+    padding: 1rem;
+    font-size: 1.1rem;
+    border-radius: 12px;
+  }
+
+  .mobile-menu__nav .nav-link:hover {
+    background: var(--bg-card);
+  }
+
+  .header__nav {
+    display: none;
+  }
+
+  .auth-btn span {
+    display: none;
+  }
+
+  .header__container {
+    padding: 0 1rem;
+    gap: 0.5rem;
+  }
+
+  .theme-toggle,
+  .user-btn .user-avatar,
+  .cart-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .footer {
+    padding: 3rem 0 1.5rem;
+  }
+
+  .footer__grid {
+    gap: 2rem;
+  }
+
+  .footer__col--brand {
+    padding-right: 0;
+  }
+
+  .footer__logo {
+    font-size: 1.5rem;
+  }
+
+  .footer__social {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .header__nav {
+    display: none;
+  }
+
+  .auth-btn span {
+    display: none;
+  }
+
+  .header__container {
+    padding: 0 1rem;
+    gap: 0.5rem;
+  }
+
+  .theme-toggle,
+  .user-btn .user-avatar,
+  .cart-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .footer {
+    padding: 3rem 0 1.5rem;
+  }
+
+  .footer__grid {
+    gap: 2rem;
+  }
+
+  .footer__col--brand {
+    padding-right: 0;
+  }
+
+  .footer__logo {
+    font-size: 1.5rem;
+  }
+
+  .footer__social {
+    justify-content: center;
   }
 }
 </style>
