@@ -721,9 +721,9 @@ onMounted(() => {
     left: 0;
     right: 0;
     bottom: 0;
-    background: var(--bg-card);
-    border-top: 1px solid var(--border);
+    background: var(--bg-primary);
     z-index: 99;
+    overflow-y: auto;
   }
 
   .mobile-menu.open {
@@ -734,7 +734,10 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     padding: 1rem;
-    gap: 0.375rem;
+    gap: 0.5rem;
+    background: var(--bg-card);
+    border-radius: 0 0 20px 20px;
+    min-height: auto;
   }
 
   .mobile-menu__nav .nav-link {
@@ -747,30 +750,31 @@ onMounted(() => {
     border-radius: 12px;
     background: var(--bg-secondary);
     color: var(--text-primary);
-    border: 1px solid var(--border);
     transition: all 0.2s ease;
     width: 100%;
     text-align: left;
+    border: none;
+    margin-bottom: 0.25rem;
   }
 
   .mobile-menu__nav .nav-link:hover {
     background: var(--bg-hover);
-    border-color: var(--border-hover);
   }
 
   .mobile-menu__nav .nav-link.router-link-active {
     background: var(--accent-dim);
-    border-color: var(--accent);
     color: var(--accent);
   }
 
   .mobile-menu__nav .nav-link svg {
     flex-shrink: 0;
-    opacity: 0.7;
+    color: var(--text-muted);
+    transition: color 0.2s ease;
   }
 
-  .mobile-menu__nav .nav-link:hover svg {
-    opacity: 1;
+  .mobile-menu__nav .nav-link:hover svg,
+  .mobile-menu__nav .nav-link.router-link-active svg {
+    color: var(--accent);
   }
 
   .mobile-cart-count {
@@ -786,6 +790,7 @@ onMounted(() => {
   .theme-link {
     margin-top: 0.5rem;
     background: var(--bg-primary);
+    border: 1px dashed var(--border);
   }
 }
 
