@@ -519,15 +519,35 @@ html, body, #app {
   overflow-x: hidden;
 }
 
+html:not(.no-js) [data-aos] {
+  opacity: 0;
+  transition-property: opacity, transform;
+  -webkit-transition-property: opacity, -webkit-transform;
+  transition-timing-function: ease-out-cubic;
+  transition-duration: 600ms;
+}
+
+html:not(.no-js) [data-aos].aos-animate {
+  opacity: 1;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+html:not(.no-js) [data-aos][data-aos-delay="100"] { transition-delay: 100ms; }
+html:not(.no-js) [data-aos][data-aos-delay="200"] { transition-delay: 200ms; }
+html:not(.no-js) [data-aos][data-aos-delay="300"] { transition-delay: 300ms; }
+html:not(.no-js) [data-aos][data-aos-delay="400"] { transition-delay: 400ms; }
+
 @media (max-width: 768px) {
-  [data-aos] {
-    opacity: 1 !important;
-    transform: none !important;
-    transition: none !important;
+  html:not(.no-js) [data-aos] {
+    opacity: 0;
+    transform: translateY(30px);
+    -webkit-transform: translateY(30px);
   }
 
-  [data-aos].aos-animate {
-    opacity: 1 !important;
-    transform: none !important;
+  html:not(.no-js) [data-aos].aos-animate {
+    opacity: 1;
+    transform: translateY(0);
+    -webkit-transform: translateY(0);
   }
 }
