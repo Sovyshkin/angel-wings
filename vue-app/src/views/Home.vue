@@ -338,12 +338,17 @@ onMounted(() => {
         entry.target.classList.add('visible')
       }
     })
-  }, { threshold: 0.15, rootMargin: '0px 0px -80px 0px' })
+  }, { threshold: 0.1, rootMargin: '0px 0px -80px 0px' })
 
-  document.querySelectorAll('.animate-on-scroll').forEach(el => {
+  document.querySelectorAll('.animate-on-scroll').forEach((el, i) => {
     el.style.opacity = '0'
-    el.style.transform = 'translateY(40px)'
-    el.style.transition = 'opacity 0.8s ease, transform 0.8s ease'
+    if (i % 2 === 0) {
+      el.style.transform = 'translateX(-50px)'
+      el.style.transition = 'opacity 0.9s ease, transform 0.9s cubic-bezier(0.16, 1, 0.3, 1)'
+    } else {
+      el.style.transform = 'translateX(50px)'
+      el.style.transition = 'opacity 0.9s ease, transform 0.9s cubic-bezier(0.16, 1, 0.3, 1)'
+    }
     observer.observe(el)
   })
 })
@@ -1442,13 +1447,13 @@ onMounted(() => {
 
 .animate-on-scroll {
   opacity: 0;
-  transform: translateY(40px);
-  transition: opacity 0.9s ease, transform 0.9s ease;
+  transform: translateX(-50px);
+  transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .animate-on-scroll.visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(0);
 }
 
 .animate-on-scroll.visible .feature-card,
