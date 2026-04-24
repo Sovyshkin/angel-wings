@@ -691,27 +691,27 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.mobile-menu {
-  display: none;
-  position: fixed;
-  top: 64px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--bg-primary);
-  z-index: 99;
-  overflow-y: auto;
-}
-
-.mobile-menu.open {
-  display: block;
-}
-
 .mobile-menu__nav {
   display: none;
 }
 
 @media (max-width: 768px) {
+  .mobile-menu {
+    display: none;
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-primary);
+    z-index: 99;
+    overflow-y: auto;
+  }
+
+  .mobile-menu.open {
+    display: block;
+  }
+
   .mobile-menu-btn {
     display: flex;
   }
@@ -724,10 +724,6 @@ onMounted(() => {
   .user-btn .user-avatar,
   .cart-btn {
     display: none;
-  }
-
-  .mobile-menu {
-    top: 64px;
   }
 
   .mobile-menu__nav {
