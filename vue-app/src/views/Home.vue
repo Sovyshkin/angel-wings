@@ -1312,14 +1312,6 @@ const featuredProducts = computed(() => {
   }
 
 .feature-card,
-.category-card,
-.featured-card,
-.benefit-card,
-.testimonial-card {
-  opacity: 0;
-  transform: translateY(30px);
-}
-
 .btn {
     padding: 0.875rem 1.5rem;
     font-size: 0.875rem;

@@ -518,3 +518,16 @@ html, body, #app {
   max-width: 100vw;
   overflow-x: hidden;
 }
+
+@media (max-width: 768px) {
+  [data-aos] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  [data-aos].aos-animate {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
