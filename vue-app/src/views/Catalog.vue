@@ -192,6 +192,7 @@ const filteredProducts = computed(() => {
 
 function selectCategory(slug) {
   selectedCategory.value = slug
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function resetFilters() {
@@ -199,6 +200,7 @@ function resetFilters() {
   priceMin.value = null
   priceMax.value = null
   sortBy.value = 'default'
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function getCategoryIcon(slug) {
