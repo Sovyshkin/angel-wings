@@ -47,7 +47,7 @@
 
     <section class="features" id="features" data-aos="fade-up" data-aos-offset="100">
       <div class="container">
-        <div class="features__grid">
+        <div class="features__grid" data-aos="fade-up" data-aos-delay="100">
           <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
             <div class="feature-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -93,7 +93,7 @@
 
     <section class="categories-preview" data-aos="fade-left" data-aos-offset="100">
       <div class="container">
-        <div class="section-header">
+        <div class="section-header" data-aos="fade-up">
           <h2 class="section-title">Категории</h2>
           <router-link to="/catalog" class="view-all">
             Все категории
@@ -102,7 +102,7 @@
             </svg>
           </router-link>
         </div>
-        <div class="categories-grid">
+        <div class="categories-grid" data-aos="fade-up" data-aos-delay="100">
           <router-link to="/catalog?category=longevitiya" class="category-card">
             <div class="category-icon">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -147,7 +147,7 @@
 
     <section class="featured-products" data-aos="fade-right" data-aos-offset="100">
       <div class="container">
-        <div class="section-header">
+        <div class="section-header" data-aos="fade-up">
           <h2 class="section-title">Популярные товары</h2>
           <router-link to="/catalog" class="view-all">
             Смотреть все
@@ -156,7 +156,7 @@
             </svg>
           </router-link>
         </div>
-        <div class="featured-grid">
+        <div class="featured-grid" data-aos="fade-up" data-aos-delay="100">
           <router-link 
             v-for="product in featuredProducts" 
             :key="product.id" 
@@ -205,10 +205,10 @@
 
     <section class="benefits" data-aos="fade-up" data-aos-offset="100">
       <div class="container">
-        <div class="section-header">
+        <div class="section-header" data-aos="fade-up">
           <h2 class="section-title">Почему выбирают нас</h2>
         </div>
-        <div class="benefits__grid">
+        <div class="benefits__grid" data-aos="fade-up" data-aos-delay="100">
           <div class="benefit-card benefit-card--accent">
             <div class="benefit-number">01</div>
             <h3>GMP-сертификация</h3>
@@ -219,7 +219,7 @@
             <h3>Тройной контроль</h3>
             <p>HPLC, Mass-Spectrometry, Amino Acid Analysis — три независимых метода проверки каждой партии</p>
           </div>
-          <div class="benefit-card benefit-card--dark">
+          <div class="benefit-card benefit-card--dark" data-aos="fade-up" data-aos-delay="100">
             <div class="benefit-number">03</div>
             <h3>Быстрая доставка</h3>
             <p>Отправка в течение 24 часов. DHL, FedEx, EMS — доставка в 150+ стран мира</p>
@@ -254,10 +254,10 @@
 
     <section class="testimonials" data-aos="fade-left" data-aos-offset="100">
       <div class="container">
-        <div class="section-header">
+        <div class="section-header" data-aos="fade-up">
           <h2 class="section-title">Отзывы клиентов</h2>
         </div>
-        <div class="testimonials__grid">
+        <div class="testimonials__grid" data-aos="fade-up" data-aos-delay="100">
           <div class="testimonial-card">
             <div class="testimonial-stars">★★★★★</div>
             <p class="testimonial-text">"BPC-157令我印象非常深刻。伤口愈合速度明显加快，关节疼痛也在一周内消失。品质卓越！"</p>
