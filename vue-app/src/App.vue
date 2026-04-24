@@ -742,7 +742,7 @@ onMounted(() => {
     gap: 0.5rem;
     background: var(--bg-card);
     border-radius: 0 0 20px 20px;
-    min-height: auto;
+    min-height: calc(100vh - 64px);
   }
 
   .mobile-menu__nav .nav-link {
