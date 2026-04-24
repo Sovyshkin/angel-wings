@@ -45,10 +45,10 @@
       </div>
     </section>
 
-    <section class="features animate-on-scroll" id="features">
+    <section class="features" id="features" data-aos="fade-up" data-aos-offset="100">
       <div class="container">
         <div class="features__grid">
-          <div class="feature-card">
+          <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
             <div class="feature-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
@@ -91,7 +91,7 @@
       </div>
     </section>
 
-    <section class="categories-preview animate-on-scroll">
+    <section class="categories-preview" data-aos="fade-left" data-aos-offset="100">
       <div class="container">
         <div class="section-header">
           <h2 class="section-title">Категории</h2>
@@ -145,7 +145,7 @@
       </div>
     </section>
 
-    <section class="featured-products animate-on-scroll">
+    <section class="featured-products" data-aos="fade-right" data-aos-offset="100">
       <div class="container">
         <div class="section-header">
           <h2 class="section-title">Популярные товары</h2>
@@ -183,7 +183,7 @@
       </div>
     </section>
 
-    <section class="cta animate-on-scroll">
+    <section class="cta" data-aos="zoom-in" data-aos-offset="100">
       <div class="container">
         <div class="cta__inner">
           <div class="cta__content">
@@ -203,7 +203,7 @@
       </div>
     </section>
 
-    <section class="benefits animate-on-scroll">
+    <section class="benefits" data-aos="fade-up" data-aos-offset="100">
       <div class="container">
         <div class="section-header">
           <h2 class="section-title">Почему выбирают нас</h2>
@@ -233,7 +233,7 @@
       </div>
     </section>
 
-    <section class="promo-banner animate-on-scroll">
+    <section class="promo-banner" data-aos="fade-right" data-aos-offset="100">
       <div class="promo-bg">
         <div class="promo-orb promo-orb-1"></div>
         <div class="promo-orb promo-orb-2"></div>
@@ -252,7 +252,7 @@
       </div>
     </section>
 
-    <section class="testimonials animate-on-scroll">
+    <section class="testimonials" data-aos="fade-left" data-aos-offset="100">
       <div class="container">
         <div class="section-header">
           <h2 class="section-title">Отзывы клиентов</h2>
@@ -295,7 +295,7 @@
       </div>
     </section>
 
-    <section class="newsletter animate-on-scroll">
+    <section class="newsletter" data-aos="fade-up" data-aos-offset="100">
       <div class="container">
         <div class="newsletter__inner">
           <div class="newsletter__content">
@@ -322,35 +322,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useProductStore } from '../store/products'
 
 const productStore = useProductStore()
 
 const featuredProducts = computed(() => {
   return productStore.products.slice(0, 4)
-})
-
-onMounted(() => {
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible')
-      }
-    })
-  }, { threshold: 0.1, rootMargin: '0px 0px -80px 0px' })
-
-  document.querySelectorAll('.animate-on-scroll').forEach((el, i) => {
-    el.style.opacity = '0'
-    if (i % 2 === 0) {
-      el.style.transform = 'translateX(-50px)'
-      el.style.transition = 'opacity 0.9s ease, transform 0.9s cubic-bezier(0.16, 1, 0.3, 1)'
-    } else {
-      el.style.transform = 'translateX(50px)'
-      el.style.transition = 'opacity 0.9s ease, transform 0.9s cubic-bezier(0.16, 1, 0.3, 1)'
-    }
-    observer.observe(el)
-  })
 })
 </script>
 
@@ -1445,15 +1423,13 @@ onMounted(() => {
   }
 }
 
-.animate-on-scroll {
+.feature-card,
+.category-card,
+.featured-card,
+.benefit-card,
+.testimonial-card {
   opacity: 0;
-  transform: translateX(-50px);
-  transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.animate-on-scroll.visible {
-  opacity: 1;
-  transform: translateX(0);
+  transform: translateY(30px);
 }
 
 .animate-on-scroll.visible .feature-card,
@@ -1487,17 +1463,6 @@ onMounted(() => {
 .animate-on-scroll.visible .featured-card:nth-child(4),
 .animate-on-scroll.visible .benefit-card:nth-child(4),
 .animate-on-scroll.visible .testimonial-card:nth-child(4) { animation-delay: 0.4s; }
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 .btn {
   position: relative;
