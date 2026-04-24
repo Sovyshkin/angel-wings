@@ -692,8 +692,19 @@ onMounted(() => {
 }
 
 .mobile-menu {
-  visibility: hidden;
-  opacity: 0;
+  display: none;
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-primary);
+  z-index: 99;
+  overflow-y: auto;
+}
+
+.mobile-menu.open {
+  display: block;
 }
 
 .mobile-menu__nav {
@@ -716,23 +727,7 @@ onMounted(() => {
   }
 
   .mobile-menu {
-    visibility: hidden;
-    opacity: 0;
-    position: fixed;
     top: 64px;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--bg-primary);
-    z-index: 99;
-    overflow-y: auto;
-    display: none;
-  }
-
-  .mobile-menu.open {
-    visibility: visible;
-    opacity: 1;
-    display: block;
   }
 
   .mobile-menu__nav {
