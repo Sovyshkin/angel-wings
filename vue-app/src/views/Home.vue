@@ -1434,70 +1434,23 @@ onMounted(() => {
   }
 }
 
-.animate-on-scroll {
-  opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.animate-on-scroll.visible {
+.animate-on-scroll.visible .feature-card,
+.animate-on-scroll.visible .category-card,
+.animate-on-scroll.visible .featured-card,
+.animate-on-scroll.visible .benefit-card,
+.animate-on-scroll.visible .testimonial-card {
   opacity: 1;
   transform: translateY(0);
 }
 
-.feature-card {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease;
-}
-
-.feature-card.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.category-card {
-  opacity: 0;
-  transform: translateY(20px) scale(0.95);
-  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.category-card.visible {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.featured-card {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.featured-card.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.benefit-card {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.benefit-card.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
+.feature-card,
+.category-card,
+.featured-card,
+.benefit-card,
 .testimonial-card {
   opacity: 0;
   transform: translateY(20px);
   transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.testimonial-card.visible {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 .btn {
