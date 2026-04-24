@@ -74,7 +74,7 @@
             <span class="cart-count" v-if="cartStore.items.length">{{ cartStore.items.length }}</span>
           </router-link>
 
-          <button class="mobile-menu-btn" @click="mobileMenuOpen = !mobileMenuOpen">
+          <button class="mobile-menu-btn" @click.stop="toggleMobileMenu">
             <svg v-if="!mobileMenuOpen" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
@@ -85,38 +85,38 @@
         </div>
         <div class="mobile-menu" :class="{ open: mobileMenuOpen }">
           <nav class="mobile-menu__nav">
-            <router-link to="/" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link to="/" class="nav-link" @click="closeMobileMenu">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
               </svg>
               Главная
             </router-link>
-            <router-link to="/catalog" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link to="/catalog" class="nav-link" @click="closeMobileMenu">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
               </svg>
               Каталог
             </router-link>
-            <router-link v-if="authStore.isAuthenticated" to="/profile" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.isAuthenticated" to="/profile" class="nav-link" @click="closeMobileMenu">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
               </svg>
               Профиль
             </router-link>
-            <router-link v-else to="/auth" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-else to="/auth" class="nav-link" @click="closeMobileMenu">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
               </svg>
               Войти
             </router-link>
-            <router-link to="/cart" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link to="/cart" class="nav-link" @click="closeMobileMenu">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 00-8 0"/>
               </svg>
               Корзина
               <span class="mobile-cart-count" v-if="cartStore.items.length">{{ cartStore.items.length }}</span>
             </router-link>
-            <button class="nav-link theme-link" @click="themeStore.toggle(); mobileMenuOpen = false">
+            <button class="nav-link theme-link" @click="themeStore.toggle(); closeMobileMenu()">
               <svg v-if="themeStore.isDark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
               </svg>
@@ -136,7 +136,7 @@
       <div class="footer__container">
         <div class="footer__grid">
           <div class="footer__col footer__col--brand">
-            <div class="footer__logo">Peptidi</div>
+            <div class="footer__logo">ANGEL WINGS</div>
             <p class="footer__desc">Высокочистые пептиды для научных исследований и персональной оптимизации. GMP-сертифицированное производство.</p>
             <div class="footer__social">
               <a href="#" class="social-link" aria-label="Telegram">
@@ -221,7 +221,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useCartStore } from './store/cart'
 import { useThemeStore } from './store/theme'
 import { useAuthStore } from './store/auth'
@@ -231,6 +231,18 @@ const cartStore = useCartStore()
 const themeStore = useThemeStore()
 const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
+
+const toggleMobileMenu = () => {
+  mobileMenuOpen.value = !mobileMenuOpen.value
+}
+
+const closeMobileMenu = () => {
+  mobileMenuOpen.value = false
+}
+
+watch(mobileMenuOpen, (isOpen) => {
+  document.body.style.overflow = isOpen ? 'hidden' : ''
+})
 
 const getInitials = computed(() => {
   if (!authStore.user?.name) return '?'
@@ -679,16 +691,20 @@ onMounted(() => {
 
 .mobile-menu-btn {
   display: none;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   align-items: center;
   justify-content: center;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   color: var(--text-primary);
   transition: all 0.3s ease;
   flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mobile-menu {
@@ -701,14 +717,18 @@ onMounted(() => {
   background: var(--bg-primary);
   z-index: 99;
   overflow-y: auto;
+  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: contain;
+  min-height: calc(100vh - 64px);
 }
 
 .mobile-menu.open {
-  display: block;
-}
-
-.mobile-menu__nav {
-  display: none;
+  display: flex;
+  flex-direction: column;
+  z-index: 101;
+  pointer-events: auto;
 }
 
 @media (max-width: 768px) {
@@ -737,7 +757,7 @@ onMounted(() => {
     gap: 0.5rem;
     background: var(--bg-card);
     border-radius: 0 0 20px 20px;
-    min-height: calc(100vh - 64px);
+    min-height: calc(100dvh - 64px);
   }
 
   .mobile-menu__nav .nav-link {
