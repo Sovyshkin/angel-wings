@@ -2,16 +2,16 @@
   <div class="product-detail">
     <Loader v-if="loading" text="Загрузка товара..." />
     <div class="container" v-else>
-      <div class="breadcrumb">
+      <div class="breadcrumb" data-aos="fade-up">
         <router-link to="/">Главная</router-link>
         <span>/</span>
         <router-link to="/catalog">Каталог</router-link>
         <span>/</span>
         <span>{{ product.title }}</span>
       </div>
-      
-      <div class="product-layout" v-if="product">
-        <div class="product-gallery">
+
+      <div class="product-layout" v-if="product" data-aos="fade-up" data-aos-delay="100">
+        <div class="product-gallery" data-aos="fade-right" data-aos-delay="200">
           <div class="gallery-main">
             <img v-if="product.image" :src="product.image" :alt="product.title" @error="$event.target.style.display='none'">
             <div v-else class="gallery-placeholder">
@@ -24,7 +24,7 @@
           </div>
         </div>
         
-        <div class="product-info">
+        <div class="product-info" data-aos="fade-left" data-aos-delay="300">
           <div class="product-meta">
             <span class="product-category">{{ getCategoryName(product.category) }}</span>
             <span class="product-stock" :class="{ available: product.stock > 0 }">

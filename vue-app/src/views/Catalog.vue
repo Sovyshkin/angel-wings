@@ -1,15 +1,15 @@
 <template>
   <div class="catalog">
-    <div class="catalog__hero">
+    <div class="catalog__hero" data-aos="fade-up">
       <div class="container">
         <h1 class="page-title">Каталог</h1>
         <p class="page-subtitle">Выберите категорию для просмотра пептидов</p>
       </div>
     </div>
-    
+
     <div class="container">
       <div class="catalog__layout">
-        <aside class="sidebar">
+        <aside class="sidebar" data-aos="fade-right" data-aos-delay="100">
           <div class="filter-section">
             <h3 class="filter-title">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -93,12 +93,14 @@
             <button class="btn btn-secondary" @click="resetFilters">Сбросить фильтры</button>
           </div>
           
-          <div v-else class="products-grid">
+          <div v-else class="products-grid" data-aos="fade-up" data-aos-delay="200">
             <router-link 
-              v-for="product in filteredProducts" 
+              v-for="(product, index) in filteredProducts"
               :key="product.id"
               :to="`/product/${product.id}`"
               class="product-card"
+              :data-aos="'fade-up'"
+              :data-aos-delay="100 + index * 50"
             >
               <div class="product-image">
                 <img v-if="product.image" :src="product.image" :alt="product.title" @error="handleImageError">

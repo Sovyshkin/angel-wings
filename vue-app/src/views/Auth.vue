@@ -1,7 +1,7 @@
 <template>
   <div class="auth">
-    <div class="auth__container">
-      <div class="auth__card">
+    <div class="auth__container" data-aos="zoom-in">
+      <div class="auth__card" data-aos="fade-up" data-aos-delay="100">
         <div class="auth__header">
           <router-link to="/" class="auth__logo">
             <svg width="40" height="40" viewBox="0 0 28 28" fill="none">

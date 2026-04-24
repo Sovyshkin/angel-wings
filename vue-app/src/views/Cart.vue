@@ -1,14 +1,14 @@
 <template>
   <div class="cart">
-    <div class="cart__hero">
+    <div class="cart__hero" data-aos="fade-up">
       <div class="container">
         <h1 class="page-title">Корзина</h1>
         <p class="page-subtitle">Оформите заказ на выбранные товары</p>
       </div>
     </div>
-    
+
     <div class="container">
-      <div v-if="cartStore.items.length === 0" class="empty">
+      <div v-if="cartStore.items.length === 0" class="empty" data-aos="fade-up">
         <div class="empty-icon">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -27,7 +27,7 @@
       </div>
       
       <div v-else class="cart__layout">
-        <div class="cart__items">
+        <div class="cart__items" data-aos="fade-right" data-aos-delay="100">
           <div class="cart-header">
             <span class="col-product">Товар</span>
             <span class="col-price">Цена</span>
@@ -89,7 +89,7 @@
           </div>
         </div>
         
-        <div class="cart__summary">
+        <div class="cart__summary" data-aos="fade-left" data-aos-delay="200">
           <div class="summary-header">
             <h3>Ваш заказ</h3>
             <span class="item-count">{{ cartStore.count }} товаров</span>

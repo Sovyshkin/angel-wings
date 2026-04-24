@@ -1,14 +1,14 @@
 <template>
   <div class="profile">
-    <div class="profile__hero">
+    <div class="profile__hero" data-aos="fade-up">
       <div class="container">
         <h1 class="page-title">Личный кабинет</h1>
       </div>
     </div>
-    
+
     <div class="container">
       <div class="profile__layout">
-        <aside class="profile__sidebar">
+        <aside class="profile__sidebar" data-aos="fade-right" data-aos-delay="100">
           <div class="user-card">
             <div class="user-avatar">
               {{ getInitials }}
@@ -41,7 +41,7 @@
           </nav>
         </aside>
         
-        <div class="profile__content">
+        <div class="profile__content" data-aos="fade-left" data-aos-delay="200">
           <div v-if="activeTab === 'info'" class="tab-content">
             <div class="section-card">
               <h2 class="section-title">Личные данные</h2>
