@@ -13,6 +13,10 @@ AOS.init({
   once: true,
   offset: 100,
   delay: 100,
+  disable: false,
+  startEvent: 'load',
+  touch: true,
+  keyboard: true,
 })
 
 const app = createApp(App)

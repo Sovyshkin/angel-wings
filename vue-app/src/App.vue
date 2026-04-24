@@ -29,7 +29,7 @@
             <path d="M14 8l-6 3.5v7L14 22l6-3.5v-7L14 8z" fill="currentColor" opacity="0.3"/>
             <circle cx="14" cy="14" r="3" fill="currentColor"/>
           </svg>
-          <span class="logo-text">PEPTIDI</span>
+          <span class="logo-text">ANGEL WINGS</span>
         </router-link>
         <nav class="header__nav">
           <router-link to="/" class="nav-link">Главная</router-link>
@@ -304,6 +304,7 @@ onMounted(() => {
   z-index: 99999;
   opacity: 0;
   overflow: visible;
+  max-width: 100vw;
 }
 
 .cursor-snake svg {
@@ -313,6 +314,7 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   overflow: visible;
+  max-width: 100vw;
 }
 
 .cursor-snake path {
