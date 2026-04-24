@@ -331,22 +331,19 @@ const featuredProducts = computed(() => {
   return productStore.products.slice(0, 4)
 })
 
-const observerOptions = {
-  threshold: 0.1,
-  rootMargin: '0px 0px -50px 0px'
-}
-
 onMounted(() => {
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         entry.target.classList.add('visible')
-        observer.unobserve(entry.target)
       }
     })
-  }, observerOptions)
+  }, { threshold: 0.15, rootMargin: '0px 0px -80px 0px' })
 
   document.querySelectorAll('.animate-on-scroll').forEach(el => {
+    el.style.opacity = '0'
+    el.style.transform = 'translateY(40px)'
+    el.style.transition = 'opacity 0.8s ease, transform 0.8s ease'
     observer.observe(el)
   })
 })
@@ -1313,7 +1310,16 @@ onMounted(() => {
     margin-bottom: 3rem;
   }
 
-  .btn {
+.feature-card,
+.category-card,
+.featured-card,
+.benefit-card,
+.testimonial-card {
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+.btn {
     padding: 0.875rem 1.5rem;
     font-size: 0.875rem;
   }
@@ -1434,23 +1440,58 @@ onMounted(() => {
   }
 }
 
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.9s ease, transform 0.9s ease;
+}
+
+.animate-on-scroll.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .animate-on-scroll.visible .feature-card,
 .animate-on-scroll.visible .category-card,
 .animate-on-scroll.visible .featured-card,
 .animate-on-scroll.visible .benefit-card,
 .animate-on-scroll.visible .testimonial-card {
-  opacity: 1;
-  transform: translateY(0);
+  animation: fadeInUp 0.6s ease forwards;
 }
 
-.feature-card,
-.category-card,
-.featured-card,
-.benefit-card,
-.testimonial-card {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+.animate-on-scroll.visible .feature-card:nth-child(1),
+.animate-on-scroll.visible .category-card:nth-child(1),
+.animate-on-scroll.visible .featured-card:nth-child(1),
+.animate-on-scroll.visible .benefit-card:nth-child(1),
+.animate-on-scroll.visible .testimonial-card:nth-child(1) { animation-delay: 0.1s; }
+
+.animate-on-scroll.visible .feature-card:nth-child(2),
+.animate-on-scroll.visible .category-card:nth-child(2),
+.animate-on-scroll.visible .featured-card:nth-child(2),
+.animate-on-scroll.visible .benefit-card:nth-child(2),
+.animate-on-scroll.visible .testimonial-card:nth-child(2) { animation-delay: 0.2s; }
+
+.animate-on-scroll.visible .feature-card:nth-child(3),
+.animate-on-scroll.visible .category-card:nth-child(3),
+.animate-on-scroll.visible .featured-card:nth-child(3),
+.animate-on-scroll.visible .benefit-card:nth-child(3),
+.animate-on-scroll.visible .testimonial-card:nth-child(3) { animation-delay: 0.3s; }
+
+.animate-on-scroll.visible .feature-card:nth-child(4),
+.animate-on-scroll.visible .category-card:nth-child(4),
+.animate-on-scroll.visible .featured-card:nth-child(4),
+.animate-on-scroll.visible .benefit-card:nth-child(4),
+.animate-on-scroll.visible .testimonial-card:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .btn {
