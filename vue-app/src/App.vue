@@ -692,7 +692,8 @@ onMounted(() => {
 }
 
 .mobile-menu {
-  display: none;
+  visibility: hidden;
+  opacity: 0;
 }
 
 .mobile-menu__nav {
@@ -725,7 +726,7 @@ onMounted(() => {
     background: var(--bg-primary);
     z-index: 99;
     overflow-y: auto;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+    display: none;
   }
 
   .mobile-menu.open {
