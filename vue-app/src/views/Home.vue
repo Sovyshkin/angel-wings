@@ -1423,47 +1423,6 @@ const featuredProducts = computed(() => {
   }
 }
 
-.feature-card,
-.category-card,
-.featured-card,
-.benefit-card,
-.testimonial-card {
-  opacity: 0;
-  transform: translateY(30px);
-}
-
-.animate-on-scroll.visible .feature-card,
-.animate-on-scroll.visible .category-card,
-.animate-on-scroll.visible .featured-card,
-.animate-on-scroll.visible .benefit-card,
-.animate-on-scroll.visible .testimonial-card {
-  animation: fadeInUp 0.6s ease forwards;
-}
-
-.animate-on-scroll.visible .feature-card:nth-child(1),
-.animate-on-scroll.visible .category-card:nth-child(1),
-.animate-on-scroll.visible .featured-card:nth-child(1),
-.animate-on-scroll.visible .benefit-card:nth-child(1),
-.animate-on-scroll.visible .testimonial-card:nth-child(1) { animation-delay: 0.1s; }
-
-.animate-on-scroll.visible .feature-card:nth-child(2),
-.animate-on-scroll.visible .category-card:nth-child(2),
-.animate-on-scroll.visible .featured-card:nth-child(2),
-.animate-on-scroll.visible .benefit-card:nth-child(2),
-.animate-on-scroll.visible .testimonial-card:nth-child(2) { animation-delay: 0.2s; }
-
-.animate-on-scroll.visible .feature-card:nth-child(3),
-.animate-on-scroll.visible .category-card:nth-child(3),
-.animate-on-scroll.visible .featured-card:nth-child(3),
-.animate-on-scroll.visible .benefit-card:nth-child(3),
-.animate-on-scroll.visible .testimonial-card:nth-child(3) { animation-delay: 0.3s; }
-
-.animate-on-scroll.visible .feature-card:nth-child(4),
-.animate-on-scroll.visible .category-card:nth-child(4),
-.animate-on-scroll.visible .featured-card:nth-child(4),
-.animate-on-scroll.visible .benefit-card:nth-child(4),
-.animate-on-scroll.visible .testimonial-card:nth-child(4) { animation-delay: 0.4s; }
-
 .btn {
   position: relative;
   overflow: hidden;
