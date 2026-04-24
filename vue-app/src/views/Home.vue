@@ -1022,13 +1022,31 @@ const featuredProducts = computed(() => {
 
 .btn-accent {
   background: white;
-  color: var(--accent);
+  color: var(--bg-primary);
 }
 
 .btn-accent:hover {
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   transform: translateY(-3px);
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .btn-accent {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+[data-theme="dark"] .btn-accent:hover {
+  background: var(--accent-hover);
+}
+
+[data-theme="light"] .btn-accent {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+[data-theme="light"] .btn-accent:hover {
+  background: var(--accent-hover);
 }
 
 .promo-timer {

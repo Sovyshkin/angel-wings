@@ -163,6 +163,26 @@ input, textarea, select {
   background: var(--accent-dim);
 }
 
+[data-theme="dark"] .btn-outline {
+  color: var(--bg-primary);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+[data-theme="dark"] .btn-outline:hover {
+  background: var(--accent-hover);
+}
+
+[data-theme="light"] .btn-outline {
+  color: var(--accent);
+  background: transparent;
+  border-color: var(--accent);
+}
+
+[data-theme="light"] .btn-outline:hover {
+  background: var(--accent-dim);
+}
+
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
