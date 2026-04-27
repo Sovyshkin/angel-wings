@@ -420,7 +420,7 @@ onMounted(() => {
 }
 
 .order-status.completed {
-  background: rgba(163, 255, 18, 0.15);
+  background: rgba(166, 185, 248, 0.15);
   color: var(--accent);
 }
 
@@ -473,8 +473,8 @@ onMounted(() => {
   gap: 0.75rem;
   margin-top: 1rem;
   padding: 1rem;
-  background: rgba(163, 255, 18, 0.1);
-  border: 1px solid rgba(163, 255, 18, 0.2);
+  background: rgba(166, 185, 248, 0.1);
+  border: 1px solid rgba(166, 185, 248, 0.2);
   border-radius: 12px;
   color: var(--accent);
   font-size: 0.9rem;

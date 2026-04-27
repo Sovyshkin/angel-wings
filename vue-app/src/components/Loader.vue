@@ -67,13 +67,13 @@ defineProps({
 
 .loader-segment:nth-child(2) {
   inset: 8px;
-  border-right-color: rgba(163, 255, 18, 0.5);
+  border-right-color: rgba(166, 185, 248, 0.5);
   animation: spin 1.5s linear infinite reverse;
 }
 
 .loader-segment:nth-child(3) {
   inset: 16px;
-  border-bottom-color: rgba(163, 255, 18, 0.3);
+  border-bottom-color: rgba(166, 185, 248, 0.3);
   animation: spin 2s linear infinite;
 }
 

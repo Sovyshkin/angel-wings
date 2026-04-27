@@ -61,13 +61,16 @@
               <span>{{ quantity }}</span>
               <button @click="quantity++">+</button>
             </div>
-            <button class="btn btn-primary btn-add-cart" @click="addToCart" :disabled="product.stock <= 0">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="btn btn-primary btn-add-cart" :class="{ 'just-added': justAdded }" @click="addToCart" :disabled="product.stock <= 0">
+              <svg v-if="justAdded" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
                 <line x1="3" y1="6" x2="21" y2="6"/>
                 <path d="M16 10a4 4 0 0 1-8 0"/>
               </svg>
-              Добавить в корзину
+              <span>{{ justAdded ? 'Добавлено!' : 'Добавить в корзину' }}</span>
             </button>
           </div>
           
@@ -139,6 +142,8 @@ function addToCart() {
     for (let i = 0; i < quantity.value; i++) {
       cartStore.addItem(product.value)
     }
+    justAdded.value = true
+    setTimeout(() => { justAdded.value = false }, 2000)
   }
 }
 
@@ -376,6 +381,16 @@ onMounted(async () => {
 
 .btn-add-cart svg {
   flex-shrink: 0;
+}
+
+.btn-add-cart.just-added {
+  animation: cart-success 0.4s ease;
+}
+
+@keyframes cart-success {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
 }
 
 .product-guarantee {

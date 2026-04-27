@@ -41,7 +41,7 @@
                 :class="{ active: selectedCategory === cat.slug }"
                 @click="selectCategory(cat.slug)"
               >
-                <span class="filter-icon">{{ getCategoryIcon(cat.slug) }}</span>
+                <span class="filter-icon" v-html="getCategoryIcon(cat.slug)"></span>
                 {{ cat.name }}
                 <span class="filter-count">{{ getCategoryCount(cat.slug) }}</span>
               </button>
@@ -125,10 +125,14 @@
                   </div>
                   <button 
                     class="add-to-cart-btn"
+                    :class="{ 'just-added': cartStore.lastAddedId === product.id }"
                     @click.prevent="cartStore.addItem(product)"
                     :disabled="!product.stock"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg v-if="cartStore.lastAddedId === product.id" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M12 5v14M5 12h14"/>
                     </svg>
                   </button>
@@ -207,12 +211,12 @@ function resetFilters() {
 
 function getCategoryIcon(slug) {
   const icons = {
-    'longevitiya': '∞',
-    'immunomodulyatory': '🛡',
-    'neiropeptide': '🧠',
-    'growth': '⚡'
+    'longevitiya': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z"/></svg>`,
+    'immunomodulyatory': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    'neiropeptide': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>`,
+    'growth': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`
   }
-  return icons[slug] || '◆'
+  return icons[slug] || ''
 }
 
 function getCategoryName(slug) {
@@ -324,7 +328,7 @@ watch(() => route.query.category, (newCat) => {
 
 .filter-item.active {
   background: var(--accent-dim);
-  border-color: rgba(163, 255, 18, 0.2);
+  border-color: rgba(166, 185, 248, 0.2);
   color: var(--accent);
 }
 
@@ -452,7 +456,7 @@ watch(() => route.query.category, (newCat) => {
 }
 
 .product-card:hover {
-  border-color: rgba(163, 255, 18, 0.3);
+  border-color: rgba(166, 185, 248, 0.3);
   transform: translateY(-8px);
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
 }
@@ -593,6 +597,19 @@ watch(() => route.query.category, (newCat) => {
 .add-to-cart-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.add-to-cart-btn.just-added {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-primary);
+  animation: pulse-success 0.4s ease;
+}
+
+@keyframes pulse-success {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
 }
 
 @keyframes spin {

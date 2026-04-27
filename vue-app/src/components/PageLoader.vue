@@ -87,14 +87,14 @@ onUnmounted(() => {
 
 .page-loader__segment:nth-child(2) {
   inset: 15px;
-  border-right-color: rgba(163, 255, 18, 0.5);
+  border-right-color: rgba(166, 185, 248, 0.5);
   animation-duration: 1.5s;
   animation-direction: reverse;
 }
 
 .page-loader__segment:nth-child(3) {
   inset: 30px;
-  border-bottom-color: rgba(163, 255, 18, 0.25);
+  border-bottom-color: rgba(166, 185, 248, 0.25);
   animation-duration: 2s;
 }
 

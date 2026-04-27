@@ -189,7 +189,7 @@
           <div class="cta__content">
             <h2>Нужна консультация?</h2>
             <p>Наши специалисты помогут подобрать оптимальный комплекс пептидов для ваших целей</p>
-            <button class="btn btn-primary">Связаться с нами</button>
+            <router-link to="/contact" class="btn btn-primary">Связаться с нами</router-link>
           </div>
           <div class="cta__decoration">
             <div class="molecule">
@@ -241,7 +241,10 @@
       </div>
       <div class="container">
         <div class="promo-content">
-          <div class="promo-badge">🔥 Новая коллекция 2026</div>
+          <div class="promo-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Новая коллекция 2026
+            </div>
           <h2>Пептидные комплексы нового поколения</h2>
           <p>Обновленный каталог с 50+ новыми позициями. Скидки до 25% на популярные пептиды</p>
           <div class="promo-actions">
@@ -371,14 +374,14 @@ const featuredProducts = computed(() => {
 .orb-2 {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, rgba(163, 255, 18, 0.1) 0%, transparent 60%);
+  background: radial-gradient(circle, rgba(166, 185, 248, 0.1) 0%, transparent 60%);
   bottom: -200px;
   right: -100px;
   animation: float 15s ease-in-out infinite reverse;
 }
 
 [data-theme="light"] .orb-2 {
-  background: radial-gradient(circle, rgba(90, 158, 0, 0.15) 0%, transparent 60%);
+  background: radial-gradient(circle, rgba(166, 185, 248, 0.15) 0%, transparent 60%);
 }
 
 .grid-lines {
@@ -450,7 +453,7 @@ const featuredProducts = computed(() => {
 
 .accent {
   color: var(--accent);
-  text-shadow: 0 0 80px rgba(163, 255, 18, 0.4);
+  text-shadow: 0 0 80px rgba(166, 185, 248, 0.4);
 }
 
 .hero__desc {
@@ -489,7 +492,7 @@ const featuredProducts = computed(() => {
 .btn-primary:hover {
   background: var(--accent-hover);
   transform: translateY(-3px);
-  box-shadow: 0 15px 40px rgba(163, 255, 18, 0.3);
+  box-shadow: 0 15px 40px rgba(166, 185, 248, 0.3);
 }
 
 .btn-secondary {
@@ -557,7 +560,7 @@ const featuredProducts = computed(() => {
 }
 
 .feature-card:hover {
-  border-color: rgba(163, 255, 18, 0.3);
+  border-color: rgba(166, 185, 248, 0.3);
   transform: translateY(-8px);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
 }
@@ -654,7 +657,7 @@ const featuredProducts = computed(() => {
 }
 
 .category-card:hover {
-  border-color: rgba(163, 255, 18, 0.3);
+  border-color: rgba(166, 185, 248, 0.3);
   transform: translateY(-8px);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
 }
@@ -704,7 +707,7 @@ const featuredProducts = computed(() => {
 }
 
 .featured-card:hover {
-  border-color: rgba(163, 255, 18, 0.3);
+  border-color: rgba(166, 185, 248, 0.3);
   transform: translateY(-8px);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
 }
@@ -851,14 +854,14 @@ const featuredProducts = computed(() => {
 .orbit {
   position: absolute;
   inset: 10%;
-  border: 2px dashed rgba(163, 255, 18, 0.2);
+  border: 2px dashed rgba(166, 185, 248, 0.2);
   border-radius: 50%;
   animation: spin 30s linear infinite;
   transition: border-color 0.4s ease;
 }
 
 [data-theme="light"] .orbit {
-  border-color: rgba(90, 158, 0, 0.3);
+  border-color: rgba(166, 185, 248, 0.3);
 }
 
 [data-theme="light"] .cta__content p {
@@ -906,7 +909,7 @@ const featuredProducts = computed(() => {
 
 .benefit-card--accent {
   background: linear-gradient(135deg, var(--accent-dim), transparent);
-  border-color: rgba(163, 255, 18, 0.2);
+  border-color: rgba(166, 185, 248, 0.2);
 }
 
 .benefit-card--dark {
@@ -945,7 +948,7 @@ const featuredProducts = computed(() => {
 .promo-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, var(--accent) 0%, #0a5c36 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, #1a4a6e 100%);
   z-index: 0;
 }
 
@@ -968,7 +971,7 @@ const featuredProducts = computed(() => {
 .promo-orb-2 {
   width: 300px;
   height: 300px;
-  background: rgba(163, 255, 18, 0.3);
+  background: rgba(166, 185, 248, 0.3);
   bottom: -100px;
   left: 10%;
   animation: float 12s ease-in-out infinite reverse;
@@ -1074,7 +1077,7 @@ const featuredProducts = computed(() => {
 }
 
 .testimonial-card:hover {
-  border-color: rgba(163, 255, 18, 0.3);
+  border-color: rgba(166, 185, 248, 0.3);
   transform: translateY(-5px);
 }
 
@@ -1467,7 +1470,7 @@ const featuredProducts = computed(() => {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(163, 255, 18, 0.05), transparent);
+  background: linear-gradient(90deg, transparent, rgba(166, 185, 248, 0.05), transparent);
   transition: left 0.5s ease;
 }
 

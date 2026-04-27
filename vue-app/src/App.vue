@@ -24,11 +24,7 @@
     <header class="header">
       <div class="header__container">
         <router-link to="/" class="header__logo">
-          <svg class="logo-icon" width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <path d="M14 2L4 8v12l10 6 10-6V8L14 2z" stroke="currentColor" stroke-width="2" fill="none"/>
-            <path d="M14 8l-6 3.5v7L14 22l6-3.5v-7L14 8z" fill="currentColor" opacity="0.3"/>
-            <circle cx="14" cy="14" r="3" fill="currentColor"/>
-          </svg>
+          <img class="header-logo" src="./assets/logo.jpg" alt="">
           <span class="logo-text">ANGEL WINGS</span>
         </router-link>
         <nav class="header__nav">
@@ -165,7 +161,7 @@
           <div class="footer__col">
             <h4 class="footer__title">Информация</h4>
             <ul class="footer__links">
-              <li><a href="#">О компании</a></li>
+              <li><a href="#" @click.prevent="$router.push('/contact')">О компании</a></li>
               <li><a href="#">Доставка и оплата</a></li>
               <li><a href="#">Гарантии</a></li>
               <li><a href="#">Частые вопросы</a></li>
@@ -208,8 +204,12 @@
           <div class="footer__payments">
             <span class="payment-label">Способы оплаты:</span>
             <div class="payment-icons">
-              <span class="payment-icon">💳</span>
-              <span class="payment-icon">₿</span>
+              <span class="payment-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              </span>
+              <span class="payment-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"/><path d="M12 6v6l4 2"/><path d="M8.5 15.5l-1.5 1.5 2 2 2.5-2.5M15.5 15.5l1.5 1.5-2 2-2.5-2.5"/></svg>
+              </span>
               <span class="payment-icon">PayPal</span>
             </div>
           </div>
@@ -372,6 +372,12 @@ onMounted(() => {
   gap: 0.75rem;
   text-decoration: none;
   flex-shrink: 0;
+}
+
+.header-logo {
+  height: 100px;
+  width: auto;
+  object-fit: contain;
 }
 
 .logo-icon {
@@ -843,6 +849,10 @@ onMounted(() => {
 
   .header__logo {
     gap: 0.5rem;
+  }
+
+  .header-logo {
+    height: 56px;
   }
 
   .logo-icon {

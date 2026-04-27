@@ -4,11 +4,7 @@
       <div class="auth__card" data-aos="fade-up" data-aos-delay="100">
         <div class="auth__header">
           <router-link to="/" class="auth__logo">
-            <svg width="40" height="40" viewBox="0 0 28 28" fill="none">
-              <path d="M14 2L4 8v12l10 6 10-6V8L14 2z" stroke="currentColor" stroke-width="2" fill="none"/>
-              <path d="M14 8l-6 3.5v7L14 22l6-3.5v-7L14 8z" fill="currentColor" opacity="0.3"/>
-              <circle cx="14" cy="14" r="3" fill="currentColor"/>
-            </svg>
+            <img src="../assets/logo.jpg" alt="ANGEL WINGS" class="auth__logo-img"/>
           </router-link>
           <h1 class="auth__title">{{ isLogin ? 'Добро пожаловать' : 'Создать аккаунт' }}</h1>
           <p class="auth__subtitle">{{ isLogin ? 'Войдите в свой аккаунт' : 'Заполните данные для регистрации' }}</p>
@@ -179,8 +175,13 @@ async function handleSubmit() {
 
 .auth__logo {
   display: inline-flex;
-  color: var(--accent);
   margin-bottom: 1.5rem;
+}
+
+.auth__logo-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
 }
 
 .auth__title {
