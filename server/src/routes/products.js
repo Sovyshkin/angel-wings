@@ -29,7 +29,7 @@ router.get('/', async (req, res, next) => {
       where.featured = true
     }
     
-    const [products, total] = await Promise.all([
+const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
         include: {
@@ -43,8 +43,13 @@ router.get('/', async (req, res, next) => {
       }),
       prisma.product.count({ where })
     ])
-    
-    res.json({ products, total })
+
+    const parsedProducts = products.map(p => ({
+      ...p,
+      specs: p.specs ? JSON.parse(p.specs) : {}
+    }))
+
+    res.json({ products: parsedProducts, total })
   } catch (error) {
     next(error)
   }
@@ -65,7 +70,12 @@ router.get('/:slug', async (req, res, next) => {
       return res.status(404).json({ error: 'Product not found' })
     }
     
-    res.json({ product })
+    const parsedProduct = {
+      ...product,
+      specs: product.specs ? JSON.parse(product.specs) : {}
+    }
+    
+    res.json({ product: parsedProduct })
   } catch (error) {
     next(error)
   }
