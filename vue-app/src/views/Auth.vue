@@ -4,7 +4,7 @@
       <div class="auth__card" data-aos="fade-up" data-aos-delay="100">
         <div class="auth__header">
           <router-link to="/" class="auth__logo">
-            <img src="../assets/logo.jpg" alt="ANGEL WINGS" class="auth__logo-img"/>
+            <img src="../assets/logo.png" alt="ANGEL WINGS" class="auth__logo-img"/>
           </router-link>
           <h1 class="auth__title">{{ isLogin ? 'Добро пожаловать' : 'Создать аккаунт' }}</h1>
           <p class="auth__subtitle">{{ isLogin ? 'Войдите в свой аккаунт' : 'Заполните данные для регистрации' }}</p>
@@ -111,35 +111,26 @@ function toggleMode() {
 async function handleSubmit() {
   error.value = ''
   loading.value = true
-  
+
   try {
     if (isLogin.value) {
-      const mockUser = {
-        id: 1,
-        name: form.value.email.split('@')[0],
-        email: form.value.email,
-        phone: '+7 (999) 123-45-67',
-        registered: new Date().toISOString()
-      }
-      authStore.login(mockUser, 'mock-jwt-token-' + Date.now())
+      await authStore.login(form.value.email, form.value.password)
       router.push('/profile')
     } else {
       if (form.value.password !== form.value.confirmPassword) {
         error.value = 'Пароли не совпадают'
         return
       }
-      const mockUser = {
-        id: Date.now(),
+      await authStore.register({
         name: form.value.name,
         email: form.value.email,
-        phone: form.value.phone || '',
-        registered: new Date().toISOString()
-      }
-      authStore.login(mockUser, 'mock-jwt-token-' + Date.now())
+        password: form.value.password,
+        phone: form.value.phone
+      })
       router.push('/profile')
     }
   } catch (e) {
-    error.value = 'Произошла ошибка. Попробуйте снова.'
+    error.value = e.message || 'Произошла ошибка. Попробуйте снова.'
   } finally {
     loading.value = false
   }

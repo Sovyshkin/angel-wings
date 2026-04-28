@@ -167,7 +167,7 @@
               <img :src="product.image" :alt="product.title" @error="$event.target.style.display='none'">
             </div>
             <div class="featured-content">
-              <span class="featured-category">{{ product.category[0] }}</span>
+              <span class="featured-category">{{ product.categories?.[0]?.name || product.categories?.[0]?.slug }}</span>
               <h3>{{ product.title }}</h3>
               <div class="featured-footer">
                 <span class="featured-price">{{ product.price }} ₽</span>

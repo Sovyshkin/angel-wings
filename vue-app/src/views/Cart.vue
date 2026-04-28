@@ -7,6 +7,23 @@
       </div>
     </div>
 
+    <Transition name="modal">
+      <div v-if="orderComplete" class="order-success-overlay">
+        <div class="order-success-card">
+          <div class="success-checkmark">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <h3>Заказ оформлен!</h3>
+          <p>Мы свяжемся с вами в ближайшее время для подтверждения заказа</p>
+          <div class="success-order-id">Заказ #{{ lastOrderId }}</div>
+          <button class="btn btn-primary" @click="continueShopping">Продолжить покупки</button>
+        </div>
+      </div>
+    </Transition>
+
     <div class="container">
       <div v-if="cartStore.items.length === 0" class="empty" data-aos="fade-up">
         <div class="empty-icon">
@@ -49,7 +66,7 @@
               </div>
               <div class="item-info">
                 <h4>{{ item.title }}</h4>
-                <span class="item-category">{{ getCategoryName(item.category[0]) }}</span>
+                <span class="item-category">{{ getCategoryName(item.categories?.[0]?.slug) }}</span>
               </div>
             </div>
             <div class="col-price">{{ item.price.toLocaleString() }} ₽</div>
@@ -112,45 +129,43 @@
           </div>
           
           <div class="checkout-form">
-            <h4>Контактные данные</h4>
+            <h4 v-if="authStore.isAuthenticated">Данные из профиля</h4>
+            <h4 v-else>Контактные данные</h4>
             <div class="form-group">
               <label>Имя</label>
-              <input v-model="customer.name" type="text" class="input" placeholder="Иван Иванов">
+              <input v-model="customer.name" type="text" class="input" placeholder="Иван Иванов" :disabled="authStore.isAuthenticated" required>
             </div>
             <div class="form-row">
               <div class="form-group">
                 <label>Телефон</label>
-                <input v-model="customer.phone" type="tel" class="input" placeholder="+7 (999) 999-99-99">
+                <input v-model="customer.phone" type="tel" class="input" placeholder="+7 (999) 999-99-99" :disabled="authStore.isAuthenticated" required>
               </div>
               <div class="form-group">
                 <label>Email</label>
-                <input v-model="customer.email" type="email" class="input" placeholder="example@mail.ru">
+                <input v-model="customer.email" type="email" class="input" placeholder="example@mail.ru" :disabled="authStore.isAuthenticated" required>
               </div>
             </div>
             <div class="form-group">
               <label>Адрес доставки</label>
-              <textarea v-model="customer.address" class="input" rows="3" placeholder="Город, улица, дом, квартира"></textarea>
+              <textarea v-model="customer.address" class="input" rows="2" placeholder="Город, улица, дом, квартира" :disabled="authStore.isAuthenticated" required></textarea>
             </div>
-            <div class="form-group">
+            <div class="form-group" v-if="!authStore.isAuthenticated">
+              <label>Комментарий к заказу</label>
+              <textarea v-model="customer.comment" class="input" rows="2" placeholder="Дополнительные пожелания..."></textarea>
+            </div>
+            <div class="form-group" v-if="authStore.isAuthenticated">
               <label>Комментарий к заказу</label>
               <textarea v-model="customer.comment" class="input" rows="2" placeholder="Дополнительные пожелания..."></textarea>
             </div>
             
             <button class="btn btn-primary btn-submit" @click="placeOrder" :disabled="!isFormValid || ordering">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg v-if="!ordering" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
                 <polyline points="22 4 12 14.01 9 11.01"/>
               </svg>
+              <span v-if="ordering" class="spinner"></span>
               {{ ordering ? 'Оформляем...' : 'Оформить заказ' }}
             </button>
-            
-            <p v-if="orderSuccess" class="success-message">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
-                <polyline points="22 4 12 14.01 9 11.01"/>
-              </svg>
-              Заказ успешно оформлен! Мы свяжемся с вами в ближайшее время.
-            </p>
           </div>
         </div>
       </div>
@@ -159,19 +174,24 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useCartStore } from '../store/cart'
 import { useProductStore } from '../store/products'
+import { useAuthStore } from '../store/auth'
 
+const router = useRouter()
 const cartStore = useCartStore()
 const productStore = useProductStore()
+const authStore = useAuthStore()
 
 const customer = ref({ name: '', phone: '', email: '', address: '', comment: '' })
 const ordering = ref(false)
-const orderSuccess = ref(false)
+const orderComplete = ref(false)
+const lastOrderId = ref(null)
 
 const isFormValid = computed(() => {
-  return customer.value.name && customer.value.phone && customer.value.email
+  return customer.value.name && customer.value.phone && customer.value.email && customer.value.address
 })
 
 function getCategoryName(slug) {
@@ -190,18 +210,53 @@ function decreaseQty(item) {
   }
 }
 
+function prefillFromProfile() {
+  if (authStore.isAuthenticated && authStore.user) {
+    customer.value = {
+      name: authStore.user.name || '',
+      phone: authStore.user.phone || '',
+      email: authStore.user.email || '',
+      address: authStore.user.address || '',
+      comment: ''
+    }
+  }
+}
+
+function continueShopping() {
+  orderComplete.value = false
+  router.push('/catalog')
+}
+
 async function placeOrder() {
   ordering.value = true
   try {
-    await productStore.createOrder(cartStore.items, customer.value)
+    const result = await productStore.createOrder(
+      cartStore.items,
+      customer.value,
+      authStore.isAuthenticated ? authStore.user?.id : null
+    )
+    lastOrderId.value = result.order?.id || Date.now()
     cartStore.clear()
-    orderSuccess.value = true
-    customer.value = { name: '', phone: '', email: '', address: '', comment: '' }
-    setTimeout(() => { orderSuccess.value = false }, 8000)
+    orderComplete.value = true
+    
+    setTimeout(() => {
+      orderComplete.value = false
+    }, 10000)
+  } catch (e) {
+    alert(e.message || 'Ошибка оформления заказа')
   } finally {
     ordering.value = false
   }
 }
+
+onMounted(async () => {
+  await productStore.fetchCategories()
+  prefillFromProfile()
+})
+
+watch(() => authStore.user, () => {
+  prefillFromProfile()
+}, { deep: true })
 </script>
 
 <style scoped>
@@ -527,6 +582,148 @@ async function placeOrder() {
 .success-message svg {
   flex-shrink: 0;
   margin-top: 2px;
+}
+
+.profile-prompt-overlay,
+.order-success-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  padding: 1rem;
+}
+
+.profile-prompt-card,
+.order-success-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 2.5rem;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  animation: cardPopIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.prompt-icon,
+.success-checkmark {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-dim);
+  border-radius: 50%;
+  margin: 0 auto 1.5rem;
+  color: var(--accent);
+}
+
+.success-checkmark {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  animation: checkmarkPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+}
+
+.profile-prompt-card h3,
+.order-success-card h3 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.profile-prompt-card p,
+.order-success-card p {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.prompt-missing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.missing-tag {
+  padding: 0.375rem 0.875rem;
+  background: rgba(255, 100, 100, 0.1);
+  border: 1px solid var(--danger);
+  border-radius: 100px;
+  color: var(--danger);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.prompt-actions,
+.order-success-card button {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.prompt-actions .btn,
+.order-success-card .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.success-order-id {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 0.5rem 1rem;
+  border-radius: 100px;
+  display: inline-block;
+  margin-bottom: 1.5rem;
+}
+
+.order-success-card .btn {
+  width: 100%;
+  padding: 1rem;
+}
+
+@keyframes cardPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes checkmarkPop {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-180deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(10deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
 }
 
 @media (max-width: 1024px) {

@@ -115,7 +115,7 @@
                 </div>
               </div>
               <div class="product-content">
-                <span class="product-category-badge">{{ getCategoryName(product.category[0]) }}</span>
+                <span class="product-category-badge">{{ getCategoryName(product.categories?.[0]?.slug) }}</span>
                 <h3 class="product-title">{{ product.title }}</h3>
                 <p class="product-desc">{{ truncate(product.description, 100) }}</p>
                 <div class="product-footer">
@@ -168,19 +168,19 @@ const categories = computed(() => productStore.categories)
 
 const filteredProducts = computed(() => {
   let result = [...products.value]
-  
+
   if (selectedCategory.value) {
-    result = result.filter(p => p.category.includes(selectedCategory.value))
+    result = result.filter(p => p.categories?.some(c => c.slug === selectedCategory.value))
   }
-  
+
   if (priceMin.value) {
     result = result.filter(p => p.price >= priceMin.value)
   }
-  
+
   if (priceMax.value) {
     result = result.filter(p => p.price <= priceMax.value)
   }
-  
+
   switch (sortBy.value) {
     case 'price-asc':
       result.sort((a, b) => a.price - b.price)
@@ -192,7 +192,7 @@ const filteredProducts = computed(() => {
       result.sort((a, b) => a.title.localeCompare(b.title))
       break
   }
-  
+
   return result
 })
 
@@ -226,7 +226,7 @@ function getCategoryName(slug) {
 }
 
 function getCategoryCount(slug) {
-  return products.value.filter(p => p.category.includes(slug)).length
+  return products.value.filter(p => p.categories?.some(c => c.slug === slug)).length
 }
 
 function truncate(text, length) {

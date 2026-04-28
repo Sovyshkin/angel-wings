@@ -6,8 +6,8 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/wp-json': {
-        target: 'http://localhost',
+      '/api': {
+        target: 'http://localhost:3005',
         changeOrigin: true
       }
     }

@@ -26,7 +26,7 @@
         
         <div class="product-info" data-aos="fade-left" data-aos-delay="300">
           <div class="product-meta">
-            <span class="product-category">{{ getCategoryName(product.category) }}</span>
+            <span class="product-category">{{ getCategoryName(product.categories?.[0]?.slug) }}</span>
             <span class="product-stock" :class="{ available: product.stock > 0 }">
               {{ product.stock > 0 ? 'В наличии' : 'Нет в наличии' }}
             </span>
@@ -45,12 +45,12 @@
             <p>{{ product.description }}</p>
           </div>
           
-          <div class="product-specs" v-if="product.specs">
+          <div class="product-specs" v-if="product.specs && Object.keys(product.specs).length">
             <h3>Характеристики</h3>
-            <div class="specs-grid">
-              <div class="spec-item" v-for="(value, key) in product.specs" :key="key">
-                <span class="spec-label">{{ key }}</span>
-                <span class="spec-value">{{ value }}</span>
+            <div class="specs-table">
+              <div class="spec-row" v-for="(value, key) in product.specs" :key="key">
+                <span class="spec-key">{{ key }}</span>
+                <span class="spec-val">{{ value }}</span>
               </div>
             </div>
           </div>
@@ -303,27 +303,38 @@ onMounted(async () => {
   border-radius: var(--radius);
 }
 
-.specs-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-.spec-item {
+.specs-table {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0;
 }
 
-.spec-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
+.spec-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--border);
 }
 
-.spec-value {
+.spec-row:last-child {
+  border-bottom: none;
+}
+
+.spec-row:nth-child(odd) {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.5rem;
+}
+
+.spec-key {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.spec-val {
   font-weight: 600;
+  font-size: 0.9375rem;
 }
 
 .product-actions {

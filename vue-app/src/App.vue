@@ -24,7 +24,7 @@
     <header class="header">
       <div class="header__container">
         <router-link to="/" class="header__logo">
-          <img class="header-logo" src="./assets/logo.jpg" alt="">
+          <img class="header-logo" src="./assets/logo.png" alt="">
           <span class="logo-text">ANGEL WINGS</span>
         </router-link>
         <nav class="header__nav">

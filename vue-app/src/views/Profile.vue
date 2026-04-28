@@ -59,6 +59,10 @@
                   <span class="info-value">{{ authStore.user?.phone || '—' }}</span>
                 </div>
                 <div class="info-item">
+                  <span class="info-label">Адрес</span>
+                  <span class="info-value">{{ authStore.user?.address || '—' }}</span>
+                </div>
+                <div class="info-item">
                   <span class="info-label">Дата регистрации</span>
                   <span class="info-value">{{ formatDate(authStore.user?.registered) }}</span>
                 </div>
@@ -111,6 +115,10 @@
                   <input v-model="editForm.phone" type="tel" class="input" placeholder="+7 (999) 999-99-99">
                 </div>
                 <div class="form-group">
+                  <label>Адрес доставки</label>
+                  <input v-model="editForm.address" type="text" class="input" placeholder="Город, улица, дом, квартира">
+                </div>
+                <div class="form-group">
                   <label>Новый пароль</label>
                   <input v-model="editForm.newPassword" type="password" class="input" placeholder="Оставьте пустым, чтобы не менять">
                 </div>
@@ -152,10 +160,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const activeTab = ref('info')
@@ -172,6 +181,7 @@ const editForm = ref({
   name: '',
   email: '',
   phone: '',
+  address: '',
   newPassword: ''
 })
 
@@ -186,12 +196,11 @@ function formatDate(dateStr) {
 }
 
 function updateProfile() {
-  const updatedUser = {
-    ...authStore.user,
+  authStore.updateUser({
     name: editForm.value.name,
-    phone: editForm.value.phone
-  }
-  authStore.updateUser(updatedUser)
+    phone: editForm.value.phone,
+    address: editForm.value.address
+  })
   successMessage.value = 'Профиль успешно обновлен!'
   setTimeout(() => { successMessage.value = '' }, 3000)
 }
@@ -213,10 +222,17 @@ onMounted(() => {
     router.push('/auth')
     return
   }
+
+  const tabParam = route.query.tab
+  if (tabParam && tabs.some(t => t.id === tabParam)) {
+    activeTab.value = tabParam
+  }
+
   editForm.value = {
     name: authStore.user?.name || '',
     email: authStore.user?.email || '',
     phone: authStore.user?.phone || '',
+    address: authStore.user?.address || '',
     newPassword: ''
   }
 })
