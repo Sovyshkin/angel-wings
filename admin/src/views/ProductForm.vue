@@ -2,7 +2,7 @@
   <div class="product-form">
     <div class="page-header">
       <div class="header-left">
-        <router-link to="/admin/products" class="back-link">
+        <router-link to="/products" class="back-link">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
           </svg>
@@ -144,7 +144,7 @@
         <div v-if="success" class="success-message">{{ success }}</div>
         
         <div class="form-actions">
-          <router-link to="/admin/products" class="btn btn-secondary">Отмена</router-link>
+          <router-link to="/products" class="btn btn-secondary">Отмена</router-link>
           <button type="submit" class="btn btn-primary" :disabled="loading">
             {{ loading ? 'Сохранение...' : 'Сохранить' }}
           </button>
@@ -279,7 +279,7 @@ async function handleSubmit() {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       success.value = 'Товар создан!'
-      setTimeout(() => router.push('/admin/products'), 1500)
+      setTimeout(() => router.push('/products'), 1500)
     }
   } catch (e) {
     error.value = e.response?.data?.error || 'Ошибка сохранения'

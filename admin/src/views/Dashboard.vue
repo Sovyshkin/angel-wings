@@ -7,31 +7,31 @@
         </router-link>
 
         <nav class="admin-nav">
-          <router-link to="/admin/dashboard" class="nav-item">
+          <router-link to="/dashboard" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
             </svg>
             <span class="nav-text">Dashboard</span>
           </router-link>
-          <router-link to="/admin/products" class="nav-item">
+          <router-link to="/products" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
             </svg>
             <span class="nav-text">Товары</span>
           </router-link>
-          <router-link to="/admin/categories" class="nav-item">
+          <router-link to="/categories" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
             </svg>
             <span class="nav-text">Категории</span>
           </router-link>
-          <router-link to="/admin/orders" class="nav-item">
+          <router-link to="/orders" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
             </svg>
             <span class="nav-text">Заказы</span>
           </router-link>
-          <router-link to="/admin/users" class="nav-item">
+          <router-link to="/users" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
             </svg>
@@ -78,44 +78,42 @@
           <span class="mobile-menu__title">Админ-панель</span>
         </div>
         <div class="mobile-menu__links">
-          <router-link to="/admin/dashboard" class="nav-link" @click="mobileMenuOpen = false">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-            </svg>
-            Dashboard
-          </router-link>
-          <router-link to="/admin/products" class="nav-link" @click="mobileMenuOpen = false">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
-            </svg>
-            Товары
-          </router-link>
-          <router-link to="/admin/categories" class="nav-link" @click="mobileMenuOpen = false">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
-            </svg>
-            Категории
-          </router-link>
-          <router-link to="/admin/orders" class="nav-link" @click="mobileMenuOpen = false">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-            Заказы
-          </router-link>
-          <router-link to="/admin/users" class="nav-link" @click="mobileMenuOpen = false">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-            </svg>
-            Пользователи
-          </router-link>
-        </div>
-        <div class="mobile-menu__footer">
-          <button @click="logout" class="nav-link logout-link">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-            Выйти
-          </button>
+<router-link to="/dashboard" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+              </svg>
+              Dashboard
+            </router-link>
+            <router-link to="/products" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+              </svg>
+              Товары
+            </router-link>
+            <router-link to="/categories" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+              </svg>
+              Категории
+            </router-link>
+            <router-link to="/orders" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Заказы
+            </router-link>
+            <router-link to="/users" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              </svg>
+              Пользователи
+            </router-link>
+            <button @click="logout" class="nav-link logout-link">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Выйти
+            </button>
         </div>
       </nav>
     </div>
@@ -140,7 +138,7 @@ const mobileMenuOpen = ref(false)
 
 function logout() {
   authStore.logout()
-  router.push('/admin/login')
+  router.push('/login')
 }
 </script>
 

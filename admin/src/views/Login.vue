@@ -63,7 +63,7 @@ async function handleLogin() {
   
   try {
     await authStore.login(email.value, password.value)
-    router.push('/admin/dashboard')
+    router.push('/dashboard')
   } catch (e) {
     error.value = e.response?.data?.error || 'Ошибка входа'
   } finally {

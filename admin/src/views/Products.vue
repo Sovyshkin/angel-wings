@@ -5,7 +5,7 @@
         <h1 class="page-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">Товары</h1>
         <p class="page-subtitle">Управление каталогом товаров</p>
       </div>
-      <router-link to="/admin/products/new" class="btn btn-primary">
+      <router-link to="/products/new" class="btn btn-primary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
@@ -54,7 +54,7 @@
               </td>
               <td class="cell-actions">
                 <div class="actions-wrapper">
-                  <router-link :to="`/admin/products/${product.id}/edit`" class="action-btn" title="Редактировать">
+                  <router-link :to="`/products/${product.id}/edit`" class="action-btn" title="Редактировать">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                     </svg>
@@ -94,7 +94,7 @@
             </div>
           </div>
           <div class="product-card__actions">
-            <router-link :to="`/admin/products/${product.id}/edit`" class="btn btn-secondary btn-sm">
+            <router-link :to="`/products/${product.id}/edit`" class="btn btn-secondary btn-sm">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
@@ -114,7 +114,7 @@
           <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
         </svg>
         <span>Нет товаров</span>
-        <router-link to="/admin/products/new" class="btn btn-primary btn-sm">Добавить первый</router-link>
+        <router-link to="/products/new" class="btn btn-primary btn-sm">Добавить первый</router-link>
       </div>
     </div>
   </div>
