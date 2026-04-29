@@ -11,31 +11,31 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
             </svg>
-            Dashboard
+            <span class="nav-text">Dashboard</span>
           </router-link>
           <router-link to="/admin/products" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
             </svg>
-            Товары
+            <span class="nav-text">Товары</span>
           </router-link>
           <router-link to="/admin/categories" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
             </svg>
-            Категории
+            <span class="nav-text">Категории</span>
           </router-link>
           <router-link to="/admin/orders" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
             </svg>
-            Заказы
+            <span class="nav-text">Заказы</span>
           </router-link>
           <router-link to="/admin/users" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
             </svg>
-            Пользователи
+            <span class="nav-text">Пользователи</span>
           </router-link>
         </nav>
         
@@ -164,7 +164,7 @@ function logout() {
 }
 
 .logo-img {
-  height: 100px;
+  height: 36px;
   width: auto;
   object-fit: contain;
 }
@@ -251,9 +251,17 @@ function logout() {
   .admin-nav {
     display: none;
   }
-  
+
   .mobile-menu-btn {
     display: flex;
+  }
+
+  .nav-text {
+    display: none;
+  }
+
+  .nav-item {
+    padding: 0.625rem 0.75rem;
   }
 }
 
