@@ -3,7 +3,7 @@
     <header class="admin-header">
       <div class="header-container">
         <router-link to="/" class="header-logo">
-          <img src="../assets/logo.png" alt="Logo" class="logo-img">
+          <img src="../assets/logo.jpg" alt="Logo" class="logo-img">
         </router-link>
         
         <nav class="admin-nav">

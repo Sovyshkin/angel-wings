@@ -4,20 +4,19 @@ import { useAuthStore } from '../store/auth'
 const routes = [
   {
     path: '/',
-    redirect: '/admin'
+    redirect: '/dashboard'
   },
   {
-    path: '/admin/login',
+    path: '/login',
     name: 'AdminLogin',
     component: () => import('../views/Login.vue'),
     meta: { guest: true }
   },
   {
-    path: '/admin',
+    path: '/',
     component: () => import('../views/Dashboard.vue'),
     meta: { requiresAuth: true },
     children: [
-      { path: '', redirect: '/admin/dashboard' },
       { path: 'dashboard', name: 'Dashboard', component: () => import('../views/DashboardContent.vue') },
       { path: 'products', name: 'AdminProducts', component: () => import('../views/Products.vue') },
       { path: 'products/new', name: 'NewProduct', component: () => import('../views/ProductForm.vue') },
@@ -30,17 +29,17 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/admin'),
   routes
 })
 
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
-  
+
   if (to.meta.requiresAuth && !authStore.token) {
-    next('/admin/login')
+    next('/login')
   } else if (to.meta.guest && authStore.token) {
-    next('/admin/dashboard')
+    next('/dashboard')
   } else {
     next()
   }
