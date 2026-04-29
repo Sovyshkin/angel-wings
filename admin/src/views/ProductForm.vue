@@ -162,7 +162,7 @@ import axios from 'axios'
 const route = useRoute()
 const router = useRouter()
 
-const API_URL = '/api'
+const API_URL = '/api/admin'
 const isEdit = computed(() => !!route.params.id)
 
 const form = ref({
@@ -393,6 +393,7 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   transition: var(--transition);
+  text-align: center;
 }
 
 .file-input-wrapper:hover .file-input-trigger {
@@ -403,25 +404,29 @@ onMounted(() => {
 .image-preview {
   position: relative;
   margin-top: 1rem;
+  display: inline-block;
 }
 
 .image-preview img {
-  max-width: 200px;
+  max-width: 100%;
+  max-height: 200px;
   border-radius: var(--radius-sm);
+  display: block;
 }
 
 .remove-image {
   position: absolute;
   top: -8px;
   right: -8px;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--danger);
   border-radius: 50%;
   color: white;
+  border: 2px solid var(--bg-card);
 }
 
 .toggle-group {
@@ -446,6 +451,7 @@ onMounted(() => {
   background: var(--bg-secondary);
   border-radius: 13px;
   transition: var(--transition);
+  flex-shrink: 0;
 }
 
 .toggle-slider::after {
@@ -521,12 +527,12 @@ onMounted(() => {
 
 .spec-key-input {
   flex: 1;
-  min-width: 120px;
+  min-width: 100px;
 }
 
 .spec-value-input {
   flex: 2;
-  min-width: 180px;
+  min-width: 140px;
 }
 
 .btn-remove-spec {
@@ -544,6 +550,7 @@ onMounted(() => {
 .btn-add-spec {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   background: var(--bg-secondary);
@@ -552,6 +559,7 @@ onMounted(() => {
   color: var(--text-secondary);
   font-size: 0.875rem;
   transition: var(--transition);
+  width: 100%;
 }
 
 .btn-add-spec:hover {
@@ -563,28 +571,80 @@ onMounted(() => {
   .form-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .form-section {
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
-  
+
   .form-section:last-child {
     border-bottom: none;
   }
-  
+
   .form-section:first-child {
     border-radius: var(--radius) var(--radius) 0 0;
   }
-  
+
   .form-section:last-child {
     border-radius: 0 0 var(--radius) var(--radius);
   }
 }
 
 @media (max-width: 640px) {
+  .page-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .form-section {
+    padding: 1.5rem 1rem;
+  }
+
+  .section-title {
+    margin-bottom: 1rem;
+    font-size: 0.75rem;
+  }
+
   .form-row {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-label {
+    font-size: 0.8125rem;
+  }
+
+  .file-input-trigger {
+    padding: 1.5rem;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .spec-row {
+    flex-wrap: wrap;
+  }
+
+  .spec-key-input,
+  .spec-value-input {
+    flex: 1 1 100%;
+    min-width: unset;
+  }
+
+  .btn-remove-spec {
+    align-self: flex-end;
+    margin-top: 0.25rem;
   }
 }
 </style>

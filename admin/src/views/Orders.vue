@@ -14,54 +14,82 @@
         <option value="CANCELLED">Отменён</option>
       </select>
     </div>
-    
+
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
     </div>
-    
-    <div v-else class="card">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Клиент</th>
-            <th>Email</th>
-            <th>Товары</th>
-            <th>Сумма</th>
-            <th>Статус</th>
-            <th>Дата</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="order in orders" :key="order.id">
-            <td class="cell-id">#{{ order.id }}</td>
-            <td class="cell-customer">{{ order.customerName }}</td>
-            <td class="cell-email">{{ order.customerEmail }}</td>
-            <td class="cell-items">{{ order.items?.length || 0 }} шт</td>
-            <td class="cell-price">{{ formatPrice(order.total) }}</td>
-            <td>
-              <select :value="order.status" @change="updateStatus(order.id, $event.target.value)" class="status-select">
-                <option value="PENDING">Ожидает</option>
-                <option value="PROCESSING">В обработке</option>
-                <option value="SHIPPED">Отправлен</option>
-                <option value="DELIVERED">Доставлен</option>
-                <option value="CANCELLED">Отменён</option>
-              </select>
-            </td>
-            <td class="cell-date">{{ formatDate(order.createdAt) }}</td>
-            <td>
-              <button @click="viewOrder(order)" class="action-btn" title="Просмотр">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+    <div v-else>
+      <div class="orders-table-wrapper card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Клиент</th>
+              <th>Email</th>
+              <th>Товары</th>
+              <th>Сумма</th>
+              <th>Статус</th>
+              <th>Дата</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="order in orders" :key="order.id">
+              <td class="cell-id">#{{ order.id }}</td>
+              <td class="cell-customer">{{ order.customerName }}</td>
+              <td class="cell-email">{{ order.customerEmail }}</td>
+              <td class="cell-items">{{ order.items?.length || 0 }} шт</td>
+              <td class="cell-price">{{ formatPrice(order.total) }}</td>
+              <td>
+                <select :value="order.status" @change="updateStatus(order.id, $event.target.value)" class="status-select">
+                  <option value="PENDING">Ожидает</option>
+                  <option value="PROCESSING">В обработке</option>
+                  <option value="SHIPPED">Отправлен</option>
+                  <option value="DELIVERED">Доставлен</option>
+                  <option value="CANCELLED">Отменён</option>
+                </select>
+              </td>
+              <td class="cell-date">{{ formatDate(order.createdAt) }}</td>
+              <td>
+                <button @click="viewOrder(order)" class="action-btn" title="Просмотр">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="orders-cards">
+        <div v-for="order in orders" :key="order.id" class="order-card card" @click="viewOrder(order)">
+          <div class="order-card__header">
+            <span class="order-card__id">#{{ order.id }}</span>
+            <span :class="['badge', getStatusBadge(order.status)]">{{ getStatusLabel(order.status) }}</span>
+          </div>
+          <div class="order-card__body">
+            <h3 class="order-card__customer">{{ order.customerName }}</h3>
+            <p class="order-card__email">{{ order.customerEmail }}</p>
+            <div class="order-card__meta">
+              <span class="order-card__items">{{ order.items?.length || 0 }} шт</span>
+              <span class="order-card__date">{{ formatDate(order.createdAt) }}</span>
+            </div>
+            <div class="order-card__footer">
+              <span class="order-card__total">{{ formatPrice(order.total) }}</span>
+              <button class="btn btn-sm btn-secondary" @click.stop="viewOrder(order)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                 </svg>
+                Подробнее
               </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    
+
     <div v-if="selectedOrder" class="modal-overlay" @click.self="selectedOrder = null">
       <div class="modal card">
         <div class="modal-header">
@@ -72,7 +100,7 @@
             </svg>
           </button>
         </div>
-        
+
         <div class="order-details">
           <div class="detail-row">
             <span class="detail-label">Клиент</span>
@@ -94,7 +122,7 @@
             <span class="detail-label">Статус</span>
             <span :class="['badge', getStatusBadge(selectedOrder.status)]">{{ getStatusLabel(selectedOrder.status) }}</span>
           </div>
-          
+
           <div class="order-items">
             <h4>Товары:</h4>
             <div v-for="item in selectedOrder.items" :key="item.id" class="order-item-row">
@@ -102,13 +130,24 @@
               <span class="item-qty">{{ item.quantity }} × {{ formatPrice(item.price) }}</span>
             </div>
           </div>
-          
+
           <div class="order-total">
             <span>Итого</span>
             <span class="total-value">{{ formatPrice(selectedOrder.total) }}</span>
           </div>
         </div>
-        
+
+        <div class="modal-status-select">
+          <label class="form-label">Изменить статус:</label>
+          <select :value="selectedOrder.status" @change="updateStatus(selectedOrder.id, $event.target.value); selectedOrder.status = $event.target.value" class="status-select-full">
+            <option value="PENDING">Ожидает</option>
+            <option value="PROCESSING">В обработке</option>
+            <option value="SHIPPED">Отправлен</option>
+            <option value="DELIVERED">Доставлен</option>
+            <option value="CANCELLED">Отменён</option>
+          </select>
+        </div>
+
         <button @click="selectedOrder = null" class="btn btn-secondary btn-full">Закрыть</button>
       </div>
     </div>
@@ -191,6 +230,7 @@ onMounted(fetchOrders)
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 1rem;
   margin-bottom: 2rem;
 }
 
@@ -199,9 +239,14 @@ onMounted(fetchOrders)
   min-width: 180px;
 }
 
+.orders-table-wrapper {
+  overflow-x: auto;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 800px;
 }
 
 .data-table th,
@@ -279,6 +324,66 @@ onMounted(fetchOrders)
   color: #fff;
 }
 
+.orders-cards {
+  display: none;
+}
+
+.order-card {
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.order-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--bg-secondary);
+}
+
+.order-card__id {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.order-card__body {
+  padding: 1rem;
+}
+
+.order-card__customer {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.order-card__email {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.order-card__meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.order-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.order-card__total {
+  font-weight: 700;
+  color: var(--accent);
+}
+
 .badge {
   display: inline-block;
   padding: 0.25rem 0.625rem;
@@ -322,12 +427,15 @@ onMounted(fetchOrders)
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(4px);
+  padding: 1rem;
 }
 
 .modal {
   width: 100%;
   max-width: 500px;
-  padding: 2rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.5rem;
   animation: modalIn 0.3s ease;
 }
 
@@ -365,6 +473,7 @@ onMounted(fetchOrders)
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   transition: var(--transition);
+  flex-shrink: 0;
 }
 
 .modal-close:hover {
@@ -393,6 +502,9 @@ onMounted(fetchOrders)
 
 .detail-value {
   font-weight: 500;
+  text-align: right;
+  max-width: 60%;
+  word-break: break-word;
 }
 
 .order-items {
@@ -439,23 +551,59 @@ onMounted(fetchOrders)
   width: 100%;
 }
 
+.modal-status-select {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.status-select-full {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9375rem;
+}
+
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
     gap: 1rem;
   }
-  
+
   .status-filter {
     width: 100%;
   }
-  
-  .data-table {
-    font-size: 0.875rem;
+
+  .orders-table-wrapper {
+    display: none;
   }
-  
-  .data-table th,
-  .data-table td {
-    padding: 0.75rem;
+
+  .orders-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .modal-overlay {
+    padding: 0;
+  }
+
+  .modal {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin: 1rem;
   }
 }
 </style>

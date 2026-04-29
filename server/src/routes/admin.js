@@ -162,17 +162,17 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
 router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { active, limit = 100, offset = 0 } = req.query
-    
+
     const where = {}
     if (active !== undefined) {
       where.active = active === 'true'
     }
-    
+
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
         include: {
-          categories: { select: { name: true } }
+          categories: { select: { id: true, name: true, slug: true } }
         },
         take: parseInt(limit),
         skip: parseInt(offset),
@@ -180,8 +180,37 @@ router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
       }),
       prisma.product.count({ where })
     ])
-    
-    res.json({ products, total })
+
+    const parsedProducts = products.map(p => ({
+      ...p,
+      specs: p.specs ? JSON.parse(p.specs) : {}
+    }))
+
+    res.json({ products: parsedProducts, total })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/products/:id', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id: parseInt(req.params.id) },
+      include: {
+        categories: { select: { id: true, name: true, slug: true } }
+      }
+    })
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' })
+    }
+
+    const parsedProduct = {
+      ...product,
+      specs: product.specs ? JSON.parse(product.specs) : {}
+    }
+
+    res.json({ product: parsedProduct })
   } catch (error) {
     next(error)
   }

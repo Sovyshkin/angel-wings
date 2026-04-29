@@ -9,54 +9,85 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
-        Добавить
+        <span class="btn-text">Добавить</span>
       </button>
     </div>
-    
+
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
     </div>
-    
-    <div v-else class="card">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Название</th>
-            <th>Slug</th>
-            <th>Товаров</th>
-            <th>Статус</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="cat in categories" :key="cat.term_id">
-            <td class="cell-id">{{ cat.term_id }}</td>
-            <td class="cell-name">{{ cat.name }}</td>
-            <td class="cell-slug">{{ cat.slug }}</td>
-            <td class="cell-count">{{ cat.count }}</td>
-            <td>
-              <span :class="['badge', cat.active ? 'badge-success' : 'badge-danger']">
-                {{ cat.active ? 'Активна' : 'Скрыта' }}
-              </span>
-            </td>
-            <td class="cell-actions">
-              <button @click="openModal(cat)" class="action-btn" title="Редактировать">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                </svg>
-              </button>
-              <button @click="deleteCategory(cat.term_id)" class="action-btn danger" title="Удалить">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                </svg>
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+
+    <div v-else>
+      <div class="categories-table-wrapper card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Название</th>
+              <th>Slug</th>
+              <th>Товаров</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="cat in categories" :key="cat.term_id">
+              <td class="cell-id">{{ cat.term_id }}</td>
+              <td class="cell-name">{{ cat.name }}</td>
+              <td class="cell-slug">{{ cat.slug }}</td>
+              <td class="cell-count">{{ cat.count }}</td>
+              <td>
+                <span :class="['badge', cat.active ? 'badge-success' : 'badge-danger']">
+                  {{ cat.active ? 'Активна' : 'Скрыта' }}
+                </span>
+              </td>
+              <td class="cell-actions">
+                <button @click="openModal(cat)" class="action-btn" title="Редактировать">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </button>
+                <button @click="deleteCategory(cat.term_id)" class="action-btn danger" title="Удалить">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="categories-cards">
+        <div v-for="cat in categories" :key="cat.term_id" class="category-card card">
+          <div class="category-card__header">
+            <span :class="['badge', cat.active ? 'badge-success' : 'badge-danger']">
+              {{ cat.active ? 'Активна' : 'Скрыта' }}
+            </span>
+            <span class="category-card__count">{{ cat.count }} шт</span>
+          </div>
+          <div class="category-card__body">
+            <h3 class="category-card__name">{{ cat.name }}</h3>
+            <p class="category-card__slug">{{ cat.slug }}</p>
+            <p v-if="cat.description" class="category-card__desc">{{ cat.description }}</p>
+          </div>
+          <div class="category-card__actions">
+            <button @click="openModal(cat)" class="btn btn-secondary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Изменить
+            </button>
+            <button @click="deleteCategory(cat.term_id)" class="btn btn-danger btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-    
+
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal card">
         <div class="modal-header">
@@ -67,18 +98,18 @@
             </svg>
           </button>
         </div>
-        
+
         <form @submit.prevent="handleSubmit" class="modal-form">
           <div class="form-group">
             <label class="form-label">Название</label>
             <input type="text" v-model="form.name" required class="input" placeholder="Долголетие">
           </div>
-          
+
           <div class="form-group">
             <label class="form-label">Описание</label>
             <textarea v-model="form.description" rows="3" class="input" placeholder="Описание категории..."></textarea>
           </div>
-          
+
           <div class="toggle-group">
             <label class="toggle">
               <input type="checkbox" v-model="form.active">
@@ -86,9 +117,9 @@
               <span class="toggle-label">Активна (видима на сайте)</span>
             </label>
           </div>
-          
+
           <div v-if="error" class="error-message">{{ error }}</div>
-          
+
           <div class="modal-actions">
             <button type="button" @click="closeModal" class="btn btn-secondary">Отмена</button>
             <button type="submit" class="btn btn-primary" :disabled="loading">
@@ -182,12 +213,18 @@ onMounted(fetchCategories)
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 1rem;
   margin-bottom: 2rem;
+}
+
+.categories-table-wrapper {
+  overflow-x: auto;
 }
 
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 600px;
 }
 
 .data-table th,
@@ -234,6 +271,65 @@ onMounted(fetchCategories)
   font-family: var(--font-body);
 }
 
+.categories-cards {
+  display: none;
+}
+
+.category-card {
+  overflow: hidden;
+}
+
+.category-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--bg-secondary);
+}
+
+.category-card__count {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.category-card__body {
+  padding: 1rem;
+}
+
+.category-card__name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.category-card__slug {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-bottom: 0.5rem;
+}
+
+.category-card__desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.category-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem;
+  padding-top: 0;
+}
+
+.category-card__actions .btn {
+  flex: 1;
+}
+
 .badge {
   display: inline-block;
   padding: 0.25rem 0.625rem;
@@ -269,6 +365,7 @@ onMounted(fetchCategories)
   background: var(--bg-secondary);
   border-radius: 13px;
   transition: var(--transition);
+  flex-shrink: 0;
 }
 
 .toggle-slider::after {
@@ -322,6 +419,15 @@ onMounted(fetchCategories)
   background: var(--danger);
 }
 
+.btn-danger {
+  background: var(--danger);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #ff4444;
+}
+
 .loading-state {
   display: flex;
   justify-content: center;
@@ -350,12 +456,15 @@ onMounted(fetchCategories)
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(4px);
+  padding: 1rem;
 }
 
 .modal {
   width: 100%;
   max-width: 480px;
-  padding: 2rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.5rem;
   animation: modalIn 0.3s ease;
 }
 
@@ -393,6 +502,7 @@ onMounted(fetchCategories)
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   transition: var(--transition);
+  flex-shrink: 0;
 }
 
 .modal-close:hover {
@@ -433,10 +543,54 @@ onMounted(fetchCategories)
   font-size: 0.875rem;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .page-header {
     flex-direction: column;
     gap: 1rem;
+  }
+
+  .page-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .categories-table-wrapper {
+    display: none;
+  }
+
+  .categories-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .modal-overlay {
+    padding: 0;
+  }
+
+  .modal {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin: 1rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .categories-cards {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .btn-text {
+    display: none;
+  }
+
+  .page-header .btn {
+    width: auto;
+    padding: 0.75rem;
   }
 }
 </style>

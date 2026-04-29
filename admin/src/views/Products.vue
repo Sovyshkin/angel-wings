@@ -9,66 +9,106 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
-        Добавить товар
+        <span class="btn-text">Добавить товар</span>
       </router-link>
     </div>
-    
+
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
     </div>
-    
+
     <div v-else-if="error" class="error-message">{{ error }}</div>
-    
-    <div v-else class="card">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Название</th>
-            <th>Категория</th>
-            <th>Цена</th>
-            <th>Stock</th>
-            <th>Статус</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="product in products" :key="product.id">
-            <td class="cell-id">{{ product.id }}</td>
-            <td>
-              <div class="product-cell">
-                <img v-if="product.image" :src="product.image" :alt="product.title" class="product-thumb">
-                <span class="product-title">{{ product.title }}</span>
-              </div>
-            </td>
-            <td class="cell-category">
-              {{ product.categories?.map(c => c.name).join(', ') || '—' }}
-            </td>
-            <td class="cell-price">{{ formatPrice(product.price) }}</td>
-            <td :class="['cell-stock', { low: product.stock <= 10 }]">{{ product.stock }}</td>
-            <td>
-              <span :class="['badge', product.active ? 'badge-success' : 'badge-danger']">
-                {{ product.active ? 'Активен' : 'Скрыт' }}
-              </span>
-            </td>
-            <td class="cell-actions">
-              <div class="actions-wrapper">
-                <router-link :to="`/admin/products/${product.id}/edit`" class="action-btn" title="Редактировать">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                </router-link>
-                <button @click="deleteProduct(product.id)" class="action-btn danger" title="Удалить">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                  </svg>
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      
+
+    <div v-else>
+      <div class="products-table-wrapper card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Название</th>
+              <th>Категория</th>
+              <th>Цена</th>
+              <th>Stock</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="product in products" :key="product.id">
+              <td class="cell-id">{{ product.id }}</td>
+              <td>
+                <div class="product-cell">
+                  <img v-if="product.image" :src="product.image" :alt="product.title" class="product-thumb">
+                  <span class="product-title">{{ product.title }}</span>
+                </div>
+              </td>
+              <td class="cell-category">
+                {{ product.categories?.map(c => c.name).join(', ') || '—' }}
+              </td>
+              <td class="cell-price">{{ formatPrice(product.price) }}</td>
+              <td :class="['cell-stock', { low: product.stock <= 10 }]">{{ product.stock }}</td>
+              <td>
+                <span :class="['badge', product.active ? 'badge-success' : 'badge-danger']">
+                  {{ product.active ? 'Активен' : 'Скрыт' }}
+                </span>
+              </td>
+              <td class="cell-actions">
+                <div class="actions-wrapper">
+                  <router-link :to="`/admin/products/${product.id}/edit`" class="action-btn" title="Редактировать">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </router-link>
+                  <button @click="deleteProduct(product.id)" class="action-btn danger" title="Удалить">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="products-cards">
+        <div v-for="product in products" :key="product.id" class="product-card card">
+          <div class="product-card__header">
+            <img v-if="product.image" :src="product.image" :alt="product.title" class="product-card__img">
+            <div v-else class="product-card__img-placeholder">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+              </svg>
+            </div>
+            <span :class="['badge', product.active ? 'badge-success' : 'badge-danger']">
+              {{ product.active ? 'Активен' : 'Скрыт' }}
+            </span>
+          </div>
+          <div class="product-card__body">
+            <span class="product-card__id">#{{ product.id }}</span>
+            <h3 class="product-card__title">{{ product.title }}</h3>
+            <p class="product-card__category">{{ product.categories?.map(c => c.name).join(', ') || 'Без категории' }}</p>
+            <div class="product-card__meta">
+              <span class="product-card__price">{{ formatPrice(product.price) }}</span>
+              <span :class="['product-card__stock', { low: product.stock <= 10 }]">{{ product.stock }} шт</span>
+            </div>
+          </div>
+          <div class="product-card__actions">
+            <router-link :to="`/admin/products/${product.id}/edit`" class="btn btn-secondary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Изменить
+            </router-link>
+            <button @click="deleteProduct(product.id)" class="btn btn-danger btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div v-if="products.length === 0" class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
@@ -123,12 +163,18 @@ onMounted(fetchProducts)
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 1rem;
   margin-bottom: 2rem;
+}
+
+.products-table-wrapper {
+  overflow-x: auto;
 }
 
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 700px;
 }
 
 .data-table th,
@@ -240,6 +286,105 @@ onMounted(fetchProducts)
   background: var(--danger);
 }
 
+.products-cards {
+  display: none;
+}
+
+.product-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.product-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1rem;
+  background: var(--bg-secondary);
+}
+
+.product-card__img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.product-card__img-placeholder {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.product-card__body {
+  padding: 1rem;
+  flex: 1;
+}
+
+.product-card__id {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.product-card__title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.25rem 0;
+}
+
+.product-card__category {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.product-card__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.product-card__price {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.product-card__stock {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.product-card__stock.low {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.product-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem;
+  padding-top: 0;
+}
+
+.product-card__actions .btn {
+  flex: 1;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #ff4444;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -281,10 +426,37 @@ onMounted(fetchProducts)
     flex-direction: column;
     gap: 1rem;
   }
-  
-  .data-table th,
-  .data-table td {
-    padding: 0.75rem 1rem;
+
+  .page-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .products-table-wrapper {
+    display: none;
+  }
+
+  .products-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .products-cards {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .btn-text {
+    display: none;
+  }
+
+  .page-header .btn {
+    width: auto;
+    padding: 0.75rem;
   }
 }
 </style>

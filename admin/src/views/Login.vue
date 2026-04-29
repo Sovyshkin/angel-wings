@@ -154,5 +154,17 @@ async function handleLogin() {
   .login-card {
     padding: 2rem 1.5rem;
   }
+
+  .login-title {
+    font-size: 1.5rem;
+  }
+
+  .login-subtitle {
+    font-size: 0.9375rem;
+  }
+
+  .btn {
+    padding: 0.75rem 1.5rem;
+  }
 }
 </style>
