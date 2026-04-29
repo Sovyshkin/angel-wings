@@ -3,17 +3,17 @@ import { useAuthStore } from '../store/auth'
 
 const routes = [
   {
-    path: '/admin',
-    redirect: '/admin/dashboard'
+    path: '/',
+    redirect: '/dashboard'
   },
   {
-    path: '/admin/login',
+    path: '/login',
     name: 'AdminLogin',
     component: () => import('../views/Login.vue'),
     meta: { guest: true }
   },
   {
-    path: '/admin',
+    path: '/',
     component: () => import('../views/Dashboard.vue'),
     meta: { requiresAuth: true },
     children: [
@@ -37,9 +37,9 @@ router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
 
   if (to.meta.requiresAuth && !authStore.token) {
-    next('/admin/login')
+    next('/login')
   } else if (to.meta.guest && authStore.token) {
-    next('/admin/dashboard')
+    next('/dashboard')
   } else {
     next()
   }
