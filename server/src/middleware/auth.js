@@ -36,3 +36,10 @@ export const requireAdmin = (req, res, next) => {
   }
   next()
 }
+
+export const requirePartner = (req, res, next) => {
+  if (req.user.role !== 'PARTNER' && req.user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Partner access required' })
+  }
+  next()
+}

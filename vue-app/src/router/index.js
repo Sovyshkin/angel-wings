@@ -6,6 +6,9 @@ import ProductDetail from '../views/ProductDetail.vue'
 import Auth from '../views/Auth.vue'
 import Profile from '../views/Profile.vue'
 import Contact from '../views/Contact.vue'
+import OrderSuccess from '../views/OrderSuccess.vue'
+import OrderFail from '../views/OrderFail.vue'
+import PartnerCabinet from '../views/PartnerCabinet.vue'
 import { useAuthStore } from '../store/auth'
 
 const routes = [
@@ -16,6 +19,9 @@ const routes = [
   { path: '/auth', name: 'Auth', component: Auth },
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
   { path: '/contact', name: 'Contact', component: Contact },
+  { path: '/order-success', name: 'OrderSuccess', component: OrderSuccess },
+  { path: '/order-failed', name: 'OrderFail', component: OrderFail },
+  { path: '/partner', name: 'PartnerCabinet', component: PartnerCabinet, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({

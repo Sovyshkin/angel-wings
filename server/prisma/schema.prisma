@@ -18,6 +18,8 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   orders    Order[]
+  partner   Partner?
+  partnerUser PartnerUser?
 
   @@map("users")
 }
@@ -62,19 +64,25 @@ model Product {
 }
 
 model Order {
-  id             Int      @id @default(autoincrement())
-  userId         Int?
-  user           User?    @relation(fields: [userId], references: [id])
-  status         String   @default("PENDING")
-  total          Float
-  items          OrderItem[]
-  customerName   String
-  customerEmail  String
-  customerPhone  String
+  id              Int      @id @default(autoincrement())
+  userId          Int?
+  user            User?    @relation(fields: [userId], references: [id])
+  partnerId       Int?
+  status          String   @default("PENDING")
+  paymentStatus   String?  @default("PENDING")
+  paymentId       String?
+  total           Float
+  items           OrderItem[]
+  customerName    String
+  customerEmail   String
+  customerPhone   String
   shippingAddress String?
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  notes           String?
+  promoCodeId     Int?
+  discountAmount  Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  commission      PartnerCommission?
 
   @@map("orders")
 }
@@ -89,4 +97,84 @@ model OrderItem {
   price     Float
 
   @@map("order_items")
+}
+
+model Partner {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @unique
+  user           User      @relation(fields: [userId], references: [id])
+  percentage     Float     @default(5.0)
+  referralCode   String    @unique
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  promoCodes     PromoCode[]
+  commissions    PartnerCommission[]
+  payments       PartnerPayment[]
+  partnerUsers   PartnerUser[]
+
+  @@map("partners")
+}
+
+model PromoCode {
+  id              Int       @id @default(autoincrement())
+  code            String    @unique
+  discountType    String    @default("percentage")
+  discountValue   Float
+  usageType       String    @default("single")
+  maxActivations  Int       @default(1)
+  activationCount Int       @default(0)
+  startDate       DateTime?
+  endDate         DateTime?
+  minOrderAmount  Float?
+  isFirstPurchase Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  partnerId       Int?
+  partner         Partner?  @relation(fields: [partnerId], references: [id])
+  partnerUsers    PartnerUser[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("promo_codes")
+}
+
+model PartnerUser {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique
+  user        User     @relation(fields: [userId], references: [id])
+  partnerId   Int
+  partner     Partner  @relation(fields: [partnerId], references: [id])
+  referralSource String @default("link")
+  promoCodeId Int?
+  promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id])
+  boundAt     DateTime @default(now())
+
+  @@map("partner_users")
+}
+
+model PartnerCommission {
+  id          Int      @id @default(autoincrement())
+  partnerId   Int
+  partner     Partner  @relation(fields: [partnerId], references: [id])
+  orderId     Int      @unique
+  order       Order    @relation(fields: [orderId], references: [id])
+  userId      Int
+  amount      Float
+  percentage  Float
+  createdAt   DateTime @default(now())
+
+  @@map("partner_commissions")
+}
+
+model PartnerPayment {
+  id          Int      @id @default(autoincrement())
+  partnerId   Int
+  partner     Partner  @relation(fields: [partnerId], references: [id])
+  amount      Float
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  paidAt      DateTime?
+
+  @@map("partner_payments")
 }

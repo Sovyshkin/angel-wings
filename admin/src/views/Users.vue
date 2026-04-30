@@ -41,6 +41,7 @@
                 <select :value="user.role" @change="updateRole(user.id, $event.target.value)" class="role-select" :disabled="user.id === currentUserId">
                   <option value="USER">Пользователь</option>
                   <option value="ADMIN">Админ</option>
+                  <option value="PARTNER">Партнёр</option>
                 </select>
               </td>
               <td class="cell-orders">{{ user._count?.orders || 0 }}</td>
@@ -93,6 +94,7 @@
             <select :value="user.role" @change="updateRole(user.id, $event.target.value)" class="role-select-full" :disabled="user.id === currentUserId">
               <option value="USER">Пользователь</option>
               <option value="ADMIN">Админ</option>
+              <option value="PARTNER">Партнёр</option>
             </select>
             <button @click="deleteUser(user.id)" class="btn btn-danger btn-sm" :disabled="user.id === currentUserId">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -104,7 +106,7 @@
       </div>
     </div>
 
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showModal" class="modal-overlay">
       <div class="modal card">
         <div class="modal-header">
           <h3 class="modal-title">Новый пользователь</h3>

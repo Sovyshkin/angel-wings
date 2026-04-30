@@ -23,7 +23,9 @@ const routes = [
       { path: 'products/:id/edit', name: 'EditProduct', component: () => import('../views/ProductForm.vue') },
       { path: 'categories', name: 'AdminCategories', component: () => import('../views/Categories.vue') },
       { path: 'orders', name: 'AdminOrders', component: () => import('../views/Orders.vue') },
-      { path: 'users', name: 'AdminUsers', component: () => import('../views/Users.vue') }
+      { path: 'users', name: 'AdminUsers', component: () => import('../views/Users.vue') },
+      { path: 'partners', name: 'AdminPartners', component: () => import('../views/Partners.vue') },
+      { path: 'promo-codes', name: 'PromoCodes', component: () => import('../views/PromoCodes.vue') }
     ]
   }
 ]

@@ -235,13 +235,19 @@ async function placeOrder() {
       customer.value,
       authStore.isAuthenticated ? authStore.user?.id : null
     )
-    lastOrderId.value = result.order?.id || Date.now()
-    cartStore.clear()
-    orderComplete.value = true
-    
-    setTimeout(() => {
-      orderComplete.value = false
-    }, 10000)
+    lastOrderId.value = result.order?.id
+
+    const paymentResult = await productStore.initPayment(lastOrderId.value)
+
+    if (paymentResult.Success && paymentResult.PaymentURL) {
+      window.location.href = paymentResult.PaymentURL
+    } else {
+      cartStore.clear()
+      orderComplete.value = true
+      setTimeout(() => {
+        orderComplete.value = false
+      }, 10000)
+    }
   } catch (e) {
     alert(e.message || 'Ошибка оформления заказа')
   } finally {

@@ -6,7 +6,10 @@ import authRoutes from './routes/auth.js'
 import productRoutes from './routes/products.js'
 import categoryRoutes from './routes/categories.js'
 import orderRoutes from './routes/orders.js'
+import paymentRoutes from './routes/payment.js'
 import adminRoutes from './routes/admin.js'
+import partnerRoutes from './routes/partner.js'
+import partnerCabinetRoutes from './routes/partnerCabinet.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { uploadDir } from './utils/fileUpload.js'
 
@@ -24,7 +27,10 @@ app.use('/api/auth', authRoutes)
 app.use('/api/products', productRoutes)
 app.use('/api/categories', categoryRoutes)
 app.use('/api/orders', orderRoutes)
+app.use('/api/payment', paymentRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/admin/partners', partnerRoutes)
+app.use('/api/partner', partnerCabinetRoutes)
 
 app.use(errorHandler)
 

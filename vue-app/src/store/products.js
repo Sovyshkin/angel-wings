@@ -89,6 +89,24 @@ export const useProductStore = defineStore('products', () => {
     }
   }
 
+  async function initPayment(orderId) {
+    try {
+      const { data } = await axios.post(`${API_URL}/payment/init`, { orderId })
+      return data
+    } catch (e) {
+      throw new Error(e.response?.data?.error || 'Ошибка инициализации платежа')
+    }
+  }
+
+  async function checkPaymentStatus(orderId) {
+    try {
+      const { data } = await axios.get(`${API_URL}/payment/status/${orderId}`)
+      return data
+    } catch (e) {
+      return { paymentStatus: 'UNKNOWN' }
+    }
+  }
+
   return {
     products,
     categories,
@@ -102,6 +120,8 @@ export const useProductStore = defineStore('products', () => {
     createCategory,
     deleteCategory,
     createOrder,
-    fetchOrders
+    fetchOrders,
+    initPayment,
+    checkPaymentStatus
   }
 })
