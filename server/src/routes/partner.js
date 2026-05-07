@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid'
 const router = Router()
 const prisma = new PrismaClient()
 
-router.get('/partners', authenticate, requireAdmin, async (req, res, next) => {
+router.get('/', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { limit = 50, offset = 0 } = req.query
 
@@ -46,13 +46,13 @@ router.get('/partners', authenticate, requireAdmin, async (req, res, next) => {
   }
 })
 
-router.post('/partners', authenticate, requireAdmin, async (req, res, next) => {
+router.post('/', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { email, password, name, phone, percentage = 5.0 } = req.body
 
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
-      return res.status(400).json({ error: 'Email already exists' })
+      return res.status(400).json({ error: 'Пользователь с таким email уже существует' })
     }
 
     const hashedPassword = await bcrypt.hash(password, 10)
@@ -85,7 +85,7 @@ router.post('/partners', authenticate, requireAdmin, async (req, res, next) => {
   }
 })
 
-router.put('/partners/:id', authenticate, requireAdmin, async (req, res, next) => {
+router.put('/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { percentage, isActive } = req.body
 
@@ -106,7 +106,71 @@ router.put('/partners/:id', authenticate, requireAdmin, async (req, res, next) =
   }
 })
 
-router.delete('/partners/:id', authenticate, requireAdmin, async (req, res, next) => {
+router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const partner = await prisma.partner.findUnique({
+      where: { id: parseInt(req.params.id) },
+      include: {
+        user: { select: { id: true, email: true, name: true, phone: true, createdAt: true } },
+        partnerUsers: {
+          include: {
+            user: { select: { id: true, email: true, name: true, createdAt: true } }
+          },
+          orderBy: { boundAt: 'desc' }
+        },
+        commissions: {
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        },
+        promoCodes: true
+      }
+    })
+
+    if (!partner) {
+      return res.status(404).json({ error: 'Партнёр не найден' })
+    }
+
+    const totalCommission = partner.commissions.reduce((sum, c) => sum + c.amount, 0)
+
+    const recentOrders = await prisma.order.findMany({
+      where: {
+        commission: { partnerId: parseInt(req.params.id) }
+      },
+      include: {
+        items: { include: { product: { select: { title: true } } } },
+        user: { select: { email: true, name: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    })
+
+    res.json({
+      partner: {
+        ...partner,
+        totalCommission,
+        user: partner.user,
+        users: partner.partnerUsers.map(pu => ({
+          id: pu.user.id,
+          email: pu.user.email,
+          name: pu.user.name,
+          boundAt: pu.boundAt
+        })),
+        recentOrders: recentOrders.map(o => ({
+          id: o.id,
+          total: o.total,
+          status: o.status,
+          createdAt: o.createdAt,
+          user: o.user,
+          items: o.items
+        }))
+      }
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const partner = await prisma.partner.findUnique({
       where: { id: parseInt(req.params.id) },
@@ -114,7 +178,7 @@ router.delete('/partners/:id', authenticate, requireAdmin, async (req, res, next
     })
 
     if (!partner) {
-      return res.status(404).json({ error: 'Partner not found' })
+      return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
     await prisma.partner.delete({
@@ -174,7 +238,7 @@ router.post('/promo-codes', authenticate, requireAdmin, async (req, res, next) =
 
     const existing = await prisma.promoCode.findUnique({ where: { code } })
     if (existing) {
-      return res.status(400).json({ error: 'Promo code already exists' })
+      return res.status(400).json({ error: 'Промокод уже существует' })
     }
 
     const promoCode = await prisma.promoCode.create({
@@ -285,7 +349,7 @@ router.put('/partner-users/:userId/partner', authenticate, requireAdmin, async (
     })
 
     if (existingBinding) {
-      return res.status(400).json({ error: 'User is already bound to a partner. Unbind first.' })
+      return res.status(400).json({ error: 'Пользователь уже привязан к партнёру. Сначала отвяжите его.' })
     }
 
     const partner = await prisma.partner.findUnique({
@@ -293,7 +357,7 @@ router.put('/partner-users/:userId/partner', authenticate, requireAdmin, async (
     })
 
     if (!partner) {
-      return res.status(404).json({ error: 'Partner not found' })
+      return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
     const partnerUser = await prisma.partnerUser.create({

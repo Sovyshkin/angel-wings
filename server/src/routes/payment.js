@@ -29,12 +29,12 @@ router.post('/init', authenticate, async (req, res, next) => {
 
     if (!order) {
       console.log('[PAYMENT ROUTE] Ошибка: Заказ не найден')
-      return res.status(404).json({ error: 'Order not found' })
+      return res.status(404).json({ error: 'Заказ не найден' })
     }
 
     if (order.userId !== req.user.id && req.user.role !== 'ADMIN') {
       console.log('[PAYMENT ROUTE] Ошибка: Access denied')
-      return res.status(403).json({ error: 'Access denied' })
+      return res.status(403).json({ error: 'Доступ запрещён' })
     }
 
     const amount = Math.round(parseFloat(order.total) * 100)
@@ -72,7 +72,7 @@ router.post('/callback', async (req, res, next) => {
     const data = req.body
 
     if (!verifyCallback(data)) {
-      return res.status(400).json({ error: 'Invalid callback signature' })
+      return res.status(400).json({ error: 'Неверная подпись callback' })
     }
 
     const orderId = parseInt(data.OrderId)
@@ -103,11 +103,11 @@ router.get('/status/:orderId', authenticate, async (req, res, next) => {
     })
 
     if (!order) {
-      return res.status(404).json({ error: 'Order not found' })
+      return res.status(404).json({ error: 'Заказ не найден' })
     }
 
     if (order.userId !== req.user.id && req.user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Access denied' })
+      return res.status(403).json({ error: 'Доступ запрещён' })
     }
 
     if (order.paymentId) {
@@ -128,11 +128,11 @@ router.post('/cancel/:orderId', authenticate, requireAdmin, async (req, res, nex
     })
 
     if (!order) {
-      return res.status(404).json({ error: 'Order not found' })
+      return res.status(404).json({ error: 'Заказ не найден' })
     }
 
     if (!order.paymentId) {
-      return res.status(400).json({ error: 'No payment initiated for this order' })
+      return res.status(400).json({ error: 'Платёж для этого заказа не инициирован' })
     }
 
     const result = await cancelPayment(order.paymentId, req.body.reason || 'Cancelled by admin')

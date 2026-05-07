@@ -54,7 +54,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="partner in partners" :key="partner.id">
+            <tr v-for="partner in partners" :key="partner.id" class="clickable-row" @click="goToPartner(partner.id)">
               <td class="cell-id">{{ partner.id }}</td>
               <td class="cell-name">{{ partner.user.name }}</td>
               <td class="cell-email">{{ partner.user.email }}</td>
@@ -139,10 +139,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
 
+const router = useRouter()
 const API_URL = '/api/admin/partners'
-const STATS_URL = '/api/admin/stats/partner'
+const STATS_URL = '/api/admin/partners/stats/partner'
 
 const partners = ref([])
 const stats = ref({})
@@ -229,6 +231,10 @@ async function handleSubmit() {
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(value)
+}
+
+function goToPartner(id) {
+  router.push(`/partners/${id}`)
 }
 
 onMounted(() => {
@@ -541,5 +547,13 @@ onMounted(() => {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover td {
+  background: var(--bg-hover);
 }
 </style>

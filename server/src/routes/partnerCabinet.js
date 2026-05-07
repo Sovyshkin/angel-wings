@@ -13,7 +13,7 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
     })
 
     if (!partner) {
-      return res.status(404).json({ error: 'Partner not found' })
+      return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
     const [
@@ -84,7 +84,7 @@ router.get('/cabinet/promo-code', authenticate, requirePartner, async (req, res,
     })
 
     if (!partner) {
-      return res.status(404).json({ error: 'Partner not found' })
+      return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
     res.json({ promoCodes: partner.promoCodes, referralCode: partner.referralCode })
@@ -100,7 +100,7 @@ router.post('/cabinet/promo-code', authenticate, requirePartner, async (req, res
     })
 
     if (!partner) {
-      return res.status(404).json({ error: 'Partner not found' })
+      return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
     const { discountType = 'percentage', discountValue, usageType = 'multi', maxActivations = 100 } = req.body
@@ -133,7 +133,7 @@ router.get('/cabinet/users', authenticate, requirePartner, async (req, res, next
     })
 
     if (!partner) {
-      return res.status(404).json({ error: 'Partner not found' })
+      return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
     const where = { partnerId: partner.id }
@@ -198,7 +198,7 @@ router.get('/cabinet/commissions', authenticate, requirePartner, async (req, res
     })
 
     if (!partner) {
-      return res.status(404).json({ error: 'Partner not found' })
+      return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
     const where = { partnerId: partner.id }
@@ -241,7 +241,7 @@ router.get('/cabinet/payments', authenticate, requirePartner, async (req, res, n
     })
 
     if (!partner) {
-      return res.status(404).json({ error: 'Partner not found' })
+      return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
     const payments = await prisma.partnerPayment.findMany({
@@ -264,7 +264,7 @@ router.get('/cabinet/daily-stats', authenticate, requirePartner, async (req, res
     })
 
     if (!partner) {
-      return res.status(404).json({ error: 'Partner not found' })
+      return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
     const startDate = new Date()
@@ -347,7 +347,7 @@ router.get('/cabinet/export', authenticate, requirePartner, async (req, res, nex
     })
 
     if (!partner) {
-      return res.status(404).json({ error: 'Partner not found' })
+      return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
     const where = { partnerId: partner.id }

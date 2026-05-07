@@ -2,6 +2,7 @@ import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
+import { upload } from '../utils/fileUpload.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -79,7 +80,7 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
     
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
-      return res.status(400).json({ error: 'Email already exists' })
+      return res.status(400).json({ error: 'Пользователь с таким email уже существует' })
     }
     
     const hashedPassword = await bcrypt.hash(password, 10)
@@ -159,6 +160,21 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
   }
 })
 
+router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { status } = req.body
+
+    const order = await prisma.order.update({
+      where: { id: parseInt(req.params.id) },
+      data: { status }
+    })
+
+    res.json({ order })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { active, limit = 100, offset = 0 } = req.query
@@ -202,7 +218,7 @@ router.get('/products/:id', authenticate, requireAdmin, async (req, res, next) =
     })
 
     if (!product) {
-      return res.status(404).json({ error: 'Product not found' })
+      return res.status(404).json({ error: 'Товар не найден' })
     }
 
     const parsedProduct = {
@@ -211,6 +227,17 @@ router.get('/products/:id', authenticate, requireAdmin, async (req, res, next) =
     }
 
     res.json({ product: parsedProduct })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.delete('/products/:id', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    await prisma.product.delete({
+      where: { id: parseInt(req.params.id) }
+    })
+    res.json({ message: 'Товар удалён' })
   } catch (error) {
     next(error)
   }

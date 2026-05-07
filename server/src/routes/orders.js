@@ -12,29 +12,29 @@ async function applyPromoCode(code, userId) {
   })
 
   if (!promoCode || !promoCode.isActive) {
-    return { error: 'Promo code not found or inactive' }
+    return { error: 'Промокод не найден или неактивен' }
   }
 
   if (promoCode.startDate && new Date() < promoCode.startDate) {
-    return { error: 'Promo code is not yet active' }
+    return { error: 'Промокод ещё не активен' }
   }
 
   if (promoCode.endDate && new Date() > promoCode.endDate) {
-    return { error: 'Promo code has expired' }
+    return { error: 'Срок действия промокода истёк' }
   }
 
   if (promoCode.usageType === 'single' && promoCode.activationCount >= 1) {
-    return { error: 'Promo code has reached its usage limit' }
+    return { error: 'Промокод достиг лимита использований' }
   }
 
   if (promoCode.usageType === 'multi' && promoCode.activationCount >= promoCode.maxActivations) {
-    return { error: 'Promo code has reached its usage limit' }
+    return { error: 'Промокод достиг лимита использований' }
   }
 
   if (promoCode.isFirstPurchase) {
     const hasExistingOrders = await prisma.order.count({ where: { userId } }) > 0
     if (hasExistingOrders) {
-      return { error: 'This promo code is only for first purchase' }
+      return { error: 'Этот промокод только для первого заказа' }
     }
   }
 
@@ -102,7 +102,7 @@ router.post('/', authenticate, async (req, res, next) => {
     const { items, customerName, customerEmail, customerPhone, shippingAddress, notes, userId, promoCode } = req.body
 
     if (!items || items.length === 0) {
-      return res.status(400).json({ error: 'Cart is empty' })
+      return res.status(400).json({ error: 'Корзина пуста' })
     }
 
     const productIds = items.map(item => item.productId)
@@ -118,10 +118,10 @@ router.post('/', authenticate, async (req, res, next) => {
     for (const item of items) {
       const product = productMap.get(item.productId)
       if (!product) {
-        return res.status(400).json({ error: `Product ${item.productId} not found` })
+        return res.status(400).json({ error: `Товар ${item.productId} не найден` })
       }
       if (product.stock < item.quantity) {
-        return res.status(400).json({ error: `Not enough stock for ${product.title}` })
+        return res.status(400).json({ error: `Недостаточно товара "${product.title}"` })
       }
 
       const price = parseFloat(product.price)
@@ -148,7 +148,7 @@ router.post('/', authenticate, async (req, res, next) => {
       if (promoResult.minOrderAmount) {
         if (total < promoResult.minOrderAmount) {
           return res.status(400).json({
-            error: `Minimum order amount for this promo code is ${promoResult.minOrderAmount}`
+            error: `Минимальная сумма заказа для этого промокода: ${promoResult.minOrderAmount}`
           })
         }
         appliedPromoCode = promoResult.code
@@ -315,11 +315,11 @@ router.get('/:id', authenticate, async (req, res, next) => {
     })
     
     if (!order) {
-      return res.status(404).json({ error: 'Order not found' })
+      return res.status(404).json({ error: 'Заказ не найден' })
     }
     
     if (order.userId && order.userId !== req.user.id && req.user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Access denied' })
+      return res.status(403).json({ error: 'Доступ запрещён' })
     }
     
     res.json({ order })
@@ -333,7 +333,7 @@ router.put('/:id/status', authenticate, requireAdmin, async (req, res, next) => 
     const { status } = req.body
     
     if (!VALID_STATUSES.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' })
+      return res.status(400).json({ error: 'Неверный статус' })
     }
     
     const order = await prisma.order.update({

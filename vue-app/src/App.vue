@@ -353,6 +353,7 @@ onMounted(() => {
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
   transition: background 0.4s ease, border-color 0.4s ease;
+  overflow: hidden;
 }
 
 .header__container {
@@ -372,6 +373,31 @@ onMounted(() => {
   gap: 0.75rem;
   text-decoration: none;
   flex-shrink: 0;
+  min-width: 0;
+}
+
+.header-logo {
+  height: 100px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  color: var(--accent);
+  transition: color 0.4s ease;
+  width: 24px;
+  height: 24px;
+}
+
+.logo-text {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: 0.2em;
+  color: var(--text-primary);
+  transition: color 0.4s ease;
+  white-space: nowrap;
 }
 
 .header-logo {
@@ -849,6 +875,7 @@ onMounted(() => {
 
   .header__logo {
     gap: 0.5rem;
+    min-width: 0;
   }
 
   .header-logo {

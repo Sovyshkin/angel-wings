@@ -6,7 +6,7 @@ const TEST_MODE = process.env.TINKOFF_TEST_MODE === 'true'
 
 const API_URL = TEST_MODE
   ? 'https://rest-api-test.tinkoff.ru'
-  : 'https://rest-api.tinkoff.ru'
+  : 'https://securepay.tinkoff.ru'
 
 function log(level, message, data = null) {
   const timestamp = new Date().toISOString()

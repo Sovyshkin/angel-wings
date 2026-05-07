@@ -162,7 +162,7 @@ import axios from 'axios'
 const route = useRoute()
 const router = useRouter()
 
-const API_URL = '/api/admin'
+const API_URL = '/api/products'
 const isEdit = computed(() => !!route.params.id)
 
 const form = ref({
@@ -188,12 +188,12 @@ const loading = ref(false)
 const file = ref(null)
 
 async function fetchCategories() {
-  const { data } = await axios.get(`${API_URL}/categories`)
+  const { data } = await axios.get(`/api/categories`)
   categories.value = data.categories
 }
 
 async function fetchProduct() {
-  const { data } = await axios.get(`${API_URL}/products/${route.params.id}`)
+  const { data } = await axios.get(`${API_URL}/${route.params.id}`)
   const p = data.product
   form.value = {
     title: p.title,
@@ -270,12 +270,12 @@ async function handleSubmit() {
     if (file.value) formData.append('image', file.value)
     
     if (isEdit.value) {
-      await axios.put(`${API_URL}/products/${route.params.id}`, formData, {
+      await axios.put(`${API_URL}/${route.params.id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       success.value = 'Товар обновлен!'
     } else {
-      await axios.post(`${API_URL}/products`, formData, {
+      await axios.post(API_URL, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       success.value = 'Товар создан!'
