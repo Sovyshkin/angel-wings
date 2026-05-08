@@ -24,7 +24,6 @@
             <tr>
               <th>ID</th>
               <th>Название</th>
-              <th>Slug</th>
               <th>Товаров</th>
               <th>Статус</th>
               <th></th>
@@ -34,7 +33,6 @@
             <tr v-for="cat in categories" :key="cat.term_id">
               <td class="cell-id">{{ cat.term_id }}</td>
               <td class="cell-name">{{ cat.name }}</td>
-              <td class="cell-slug">{{ cat.slug }}</td>
               <td class="cell-count">{{ cat.count }}</td>
               <td>
                 <span :class="['badge', cat.active ? 'badge-success' : 'badge-danger']">
@@ -68,7 +66,6 @@
           </div>
           <div class="category-card__body">
             <h3 class="category-card__name">{{ cat.name }}</h3>
-            <p class="category-card__slug">{{ cat.slug }}</p>
             <p v-if="cat.description" class="category-card__desc">{{ cat.description }}</p>
           </div>
           <div class="category-card__actions">

@@ -193,7 +193,7 @@ async function fetchCategories() {
 }
 
 async function fetchProduct() {
-  const { data } = await axios.get(`${API_URL}/${route.params.id}`)
+  const { data } = await axios.get(`/api/admin/products/${route.params.id}`)
   const p = data.product
   form.value = {
     title: p.title,

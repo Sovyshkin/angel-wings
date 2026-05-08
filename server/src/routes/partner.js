@@ -7,195 +7,7 @@ import { v4 as uuidv4 } from 'uuid'
 const router = Router()
 const prisma = new PrismaClient()
 
-router.get('/', authenticate, requireAdmin, async (req, res, next) => {
-  try {
-    const { limit = 50, offset = 0 } = req.query
-
-    const [partners, total] = await Promise.all([
-      prisma.partner.findMany({
-        include: {
-          user: { select: { id: true, email: true, name: true, createdAt: true } },
-          _count: { select: { partnerUsers: true, commissions: true } },
-          commissions: { select: { amount: true } }
-        },
-        take: parseInt(limit),
-        skip: parseInt(offset),
-        orderBy: { createdAt: 'desc' }
-      }),
-      prisma.partner.count()
-    ])
-
-    const partnersWithStats = partners.map(p => {
-      const totalCommission = p.commissions.reduce((sum, c) => sum + c.amount, 0)
-      return {
-        id: p.id,
-        user: p.user,
-        percentage: p.percentage,
-        referralCode: p.referralCode,
-        isActive: p.isActive,
-        createdAt: p.createdAt,
-        usersCount: p._count.partnerUsers,
-        ordersCount: p._count.commissions,
-        totalCommission
-      }
-    })
-
-    res.json({ partners: partnersWithStats, total })
-  } catch (error) {
-    next(error)
-  }
-})
-
-router.post('/', authenticate, requireAdmin, async (req, res, next) => {
-  try {
-    const { email, password, name, phone, percentage = 5.0 } = req.body
-
-    const existing = await prisma.user.findUnique({ where: { email } })
-    if (existing) {
-      return res.status(400).json({ error: 'Пользователь с таким email уже существует' })
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10)
-    const referralCode = uuidv4().substring(0, 8).toUpperCase()
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        phone,
-        role: 'PARTNER'
-      }
-    })
-
-    const partner = await prisma.partner.create({
-      data: {
-        userId: user.id,
-        percentage,
-        referralCode
-      },
-      include: {
-        user: { select: { id: true, email: true, name: true } }
-      }
-    })
-
-    res.status(201).json({ partner })
-  } catch (error) {
-    next(error)
-  }
-})
-
-router.put('/:id', authenticate, requireAdmin, async (req, res, next) => {
-  try {
-    const { percentage, isActive } = req.body
-
-    const partner = await prisma.partner.update({
-      where: { id: parseInt(req.params.id) },
-      data: {
-        percentage: percentage !== undefined ? percentage : undefined,
-        isActive: isActive !== undefined ? isActive : undefined
-      },
-      include: {
-        user: { select: { id: true, email: true, name: true } }
-      }
-    })
-
-    res.json({ partner })
-  } catch (error) {
-    next(error)
-  }
-})
-
-router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
-  try {
-    const partner = await prisma.partner.findUnique({
-      where: { id: parseInt(req.params.id) },
-      include: {
-        user: { select: { id: true, email: true, name: true, phone: true, createdAt: true } },
-        partnerUsers: {
-          include: {
-            user: { select: { id: true, email: true, name: true, createdAt: true } }
-          },
-          orderBy: { boundAt: 'desc' }
-        },
-        commissions: {
-          orderBy: { createdAt: 'desc' },
-          take: 50
-        },
-        promoCodes: true
-      }
-    })
-
-    if (!partner) {
-      return res.status(404).json({ error: 'Партнёр не найден' })
-    }
-
-    const totalCommission = partner.commissions.reduce((sum, c) => sum + c.amount, 0)
-
-    const recentOrders = await prisma.order.findMany({
-      where: {
-        commission: { partnerId: parseInt(req.params.id) }
-      },
-      include: {
-        items: { include: { product: { select: { title: true } } } },
-        user: { select: { email: true, name: true } }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20
-    })
-
-    res.json({
-      partner: {
-        ...partner,
-        totalCommission,
-        user: partner.user,
-        users: partner.partnerUsers.map(pu => ({
-          id: pu.user.id,
-          email: pu.user.email,
-          name: pu.user.name,
-          boundAt: pu.boundAt
-        })),
-        recentOrders: recentOrders.map(o => ({
-          id: o.id,
-          total: o.total,
-          status: o.status,
-          createdAt: o.createdAt,
-          user: o.user,
-          items: o.items
-        }))
-      }
-    })
-  } catch (error) {
-    next(error)
-  }
-})
-
-router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
-  try {
-    const partner = await prisma.partner.findUnique({
-      where: { id: parseInt(req.params.id) },
-      include: { user: true }
-    })
-
-    if (!partner) {
-      return res.status(404).json({ error: 'Партнёр не найден' })
-    }
-
-    await prisma.partner.delete({
-      where: { id: parseInt(req.params.id) }
-    })
-
-    await prisma.user.update({
-      where: { id: partner.userId },
-      data: { role: 'USER' }
-    })
-
-    res.json({ message: 'Partner deleted' })
-  } catch (error) {
-    next(error)
-  }
-})
-
+// Resource routes - placed before /:id to avoid conflicts
 router.get('/promo-codes', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { limit = 50, offset = 0, partnerId } = req.query
@@ -506,6 +318,196 @@ router.get('/stats/partner', authenticate, requireAdmin, async (req, res, next) 
         totalCommissions: totalCommissions._sum.amount || 0
       }
     })
+  } catch (error) {
+    next(error)
+  }
+})
+
+// Partner routes with :id - placed after resource routes
+router.get('/', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { limit = 50, offset = 0 } = req.query
+
+    const [partners, total] = await Promise.all([
+      prisma.partner.findMany({
+        include: {
+          user: { select: { id: true, email: true, name: true, createdAt: true } },
+          _count: { select: { partnerUsers: true, commissions: true } },
+          commissions: { select: { amount: true } }
+        },
+        take: parseInt(limit),
+        skip: parseInt(offset),
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.partner.count()
+    ])
+
+    const partnersWithStats = partners.map(p => {
+      const totalCommission = p.commissions.reduce((sum, c) => sum + c.amount, 0)
+      return {
+        id: p.id,
+        user: p.user,
+        percentage: p.percentage,
+        referralCode: p.referralCode,
+        isActive: p.isActive,
+        createdAt: p.createdAt,
+        usersCount: p._count.partnerUsers,
+        ordersCount: p._count.commissions,
+        totalCommission
+      }
+    })
+
+    res.json({ partners: partnersWithStats, total })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { email, password, name, phone, percentage = 5.0 } = req.body
+
+    const existing = await prisma.user.findUnique({ where: { email } })
+    if (existing) {
+      return res.status(400).json({ error: 'Пользователь с таким email уже существует' })
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10)
+    const referralCode = uuidv4().substring(0, 8).toUpperCase()
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        phone,
+        role: 'PARTNER'
+      }
+    })
+
+    const partner = await prisma.partner.create({
+      data: {
+        userId: user.id,
+        percentage,
+        referralCode
+      },
+      include: {
+        user: { select: { id: true, email: true, name: true } }
+      }
+    })
+
+    res.status(201).json({ partner })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.put('/:id', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { percentage, isActive } = req.body
+
+    const partner = await prisma.partner.update({
+      where: { id: parseInt(req.params.id) },
+      data: {
+        percentage: percentage !== undefined ? percentage : undefined,
+        isActive: isActive !== undefined ? isActive : undefined
+      },
+      include: {
+        user: { select: { id: true, email: true, name: true } }
+      }
+    })
+
+    res.json({ partner })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const partner = await prisma.partner.findUnique({
+      where: { id: parseInt(req.params.id) },
+      include: {
+        user: { select: { id: true, email: true, name: true, phone: true, createdAt: true } },
+        partnerUsers: {
+          include: {
+            user: { select: { id: true, email: true, name: true, createdAt: true } }
+          },
+          orderBy: { boundAt: 'desc' }
+        },
+        commissions: {
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        },
+        promoCodes: true
+      }
+    })
+
+    if (!partner) {
+      return res.status(404).json({ error: 'Партнёр не найден' })
+    }
+
+    const totalCommission = partner.commissions.reduce((sum, c) => sum + c.amount, 0)
+
+    const recentOrders = await prisma.order.findMany({
+      where: {
+        commission: { partnerId: parseInt(req.params.id) }
+      },
+      include: {
+        items: { include: { product: { select: { title: true } } } },
+        user: { select: { email: true, name: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    })
+
+    res.json({
+      partner: {
+        ...partner,
+        totalCommission,
+        user: partner.user,
+        users: partner.partnerUsers.map(pu => ({
+          id: pu.user.id,
+          email: pu.user.email,
+          name: pu.user.name,
+          boundAt: pu.boundAt
+        })),
+        recentOrders: recentOrders.map(o => ({
+          id: o.id,
+          total: o.total,
+          status: o.status,
+          createdAt: o.createdAt,
+          user: o.user,
+          items: o.items
+        }))
+      }
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const partner = await prisma.partner.findUnique({
+      where: { id: parseInt(req.params.id) },
+      include: { user: true }
+    })
+
+    if (!partner) {
+      return res.status(404).json({ error: 'Партнёр не найден' })
+    }
+
+    await prisma.partner.delete({
+      where: { id: parseInt(req.params.id) }
+    })
+
+    await prisma.user.update({
+      where: { id: partner.userId },
+      data: { role: 'USER' }
+    })
+
+    res.json({ message: 'Partner deleted' })
   } catch (error) {
     next(error)
   }
