@@ -536,9 +536,9 @@ watch(() => route.query.category, (newCat) => {
 }
 
 .product-title {
-  font-family: var(--font-display);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 1.125rem;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 0.5rem;
   line-height: 1.3;
 }
@@ -548,6 +548,8 @@ watch(() => route.query.category, (newCat) => {
   color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 1.25rem;
+  white-space: pre-line;
+  word-break: break-word;
 }
 
 .product-footer {

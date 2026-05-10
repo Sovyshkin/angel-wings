@@ -122,6 +122,7 @@ const cartStore = useCartStore()
 
 const quantity = ref(1)
 const loading = ref(true)
+const justAdded = ref(false)
 
 const product = computed(() => {
   return productStore.products.find(p => p.id == route.params.id) || null
@@ -243,9 +244,9 @@ onMounted(async () => {
 }
 
 .product-title {
-  font-family: var(--font-display);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 2rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.2;
   margin-bottom: 1.5rem;
 }
@@ -293,6 +294,8 @@ onMounted(async () => {
 .product-description p {
   line-height: 1.7;
   color: var(--text-secondary);
+  white-space: pre-line;
+  word-break: break-word;
 }
 
 .product-specs {

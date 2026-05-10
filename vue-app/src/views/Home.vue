@@ -677,9 +677,9 @@ const featuredProducts = computed(() => {
 }
 
 .category-card h3 {
-  font-family: var(--font-display);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 1.125rem;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 0.5rem;
 }
 
@@ -746,9 +746,9 @@ const featuredProducts = computed(() => {
 }
 
 .featured-content h3 {
-  font-family: var(--font-display);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 1rem;
 }
 
