@@ -94,6 +94,21 @@
             </button>
           </div>
         </div>
+        
+        <div class="form-row" style="margin-top: 1.5rem;">
+          <div class="form-group">
+            <label class="form-label">Чистота</label>
+            <input type="text" v-model="form.purity" class="input" placeholder="99.9%">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Объём</label>
+            <input type="text" v-model="form.volume" class="input" placeholder="10 мл">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Страна</label>
+            <input type="text" v-model="form.country" class="input" placeholder="США">
+          </div>
+        </div>
       </div>
       
       <div class="form-section">
@@ -174,6 +189,9 @@ const form = ref({
   categoryId: '',
   description: '',
   specs: {},
+  purity: '',
+  volume: '',
+  country: '',
   featured: false,
   active: true,
   image: null
@@ -204,6 +222,9 @@ async function fetchProduct() {
     categoryId: p.categories?.[0]?.id || '',
     description: p.description,
     specs: p.specs || {},
+    purity: p.purity || '',
+    volume: p.volume || '',
+    country: p.country || '',
     featured: p.featured,
     active: p.active,
     image: p.image
@@ -266,6 +287,9 @@ async function handleSubmit() {
     formData.append('specs', specsToJson())
     formData.append('featured', form.value.featured)
     formData.append('active', form.value.active)
+    if (form.value.purity) formData.append('purity', form.value.purity)
+    if (form.value.volume) formData.append('volume', form.value.volume)
+    if (form.value.country) formData.append('country', form.value.country)
     if (form.value.categoryId) formData.append('categories', JSON.stringify([form.value.categoryId]))
     if (file.value) formData.append('image', file.value)
     

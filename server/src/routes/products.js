@@ -83,7 +83,7 @@ router.get('/:slug', async (req, res, next) => {
 
 router.post('/', authenticate, requireAdmin, upload.single('image'), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, sku, stock, specs, categories, featured, active } = req.body
+    const { title, description, price, comparePrice, sku, stock, specs, categories, featured, active, purity, volume, country } = req.body
     
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     
@@ -97,6 +97,9 @@ router.post('/', authenticate, requireAdmin, upload.single('image'), async (req,
         sku,
         stock: parseInt(stock) || 0,
         specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
+        purity: purity || null,
+        volume: volume || null,
+        country: country || null,
         image: req.file ? `/uploads/${req.file.filename}` : null,
         featured: featured === 'true',
         active: active !== 'false',
@@ -114,7 +117,7 @@ router.post('/', authenticate, requireAdmin, upload.single('image'), async (req,
 
 router.put('/:id', authenticate, requireAdmin, upload.single('image'), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, sku, stock, specs, categories, featured, active } = req.body
+    const { title, description, price, comparePrice, sku, stock, specs, categories, featured, active, purity, volume, country } = req.body
     
     const updateData = {
       title,
@@ -124,6 +127,9 @@ router.put('/:id', authenticate, requireAdmin, upload.single('image'), async (re
       sku,
       stock: parseInt(stock) || 0,
       specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
+      purity: purity || null,
+      volume: volume || null,
+      country: country || null,
       featured: featured === 'true',
       active: active !== 'false'
     }

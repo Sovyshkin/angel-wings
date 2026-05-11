@@ -45,7 +45,18 @@
             <p>{{ product.description }}</p>
           </div>
           
-          <div class="product-specs" v-if="product.specs && Object.keys(product.specs).length">
+          <div class="product-country" v-if="product.country">
+            <div class="country-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+              <span>{{ product.country }}</span>
+            </div>
+          </div>
+          
+          <div class="product-specs" v-if="hasSpecs">
             <h3>Характеристики</h3>
             <div class="specs-table">
               <div class="spec-row" v-for="(value, key) in product.specs" :key="key">
@@ -126,6 +137,10 @@ const justAdded = ref(false)
 
 const product = computed(() => {
   return productStore.products.find(p => p.id == route.params.id) || null
+})
+
+const hasSpecs = computed(() => {
+  return product.value?.specs && Object.keys(product.value.specs).length > 0
 })
 
 function getCategoryName(slug) {
@@ -278,6 +293,31 @@ onMounted(async () => {
   margin-left: 0.5rem;
 }
 
+.product-country {
+  margin-bottom: 1.5rem;
+}
+
+.country-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(135deg, var(--accent-dim), rgba(59, 130, 246, 0.1));
+  border: 1px solid var(--accent);
+  border-radius: 100px;
+  color: var(--accent);
+}
+
+.country-badge svg {
+  flex-shrink: 0;
+}
+
+.country-badge span {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .product-description {
   margin-bottom: 2rem;
 }
@@ -296,6 +336,43 @@ onMounted(async () => {
   color: var(--text-secondary);
   white-space: pre-line;
   word-break: break-word;
+}
+
+.product-attributes {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.attributes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.attribute-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.attribute-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.attribute-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .product-specs {
