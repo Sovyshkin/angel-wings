@@ -165,7 +165,7 @@
               <li><a href="#">Гарантии</a></li>
               <li><a href="#">Частые вопросы</a></li>
               <li><a href="#">Контакты</a></li>
-              <li><a href="/policy.pdf" target="_blank" rel="noopener">Политика</a></li>
+              <li><a href="/policy.pdf" target="_blank" rel="noopener">Политика Конфиденциальности</a></li>
               <li><a href="/public-offer-2026.pdf" target="_blank" rel="noopener">Публичная оферта</a></li>
             </ul>
           </div>
@@ -214,13 +214,21 @@
               <span class="payment-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
               </span>
-              <span class="payment-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"/><path d="M12 6v6l4 2"/><path d="M8.5 15.5l-1.5 1.5 2 2 2.5-2.5M15.5 15.5l1.5 1.5-2 2-2.5-2.5"/></svg>
+              <span class="payment-icon payment-icon--sbp" aria-label="СБП">
+                <svg width="19" height="24" viewBox="0 0 97 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0 26.12l14.532 25.975v15.844L.017 93.863 0 26.12z" fill="#5B57A2"/>
+                  <path d="M55.797 42.643l13.617-8.346 27.868-.026-41.485 25.414V42.643z" fill="#D90751"/>
+                  <path d="M55.72 25.967l.077 34.39-14.566-8.95V0l14.49 25.967z" fill="#FAB718"/>
+                  <path d="M97.282 34.271l-27.869.026-13.693-8.33L41.231 0l56.05 34.271z" fill="#ED6F26"/>
+                  <path d="M55.797 94.007V77.322l-14.566-8.78.008 51.458 14.558-25.993z" fill="#63B22F"/>
+                  <path d="M69.38 85.737L14.531 52.095 0 26.12l97.223 59.583-27.844.034z" fill="#1487C9"/>
+                  <path d="M41.24 120l14.556-25.993 13.583-8.27 27.843-.034L41.24 120z" fill="#017F36"/>
+                  <path d="M.017 93.863l41.333-25.32-13.896-8.526-12.922 7.922L.017 93.863z" fill="#984995"/>
+                </svg>
               </span>
-              <span class="payment-icon">PayPal</span>
             </div>
           </div>
-          <p class="footer__copyright">© 2026 Peptidi Shop. Все права защищены.</p>
+          <p class="footer__copyright">© 2026 Angel Wings. Все права защищены.</p>
         </div>
       </div>
     </footer>
@@ -728,11 +736,25 @@ onMounted(() => {
 }
 
 .payment-icon {
-  padding: 0.35rem 0.6rem;
+  width: 52px;
+  height: 34px;
+  padding: 0;
   background: var(--bg-secondary);
   border-radius: 6px;
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-secondary);
+}
+
+.payment-icon--sbp {
+  line-height: 1;
+}
+
+.payment-icon svg {
+  width: 26px;
+  height: 26px;
+  display: block;
 }
 
 .footer__copyright {
