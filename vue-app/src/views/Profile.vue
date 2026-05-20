@@ -64,7 +64,7 @@
                 </div>
                 <div class="info-item">
                   <span class="info-label">Дата регистрации</span>
-                  <span class="info-value">{{ formatDate(authStore.user?.registered) }}</span>
+                  <span class="info-value">{{ formatDate(authStore.user?.createdAt) }}</span>
                 </div>
               </div>
             </div>

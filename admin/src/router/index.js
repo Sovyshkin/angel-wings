@@ -26,7 +26,8 @@ const routes = [
       { path: 'users', name: 'AdminUsers', component: () => import('../views/Users.vue') },
       { path: 'partners', name: 'AdminPartners', component: () => import('../views/Partners.vue') },
       { path: 'partners/:id', name: 'PartnerDetail', component: () => import('../views/PartnerDetail.vue') },
-      { path: 'promo-codes', name: 'PromoCodes', component: () => import('../views/PromoCodes.vue') }
+      { path: 'promo-codes', name: 'PromoCodes', component: () => import('../views/PromoCodes.vue') },
+      { path: 'cdek', name: 'Cdek', component: () => import('../views/Cdek.vue') }
     ]
   }
 ]

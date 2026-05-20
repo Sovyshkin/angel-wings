@@ -6,6 +6,21 @@ const router = Router()
 const prisma = new PrismaClient()
 const VALID_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
 
+function getDosagePriceFromSpecs(product, selectedDosage) {
+  if (!selectedDosage || !product?.specs) return null
+
+  try {
+    const specs = typeof product.specs === 'string' ? JSON.parse(product.specs) : product.specs
+    const dosages = Array.isArray(specs?.dosages) ? specs.dosages : []
+    const matched = dosages.find(d => typeof d?.dosage === 'string' && d.dosage.trim() === selectedDosage.trim())
+    if (!matched) return null
+    if (matched.price === undefined || matched.price === null || matched.price === '') return null
+    return Math.max(0, parseFloat(matched.price) || 0)
+  } catch {
+    return null
+  }
+}
+
 async function applyPromoCode(code, userId) {
   const promoCode = await prisma.promoCode.findUnique({
     where: { code: code.toUpperCase() }
@@ -97,9 +112,20 @@ async function calculateCommission(orderId, partnerId, userId, orderTotal) {
   })
 }
 
+// Создание заказа - требуется авторизация
 router.post('/', authenticate, async (req, res, next) => {
   try {
-    const { items, customerName, customerEmail, customerPhone, shippingAddress, notes, userId, promoCode } = req.body
+    const { 
+      items, 
+      customerName, 
+      customerEmail, 
+      customerPhone, 
+      shippingAddress, 
+      notes, 
+      userId, 
+      promoCode,
+      delivery 
+    } = req.body
 
     if (!items || items.length === 0) {
       return res.status(400).json({ error: 'Корзина пуста' })
@@ -124,14 +150,20 @@ router.post('/', authenticate, async (req, res, next) => {
         return res.status(400).json({ error: `Недостаточно товара "${product.title}"` })
       }
 
-      const price = parseFloat(product.price)
+      const dosagePrice = getDosagePriceFromSpecs(product, item.selectedDosage)
+      const price = dosagePrice !== null ? dosagePrice : parseFloat(product.price)
       total += price * item.quantity
       orderItems.push({
         productId: item.productId,
+        dosage: item.selectedDosage || null,
         quantity: item.quantity,
         price
       })
     }
+
+    // Add delivery price to total
+    const deliveryPrice = delivery?.price || 0
+    const orderTotal = total + deliveryPrice
 
     let discountAmount = 0
     let appliedPromoCode = null
@@ -146,7 +178,7 @@ router.post('/', authenticate, async (req, res, next) => {
       }
 
       if (promoResult.minOrderAmount) {
-        if (total < promoResult.minOrderAmount) {
+        if (orderTotal < promoResult.minOrderAmount) {
           return res.status(400).json({
             error: `Минимальная сумма заказа для этого промокода: ${promoResult.minOrderAmount}`
           })
@@ -160,9 +192,9 @@ router.post('/', authenticate, async (req, res, next) => {
         promoCodeId = appliedPromoCode.id
 
         if (appliedPromoCode.discountType === 'percentage') {
-          discountAmount = total * (appliedPromoCode.discountValue / 100)
+          discountAmount = orderTotal * (appliedPromoCode.discountValue / 100)
         } else {
-          discountAmount = Math.min(appliedPromoCode.discountValue, total)
+          discountAmount = Math.min(appliedPromoCode.discountValue, orderTotal)
         }
 
         if (appliedPromoCode.partnerId) {
@@ -205,11 +237,18 @@ router.post('/', authenticate, async (req, res, next) => {
           customerPhone,
           shippingAddress,
           notes,
-          total: total - discountAmount,
+          total: orderTotal - discountAmount,
           userId: actualUserId,
           promoCodeId,
           discountAmount,
           partnerId,
+          // Delivery info
+          deliveryTariffCode: delivery?.tariff_code,
+          deliveryTariffName: delivery?.tariff_name,
+          deliveryPrice: deliveryPrice,
+          deliveryCity: delivery?.city,
+          deliveryPickupPoint: delivery?.pickup_point,
+          deliveryPickupName: delivery?.pickup_point_name,
           items: {
             create: orderItems
           }
@@ -244,14 +283,14 @@ router.post('/', authenticate, async (req, res, next) => {
       }
 
       if (partnerId) {
-        const orderTotal = total - discountAmount
+        const commissionTotal = orderTotal - discountAmount
         const partner = await tx.partner.findUnique({
           where: { id: partnerId }
         })
 
         if (partner && partner.isActive) {
           const percentage = partner.percentage || 5.0
-          const commissionAmount = orderTotal * (percentage / 100)
+          const commissionAmount = commissionTotal * (percentage / 100)
 
           await tx.partnerCommission.create({
             data: {

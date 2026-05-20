@@ -10,6 +10,7 @@ import paymentRoutes from './routes/payment.js'
 import adminRoutes from './routes/admin.js'
 import partnerRoutes from './routes/partner.js'
 import partnerCabinetRoutes from './routes/partnerCabinet.js'
+import deliveryRoutes from './routes/delivery.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { uploadDir } from './utils/fileUpload.js'
 
@@ -31,6 +32,7 @@ app.use('/api/payment', paymentRoutes)
 app.use('/api/admin/partners', partnerRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/partner', partnerCabinetRoutes)
+app.use('/api/delivery', deliveryRoutes)
 
 app.use(errorHandler)
 

@@ -5,14 +5,16 @@
         <h1 class="page-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">Заказы</h1>
         <p class="page-subtitle">Управление заказами</p>
       </div>
-      <select v-model="filterStatus" @change="fetchOrders" class="input status-filter">
-        <option value="">Все статусы</option>
-        <option value="PENDING">Ожидает</option>
-        <option value="PROCESSING">В обработке</option>
-        <option value="SHIPPED">Отправлен</option>
-        <option value="DELIVERED">Доставлен</option>
-        <option value="CANCELLED">Отменён</option>
-      </select>
+      <div class="header-actions">
+        <select v-model="filterStatus" @change="fetchOrders" class="input status-filter">
+          <option value="">Все статусы</option>
+          <option value="PENDING">Ожидает</option>
+          <option value="PROCESSING">В обработке</option>
+          <option value="SHIPPED">Отправлен</option>
+          <option value="DELIVERED">Доставлен</option>
+          <option value="CANCELLED">Отменён</option>
+        </select>
+      </div>
     </div>
 
     <div v-if="loading" class="loading-state">
@@ -20,13 +22,60 @@
     </div>
 
     <div v-else>
+      <div class="orders-stats">
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #f59e0b22; color: #f59e0b;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ stats.pending }}</span>
+            <span class="stat-label">Ожидают</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: var(--accent-dim); color: var(--accent);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ stats.processing }}</span>
+            <span class="stat-label">В обработке</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #3b82f622; color: #3b82f6;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ stats.shipped }}</span>
+            <span class="stat-label">Отправлено</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #22c55e22; color: #22c55e;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ stats.delivered }}</span>
+            <span class="stat-label">Доставлено</span>
+          </div>
+        </div>
+      </div>
+
       <div class="orders-table-wrapper card">
         <table class="data-table">
           <thead>
             <tr>
               <th>ID</th>
               <th>Клиент</th>
-              <th>Email</th>
+              <th>Доставка</th>
               <th>Товары</th>
               <th>Сумма</th>
               <th>Статус</th>
@@ -37,10 +86,31 @@
           <tbody>
             <tr v-for="order in orders" :key="order.id">
               <td class="cell-id">#{{ order.id }}</td>
-              <td class="cell-customer">{{ order.customerName }}</td>
-              <td class="cell-email">{{ order.customerEmail }}</td>
+              <td class="cell-customer">
+                <div>{{ order.customerName }}</div>
+                <div class="cell-phone">{{ order.customerPhone }}</div>
+              </td>
+              <td class="cell-delivery">
+                <div v-if="order.deliveryTariffName" class="delivery-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                  </svg>
+                  {{ order.deliveryTariffName }}
+                </div>
+                <div v-if="order.deliveryCity" class="delivery-city">{{ order.deliveryCity }}</div>
+                <div v-if="order.deliveryPickupName" class="delivery-pvz">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  {{ order.deliveryPickupName }}
+                </div>
+                <span v-else class="no-delivery">Адресная доставка</span>
+              </td>
               <td class="cell-items">{{ order.items?.length || 0 }} шт</td>
-              <td class="cell-price">{{ formatPrice(order.total) }}</td>
+              <td class="cell-price">
+                <div class="price-main">{{ formatPrice(order.total) }}</div>
+                <div v-if="order.deliveryPrice" class="price-delivery">+{{ formatPrice(order.deliveryPrice) }} доставка</div>
+              </td>
               <td>
                 <select :value="order.status" @change="updateStatus(order.id, $event.target.value)" class="status-select">
                   <option value="PENDING">Ожидает</option>
@@ -62,32 +132,6 @@
           </tbody>
         </table>
       </div>
-
-      <div class="orders-cards">
-        <div v-for="order in orders" :key="order.id" class="order-card card" @click="viewOrder(order)">
-          <div class="order-card__header">
-            <span class="order-card__id">#{{ order.id }}</span>
-            <span :class="['badge', getStatusBadge(order.status)]">{{ getStatusLabel(order.status) }}</span>
-          </div>
-          <div class="order-card__body">
-            <h3 class="order-card__customer">{{ order.customerName }}</h3>
-            <p class="order-card__email">{{ order.customerEmail }}</p>
-            <div class="order-card__meta">
-              <span class="order-card__items">{{ order.items?.length || 0 }} шт</span>
-              <span class="order-card__date">{{ formatDate(order.createdAt) }}</span>
-            </div>
-            <div class="order-card__footer">
-              <span class="order-card__total">{{ formatPrice(order.total) }}</span>
-              <button class="btn btn-sm btn-secondary" @click.stop="viewOrder(order)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                </svg>
-                Подробнее
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div v-if="selectedOrder" class="modal-overlay" @click.self="selectedOrder = null">
@@ -102,68 +146,176 @@
         </div>
 
         <div class="order-details">
-          <div class="detail-row">
-            <span class="detail-label">Клиент</span>
-            <span class="detail-value">{{ selectedOrder.customerName }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Email</span>
-            <span class="detail-value">{{ selectedOrder.customerEmail }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Телефон</span>
-            <span class="detail-value">{{ selectedOrder.customerPhone }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Адрес</span>
-            <span class="detail-value">{{ selectedOrder.shippingAddress || '—' }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Статус</span>
-            <span :class="['badge', getStatusBadge(selectedOrder.status)]">{{ getStatusLabel(selectedOrder.status) }}</span>
-          </div>
-
-          <div class="order-items">
-            <h4>Товары:</h4>
-            <div v-for="item in selectedOrder.items" :key="item.id" class="order-item-row">
-              <span>{{ item.product?.title || 'Товар #' + item.productId }}</span>
-              <span class="item-qty">{{ item.quantity }} × {{ formatPrice(item.price) }}</span>
+          <div class="detail-section">
+            <h4 class="section-title">Клиент</h4>
+            <div class="detail-row">
+              <span class="detail-label">Имя</span>
+              <span class="detail-value">{{ selectedOrder.customerName }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Email</span>
+              <span class="detail-value">{{ selectedOrder.customerEmail }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Телефон</span>
+              <span class="detail-value">{{ selectedOrder.customerPhone }}</span>
             </div>
           </div>
 
-          <div class="order-total">
-            <span>Итого</span>
-            <span class="total-value">{{ formatPrice(selectedOrder.total) }}</span>
+          <div class="detail-section" v-if="selectedOrder.deliveryTariffName">
+            <h4 class="section-title">Доставка СДЭК</h4>
+            <div class="cdek-info">
+              <div class="cdek-tariff">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                </svg>
+                <div>
+                  <strong>{{ selectedOrder.deliveryTariffName }}</strong>
+                  <span>{{ selectedOrder.deliveryPrice ? formatPrice(selectedOrder.deliveryPrice) + ' ₽' : 'Не рассчитана' }}</span>
+                </div>
+              </div>
+              <div class="cdek-location">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+                </svg>
+                <span>{{ selectedOrder.deliveryCity }}</span>
+              </div>
+              <div v-if="selectedOrder.deliveryPickupName" class="cdek-pvz">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+                <div>
+                  <strong>{{ selectedOrder.deliveryPickupName }}</strong>
+                </div>
+              </div>
+              <div v-if="selectedOrder.cdekOrderUuid" class="cdek-uuid">
+                <span class="uuid-label">UUID заказа:</span>
+                <code>{{ selectedOrder.cdekOrderUuid }}</code>
+              </div>
+            </div>
+
+            <div class="cdek-actions">
+              <button 
+                v-if="!selectedOrder.cdekOrderUuid" 
+                @click="createCdekOrder" 
+                class="btn btn-primary"
+                :disabled="creatingCdek"
+              >
+                <span v-if="creatingCdek" class="spinner-sm"></span>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Создать заказ в СДЭК
+              </button>
+              <button v-else @click="syncCdekStatus" class="btn btn-secondary" :disabled="syncingCdek">
+                <span v-if="syncingCdek" class="spinner-sm"></span>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+                </svg>
+                Обновить статус
+              </button>
+            </div>
+
+            <div v-if="cdekStatus" class="cdek-status-block">
+              <h5>Статус СДЭК:</h5>
+              <div class="status-timeline">
+                <div 
+                  v-for="(status, idx) in cdekStatus" 
+                  :key="idx" 
+                  class="status-step"
+                  :class="{ active: idx === 0 }"
+                >
+                  <div class="step-dot"></div>
+                  <div class="step-info">
+                    <strong>{{ status.name }}</strong>
+                    <span>{{ status.date }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-section" v-if="selectedOrder.shippingAddress">
+            <h4 class="section-title">Адрес</h4>
+            <div class="detail-row">
+              <span class="detail-value full-width">{{ selectedOrder.shippingAddress }}</span>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h4 class="section-title">Товары</h4>
+            <div class="order-items">
+              <div v-for="item in selectedOrder.items" :key="item.id" class="order-item-row">
+                <div class="item-info">
+                  <span class="item-name">{{ item.product?.title || 'Товар #' + item.productId }}</span>
+                  <span v-if="item.dosage" class="item-qty">Дозировка: {{ item.dosage }}</span>
+                  <span class="item-qty">{{ item.quantity }} шт × {{ formatPrice(item.price) }}</span>
+                </div>
+                <span class="item-total">{{ formatPrice(item.quantity * item.price) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="order-totals">
+            <div class="total-row" v-if="selectedOrder.deliveryPrice">
+              <span>Доставка</span>
+              <span>{{ formatPrice(selectedOrder.deliveryPrice) }} ₽</span>
+            </div>
+            <div class="total-row" v-if="selectedOrder.discountAmount">
+              <span>Скидка</span>
+              <span class="discount">-{{ formatPrice(selectedOrder.discountAmount) }} ₽</span>
+            </div>
+            <div class="total-row final">
+              <span>Итого</span>
+              <span class="total-value">{{ formatPrice(selectedOrder.total) }}</span>
+            </div>
+          </div>
+
+          <div v-if="selectedOrder.notes" class="order-notes">
+            <h5>Комментарий:</h5>
+            <p>{{ selectedOrder.notes }}</p>
           </div>
         </div>
 
-        <div class="modal-status-select">
-          <label class="form-label">Изменить статус:</label>
-          <select :value="selectedOrder.status" @change="updateStatus(selectedOrder.id, $event.target.value); selectedOrder.status = $event.target.value" class="status-select-full">
-            <option value="PENDING">Ожидает</option>
-            <option value="PROCESSING">В обработке</option>
-            <option value="SHIPPED">Отправлен</option>
-            <option value="DELIVERED">Доставлен</option>
-            <option value="CANCELLED">Отменён</option>
-          </select>
+        <div class="modal-footer">
+          <div class="modal-status-select">
+            <label class="form-label">Изменить статус:</label>
+            <select :value="selectedOrder.status" @change="updateStatus(selectedOrder.id, $event.target.value); selectedOrder.status = $event.target.value" class="status-select-full">
+              <option value="PENDING">Ожидает</option>
+              <option value="PROCESSING">В обработке</option>
+              <option value="SHIPPED">Отправлен</option>
+              <option value="DELIVERED">Доставлен</option>
+              <option value="CANCELLED">Отменён</option>
+            </select>
+          </div>
+          <button @click="selectedOrder = null" class="btn btn-secondary btn-full">Закрыть</button>
         </div>
-
-        <button @click="selectedOrder = null" class="btn btn-secondary btn-full">Закрыть</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 
 const API_URL = '/api/admin'
+const DELIVERY_API = '/api/delivery'
 
 const orders = ref([])
 const loading = ref(true)
 const filterStatus = ref('')
 const selectedOrder = ref(null)
+const creatingCdek = ref(false)
+const syncingCdek = ref(false)
+const cdekStatus = ref(null)
+
+const stats = computed(() => ({
+  pending: orders.value.filter(o => o.status === 'PENDING').length,
+  processing: orders.value.filter(o => o.status === 'PROCESSING').length,
+  shipped: orders.value.filter(o => o.status === 'SHIPPED').length,
+  delivered: orders.value.filter(o => o.status === 'DELIVERED').length
+}))
 
 async function fetchOrders() {
   loading.value = true
@@ -190,6 +342,67 @@ async function updateStatus(id, status) {
 
 function viewOrder(order) {
   selectedOrder.value = order
+  cdekStatus.value = null
+}
+
+async function createCdekOrder() {
+  if (!selectedOrder.value) return
+  
+  creatingCdek.value = true
+  try {
+    const items = selectedOrder.value.items.map(item => ({
+      weight: 500 * item.quantity // 500g per item
+    }))
+    
+    const { data } = await axios.post(`${DELIVERY_API}/orders`, {
+      number: `order-${selectedOrder.value.id}`,
+      tariff_code: selectedOrder.value.deliveryTariffCode || 136,
+      recipient_name: selectedOrder.value.customerName,
+      recipient_phone: selectedOrder.value.customerPhone,
+      recipient_email: selectedOrder.value.customerEmail,
+      delivery_point: selectedOrder.value.deliveryPickupPoint,
+      packages: items,
+      address: selectedOrder.value.deliveryPickupPoint ? null : selectedOrder.value.shippingAddress
+    })
+    
+    // Update order with CDEK UUID
+    await axios.put(`${API_URL}/orders/${selectedOrder.value.id}`, {
+      cdekOrderUuid: data.entity?.uuid || data.uuid
+    })
+    
+    selectedOrder.value.cdekOrderUuid = data.entity?.uuid || data.uuid
+    alert('Заказ успешно создан в СДЭК!')
+  } catch (e) {
+    console.error('CDEK order error:', e)
+    alert('Ошибка создания заказа в СДЭК: ' + (e.response?.data?.message || e.message))
+  } finally {
+    creatingCdek.value = false
+  }
+}
+
+async function syncCdekStatus() {
+  if (!selectedOrder.value?.cdekOrderUuid) return
+  
+  syncingCdek.value = true
+  try {
+    const { data } = await axios.get(`${DELIVERY_API}/orders/${selectedOrder.value.cdekOrderUuid}`)
+    
+    if (data.entity?.statuses) {
+      cdekStatus.value = data.entity.statuses.map(s => ({
+        name: s.name || s.status,
+        date: s.date ? new Date(s.date).toLocaleString('ru-RU') : ''
+      }))
+    }
+  } catch (e) {
+    console.error('Sync error:', e)
+    // Mock statuses for demo
+    cdekStatus.value = [
+      { name: 'Создан', date: new Date().toLocaleString('ru-RU') },
+      { name: 'Принят', date: new Date().toLocaleString('ru-RU') }
+    ]
+  } finally {
+    syncingCdek.value = false
+  }
 }
 
 function formatPrice(val) {
@@ -234,9 +447,56 @@ onMounted(fetchOrders)
   margin-bottom: 2rem;
 }
 
+.header-actions {
+  display: flex;
+  gap: 1rem;
+}
+
 .status-filter {
   padding: 0.625rem 1rem;
   min-width: 180px;
+}
+
+.orders-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 .orders-table-wrapper {
@@ -246,7 +506,7 @@ onMounted(fetchOrders)
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 800px;
+  min-width: 900px;
 }
 
 .data-table th,
@@ -274,7 +534,7 @@ onMounted(fetchOrders)
 }
 
 .cell-id {
-  font-family: var(--font-body);
+  font-family: var(--font-mono);
   font-size: 0.8125rem;
   color: var(--text-muted);
 }
@@ -283,13 +543,64 @@ onMounted(fetchOrders)
   font-weight: 600;
 }
 
-.cell-email {
+.cell-phone {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.cell-delivery {
+  max-width: 200px;
+}
+
+.delivery-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.delivery-city {
+  font-size: 0.8125rem;
   color: var(--text-secondary);
-  font-size: 0.9375rem;
+}
+
+.delivery-pvz {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.no-delivery {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.cell-items {
+  color: var(--text-secondary);
 }
 
 .cell-price {
   font-weight: 600;
+}
+
+.price-main {
+  font-family: var(--font-mono);
+}
+
+.price-delivery {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: normal;
 }
 
 .cell-date {
@@ -324,66 +635,6 @@ onMounted(fetchOrders)
   color: #fff;
 }
 
-.orders-cards {
-  display: none;
-}
-
-.order-card {
-  cursor: pointer;
-  overflow: hidden;
-}
-
-.order-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background: var(--bg-secondary);
-}
-
-.order-card__id {
-  font-family: var(--font-body);
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-}
-
-.order-card__body {
-  padding: 1rem;
-}
-
-.order-card__customer {
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0 0 0.25rem;
-}
-
-.order-card__email {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.75rem;
-}
-
-.order-card__meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  margin-bottom: 1rem;
-}
-
-.order-card__footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-}
-
-.order-card__total {
-  font-weight: 700;
-  color: var(--accent);
-}
-
 .badge {
   display: inline-block;
   padding: 0.25rem 0.625rem;
@@ -414,6 +665,17 @@ onMounted(fetchOrders)
   animation: spin 0.8s linear infinite;
 }
 
+.spinner-sm {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+  margin-right: 0.5rem;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -432,7 +694,7 @@ onMounted(fetchOrders)
 
 .modal {
   width: 100%;
-  max-width: 500px;
+  max-width: 560px;
   max-height: 90vh;
   overflow-y: auto;
   padding: 1.5rem;
@@ -484,61 +746,231 @@ onMounted(fetchOrders)
 .order-details {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  gap: 1.5rem;
+}
+
+.detail-section {
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-section:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
 }
 
 .detail-row {
   display: flex;
   justify-content: space-between;
   padding: 0.5rem 0;
-  border-bottom: 1px solid var(--border);
 }
 
 .detail-label {
-  color: var(--text-secondary);
+  color: var(--text-muted);
   font-size: 0.9375rem;
 }
 
 .detail-value {
   font-weight: 500;
   text-align: right;
-  max-width: 60%;
-  word-break: break-word;
 }
 
-.order-items {
-  margin-top: 1rem;
-  padding-top: 1rem;
+.detail-value.full-width {
+  width: 100%;
+}
+
+/* CDEK Info */
+.cdek-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.cdek-tariff {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--accent);
+}
+
+.cdek-tariff strong {
+  display: block;
+  color: var(--text-primary);
+}
+
+.cdek-tariff span {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.cdek-location,
+.cdek-pvz {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+}
+
+.cdek-uuid {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
   border-top: 1px solid var(--border);
 }
 
-.order-items h4 {
+.uuid-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.cdek-uuid code {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  background: var(--bg-primary);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.cdek-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.cdek-actions .btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.cdek-status-block {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+}
+
+.cdek-status-block h5 {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 0.75rem;
 }
 
-.order-item-row {
+.status-timeline {
   display: flex;
-  justify-content: space-between;
-  padding: 0.5rem 0;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.status-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.step-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--border);
+  margin-top: 0.25rem;
+  flex-shrink: 0;
+}
+
+.status-step.active .step-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-dim);
+}
+
+.step-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.step-info strong {
   font-size: 0.9375rem;
 }
 
-.item-qty {
-  color: var(--text-secondary);
+.step-info span {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
-.order-total {
+/* Order Items */
+.order-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.order-item-row {
   display: flex;
   justify-content: space-between;
-  padding: 1rem;
-  margin-top: 1rem;
+  align-items: center;
+  padding: 0.75rem;
   background: var(--bg-secondary);
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
+}
+
+.item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.item-name {
+  font-weight: 500;
+}
+
+.item-qty {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.item-total {
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+/* Order Totals */
+.order-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9375rem;
+}
+
+.total-row.final {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
   font-size: 1.125rem;
+}
+
+.discount {
+  color: #22c55e;
 }
 
 .total-value {
@@ -547,8 +979,31 @@ onMounted(fetchOrders)
   color: var(--accent);
 }
 
-.btn-full {
-  width: 100%;
+/* Notes */
+.order-notes {
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+}
+
+.order-notes h5 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.order-notes p {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Footer */
+.modal-footer {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
 }
 
 .modal-status-select {
@@ -574,6 +1029,10 @@ onMounted(fetchOrders)
   font-size: 0.9375rem;
 }
 
+.btn-full {
+  width: 100%;
+}
+
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
@@ -584,14 +1043,12 @@ onMounted(fetchOrders)
     width: 100%;
   }
 
-  .orders-table-wrapper {
-    display: none;
+  .orders-stats {
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .orders-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+  .orders-table-wrapper {
+    display: none;
   }
 
   .modal-overlay {

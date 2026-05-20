@@ -30,13 +30,19 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function translateError(message) {
+    // Order matters - more specific messages first
+    if (message.includes('Email уже зарегистрирован') || message.includes('Email already exists')) {
+      return 'Пользователь с таким email уже существует'
+    }
+    if (message.includes('Неверный формат')) {
+      return 'Неверный формат email'
+    }
+    
     const errors = {
       'Invalid credentials': 'Неверный email или пароль',
       'User not found': 'Пользователь не найден',
       'Incorrect password': 'Неверный пароль',
-      'Email already exists': 'Пользователь с таким email уже существует',
       'Validation error': 'Ошибка валидации',
-      'email': 'Неверный формат email',
       'password': 'Пароль должен содержать минимум 8 символов',
       'Network Error': 'Ошибка сети. Проверьте подключение к интернету',
     }
@@ -46,7 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
         return value
       }
     }
-    return 'Произошла ошибка. Попробуйте снова.'
+    return message || 'Произошла ошибка. Попробуйте снова.'
   }
 
   async function register(userData) {

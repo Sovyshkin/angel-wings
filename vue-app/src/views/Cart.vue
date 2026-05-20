@@ -24,11 +24,81 @@
       </div>
     </Transition>
 
+    <Transition name="modal">
+      <div v-if="orderError" class="order-success-overlay">
+        <div class="order-error-card">
+          <div class="error-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          </div>
+          <h3>Что-то пошло не так</h3>
+          <p>{{ orderError }}</p>
+          <div class="error-order-id">Заказ #{{ lastOrderId }}</div>
+          <div class="error-actions">
+            <button class="btn btn-secondary" @click="orderError = null">Закрыть</button>
+            <button class="btn btn-primary" @click="retryOrder">Попробовать снова</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Login Required Modal -->
+    <Transition name="modal">
+      <div v-if="showLoginModal" class="login-modal-overlay" @click.self="showLoginModal = false">
+        <div class="login-modal-card">
+          <button class="login-modal-close" @click="showLoginModal = false">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+          
+          <div class="login-modal-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          
+          <h3 class="login-modal-title">Вход в аккаунт</h3>
+          <p class="login-modal-subtitle">Войдите, чтобы оформить заказ</p>
+          
+          <div class="login-form">
+            <div class="login-input-group">
+              <label>Email</label>
+              <input v-model="loginForm.email" type="email" class="login-input" placeholder="your@email.com">
+            </div>
+            <div class="login-input-group">
+              <label>Пароль</label>
+              <input v-model="loginForm.password" type="password" class="login-input" placeholder="Введите пароль">
+            </div>
+            
+            <div v-if="loginError" class="login-error">{{ loginError }}</div>
+            
+            <button class="login-btn login-btn-primary" @click="handleLogin" :disabled="loggingIn">
+              <span v-if="loggingIn" class="spinner"></span>
+              {{ loggingIn ? 'Вход...' : 'Войти' }}
+            </button>
+            
+            <div class="login-or">
+              <span>Нет аккаунта?</span>
+              <router-link to="/auth" class="login-link" @click="showLoginModal = false">
+                Зарегистрироваться
+              </router-link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <div class="container">
       <div v-if="cartStore.items.length === 0" class="empty" data-aos="fade-up">
         <div class="empty-icon">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
             <line x1="3" y1="6" x2="21" y2="6"/>
             <path d="M16 10a4 4 0 0 1-8 0"/>
           </svg>
@@ -53,7 +123,7 @@
             <span class="col-remove"></span>
           </div>
           
-          <div class="cart-item" v-for="item in cartStore.items" :key="item.id">
+          <div class="cart-item" v-for="item in cartStore.items" :key="item.cartKey || `${item.id}::${item.selectedDosage || ''}`">
             <div class="col-product">
               <div class="item-image">
                 <img v-if="item.image" :src="item.image" :alt="item.title" @error="$event.target.style.display='none'">
@@ -66,6 +136,7 @@
               </div>
               <div class="item-info">
                 <h4>{{ item.title }}</h4>
+                <span v-if="item.selectedDosage" class="item-category">Дозировка: {{ item.selectedDosage }}</span>
                 <span class="item-category">{{ getCategoryName(item.categories?.[0]?.slug) }}</span>
               </div>
             </div>
@@ -87,7 +158,7 @@
               </div>
             </div>
             <div class="col-total">{{ (item.price * item.quantity).toLocaleString() }} ₽</div>
-            <button class="col-remove item-remove" @click="cartStore.removeItem(item.id)">
+            <button class="col-remove item-remove" @click="cartStore.removeItem(item.id, item.selectedDosage)">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
@@ -118,14 +189,219 @@
               <span>{{ cartStore.total.toLocaleString() }} ₽</span>
             </div>
             <div class="summary-row">
-              <span>Доставка</span>
-              <span class="delivery-calc">Рассчитывается</span>
+              <span>Доставка СДЭК</span>
+              <div class="delivery-info">
+                <span v-if="deliveryPrice > 0" class="delivery-price">{{ deliveryPrice.toLocaleString() }} ₽</span>
+                <span v-else class="delivery-calc">Не выбрана</span>
+                <span v-if="deliveryInfo.period_min && deliveryInfo.period_max" class="delivery-period">
+                  {{ deliveryInfo.period_min }}-{{ deliveryInfo.period_max }} дн.
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Delivery Details Card -->
+          <div v-if="deliveryPrice > 0" class="delivery-details-card">
+            <div class="delivery-detail-header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="1" y="3" width="15" height="13"/>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+                <circle cx="5.5" cy="18.5" r="2.5"/>
+                <circle cx="18.5" cy="18.5" r="2.5"/>
+              </svg>
+              <span>Информация о доставке</span>
+            </div>
+            <div class="delivery-detail-row">
+              <span>Срок доставки:</span>
+              <span>{{ deliveryInfo.period_min }}-{{ deliveryInfo.period_max }} рабочих дней</span>
+            </div>
+            <div v-if="deliveryInfo.delivery_date_min" class="delivery-detail-row">
+              <span>Дата прибытия:</span>
+              <span>{{ formatDate(deliveryInfo.delivery_date_min) }} — {{ formatDate(deliveryInfo.delivery_date_max) }}</span>
+            </div>
+            <div class="delivery-detail-row">
+              <span>Вес посылки:</span>
+              <span>{{ (cartStore.totalWeight / 1000).toFixed(2) }} кг</span>
+            </div>
+            <div class="delivery-detail-row">
+              <span>Тариф:</span>
+              <span>{{ deliveryType === 'pvz' ? 'ПВЗ СДЭК' : 'Курьер СДЭК' }}</span>
             </div>
           </div>
           
           <div class="summary-total">
             <span>Итого</span>
-            <span class="total-value">{{ cartStore.total.toLocaleString() }} ₽</span>
+            <span class="total-value">{{ totalWithDelivery.toLocaleString() }} ₽</span>
+          </div>
+          
+          <!-- Delivery Type Selection -->
+          <div class="pickup-section">
+            <h4>Способ получения</h4>
+            
+            <div class="delivery-type-options">
+              <label 
+                class="delivery-type-option"
+                :class="{ selected: deliveryType === 'pvz' }"
+              >
+                <input 
+                  type="radio" 
+                  value="pvz" 
+                  v-model="deliveryType"
+                  @change="onDeliveryTypeChange"
+                >
+                <div class="option-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                </div>
+                <div class="option-content">
+                  <strong>Пункт выдачи</strong>
+                  <span>Забрать в ПВЗ СДЭК</span>
+                </div>
+              </label>
+              
+              <label 
+                class="delivery-type-option"
+                :class="{ selected: deliveryType === 'courier' }"
+              >
+                <input 
+                  type="radio" 
+                  value="courier" 
+                  v-model="deliveryType"
+                  @change="onDeliveryTypeChange"
+                >
+                <div class="option-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="1" y="3" width="15" height="13"/>
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+                    <circle cx="5.5" cy="18.5" r="2.5"/>
+                    <circle cx="18.5" cy="18.5" r="2.5"/>
+                  </svg>
+                </div>
+                <div class="option-content">
+                  <strong>Курьер</strong>
+                  <span>Доставка до двери</span>
+                </div>
+              </label>
+            </div>
+
+            <div v-if="loadingDelivery" class="loading-pickup">
+              <span class="spinner"></span>
+              Расчёт стоимости...
+            </div>
+
+            <!-- PVZ Selection -->
+            <div v-if="!loadingDelivery && deliveryType === 'pvz' && !selectedPickupPoint" class="pvz-section">
+              <div class="pickup-search">
+                <input 
+                  v-model="citySearch" 
+                  type="text" 
+                  class="input" 
+                  placeholder="Введите название города..."
+                  @keyup.enter="searchCityAndPickup"
+                >
+                <button class="btn btn-secondary" @click="searchCityAndPickup" :disabled="loadingPickup">
+                  Найти
+                </button>
+              </div>
+              
+              <div v-if="foundCityName" class="found-info">
+                ПВЗ в г. {{ foundCityName }}:
+              </div>
+              
+              <div class="pickup-list">
+                <label 
+                  v-for="point in pickupPoints" 
+                  :key="point.code" 
+                  class="pickup-point"
+                  :class="{ selected: selectedPickupPoint?.code === point.code }"
+                >
+                  <input 
+                    type="radio" 
+                    :value="point" 
+                    v-model="selectedPickupPoint"
+                    @change="onPickupSelect"
+                  >
+                  <div class="point-content">
+                    <strong>{{ point.name }}</strong>
+                    <span class="point-address">{{ point.address }}</span>
+                    <span v-if="point.work_time" class="point-time">{{ point.work_time }}</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Selected PVZ -->
+            <div v-if="!loadingDelivery && selectedPickupPoint && deliveryType === 'pvz'" class="selected-pickup">
+              <div class="pickup-point selected">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <div class="point-content">
+                  <strong>{{ selectedPickupPoint.name }}</strong>
+                  <span class="point-address">{{ selectedPickupPoint.address }}</span>
+                  <span v-if="selectedPickupPoint.work_time" class="point-time">{{ selectedPickupPoint.work_time }}</span>
+                </div>
+              </div>
+              <button class="btn-change-pickup" @click="changeDelivery">Изменить</button>
+            </div>
+
+            <!-- Courier Address -->
+            <div v-if="!loadingDelivery && deliveryType === 'courier' && !courierAddress" class="courier-section">
+              <div class="pickup-search">
+                <input 
+                  v-model="citySearch" 
+                  type="text" 
+                  class="input" 
+                  placeholder="Введите название города..."
+                  @keyup.enter="searchCityAndPickup"
+                >
+                <button class="btn btn-secondary" @click="searchCityAndPickup" :disabled="loadingPickup">
+                  Найти
+                </button>
+              </div>
+              
+              <div v-if="foundCityName" class="found-info">
+                Доставка в г. {{ foundCityName }}
+              </div>
+              
+              <div class="form-group" style="margin-top: 1rem;">
+                <label>Адрес доставки</label>
+                <textarea 
+                  v-model="addressInput" 
+                  class="input" 
+                  rows="3" 
+                  placeholder="Улица, дом, квартира..."
+                ></textarea>
+              </div>
+              
+              <button 
+                class="btn btn-primary" 
+                style="width: 100%; margin-top: 1rem;"
+                @click="selectCourierDelivery"
+                :disabled="!foundCityName || !addressInput"
+              >
+                Подтвердить адрес
+              </button>
+            </div>
+
+            <!-- Selected Courier -->
+            <div v-if="!loadingDelivery && courierAddress && deliveryType === 'courier'" class="selected-pickup">
+              <div class="pickup-point selected">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <div class="point-content">
+                  <strong>Доставка курьером</strong>
+                  <span class="point-address">{{ foundCityName }}</span>
+                  <span class="point-time">{{ courierAddress }}</span>
+                </div>
+              </div>
+              <button class="btn-change-pickup" @click="changeDelivery">Изменить</button>
+            </div>
           </div>
           
           <div class="checkout-form">
@@ -146,14 +422,6 @@
               </div>
             </div>
             <div class="form-group">
-              <label>Адрес доставки</label>
-              <textarea v-model="customer.address" class="input" rows="2" placeholder="Город, улица, дом, квартира" :disabled="authStore.isAuthenticated" required></textarea>
-            </div>
-            <div class="form-group" v-if="!authStore.isAuthenticated">
-              <label>Комментарий к заказу</label>
-              <textarea v-model="customer.comment" class="input" rows="2" placeholder="Дополнительные пожелания..."></textarea>
-            </div>
-            <div class="form-group" v-if="authStore.isAuthenticated">
               <label>Комментарий к заказу</label>
               <textarea v-model="customer.comment" class="input" rows="2" placeholder="Дополнительные пожелания..."></textarea>
             </div>
@@ -179,20 +447,42 @@ import { useRouter } from 'vue-router'
 import { useCartStore } from '../store/cart'
 import { useProductStore } from '../store/products'
 import { useAuthStore } from '../store/auth'
+import axios from 'axios'
 
 const router = useRouter()
 const cartStore = useCartStore()
 const productStore = useProductStore()
 const authStore = useAuthStore()
 
-const customer = ref({ name: '', phone: '', email: '', address: '', comment: '' })
+const customer = ref({ name: '', phone: '', email: '', comment: '' })
 const ordering = ref(false)
 const orderComplete = ref(false)
+const orderError = ref(null)
 const lastOrderId = ref(null)
+const showLoginModal = ref(false)
+const loginForm = ref({ email: '', password: '' })
+const loginError = ref('')
+const loggingIn = ref(false)
 
-const isFormValid = computed(() => {
-  return customer.value.name && customer.value.phone && customer.value.email && customer.value.address
-})
+// Delivery state
+const deliveryType = ref('pvz') // 'pvz' or 'courier'
+const citySearch = ref('')
+const foundCityName = ref('')
+const foundCityCode = ref('')
+const pickupPoints = ref([])
+const selectedPickupPoint = ref(null)
+const courierAddress = ref('')
+const addressInput = ref('')
+const loadingPickup = ref(false)
+const loadingDelivery = ref(false)
+const deliveryPrice = ref(0)
+const deliveryInfo = ref({})
+
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+}
 
 function getCategoryName(slug) {
   if (!slug) return ''
@@ -201,12 +491,12 @@ function getCategoryName(slug) {
 }
 
 function increaseQty(item) {
-  cartStore.updateQuantity(item.id, item.quantity + 1)
+  cartStore.updateQuantity(item.id, item.quantity + 1, item.selectedDosage)
 }
 
 function decreaseQty(item) {
   if (item.quantity > 1) {
-    cartStore.updateQuantity(item.id, item.quantity - 1)
+    cartStore.updateQuantity(item.id, item.quantity - 1, item.selectedDosage)
   }
 }
 
@@ -216,7 +506,6 @@ function prefillFromProfile() {
       name: authStore.user.name || '',
       phone: authStore.user.phone || '',
       email: authStore.user.email || '',
-      address: authStore.user.address || '',
       comment: ''
     }
   }
@@ -227,29 +516,268 @@ function continueShopping() {
   router.push('/catalog')
 }
 
-async function placeOrder() {
-  ordering.value = true
+function retryOrder() {
+  orderError.value = null
+  // User can try again
+}
+
+function changeDelivery() {
+  selectedPickupPoint.value = null
+  courierAddress.value = ''
+  addressInput.value = ''
+  deliveryPrice.value = 0
+  deliveryInfo.value = {}
+  cartStore.setDeliveryPrice(0)
+}
+
+function onDeliveryTypeChange() {
+  changeDelivery()
+}
+
+async function searchCityAndPickup() {
+  if (!citySearch.value || citySearch.value.length < 3) return
+  
+  loadingPickup.value = true
+  pickupPoints.value = []
+  foundCityName.value = ''
+  foundCityCode.value = ''
+  
   try {
-    const result = await productStore.createOrder(
-      cartStore.items,
-      customer.value,
-      authStore.isAuthenticated ? authStore.user?.id : null
-    )
-    lastOrderId.value = result.order?.id
-
-    const paymentResult = await productStore.initPayment(lastOrderId.value)
-
-    if (paymentResult.Success && paymentResult.PaymentURL) {
-      window.location.href = paymentResult.PaymentURL
-    } else {
-      cartStore.clear()
-      orderComplete.value = true
-      setTimeout(() => {
-        orderComplete.value = false
-      }, 10000)
+    const res = await axios.post('/api/delivery/find-city', { name: citySearch.value })
+    if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      const city = res.data[0]
+      foundCityName.value = city.city
+      foundCityCode.value = city.code
+      
+      // Load pickup points
+      const pointsRes = await axios.get(`/api/delivery/pickup-points?city_code=${city.code}&limit=50`)
+      pickupPoints.value = pointsRes.data || []
+      
+      // Calculate courier price for this city
+      calculateCourierPrice()
     }
   } catch (e) {
-    alert(e.message || 'Ошибка оформления заказа')
+    console.error('City search error:', e)
+  } finally {
+    loadingPickup.value = false
+  }
+}
+
+async function calculateCourierPrice() {
+  if (!foundCityCode.value) return
+  
+  loadingDelivery.value = true
+  try {
+    const res = await axios.post('/api/delivery/calculate-by-tariff', {
+      tariff_code: 137, // Courier tariff
+      from_code: 270, // Moscow
+      to_code: foundCityCode.value,
+      weight: cartStore.totalWeight
+    })
+    
+    console.log('CDEK Response:', res.data)
+    
+    // Handle both response formats (total_sum or total_price)
+    const price = res.data?.total_sum || res.data?.total_price || res.data?.delivery_sum
+    if (price) {
+      deliveryPrice.value = price
+      deliveryInfo.value = {
+        period_min: res.data.period_min,
+        period_max: res.data.period_max,
+        delivery_date_min: res.data.delivery_date_range?.min,
+        delivery_date_max: res.data.delivery_date_range?.max
+      }
+      cartStore.setDeliveryPrice(price)
+    }
+  } catch (e) {
+    console.error('Delivery calculation error:', e)
+    deliveryPrice.value = 0
+    deliveryInfo.value = {}
+    cartStore.setDeliveryPrice(0)
+  } finally {
+    loadingDelivery.value = false
+  }
+}
+
+async function onPickupSelect() {
+  if (!selectedPickupPoint.value) return
+  
+  loadingDelivery.value = true
+  try {
+    const res = await axios.post('/api/delivery/calculate-by-tariff', {
+      tariff_code: 136, // PVZ tariff
+      from_code: 270,
+      to_code: foundCityCode.value,
+      weight: cartStore.totalWeight
+    })
+    
+    console.log('CDEK Response:', res.data)
+    
+    // Handle both response formats (total_sum or total_price)
+    const price = res.data?.total_sum || res.data?.total_price || res.data?.delivery_sum
+    if (price) {
+      deliveryPrice.value = price
+      deliveryInfo.value = {
+        period_min: res.data.period_min,
+        period_max: res.data.period_max,
+        delivery_date_min: res.data.delivery_date_range?.min,
+        delivery_date_max: res.data.delivery_date_range?.max
+      }
+      cartStore.setDeliveryPrice(price)
+    }
+  } catch (e) {
+    console.error('Delivery calculation error:', e)
+    deliveryPrice.value = 0
+    deliveryInfo.value = {}
+    cartStore.setDeliveryPrice(0)
+  } finally {
+    loadingDelivery.value = false
+  }
+}
+
+function selectCourierDelivery() {
+  if (!foundCityName.value || !addressInput.value) return
+  
+  courierAddress.value = addressInput.value
+  calculateCourierPrice()
+}
+
+const totalWithDelivery = computed(() => {
+  return cartStore.total + deliveryPrice.value
+})
+
+const isFormValid = computed(() => {
+  const hasContact = customer.value.name && customer.value.phone && customer.value.email
+  const hasDelivery = deliveryType.value === 'pvz' ? selectedPickupPoint.value : courierAddress.value
+  return hasContact && hasDelivery
+})
+
+async function handleLogin() {
+  loginError.value = ''
+  loggingIn.value = true
+  
+  try {
+    const { data } = await axios.post('/api/auth/login', {
+      email: loginForm.value.email,
+      password: loginForm.value.password
+    })
+    
+    authStore.setAuth(data.token, data.user)
+    showLoginModal.value = false
+    loginForm.value = { email: '', password: '' }
+    prefillFromProfile()
+  } catch (e) {
+    loginError.value = e.response?.data?.message || 'Неверный email или пароль'
+  } finally {
+    loggingIn.value = false
+  }
+}
+
+async function placeOrder() {
+  if (!isFormValid.value) {
+    alert('Пожалуйста, заполните все обязательные поля')
+    return
+  }
+  
+  // Check if user is authenticated
+  if (!authStore.isAuthenticated) {
+    showLoginModal.value = true
+    return
+  }
+  
+  ordering.value = true
+  try {
+    const deliveryData = {
+      price: deliveryPrice.value,
+      city: foundCityName.value
+    }
+    
+    if (deliveryType.value === 'pvz') {
+      deliveryData.tariff_code = 136
+      deliveryData.tariff_name = 'Экспресс лайт склад-склад'
+      deliveryData.pickup_point = selectedPickupPoint.value.code
+      deliveryData.pickup_point_name = selectedPickupPoint.value.name
+      deliveryData.address = selectedPickupPoint.value.address
+    } else {
+      deliveryData.tariff_code = 137
+      deliveryData.tariff_name = 'Экспресс лайт склад-дверь'
+      deliveryData.address = courierAddress.value
+    }
+    
+    const orderData = {
+      items: cartStore.items.map(item => ({
+        productId: item.id,
+        quantity: item.quantity,
+        selectedDosage: item.selectedDosage || null
+      })),
+      customerName: customer.value.name,
+      customerEmail: customer.value.email,
+      customerPhone: customer.value.phone,
+      notes: customer.value.comment,
+      delivery: deliveryData
+    }
+    
+    if (authStore.isAuthenticated && authStore.user?.id) {
+      orderData.userId = authStore.user.id
+    }
+    
+    const { data } = await axios.post('/api/orders', orderData)
+    lastOrderId.value = data.order?.id
+    
+    // Create CDEK order - critical error if fails
+    let cdekSuccess = false
+    try {
+      await axios.post('/api/delivery/orders', {
+        number: `order-${lastOrderId.value}`,
+        tariff_code: deliveryData.tariff_code,
+        recipient_name: customer.value.name,
+        recipient_phone: customer.value.phone,
+        recipient_email: customer.value.email,
+        delivery_point: deliveryData.pickup_point,
+        packages: [{
+          weight: cartStore.totalWeight,
+          name: 'Товар',
+          cost: cartStore.total,
+          amount: cartStore.count
+        }]
+      })
+      cdekSuccess = true
+    } catch (e) {
+      console.error('CDEK order creation error:', e)
+      orderError.value = 'Ошибка создания заказа в системе доставки СДЭК. Пожалуйста, попробуйте позже или выберите другой способ доставки.'
+      ordering.value = false
+      return
+    }
+    
+    // Create Tochka payment link
+    try {
+      const paymentResponse = await axios.post('/api/payment/create', {
+        orderId: lastOrderId.value,
+        amount: totalWithDelivery.value,
+        description: `Оплата заказа #${lastOrderId.value}`
+      })
+
+      if (paymentResponse.data.success && paymentResponse.data.paymentUrl) {
+        // Redirect to Tochka payment page
+        window.location.href = paymentResponse.data.paymentUrl
+        return // Don't clear cart - user will return from payment
+      }
+    } catch (e) {
+      console.error('Payment creation error:', e)
+      // Payment failed but order was created - show warning
+      orderError.value = 'Заказ создан, но не удалось создать ссылку для оплаты. Свяжитесь с нами для оплаты.'
+      ordering.value = false
+      return
+    }
+    
+    // If we get here without redirect, something unexpected happened
+    cartStore.clear()
+    orderComplete.value = true
+    setTimeout(() => {
+      orderComplete.value = false
+    }, 10000)
+  } catch (e) {
+    orderError.value = e.response?.data?.message || e.message || 'Ошибка оформления заказа'
   } finally {
     ordering.value = false
   }
@@ -300,7 +828,7 @@ watch(() => authStore.user, () => {
 
 .cart__layout {
   display: grid;
-  grid-template-columns: 1fr 420px;
+  grid-template-columns: 1fr 480px;
   gap: 3rem;
   align-items: start;
 }
@@ -499,7 +1027,7 @@ watch(() => authStore.user, () => {
 }
 
 .summary-items {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .summary-row {
@@ -511,9 +1039,59 @@ watch(() => authStore.user, () => {
   border-bottom: 1px solid var(--border);
 }
 
+.delivery-price {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .delivery-calc {
   color: var(--text-muted);
   font-style: italic;
+}
+
+.delivery-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.125rem;
+}
+
+.delivery-period {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.delivery-details-card {
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.delivery-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.delivery-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.375rem 0;
+  font-size: 0.8125rem;
+}
+
+.delivery-detail-row span:first-child {
+  color: var(--text-muted);
+}
+
+.delivery-detail-row span:last-child {
+  font-weight: 600;
 }
 
 .summary-total {
@@ -536,11 +1114,191 @@ watch(() => authStore.user, () => {
   color: var(--accent);
 }
 
+/* Pickup Section */
+.pickup-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+}
+
+.pickup-section h4 {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+}
+
+/* Delivery Type Options */
+.delivery-type-options {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.delivery-type-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delivery-type-option:hover {
+  border-color: var(--accent);
+}
+
+.delivery-type-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.delivery-type-option input {
+  display: none;
+}
+
+.option-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  color: var(--text-secondary);
+}
+
+.delivery-type-option.selected .option-icon {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.option-content strong {
+  font-size: 0.875rem;
+}
+
+.option-content span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.pickup-search {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pickup-search .input {
+  flex: 1;
+}
+
+.loading-pickup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.found-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.pickup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.pickup-point {
+  display: flex;
+  padding: 0.75rem;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pickup-point:hover {
+  border-color: var(--accent);
+}
+
+.pickup-point.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.pickup-point input {
+  margin-right: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.point-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.point-content strong {
+  font-size: 0.9rem;
+}
+
+.point-address,
+.point-time {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Selected Pickup */
+.selected-pickup {
+  margin-top: 1rem;
+}
+
+.selected-pickup .pickup-point {
+  flex: 1;
+}
+
+.btn-change-pickup {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-change-pickup:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Form */
 .checkout-form h4 {
   font-family: var(--font-display);
   font-size: 0.9rem;
   font-weight: 700;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
   color: var(--text-secondary);
 }
 
@@ -568,289 +1326,363 @@ watch(() => authStore.user, () => {
   width: 100%;
   margin-top: 1rem;
   padding: 1rem;
-  font-size: 1rem;
 }
 
-.success-message {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  padding: 1rem;
-  background: rgba(166, 185, 248, 0.1);
-  border: 1px solid rgba(166, 185, 248, 0.2);
-  border-radius: 12px;
-  color: var(--accent);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.success-message svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.profile-prompt-overlay,
+/* Modal Overlay */
 .order-success-overlay {
   position: fixed;
-  inset: 0;
-  z-index: 1000;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(8px);
+  z-index: 1000;
   padding: 1rem;
 }
 
-.profile-prompt-card,
 .order-success-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 24px;
+  border-radius: 20px;
   padding: 2.5rem;
   max-width: 420px;
   width: 100%;
   text-align: center;
-  animation: cardPopIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
-.prompt-icon,
-.success-checkmark {
-  width: 80px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent-dim);
-  border-radius: 50%;
-  margin: 0 auto 1.5rem;
+.order-success-card .success-checkmark {
   color: var(--accent);
+  margin-bottom: 1.5rem;
 }
 
-.success-checkmark {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-  animation: checkmarkPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
-}
-
-.profile-prompt-card h3,
 .order-success-card h3 {
   font-family: var(--font-display);
   font-size: 1.5rem;
-  font-weight: 800;
   margin-bottom: 0.75rem;
 }
 
-.profile-prompt-card p,
 .order-success-card p {
-  color: var(--text-secondary);
+  color: var(--text-muted);
   margin-bottom: 1.5rem;
-  line-height: 1.6;
-}
-
-.prompt-missing {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-  margin-bottom: 1.5rem;
-}
-
-.missing-tag {
-  padding: 0.375rem 0.875rem;
-  background: rgba(255, 100, 100, 0.1);
-  border: 1px solid var(--danger);
-  border-radius: 100px;
-  color: var(--danger);
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.prompt-actions,
-.order-success-card button {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: center;
-  margin-top: 1rem;
-}
-
-.prompt-actions .btn,
-.order-success-card .btn {
-  flex: 1;
-  justify-content: center;
 }
 
 .success-order-id {
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-  color: var(--accent);
-  background: var(--accent-dim);
-  padding: 0.5rem 1rem;
-  border-radius: 100px;
   display: inline-block;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
   margin-bottom: 1.5rem;
 }
 
-.order-success-card .btn {
+/* Error Card */
+.order-error-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2.5rem;
+  max-width: 420px;
   width: 100%;
-  padding: 1rem;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
-@keyframes cardPopIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+.order-error-card .error-icon {
+  color: var(--danger);
+  margin-bottom: 1.5rem;
 }
 
-@keyframes checkmarkPop {
-  0% {
-    opacity: 0;
-    transform: scale(0) rotate(-180deg);
-  }
-  50% {
-    transform: scale(1.2) rotate(10deg);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(0);
-  }
+.order-error-card h3 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.3s ease;
+.order-error-card p {
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
 }
 
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
+.error-order-id {
+  display: inline-block;
+  background: rgba(255, 100, 100, 0.1);
+  color: var(--danger);
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
 }
 
-@media (max-width: 1024px) {
+.error-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.error-actions .btn {
+  min-width: 120px;
+}
+
+/* Login Modal */
+.login-modal {
+  position: relative;
+  padding: 0;
+}
+
+.login-icon {
+  color: var(--accent);
+  margin-bottom: 1rem;
+}
+
+.login-modal p {
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.login-form {
+  width: 100%;
+}
+
+.login-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(255, 100, 100, 0.1);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.login-divider {
+  text-align: center;
+  color: var(--text-muted);
+  margin: 1rem 0;
+  font-size: 0.85rem;
+}
+
+.login-modal .btn-secondary {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.login-modal .btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-close-modal {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.btn-close-modal:hover {
+  background: var(--bg-secondary);
+  color: var(--text);
+}
+
+@media (max-width: 768px) {
   .cart__layout {
     grid-template-columns: 1fr;
   }
-
-  .cart__summary {
-    position: static;
-  }
-
-  .cart-header {
-    display: none;
-  }
-
-  .cart-item {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
-  .col-price,
-  .col-quantity,
-  .col-total {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .col-price::before { content: 'Цена:'; color: var(--text-muted); font-size: 0.8rem; }
-  .col-total::before { content: 'Сумма:'; color: var(--text-muted); font-size: 0.8rem; }
-
-  .col-remove {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-  }
-
-  .cart-item {
-    position: relative;
-    padding-right: 3rem;
-  }
-
+  
   .form-row {
     grid-template-columns: 1fr;
   }
+  
+  .delivery-type-options {
+    flex-direction: column;
+  }
 }
 
-@media (max-width: 640px) {
-  .cart__hero {
-    padding: 2rem 0;
-  }
+/* New Login Modal Styles */
+.login-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
 
-  .page-title {
-    font-size: 1.75rem;
-  }
+.login-modal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 2.5rem;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
 
-  .col-product {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+.login-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: var(--bg-secondary);
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 10px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-  .item-image {
-    width: 56px;
-    height: 56px;
-  }
+.login-modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
 
-  .item-info h4 {
-    font-size: 0.875rem;
-  }
+.login-modal-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1.5rem;
+  background: var(--accent-dim);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
 
-  .col-quantity {
-    padding: 0.5rem 0;
-  }
+.login-modal-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
 
-  .empty {
-    padding: 2rem 0;
-  }
+.login-modal-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 1.75rem;
+}
 
-  .empty-icon svg {
-    width: 40px;
-    height: 40px;
-  }
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
 
-  .empty h3 {
-    font-size: 1.125rem;
-  }
+.login-input-group {
+  text-align: left;
+}
 
-  .cart__summary {
-    padding: 1.25rem;
-  }
+.login-input-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
 
-  .summary-header h3 {
-    font-size: 1rem;
-  }
+.login-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  transition: all 0.2s;
+}
 
-  .summary-row {
-    font-size: 0.875rem;
-    padding: 0.75rem 0;
-  }
+.login-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-primary);
+}
 
-  .total-value {
-    font-size: 1.125rem;
-  }
+.login-input::placeholder {
+  color: var(--text-muted);
+}
 
-  .checkout-form h4 {
-    font-size: 0.8rem;
-    margin-bottom: 1rem;
-  }
+.login-error {
+  color: var(--danger);
+  font-size: 0.8125rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(255, 100, 100, 0.1);
+  border-radius: 10px;
+  text-align: center;
+}
 
-  .form-group {
-    margin-bottom: 0.75rem;
-  }
+.login-btn {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
 
-  .form-group label {
-    font-size: 0.7rem;
-  }
+.login-btn-primary {
+  background: var(--accent);
+  border: none;
+  color: var(--bg-primary);
+}
 
-  .btn-submit {
-    padding: 0.875rem;
-    font-size: 0.875rem;
-    margin-top: 0.75rem;
-  }
+.login-btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(163, 255, 18, 0.3);
+}
+
+.login-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-or {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.login-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.login-link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
 }
 </style>

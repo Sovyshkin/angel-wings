@@ -83,6 +83,14 @@ model Order {
   notes           String?
   promoCodeId     Int?
   discountAmount  Float?
+  // Delivery info
+  deliveryTariffCode Int?
+  deliveryTariffName String?
+  deliveryPrice      Float?
+  deliveryCity       String?
+  deliveryPickupPoint String?
+  deliveryPickupName  String?
+  cdekOrderUuid      String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   commission      PartnerCommission?
@@ -96,6 +104,7 @@ model OrderItem {
   order     Order   @relation(fields: [orderId], references: [id])
   productId Int
   product   Product @relation(fields: [productId], references: [id])
+  dosage    String?
   quantity  Int
   price     Float
 

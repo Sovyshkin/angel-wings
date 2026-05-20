@@ -61,7 +61,8 @@ export const useProductStore = defineStore('products', () => {
     const orderData = {
       items: items.map(item => ({
         productId: item.id,
-        quantity: item.quantity
+        quantity: item.quantity,
+        selectedDosage: item.selectedDosage || null
       })),
       customerName: customer.name,
       customerEmail: customer.email,

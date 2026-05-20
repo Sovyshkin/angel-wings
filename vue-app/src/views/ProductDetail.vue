@@ -27,17 +27,36 @@
         <div class="product-info" data-aos="fade-left" data-aos-delay="300">
           <div class="product-meta">
             <span class="product-category">{{ getCategoryName(product.categories?.[0]?.slug) }}</span>
-            <span class="product-stock" :class="{ available: product.stock > 0 }">
-              {{ product.stock > 0 ? 'В наличии' : 'Нет в наличии' }}
+            <span class="product-stock" :class="{ available: currentStock > 0 }">
+              {{ currentStock > 0 ? 'В наличии' : 'Нет в наличии' }}
             </span>
           </div>
           
           <h1 class="product-title">{{ product.title }}</h1>
           
           <div class="product-price-block">
-            <span class="product-price">{{ product.price }}</span>
+            <span class="product-price">{{ currentPrice }}</span>
             <span class="product-currency">₽</span>
             <span class="price-unit">/ уп.</span>
+          </div>
+
+          <div class="product-variants" v-if="dosageSpecs.length">
+            <h3>Выберите дозировку</h3>
+            <div class="variants-grid">
+              <button
+                v-for="(item, index) in dosageSpecs"
+                :key="`variant-${index}`"
+                type="button"
+                class="variant-card"
+                :class="{ active: selectedDosageIndex === index, disabled: item.quantity <= 0 }"
+                :disabled="item.quantity <= 0"
+                @click="selectedDosageIndex = index"
+              >
+                <span class="variant-title">{{ item.dosage }}</span>
+                <span class="variant-price">{{ getDosagePrice(item).toLocaleString() }} ₽</span>
+                <span class="variant-stock">{{ item.quantity > 0 ? `В наличии: ${item.quantity} шт.` : 'Нет в наличии' }}</span>
+              </button>
+            </div>
           </div>
           
           <div class="product-description">
@@ -59,7 +78,7 @@
           <div class="product-specs" v-if="hasSpecs">
             <h3>Характеристики</h3>
             <div class="specs-table">
-              <div class="spec-row" v-for="(value, key) in product.specs" :key="key">
+              <div class="spec-row" v-for="(value, key) in visibleSpecs" :key="key">
                 <span class="spec-key">{{ key }}</span>
                 <span class="spec-val">{{ value }}</span>
               </div>
@@ -72,7 +91,7 @@
               <span>{{ quantity }}</span>
               <button @click="quantity++">+</button>
             </div>
-            <button class="btn btn-primary btn-add-cart" :class="{ 'just-added': justAdded }" @click="addToCart" :disabled="product.stock <= 0">
+            <button class="btn btn-primary btn-add-cart" :class="{ 'just-added': justAdded }" @click="addToCart" :disabled="currentStock <= 0">
               <svg v-if="justAdded" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
@@ -134,13 +153,48 @@ const cartStore = useCartStore()
 const quantity = ref(1)
 const loading = ref(true)
 const justAdded = ref(false)
+const selectedDosageIndex = ref(0)
 
 const product = computed(() => {
   return productStore.products.find(p => p.id == route.params.id) || null
 })
 
+const visibleSpecs = computed(() => {
+  if (!product.value?.specs || typeof product.value.specs !== 'object') return {}
+
+  return Object.entries(product.value.specs).reduce((acc, [key, value]) => {
+    if (key === 'dosages') return acc
+    acc[key] = value
+    return acc
+  }, {})
+})
+
+const dosageSpecs = computed(() => {
+  const dosages = product.value?.specs?.dosages
+  if (!Array.isArray(dosages)) return []
+
+  return dosages
+    .map(item => ({
+      dosage: typeof item?.dosage === 'string' ? item.dosage.trim() : '',
+      quantity: Math.max(0, parseInt(item?.quantity) || 0),
+      price: item?.price !== undefined && item?.price !== null ? Math.max(0, parseFloat(item.price) || 0) : null
+    }))
+    .filter(item => item.dosage)
+})
+
+const currentPrice = computed(() => {
+  if (!dosageSpecs.value.length) return product.value?.price || 0
+  return getDosagePrice(dosageSpecs.value[selectedDosageIndex.value])
+})
+
+const currentStock = computed(() => {
+  if (!dosageSpecs.value.length) return product.value?.stock || 0
+  const selected = dosageSpecs.value[selectedDosageIndex.value]
+  return selected ? selected.quantity : 0
+})
+
 const hasSpecs = computed(() => {
-  return product.value?.specs && Object.keys(product.value.specs).length > 0
+  return Object.keys(visibleSpecs.value).length > 0
 })
 
 function getCategoryName(slug) {
@@ -154,13 +208,24 @@ function decreaseQty() {
 }
 
 function addToCart() {
-  if (product.value) {
+  if (product.value && currentStock.value > 0) {
     for (let i = 0; i < quantity.value; i++) {
-      cartStore.addItem(product.value)
+      const selectedDosage = dosageSpecs.value[selectedDosageIndex.value]?.dosage || null
+      cartStore.addItem({
+        ...product.value,
+        price: currentPrice.value,
+        selectedDosage
+      })
     }
     justAdded.value = true
     setTimeout(() => { justAdded.value = false }, 2000)
   }
+}
+
+function getDosagePrice(item) {
+  if (!item) return product.value?.price || 0
+  if (item.price === null || item.price === undefined) return product.value?.price || 0
+  return item.price
 }
 
 onMounted(async () => {
@@ -291,6 +356,67 @@ onMounted(async () => {
   font-size: 0.9rem;
   color: var(--text-muted);
   margin-left: 0.5rem;
+}
+
+.product-variants {
+  margin-bottom: 2rem;
+}
+
+.product-variants h3 {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+}
+
+.variants-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.variant-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  transition: var(--transition);
+}
+
+.variant-card:hover:not(.disabled) {
+  border-color: var(--accent);
+}
+
+.variant-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  background: var(--accent-dim);
+}
+
+.variant-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.variant-title {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.variant-price {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.variant-stock {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 
 .product-country {
@@ -579,9 +705,14 @@ onMounted(async () => {
   }
 
   .product-description h3,
-  .product-specs h3 {
+  .product-specs h3,
+  .product-variants h3 {
     font-size: 0.875rem;
     margin-bottom: 0.75rem;
+  }
+
+  .variants-grid {
+    grid-template-columns: 1fr;
   }
 
   .product-description p {

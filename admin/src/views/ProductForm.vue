@@ -94,6 +94,52 @@
             </button>
           </div>
         </div>
+
+        <div class="form-group">
+          <label class="form-label">Дозировки, цены и остатки</label>
+          <div class="specs-editor">
+            <div class="specs-list">
+              <div class="spec-row dosage-row" v-for="(item, index) in dosageVariants" :key="index">
+                <input
+                  type="text"
+                  v-model="item.dosage"
+                  class="input spec-key-input"
+                  placeholder="Дозировка (например 10мг/3мл)"
+                >
+                <input
+                  type="number"
+                  v-model.number="item.quantity"
+                  min="0"
+                  class="input dosage-qty-input"
+                  placeholder="Количество"
+                >
+                <input
+                  type="number"
+                  v-model.number="item.price"
+                  min="0"
+                  class="input dosage-price-input"
+                  placeholder="Цена"
+                >
+                <button type="button" @click="removeDosage(index)" class="btn-remove-spec">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="dosage-actions">
+              <button type="button" @click="addDosage" class="btn-add-spec">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Добавить дозировку
+              </button>
+              <button type="button" @click="applyDosagesTotalToStock" class="btn btn-secondary btn-sync-stock">
+                В общий остаток: {{ dosageTotal }}
+              </button>
+            </div>
+          </div>
+        </div>
         
         <div class="form-row" style="margin-top: 1.5rem;">
           <div class="form-group">
@@ -197,13 +243,16 @@ const form = ref({
   image: null
 })
 
-const specsJson = ref('{}')
 const specsArray = ref([])
+const dosageVariants = ref([])
 const categories = ref([])
 const error = ref('')
 const success = ref('')
 const loading = ref(false)
 const file = ref(null)
+const dosageTotal = computed(() =>
+  dosageVariants.value.reduce((sum, item) => sum + Math.max(0, parseInt(item.quantity) || 0), 0)
+)
 
 async function fetchCategories() {
   const { data } = await axios.get(`/api/categories`)
@@ -229,7 +278,9 @@ async function fetchProduct() {
     active: p.active,
     image: p.image
   }
-  specsArray.value = jsonToSpecsArray(JSON.stringify(p.specs || {}))
+  const specs = p.specs || {}
+  specsArray.value = jsonToSpecsArray(specs)
+  dosageVariants.value = parseDosageVariants(specs)
 }
 
 function handleFileChange(e) {
@@ -252,23 +303,60 @@ function removeSpec(index) {
   specsArray.value.splice(index, 1)
 }
 
+function addDosage() {
+  dosageVariants.value.push({ dosage: '', quantity: 0, price: null })
+}
+
+function removeDosage(index) {
+  dosageVariants.value.splice(index, 1)
+}
+
+function parseDosageVariants(specs) {
+  if (!Array.isArray(specs?.dosages)) return []
+
+  return specs.dosages
+    .map(item => ({
+      dosage: typeof item?.dosage === 'string' ? item.dosage : '',
+      quantity: Math.max(0, parseInt(item?.quantity) || 0),
+      price: item?.price !== undefined && item?.price !== null ? Math.max(0, parseFloat(item.price) || 0) : null
+    }))
+    .filter(item => item.dosage.trim() || item.quantity > 0)
+}
+
+function normalizeDosageVariants() {
+  return dosageVariants.value
+    .map(item => ({
+      dosage: (item.dosage || '').trim(),
+      quantity: Math.max(0, parseInt(item.quantity) || 0),
+      price: item.price === '' || item.price === null || item.price === undefined
+        ? null
+        : Math.max(0, parseFloat(item.price) || 0)
+    }))
+    .filter(item => item.dosage || item.quantity > 0)
+}
+
+function applyDosagesTotalToStock() {
+  form.value.stock = dosageTotal.value
+}
+
 function specsToJson() {
   const obj = {}
   specsArray.value.forEach(s => {
-    if (s.key.trim()) {
-      obj[s.key.trim()] = s.value
+    const key = s.key.trim()
+    if (key && key !== 'dosages') {
+      obj[key] = s.value
     }
   })
+  const dosages = normalizeDosageVariants()
+  if (dosages.length) obj.dosages = dosages
   return JSON.stringify(obj)
 }
 
-function jsonToSpecsArray(jsonStr) {
-  try {
-    const obj = JSON.parse(jsonStr)
-    return Object.entries(obj).map(([key, value]) => ({ key, value }))
-  } catch {
-    return []
-  }
+function jsonToSpecsArray(obj) {
+  if (!obj || typeof obj !== 'object') return []
+  return Object.entries(obj)
+    .filter(([key]) => key !== 'dosages')
+    .map(([key, value]) => ({ key, value }))
 }
 
 async function handleSubmit() {
@@ -559,6 +647,24 @@ onMounted(() => {
   min-width: 140px;
 }
 
+.dosage-qty-input {
+  flex: 0 0 150px;
+}
+
+.dosage-price-input {
+  flex: 0 0 150px;
+}
+
+.dosage-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+}
+
+.btn-sync-stock {
+  white-space: nowrap;
+}
+
 .btn-remove-spec {
   width: 36px;
   height: 36px;
@@ -661,9 +767,15 @@ onMounted(() => {
   }
 
   .spec-key-input,
-  .spec-value-input {
+  .spec-value-input,
+  .dosage-qty-input,
+  .dosage-price-input {
     flex: 1 1 100%;
     min-width: unset;
+  }
+
+  .dosage-actions {
+    grid-template-columns: 1fr;
   }
 
   .btn-remove-spec {

@@ -175,6 +175,29 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
   }
 })
 
+router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { cdekOrderUuid, deliveryTariffCode, deliveryTariffName, deliveryPrice, deliveryCity, deliveryPickupPoint, deliveryPickupName } = req.body
+
+    const order = await prisma.order.update({
+      where: { id: parseInt(req.params.id) },
+      data: {
+        ...(cdekOrderUuid !== undefined && { cdekOrderUuid }),
+        ...(deliveryTariffCode !== undefined && { deliveryTariffCode }),
+        ...(deliveryTariffName !== undefined && { deliveryTariffName }),
+        ...(deliveryPrice !== undefined && { deliveryPrice }),
+        ...(deliveryCity !== undefined && { deliveryCity }),
+        ...(deliveryPickupPoint !== undefined && { deliveryPickupPoint }),
+        ...(deliveryPickupName !== undefined && { deliveryPickupName })
+      }
+    })
+
+    res.json({ order })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { active, limit = 100, offset = 0 } = req.query
