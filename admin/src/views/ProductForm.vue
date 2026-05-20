@@ -180,6 +180,29 @@
             </button>
           </div>
         </div>
+
+        <div class="form-group">
+          <label class="form-label">Галерея (несколько фото)</label>
+          <div class="file-input-wrapper">
+            <input type="file" @change="handleGalleryFilesChange" accept="image/*" multiple class="file-input">
+            <div class="file-input-trigger">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+              </svg>
+              <span>Добавить фото в галерею</span>
+            </div>
+          </div>
+          <div v-if="galleryPreviewUrls.length" class="gallery-preview-grid">
+            <div class="gallery-preview-item" v-for="(imageUrl, index) in galleryPreviewUrls" :key="`${imageUrl}-${index}`">
+              <img :src="imageUrl" alt="Gallery preview">
+              <button type="button" @click="removeGalleryImage(index)" class="remove-image">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
       
       <div class="form-section">
@@ -250,6 +273,9 @@ const error = ref('')
 const success = ref('')
 const loading = ref(false)
 const file = ref(null)
+const galleryFiles = ref([])
+const existingGalleryImages = ref([])
+const galleryPreviewUrls = ref([])
 const dosageTotal = computed(() =>
   dosageVariants.value.reduce((sum, item) => sum + Math.max(0, parseInt(item.quantity) || 0), 0)
 )
@@ -278,6 +304,9 @@ async function fetchProduct() {
     active: p.active,
     image: p.image
   }
+  existingGalleryImages.value = Array.isArray(p.images) ? [...p.images] : []
+  galleryFiles.value = []
+  galleryPreviewUrls.value = [...existingGalleryImages.value]
   const specs = p.specs || {}
   specsArray.value = jsonToSpecsArray(specs)
   dosageVariants.value = parseDosageVariants(specs)
@@ -293,6 +322,28 @@ function handleFileChange(e) {
 function removeImage() {
   form.value.image = null
   file.value = null
+}
+
+function handleGalleryFilesChange(e) {
+  const incoming = Array.from(e.target.files || [])
+  if (!incoming.length) return
+  galleryFiles.value.push(...incoming)
+  syncGalleryPreviewUrls()
+}
+
+function syncGalleryPreviewUrls() {
+  const localUrls = galleryFiles.value.map(fileItem => URL.createObjectURL(fileItem))
+  galleryPreviewUrls.value = [...existingGalleryImages.value, ...localUrls]
+}
+
+function removeGalleryImage(index) {
+  if (index < existingGalleryImages.value.length) {
+    existingGalleryImages.value.splice(index, 1)
+  } else {
+    const localIndex = index - existingGalleryImages.value.length
+    galleryFiles.value.splice(localIndex, 1)
+  }
+  syncGalleryPreviewUrls()
 }
 
 function addSpec() {
@@ -380,6 +431,8 @@ async function handleSubmit() {
     if (form.value.country) formData.append('country', form.value.country)
     if (form.value.categoryId) formData.append('categories', JSON.stringify([form.value.categoryId]))
     if (file.value) formData.append('image', file.value)
+    formData.append('existingImages', JSON.stringify(existingGalleryImages.value))
+    galleryFiles.value.forEach(fileItem => formData.append('images', fileItem))
     
     if (isEdit.value) {
       await axios.put(`${API_URL}/${route.params.id}`, formData, {
@@ -524,6 +577,28 @@ onMounted(() => {
   max-height: 200px;
   border-radius: var(--radius-sm);
   display: block;
+}
+
+.gallery-preview-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.gallery-preview-item {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  aspect-ratio: 1;
+}
+
+.gallery-preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .remove-image {
@@ -749,6 +824,10 @@ onMounted(() => {
 
   .file-input-trigger {
     padding: 1.5rem;
+  }
+
+  .gallery-preview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .form-actions {

@@ -13,7 +13,7 @@
       <div class="product-layout" v-if="product" data-aos="fade-up" data-aos-delay="100">
         <div class="product-gallery" data-aos="fade-right" data-aos-delay="200">
           <div class="gallery-main">
-            <img v-if="product.image" :src="product.image" :alt="product.title" @error="$event.target.style.display='none'">
+            <img v-if="activeImageUrl" :src="activeImageUrl" :alt="product.title" @error="$event.target.style.display='none'">
             <div v-else class="gallery-placeholder">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -21,6 +21,20 @@
                 <path d="M21 15l-5-5L5 21"/>
               </svg>
             </div>
+            <button v-if="productImages.length > 1" type="button" class="gallery-nav prev" @click="prevImage">‹</button>
+            <button v-if="productImages.length > 1" type="button" class="gallery-nav next" @click="nextImage">›</button>
+          </div>
+          <div v-if="productImages.length > 1" class="gallery-thumbs">
+            <button
+              v-for="(imageUrl, index) in productImages"
+              :key="`${imageUrl}-${index}`"
+              type="button"
+              class="thumb-item"
+              :class="{ active: index === activeImageIndex }"
+              @click="activeImageIndex = index"
+            >
+              <img :src="imageUrl" :alt="`${product.title} ${index + 1}`">
+            </button>
           </div>
         </div>
         
@@ -140,7 +154,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
@@ -154,9 +168,23 @@ const quantity = ref(1)
 const loading = ref(true)
 const justAdded = ref(false)
 const selectedDosageIndex = ref(0)
+const activeImageIndex = ref(0)
 
 const product = computed(() => {
   return productStore.products.find(p => p.id == route.params.id) || null
+})
+
+const productImages = computed(() => {
+  if (!product.value) return []
+  const list = []
+  if (product.value.image) list.push(product.value.image)
+  if (Array.isArray(product.value.images)) list.push(...product.value.images)
+  return [...new Set(list.filter(Boolean))]
+})
+
+const activeImageUrl = computed(() => {
+  if (!productImages.value.length) return null
+  return productImages.value[activeImageIndex.value] || productImages.value[0]
 })
 
 const visibleSpecs = computed(() => {
@@ -228,6 +256,20 @@ function getDosagePrice(item) {
   return item.price
 }
 
+function nextImage() {
+  if (!productImages.value.length) return
+  activeImageIndex.value = (activeImageIndex.value + 1) % productImages.value.length
+}
+
+function prevImage() {
+  if (!productImages.value.length) return
+  activeImageIndex.value = (activeImageIndex.value - 1 + productImages.value.length) % productImages.value.length
+}
+
+watch(productImages, () => {
+  activeImageIndex.value = 0
+})
+
 onMounted(async () => {
   loading.value = true
   await productStore.fetchProducts()
@@ -284,9 +326,61 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .gallery-main img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.gallery-nav.prev {
+  left: 0.75rem;
+}
+
+.gallery-nav.next {
+  right: 0.75rem;
+}
+
+.gallery-thumbs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.thumb-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-card);
+  aspect-ratio: 1;
+}
+
+.thumb-item.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.thumb-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -660,11 +754,19 @@ onMounted(async () => {
   .product-guarantee {
     grid-template-columns: 1fr;
   }
+
+  .gallery-thumbs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
   .product-detail {
     padding: 1rem 0 2rem;
+  }
+
+  .gallery-thumbs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .breadcrumb {

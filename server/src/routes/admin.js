@@ -7,6 +7,17 @@ import { upload } from '../utils/fileUpload.js'
 const router = Router()
 const prisma = new PrismaClient()
 
+function parseImagesField(images) {
+  if (!images) return []
+  if (Array.isArray(images)) return images
+  try {
+    const parsed = JSON.parse(images)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 router.get('/stats', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const [usersCount, productsCount, ordersCount, recentOrders, lowStock] = await Promise.all([
@@ -222,7 +233,8 @@ router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
 
     const parsedProducts = products.map(p => ({
       ...p,
-      specs: p.specs ? JSON.parse(p.specs) : {}
+      specs: p.specs ? JSON.parse(p.specs) : {},
+      images: parseImagesField(p.images)
     }))
 
     res.json({ products: parsedProducts, total })
@@ -246,7 +258,8 @@ router.get('/products/:id', authenticate, requireAdmin, async (req, res, next) =
 
     const parsedProduct = {
       ...product,
-      specs: product.specs ? JSON.parse(product.specs) : {}
+      specs: product.specs ? JSON.parse(product.specs) : {},
+      images: parseImagesField(product.images)
     }
 
     res.json({ product: parsedProduct })
