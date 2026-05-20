@@ -2,8 +2,24 @@
   <div class="contact-page">
     <div class="container">
       <div class="contact-header" data-aos="fade-up">
+        <div id="about-company" class="anchor-target"></div>
         <h1 class="page-title">Свяжитесь с нами</h1>
         <p class="page-subtitle">Наши специалисты помогут подобрать оптимальный комплекс пептидов для ваших целей</p>
+      </div>
+
+      <div class="info-sections" data-aos="fade-up" data-aos-delay="50">
+        <div id="delivery-payment" class="info-section-card anchor-target">
+          <h3>Доставка и оплата</h3>
+          <p>Доставка выполняется по России. Оплата доступна онлайн после подтверждения заказа.</p>
+        </div>
+        <div id="guarantees" class="info-section-card anchor-target">
+          <h3>Гарантии</h3>
+          <p>Мы обеспечиваем контроль качества продукции и сопровождаем клиента на всех этапах заказа.</p>
+        </div>
+        <div id="faq" class="info-section-card anchor-target">
+          <h3>Частые вопросы</h3>
+          <p>Если у вас есть вопросы по подбору, оплате или доставке, наша поддержка поможет 24/7.</p>
+        </div>
       </div>
 
       <div class="contact-grid">
@@ -84,7 +100,7 @@
           </form>
         </div>
 
-        <div class="contact-info" data-aos="fade-up" data-aos-delay="200">
+        <div id="contacts" class="contact-info anchor-target" data-aos="fade-up" data-aos-delay="200">
           <div class="info-card">
             <div class="info-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -136,17 +152,12 @@
             </div>
           </div>
 
-          <div class="social-links">
+          <div id="messengers" class="social-links anchor-target">
             <h3>Мессенджеры</h3>
             <div class="social-icons">
               <a href="#" class="social-icon" aria-label="Telegram">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.03-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.37.09 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
-                </svg>
-              </a>
-              <a href="#" class="social-icon" aria-label="WhatsApp">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.471-.1-.661-.216-.306-.3-.478-.31-.63-.025-.21.069-.437.26-.73.164-.27.298-.305.4-.305h.203c.178 0 .304.069.405.178.071.079.227.26.227.52.006.168-.008.347.032.52l.026.05c.099.173.297.406.426.56.13.152.265.2.371.126.096-.066.415-.446.53-.73.128-.317.148-.66.11-.92-.054-.37-.21-.543-.36-.75-.125-.176-.256-.203-.411-.15-.169.059-.99.463-1.923.873-.606.267-1.14.385-1.576.322-.315-.045-.978-.3-1.32-.952-.265-.506-.264-1.06-.185-1.5.108-.597.725-.996 1.364-1.442.74-.514 1.647-.793 2.662-.793.196 0 .392.02.57.062.357.083.714.285 1.05.557-.213.052-.47.082-.727.082l-.002.002z"/>
                 </svg>
               </a>
             </div>
@@ -234,6 +245,38 @@ async function handleSubmit() {
 .contact-header .page-subtitle {
   max-width: 500px;
   margin: 0 auto;
+}
+
+.anchor-target {
+  scroll-margin-top: 95px;
+}
+
+.info-sections {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.info-section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.info-section-card h3 {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.info-section-card p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
 
 .contact-grid {
@@ -402,6 +445,10 @@ async function handleSubmit() {
 }
 
 @media (max-width: 1024px) {
+  .info-sections {
+    grid-template-columns: 1fr;
+  }
+
   .contact-grid {
     grid-template-columns: 1fr;
   }

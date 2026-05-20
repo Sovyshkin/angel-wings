@@ -6,6 +6,10 @@ import ProductDetail from '../views/ProductDetail.vue'
 import Auth from '../views/Auth.vue'
 import Profile from '../views/Profile.vue'
 import Contact from '../views/Contact.vue'
+import AboutCompany from '../views/AboutCompany.vue'
+import DeliveryPayment from '../views/DeliveryPayment.vue'
+import Guarantees from '../views/Guarantees.vue'
+import Faq from '../views/Faq.vue'
 import OrderSuccess from '../views/OrderSuccess.vue'
 import OrderFail from '../views/OrderFail.vue'
 import PartnerCabinet from '../views/PartnerCabinet.vue'
@@ -19,6 +23,10 @@ const routes = [
   { path: '/auth', name: 'Auth', component: Auth },
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
   { path: '/contact', name: 'Contact', component: Contact },
+  { path: '/about', name: 'AboutCompany', component: AboutCompany },
+  { path: '/delivery-payment', name: 'DeliveryPayment', component: DeliveryPayment },
+  { path: '/guarantees', name: 'Guarantees', component: Guarantees },
+  { path: '/faq', name: 'Faq', component: Faq },
   { path: '/order-success', name: 'OrderSuccess', component: OrderSuccess },
   { path: '/order-failed', name: 'OrderFail', component: OrderFail },
   { path: '/partner', name: 'PartnerCabinet', component: PartnerCabinet, meta: { requiresAuth: true } },
@@ -27,7 +35,14 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior() {
+  scrollBehavior(to) {
+    if (to.hash) {
+      return {
+        el: to.hash,
+        top: 90,
+        behavior: 'smooth'
+      }
+    }
     return { top: 0 }
   }
 })
