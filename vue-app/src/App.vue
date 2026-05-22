@@ -164,6 +164,7 @@
               <li><router-link to="/delivery-payment">Доставка и оплата</router-link></li>
               <li><router-link to="/guarantees">Гарантии</router-link></li>
               <li><router-link to="/faq">Частые вопросы</router-link></li>
+              <li><router-link to="/requisites">Реквизиты</router-link></li>
               <li><router-link to="/contact">Контакты</router-link></li>
               <li><a href="/policy.pdf" target="_blank" rel="noopener">Политика Конфиденциальности</a></li>
               <li><a href="/public-offer-2026.pdf" target="_blank" rel="noopener">Публичная оферта</a></li>
