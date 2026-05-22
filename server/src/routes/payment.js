@@ -12,9 +12,14 @@ router.post('/create', async (req, res, next) => {
       return res.status(400).json({ error: 'Не указан ID заказа или сумма' })
     }
 
-    const baseUrl = process.env.CLIENT_URL || 'http://localhost:5173'
+    const baseUrl = process.env.TOCHKA_REDIRECT_BASE_URL || process.env.CLIENT_URL || ''
+    if (!baseUrl || !baseUrl.startsWith('https://')) {
+      return res.status(400).json({
+        error: 'Для интеграции Точка требуется HTTPS URL для редиректов. Укажите TOCHKA_REDIRECT_BASE_URL=https://... в .env'
+      })
+    }
     const redirectUrl = `${baseUrl}/order-success?orderId=${orderId}`
-    const failRedirectUrl = `${baseUrl}/order-fail?orderId=${orderId}`
+    const failRedirectUrl = `${baseUrl}/order-failed?orderId=${orderId}`
 
     const result = await tochkaService.createPayment(
       amount,
@@ -31,7 +36,11 @@ router.post('/create', async (req, res, next) => {
         paymentId: result.paymentId
       })
     } else {
-      res.status(500).json({ error: result.error || 'Ошибка создания платежа' })
+      const response = { error: result.error || 'Ошибка создания платежа' }
+      if (process.env.NODE_ENV !== 'production' && result.debug) {
+        response.details = result.debug
+      }
+      res.status(500).json(response)
     }
   } catch (error) {
     next(error)
@@ -68,7 +77,7 @@ router.post('/webhook', async (req, res, next) => {
     // Process asynchronously
     if (status === 'paid' || status === 'success') {
       // Update order payment status
-      const orderId = paymentLinkId?.replace('order-', '')
+      const orderId = String(paymentLinkId || '').replace(/^order-/i, '')
       if (orderId) {
         // You can emit an event or call order update here
         console.log(`Payment confirmed for order ${orderId}`)
