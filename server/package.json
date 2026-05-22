@@ -1,7 +1,7 @@
 {
   "name": "peptidi-server",
   "version": "1.0.0",
-  "description": "Backend API for Peptidi Shop",
+  "description": "Backend API for Angel Wings",
   "main": "src/index.js",
   "type": "module",
   "scripts": {

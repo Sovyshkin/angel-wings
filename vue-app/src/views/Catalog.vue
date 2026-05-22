@@ -235,7 +235,10 @@ function truncate(text, length) {
 }
 
 function handleImageError(e) {
-  e.target.style.display = 'none'
+  const img = e.target
+  if (img.dataset.fallbackApplied === 'true') return
+  img.dataset.fallbackApplied = 'true'
+  img.src = '/logo.png'
 }
 
 onMounted(async () => {

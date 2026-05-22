@@ -16,8 +16,7 @@
           <span class="accent">к здоровью</span>
         </h1>
         <p class="hero__desc">
-          Пептидные комплексы нового поколения для комплексного восстановления 
-          и оптимизации функций организма
+          Фармацевтический подход производства пептидов. 20+ лет опыта в производстве и разработке лекарств
         </p>
         <div class="hero__actions">
           <router-link to="/catalog" class="btn btn-primary">
@@ -54,8 +53,8 @@
                 <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
               </svg>
             </div>
-            <h3>Лабораторная чистота</h3>
-            <p>Каждый продукт проходит многоступенчатую очистку и тестирование</p>
+            <h3>Свое производство.</h3>
+            <p>Единственные кто производит 100% своих продуктов самостоятельно и ничего не перепродает</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon">
@@ -65,8 +64,8 @@
                 <circle cx="12" cy="12" r="9"/>
               </svg>
             </div>
-            <h3>Доказанная эффективность</h3>
-            <p>Пептиды с подтвержденной биологической активностью</p>
+            <h3>Фармацевтическое качество</h3>
+            <p>Мы не просто производитель пептидов, в первую очередь мы фармкомпания с 20-летним опыт экспертизы в лекарствах</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon">
@@ -74,8 +73,8 @@
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
             </div>
-            <h3>Безопасность</h3>
-            <p>Строгий контроль качества на каждом этапе производства</p>
+            <h3>Генноинженерные продукты</h3>
+            <p>Наши основные продукты делаются без применения химического синтеза и содержат минимум примесей</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon">
@@ -84,8 +83,8 @@
                 <circle cx="12" cy="7" r="4"/>
               </svg>
             </div>
-            <h3>Индивидуальный подход</h3>
-            <p>Консультации специалистов для подбора оптимальной терапии</p>
+            <h3>Уникальные разработки</h3>
+            <p>Многие наши препараты не имеют аналогов в мире</p>
           </div>
         </div>
       </div>
@@ -164,7 +163,7 @@
             class="featured-card"
           >
             <div class="featured-image">
-              <img :src="product.image" :alt="product.title" @error="$event.target.style.display='none'">
+              <img :src="product.image" :alt="product.title" @error="handleImageError">
             </div>
             <div class="featured-content">
               <span class="featured-category">{{ product.categories?.[0]?.name || product.categories?.[0]?.slug }}</span>
@@ -325,7 +324,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useProductStore } from '../store/products'
 
 const productStore = useProductStore()
@@ -333,6 +332,17 @@ const productStore = useProductStore()
 const featuredProducts = computed(() => {
   return productStore.products.slice(0, 4)
 })
+
+onMounted(async () => {
+  await productStore.fetchProducts()
+})
+
+function handleImageError(e) {
+  const img = e.target
+  if (img.dataset.fallbackApplied === 'true') return
+  img.dataset.fallbackApplied = 'true'
+  img.src = '/logo.png'
+}
 </script>
 
 <style scoped>
@@ -994,7 +1004,10 @@ const featuredProducts = computed(() => {
 }
 
 .promo-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   padding: 0.5rem 1rem;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 100px;

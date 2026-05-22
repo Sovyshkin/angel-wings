@@ -126,7 +126,7 @@
           <div class="cart-item" v-for="item in cartStore.items" :key="item.cartKey || `${item.id}::${item.selectedDosage || ''}`">
             <div class="col-product">
               <div class="item-image">
-                <img v-if="item.image" :src="item.image" :alt="item.title" @error="$event.target.style.display='none'">
+                <img v-if="item.image" :src="item.image" :alt="item.title" @error="handleImageError">
                 <div v-else class="item-placeholder">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
@@ -239,7 +239,8 @@
             <h4>Способ получения</h4>
             
             <div class="delivery-type-options">
-              <label 
+              <label
+                v-if="ENABLE_PVZ"
                 class="delivery-type-option"
                 :class="{ selected: deliveryType === 'pvz' }"
               >
@@ -292,7 +293,7 @@
             </div>
 
             <!-- PVZ Selection -->
-            <div v-if="!loadingDelivery && deliveryType === 'pvz' && !selectedPickupPoint" class="pvz-section">
+            <div v-if="ENABLE_PVZ && !loadingDelivery && deliveryType === 'pvz' && !selectedPickupPoint" class="pvz-section">
               <div class="pickup-search">
                 <input 
                   v-model="citySearch" 
@@ -333,7 +334,7 @@
             </div>
 
             <!-- Selected PVZ -->
-            <div v-if="!loadingDelivery && selectedPickupPoint && deliveryType === 'pvz'" class="selected-pickup">
+            <div v-if="ENABLE_PVZ && !loadingDelivery && selectedPickupPoint && deliveryType === 'pvz'" class="selected-pickup">
               <div class="pickup-point selected">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
@@ -425,6 +426,41 @@
               <label>Комментарий к заказу</label>
               <textarea v-model="customer.comment" class="input" rows="2" placeholder="Дополнительные пожелания..."></textarea>
             </div>
+
+            <div class="consents">
+              <label class="consent-item">
+                <input type="checkbox" v-model="consents.rememberContacts">
+                <span>Запомнить контакты в браузере для повторной покупки</span>
+              </label>
+              <label class="consent-item">
+                <input type="checkbox" v-model="consents.acceptOffer">
+                <span>
+                  Я согласен с условиями
+                  <a href="/public-offer-2026.pdf" target="_blank" rel="noopener">Оферты</a>
+                </span>
+              </label>
+              <label class="consent-item">
+                <input type="checkbox" v-model="consents.acceptMarketing">
+                <span>Я согласен на получение информационных и рекламных сообщений</span>
+              </label>
+              <label class="consent-item">
+                <input type="checkbox" v-model="consents.acceptPrivacy">
+                <span>
+                  Я согласен на обработку моих персональных данных для целей и на условиях, изложенных в
+                  <a href="/policy.pdf" target="_blank" rel="noopener">Политике конфиденциальности</a>
+                </span>
+              </label>
+              <label class="consent-item consent-item--full">
+                <input type="checkbox" v-model="consents.acceptResearchTerms">
+                <span>
+                  Мне уже есть полных 18 лет. Я квалифицированный специалист. Я согласен с тем, что материал,
+                  представленный на этом сайте, для профессионального использования. Я согласен с тем, что Образцы,
+                  приобретенные на этом сайте, для исследовательских целей, и не будут использоваться для человека
+                  или животного и/или для приема внутрь. Образцы не будут использоваться в качестве лекарств,
+                  биологически активных добавок, косметических средства или бытовой химии.
+                </span>
+              </label>
+            </div>
             
             <button class="btn btn-primary btn-submit" @click="placeOrder" :disabled="!isFormValid || ordering">
               <svg v-if="!ordering" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -453,8 +489,17 @@ const router = useRouter()
 const cartStore = useCartStore()
 const productStore = useProductStore()
 const authStore = useAuthStore()
+const ENABLE_PVZ = false
+const ENABLE_CDEK = false
 
 const customer = ref({ name: '', phone: '', email: '', comment: '' })
+const consents = ref({
+  rememberContacts: true,
+  acceptOffer: true,
+  acceptMarketing: true,
+  acceptPrivacy: true,
+  acceptResearchTerms: true
+})
 const ordering = ref(false)
 const orderComplete = ref(false)
 const orderError = ref(null)
@@ -465,7 +510,7 @@ const loginError = ref('')
 const loggingIn = ref(false)
 
 // Delivery state
-const deliveryType = ref('pvz') // 'pvz' or 'courier'
+const deliveryType = ref(ENABLE_PVZ ? 'pvz' : 'courier') // 'pvz' or 'courier'
 const citySearch = ref('')
 const foundCityName = ref('')
 const foundCityCode = ref('')
@@ -500,6 +545,13 @@ function decreaseQty(item) {
   }
 }
 
+function handleImageError(e) {
+  const img = e.target
+  if (img.dataset.fallbackApplied === 'true') return
+  img.dataset.fallbackApplied = 'true'
+  img.src = '/logo.png'
+}
+
 function prefillFromProfile() {
   if (authStore.isAuthenticated && authStore.user) {
     customer.value = {
@@ -507,6 +559,17 @@ function prefillFromProfile() {
       phone: authStore.user.phone || '',
       email: authStore.user.email || '',
       comment: ''
+    }
+    return
+  }
+
+  const savedContacts = JSON.parse(localStorage.getItem('peptidi_guest_contacts') || 'null')
+  if (savedContacts) {
+    customer.value = {
+      name: savedContacts.name || '',
+      phone: savedContacts.phone || '',
+      email: savedContacts.email || '',
+      comment: customer.value.comment || ''
     }
   }
 }
@@ -528,9 +591,13 @@ function changeDelivery() {
   deliveryPrice.value = 0
   deliveryInfo.value = {}
   cartStore.setDeliveryPrice(0)
+  cartStore.setDelivery({})
 }
 
 function onDeliveryTypeChange() {
+  if (!ENABLE_PVZ && deliveryType.value === 'pvz') {
+    deliveryType.value = 'courier'
+  }
   changeDelivery()
 }
 
@@ -588,6 +655,14 @@ async function calculateCourierPrice() {
         delivery_date_max: res.data.delivery_date_range?.max
       }
       cartStore.setDeliveryPrice(price)
+      cartStore.setDelivery({
+        type: 'courier',
+        city: foundCityName.value,
+        cityCode: foundCityCode.value,
+        courierAddress: courierAddress.value || addressInput.value,
+        deliveryPrice: price,
+        deliveryInfo: deliveryInfo.value
+      })
     }
   } catch (e) {
     console.error('Delivery calculation error:', e)
@@ -624,6 +699,14 @@ async function onPickupSelect() {
         delivery_date_max: res.data.delivery_date_range?.max
       }
       cartStore.setDeliveryPrice(price)
+      cartStore.setDelivery({
+        type: 'pvz',
+        city: foundCityName.value,
+        cityCode: foundCityCode.value,
+        pickupPoint: selectedPickupPoint.value,
+        deliveryPrice: price,
+        deliveryInfo: deliveryInfo.value
+      })
     }
   } catch (e) {
     console.error('Delivery calculation error:', e)
@@ -639,6 +722,12 @@ function selectCourierDelivery() {
   if (!foundCityName.value || !addressInput.value) return
   
   courierAddress.value = addressInput.value
+  cartStore.setDelivery({
+    type: 'courier',
+    city: foundCityName.value,
+    cityCode: foundCityCode.value,
+    courierAddress: courierAddress.value
+  })
   calculateCourierPrice()
 }
 
@@ -648,8 +737,15 @@ const totalWithDelivery = computed(() => {
 
 const isFormValid = computed(() => {
   const hasContact = customer.value.name && customer.value.phone && customer.value.email
-  const hasDelivery = deliveryType.value === 'pvz' ? selectedPickupPoint.value : courierAddress.value
-  return hasContact && hasDelivery
+  const hasDelivery = ENABLE_CDEK
+    ? (deliveryType.value === 'pvz' ? selectedPickupPoint.value : courierAddress.value)
+    : true
+  const hasAllConsents =
+    consents.value.acceptOffer &&
+    consents.value.acceptMarketing &&
+    consents.value.acceptPrivacy &&
+    consents.value.acceptResearchTerms
+  return hasContact && hasDelivery && hasAllConsents
 })
 
 async function handleLogin() {
@@ -675,7 +771,7 @@ async function handleLogin() {
 
 async function placeOrder() {
   if (!isFormValid.value) {
-    alert('Пожалуйста, заполните все обязательные поля')
+    alert('Пожалуйста, заполните обязательные поля и подтвердите согласия')
     return
   }
   
@@ -687,21 +783,36 @@ async function placeOrder() {
   
   ordering.value = true
   try {
-    const deliveryData = {
+    if (consents.value.rememberContacts) {
+      localStorage.setItem('peptidi_guest_contacts', JSON.stringify({
+        name: customer.value.name,
+        phone: customer.value.phone,
+        email: customer.value.email
+      }))
+    } else {
+      localStorage.removeItem('peptidi_guest_contacts')
+    }
+
+    const deliveryData = ENABLE_CDEK ? {
       price: deliveryPrice.value,
       city: foundCityName.value
+    } : {
+      price: 0,
+      city: ''
     }
-    
-    if (deliveryType.value === 'pvz') {
-      deliveryData.tariff_code = 136
-      deliveryData.tariff_name = 'Экспресс лайт склад-склад'
-      deliveryData.pickup_point = selectedPickupPoint.value.code
-      deliveryData.pickup_point_name = selectedPickupPoint.value.name
-      deliveryData.address = selectedPickupPoint.value.address
-    } else {
-      deliveryData.tariff_code = 137
-      deliveryData.tariff_name = 'Экспресс лайт склад-дверь'
-      deliveryData.address = courierAddress.value
+
+    if (ENABLE_CDEK) {
+      if (deliveryType.value === 'pvz') {
+        deliveryData.tariff_code = 136
+        deliveryData.tariff_name = 'Экспресс лайт склад-склад'
+        deliveryData.pickup_point = selectedPickupPoint.value.code
+        deliveryData.pickup_point_name = selectedPickupPoint.value.name
+        deliveryData.address = selectedPickupPoint.value.address
+      } else {
+        deliveryData.tariff_code = 137
+        deliveryData.tariff_name = 'Экспресс лайт склад-дверь'
+        deliveryData.address = courierAddress.value
+      }
     }
     
     const orderData = {
@@ -724,29 +835,29 @@ async function placeOrder() {
     const { data } = await axios.post('/api/orders', orderData)
     lastOrderId.value = data.order?.id
     
-    // Create CDEK order - critical error if fails
-    let cdekSuccess = false
-    try {
-      await axios.post('/api/delivery/orders', {
-        number: `order-${lastOrderId.value}`,
-        tariff_code: deliveryData.tariff_code,
-        recipient_name: customer.value.name,
-        recipient_phone: customer.value.phone,
-        recipient_email: customer.value.email,
-        delivery_point: deliveryData.pickup_point,
-        packages: [{
-          weight: cartStore.totalWeight,
-          name: 'Товар',
-          cost: cartStore.total,
-          amount: cartStore.count
-        }]
-      })
-      cdekSuccess = true
-    } catch (e) {
-      console.error('CDEK order creation error:', e)
-      orderError.value = 'Ошибка создания заказа в системе доставки СДЭК. Пожалуйста, попробуйте позже или выберите другой способ доставки.'
-      ordering.value = false
-      return
+    if (ENABLE_CDEK) {
+      // Create CDEK order - critical error if fails
+      try {
+        await axios.post('/api/delivery/orders', {
+          number: `order-${lastOrderId.value}`,
+          tariff_code: deliveryData.tariff_code,
+          recipient_name: customer.value.name,
+          recipient_phone: customer.value.phone,
+          recipient_email: customer.value.email,
+          delivery_point: deliveryData.pickup_point,
+          packages: [{
+            weight: cartStore.totalWeight,
+            name: 'Товар',
+            cost: cartStore.total,
+            amount: cartStore.count
+          }]
+        })
+      } catch (e) {
+        console.error('CDEK order creation error:', e)
+        orderError.value = 'Ошибка создания заказа в системе доставки СДЭК. Пожалуйста, попробуйте позже или выберите другой способ доставки.'
+        ordering.value = false
+        return
+      }
     }
     
     // Create Tochka payment link
@@ -786,6 +897,32 @@ async function placeOrder() {
 onMounted(async () => {
   await productStore.fetchCategories()
   prefillFromProfile()
+
+  const savedDelivery = cartStore.delivery || {}
+  if (savedDelivery.type) {
+    deliveryType.value = !ENABLE_PVZ && savedDelivery.type === 'pvz' ? 'courier' : savedDelivery.type
+  }
+  if (savedDelivery.city) {
+    foundCityName.value = savedDelivery.city
+    citySearch.value = savedDelivery.city
+  }
+  if (savedDelivery.cityCode) {
+    foundCityCode.value = savedDelivery.cityCode
+  }
+  if (ENABLE_PVZ && savedDelivery.type === 'pvz' && savedDelivery.pickupPoint) {
+    selectedPickupPoint.value = savedDelivery.pickupPoint
+  }
+  if (savedDelivery.type === 'courier' && savedDelivery.courierAddress) {
+    courierAddress.value = savedDelivery.courierAddress
+    addressInput.value = savedDelivery.courierAddress
+  }
+  if (savedDelivery.deliveryPrice) {
+    deliveryPrice.value = savedDelivery.deliveryPrice
+    cartStore.setDeliveryPrice(savedDelivery.deliveryPrice)
+  }
+  if (savedDelivery.deliveryInfo) {
+    deliveryInfo.value = savedDelivery.deliveryInfo
+  }
 })
 
 watch(() => authStore.user, () => {
@@ -1326,6 +1463,39 @@ watch(() => authStore.user, () => {
   width: 100%;
   margin-top: 1rem;
   padding: 1rem;
+}
+
+.consents {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.consent-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.consent-item input[type="checkbox"] {
+  margin-top: 0.15rem;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.consent-item a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.consent-item--full {
+  padding-top: 0.25rem;
 }
 
 /* Modal Overlay */

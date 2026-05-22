@@ -1,4 +1,4 @@
-# Peptidi Shop - Backend + Admin
+# Angel Wings - Backend + Admin
 
 ## Стек
 
