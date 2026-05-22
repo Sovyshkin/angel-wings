@@ -661,11 +661,12 @@ async function calculateCourierPrice() {
   
   loadingDelivery.value = true
   try {
+    const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
     const res = await deliveryApi.post('/calculate-by-tariff', {
-      tariff_code: 136, // Courier tariff
+      tariff_code: 137, // Courier tariff
       from_code: 270, // Moscow
       to_code: foundCityCode.value,
-      weight: cartStore.totalWeight
+      weight: safeWeight
     })
     
     console.log('CDEK Response:', res.data)
@@ -705,11 +706,12 @@ async function onPickupSelect() {
   
   loadingDelivery.value = true
   try {
+    const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
     const res = await deliveryApi.post('/calculate-by-tariff', {
-      tariff_code: 137, // PVZ tariff
+      tariff_code: 136, // PVZ tariff
       from_code: 270,
       to_code: foundCityCode.value,
-      weight: cartStore.totalWeight
+      weight: safeWeight
     })
     
     console.log('CDEK Response:', res.data)
@@ -829,13 +831,13 @@ async function placeOrder() {
 
     if (ENABLE_CDEK) {
       if (deliveryType.value === 'pvz') {
-        deliveryData.tariff_code = 137
+        deliveryData.tariff_code = 136
         deliveryData.tariff_name = 'Экспресс лайт склад-склад'
         deliveryData.pickup_point = selectedPickupPoint.value.code
         deliveryData.pickup_point_name = selectedPickupPoint.value.name
         deliveryData.address = selectedPickupPoint.value.address
       } else {
-        deliveryData.tariff_code = 136
+        deliveryData.tariff_code = 137
         deliveryData.tariff_name = 'Экспресс лайт склад-дверь'
         deliveryData.address = courierAddress.value
       }
@@ -864,6 +866,7 @@ async function placeOrder() {
     if (ENABLE_CDEK) {
       // Create CDEK order - critical error if fails
       try {
+        const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
         const cdekPayload = {
           number: `order-${lastOrderId.value}`,
           tariff_code: deliveryData.tariff_code,
@@ -871,7 +874,7 @@ async function placeOrder() {
           recipient_phone: customer.value.phone,
           recipient_email: customer.value.email,
           packages: [{
-            weight: cartStore.totalWeight,
+            weight: safeWeight,
             name: 'Товар',
             cost: cartStore.total,
             amount: cartStore.count
