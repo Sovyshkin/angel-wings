@@ -838,19 +838,35 @@ async function placeOrder() {
     if (ENABLE_CDEK) {
       // Create CDEK order - critical error if fails
       try {
-        await axios.post('/api/delivery/orders', {
+        const cdekPayload = {
           number: `order-${lastOrderId.value}`,
           tariff_code: deliveryData.tariff_code,
           recipient_name: customer.value.name,
           recipient_phone: customer.value.phone,
           recipient_email: customer.value.email,
-          delivery_point: deliveryData.pickup_point,
           packages: [{
             weight: cartStore.totalWeight,
             name: 'Товар',
             cost: cartStore.total,
             amount: cartStore.count
           }]
+        }
+
+        if (deliveryType.value === 'pvz') {
+          cdekPayload.delivery_point = deliveryData.pickup_point
+          cdekPayload.to_location = {
+            code: Number(foundCityCode.value) || foundCityCode.value
+          }
+        } else {
+          cdekPayload.address = deliveryData.address
+          cdekPayload.to_location = {
+            code: Number(foundCityCode.value) || foundCityCode.value,
+            address: deliveryData.address
+          }
+        }
+
+        await axios.post('/api/delivery/orders', {
+          ...cdekPayload
         })
       } catch (e) {
         console.error('CDEK order creation error:', e)

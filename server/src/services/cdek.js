@@ -184,6 +184,7 @@ export async function createOrder({
   recipient_phone,
   recipient_email,
   delivery_point, // код ПВЗ
+  to_location,
   packages,
   from_contact,
   address
@@ -224,11 +225,11 @@ export async function createOrder({
     orderPayload.delivery_point = delivery_point
   }
 
-  // Если указан адрес доставки
-  if (address) {
-    orderPayload.to_location = {
-      address
-    }
+  // Локация получателя (обязательна для части тарифов)
+  if (to_location && (to_location.code || to_location.address || to_location.city)) {
+    orderPayload.to_location = { ...to_location }
+  } else if (address) {
+    orderPayload.to_location = { address }
   }
 
   // Контакт отправителя

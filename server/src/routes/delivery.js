@@ -151,6 +151,7 @@ router.post('/orders', async (req, res) => {
       recipient_phone,
       recipient_email,
       delivery_point,
+      to_location,
       packages,
       from_contact,
       address
@@ -170,6 +171,7 @@ router.post('/orders', async (req, res) => {
       recipient_phone,
       recipient_email,
       delivery_point,
+      to_location,
       packages,
       from_contact,
       address
