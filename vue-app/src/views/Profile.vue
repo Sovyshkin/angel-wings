@@ -92,6 +92,44 @@
                     <span>{{ order.date }}</span>
                     <span>{{ order.total.toLocaleString() }} ₽</span>
                   </div>
+                  <button class="order-toggle" @click="toggleOrderDetails(order.id)">
+                    {{ expandedOrderId === order.id ? 'Скрыть детали' : 'Показать детали' }}
+                  </button>
+                  <div v-if="expandedOrderId === order.id" class="order-expanded">
+                    <div class="order-expanded-grid">
+                      <div>
+                        <h4>Получатель</h4>
+                        <p>{{ order.customerName || '—' }}</p>
+                        <p>{{ order.customerPhone || '—' }}</p>
+                        <p>{{ order.customerEmail || '—' }}</p>
+                      </div>
+                      <div>
+                        <h4>Доставка</h4>
+                        <p>{{ order.shippingAddress || order.deliveryPickupName || order.deliveryCity || '—' }}</p>
+                        <p v-if="order.deliveryTariffName">{{ order.deliveryTariffName }}</p>
+                        <p>Стоимость доставки: {{ formatCurrency(order.deliveryPrice || 0) }}</p>
+                      </div>
+                    </div>
+                    <div class="order-items">
+                      <h4>Состав заказа</h4>
+                      <div v-if="!order.items?.length" class="order-item-row empty">Позиции заказа не найдены</div>
+                      <div v-for="item in order.items" :key="item.id" class="order-item-row">
+                        <div class="order-item-main">
+                          <span class="order-item-title">{{ item.product?.title || `Товар #${item.productId}` }}</span>
+                          <span v-if="item.dosage" class="order-item-dosage">{{ item.dosage }}</span>
+                        </div>
+                        <div class="order-item-meta">
+                          <span>{{ item.quantity }} шт</span>
+                          <span>{{ formatCurrency(item.price) }}</span>
+                          <span>{{ formatCurrency((item.price || 0) * (item.quantity || 0)) }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="order-note" v-if="order.notes">
+                      <h4>Комментарий</h4>
+                      <p>{{ order.notes }}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -171,6 +209,7 @@ const authStore = useAuthStore()
 const activeTab = ref('info')
 const orders = ref([])
 const successMessage = ref('')
+const expandedOrderId = ref(null)
 
 const tabs = [
   { id: 'info', label: 'Мои данные', icon: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
@@ -205,6 +244,14 @@ function mapOrderStatus(status) {
   if (normalized === 'DELIVERED') return { css: 'completed', text: 'Выполнен' }
   if (normalized === 'CANCELLED') return { css: 'cancelled', text: 'Отменён' }
   return { css: 'pending', text: 'В обработке' }
+}
+
+function formatCurrency(value) {
+  return `${Number(value || 0).toLocaleString('ru-RU')} ₽`
+}
+
+function toggleOrderDetails(orderId) {
+  expandedOrderId.value = expandedOrderId.value === orderId ? null : orderId
 }
 
 async function loadOrders() {
@@ -502,6 +549,101 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
+.order-toggle {
+  margin-top: 0.8rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.order-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.order-expanded {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.order-expanded-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.order-expanded h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.order-expanded p {
+  margin: 0.1rem 0;
+  font-size: 0.9rem;
+}
+
+.order-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.order-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.order-item-row.empty {
+  color: var(--text-muted);
+}
+
+.order-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.order-item-title {
+  font-weight: 600;
+}
+
+.order-item-dosage {
+  font-size: 0.8rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.order-item-meta {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 0.8rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.order-note p {
+  color: var(--text-secondary);
+}
+
 .settings-form {
   display: flex;
   flex-direction: column;
@@ -608,6 +750,10 @@ onMounted(() => {
   }
 
   .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .order-expanded-grid {
     grid-template-columns: 1fr;
   }
 }
