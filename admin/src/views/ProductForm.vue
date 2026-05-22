@@ -43,6 +43,10 @@
             <label class="form-label">На складе</label>
             <input type="number" v-model.number="form.stock" min="0" class="input" placeholder="25">
           </div>
+          <div class="form-group">
+            <label class="form-label">Вес (г) *</label>
+            <input type="number" v-model.number="form.weight" required min="1" class="input" placeholder="500">
+          </div>
         </div>
         
         <div class="form-group">
@@ -255,6 +259,7 @@ const form = ref({
   price: 0,
   comparePrice: null,
   stock: 0,
+  weight: 0,
   categoryId: '',
   description: '',
   specs: {},
@@ -294,6 +299,7 @@ async function fetchProduct() {
     price: parseFloat(p.price),
     comparePrice: p.comparePrice ? parseFloat(p.comparePrice) : null,
     stock: p.stock,
+    weight: p.weight || 0,
     categoryId: p.categories?.[0]?.id || '',
     description: p.description,
     specs: p.specs || {},
@@ -416,6 +422,12 @@ async function handleSubmit() {
   loading.value = true
   
   try {
+    if (!Number.isFinite(Number(form.value.weight)) || Number(form.value.weight) <= 0) {
+      error.value = 'Укажите корректный вес товара в граммах (больше 0)'
+      loading.value = false
+      return
+    }
+
     const formData = new FormData()
     formData.append('title', form.value.title)
     formData.append('description', form.value.description)
@@ -423,6 +435,7 @@ async function handleSubmit() {
     if (form.value.comparePrice) formData.append('comparePrice', form.value.comparePrice)
     if (form.value.sku) formData.append('sku', form.value.sku)
     formData.append('stock', form.value.stock)
+    formData.append('weight', form.value.weight)
     formData.append('specs', specsToJson())
     formData.append('featured', form.value.featured)
     formData.append('active', form.value.active)

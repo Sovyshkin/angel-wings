@@ -14,20 +14,26 @@ export const useCartStore = defineStore('cart', () => {
   const totalWithDelivery = computed(() => total.value + deliveryPrice.value)
   const count = computed(() => items.value.reduce((sum, item) => sum + item.quantity, 0))
   
-  // Calculate total weight for delivery (in grams, default 500g per item)
-  const totalWeight = computed(() => items.value.reduce((sum, item) => sum + (item.weight || 500) * item.quantity, 0))
+  // Calculate total weight for delivery (in grams)
+  const totalWeight = computed(() =>
+    items.value.reduce((sum, item) => {
+      const itemWeight = Math.max(0, parseInt(item.weight) || 0)
+      return sum + itemWeight * item.quantity
+    }, 0)
+  )
   
   function getItemKey(item) {
     return `${item.id}::${item.selectedDosage || ''}`
   }
 
   function addItem(product) {
+    const normalizedWeight = Math.max(0, parseInt(product.weight) || 0)
     const productKey = getItemKey(product)
     const existing = items.value.find(i => getItemKey(i) === productKey)
     if (existing) {
       existing.quantity++
     } else {
-      items.value.push({ ...product, quantity: 1, cartKey: productKey })
+      items.value.push({ ...product, weight: normalizedWeight, quantity: 1, cartKey: productKey })
     }
     lastAddedId.value = product.id
     save()

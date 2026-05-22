@@ -125,11 +125,11 @@
                   </div>
                   <button 
                     class="add-to-cart-btn"
-                    :class="{ 'just-added': cartStore.lastAddedId === product.id }"
+                    :class="{ 'just-added': isProductInCart(product.id) }"
                     @click.prevent="cartStore.addItem(product)"
                     :disabled="!product.stock"
                   >
-                    <svg v-if="cartStore.lastAddedId === product.id" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg v-if="isProductInCart(product.id)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="20 6 9 17 4 12"/>
                     </svg>
                     <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -232,6 +232,10 @@ function getCategoryCount(slug) {
 function truncate(text, length) {
   if (!text) return ''
   return text.length > length ? text.substring(0, length) + '...' : text
+}
+
+function isProductInCart(productId) {
+  return cartStore.items.some(item => item.id === productId)
 }
 
 function handleImageError(e) {

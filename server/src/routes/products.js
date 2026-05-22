@@ -99,7 +99,7 @@ router.post('/', authenticate, requireAdmin, upload.fields([
   { name: 'images', maxCount: 12 }
 ]), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, sku, stock, specs, categories, featured, active, purity, volume, country } = req.body
+    const { title, description, price, comparePrice, sku, stock, weight, specs, categories, featured, active, purity, volume, country } = req.body
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const galleryImages = galleryFiles.map(file => `/uploads/${file.filename}`)
@@ -107,6 +107,11 @@ router.post('/', authenticate, requireAdmin, upload.fields([
     
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     
+    const parsedWeight = parseInt(weight)
+    if (!Number.isFinite(parsedWeight) || parsedWeight <= 0) {
+      return res.status(400).json({ error: 'Вес товара обязателен и должен быть больше 0 г' })
+    }
+
     const product = await prisma.product.create({
       data: {
         title,
@@ -116,6 +121,7 @@ router.post('/', authenticate, requireAdmin, upload.fields([
         comparePrice: comparePrice ? parseFloat(comparePrice) : null,
         sku,
         stock: parseInt(stock) || 0,
+        weight: parsedWeight,
         specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
         purity: purity || null,
         volume: volume || null,
@@ -141,13 +147,18 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
   { name: 'images', maxCount: 12 }
 ]), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, sku, stock, specs, categories, featured, active, purity, volume, country, existingImages } = req.body
+    const { title, description, price, comparePrice, sku, stock, weight, specs, categories, featured, active, purity, volume, country, existingImages } = req.body
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const persistedImages = parseImagesField(existingImages)
     const uploadedGalleryImages = galleryFiles.map(file => `/uploads/${file.filename}`)
     const mergedGalleryImages = [...persistedImages, ...uploadedGalleryImages]
     
+    const parsedWeight = parseInt(weight)
+    if (!Number.isFinite(parsedWeight) || parsedWeight <= 0) {
+      return res.status(400).json({ error: 'Вес товара обязателен и должен быть больше 0 г' })
+    }
+
     const updateData = {
       title,
       description,
@@ -155,6 +166,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
       comparePrice: comparePrice ? parseFloat(comparePrice) : null,
       sku,
       stock: parseInt(stock) || 0,
+      weight: parsedWeight,
       specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
       purity: purity || null,
       volume: volume || null,
