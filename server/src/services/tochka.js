@@ -4,22 +4,26 @@ const TOCHKA_API_URL = 'https://enter.tochka.com/uapi/acquiring/v1.0'
 const TOCHKA_OPEN_BANKING_URL = 'https://enter.tochka.com/uapi/open-banking/v1.0'
 
 class TochkaService {
-  constructor() {
-    this.jwtToken = process.env.TOCHKA_JWT_TOKEN
-    this.customerCode = process.env.TOCHKA_CUSTOMER_CODE
-    this.clientId = process.env.TOCHKA_CLIENT_ID
+  getEnv() {
+    return {
+      jwtToken: process.env.TOCHKA_JWT_TOKEN,
+      customerCode: process.env.TOCHKA_CUSTOMER_CODE,
+      clientId: process.env.TOCHKA_CLIENT_ID
+    }
   }
 
   getHeaders() {
+    const { jwtToken, clientId } = this.getEnv()
     return {
-      'Authorization': `Bearer ${this.jwtToken}`,
+      'Authorization': `Bearer ${jwtToken}`,
       'Content-Type': 'application/json',
-      'X-Client-Id': this.clientId
+      'X-Client-Id': clientId
     }
   }
 
   async resolveBusinessCustomerCode() {
-    if (this.customerCode) return this.customerCode
+    const { customerCode } = this.getEnv()
+    if (customerCode) return customerCode
 
     const response = await axios.get(
       `${TOCHKA_OPEN_BANKING_URL}/customers`,
@@ -62,7 +66,16 @@ class TochkaService {
 
   async createPayment(amount, orderId, purpose, redirectUrl, failRedirectUrl) {
     try {
-      if (!this.jwtToken || !this.clientId) {
+      const { jwtToken, clientId } = this.getEnv()
+      console.log('[TOCHKA] createPayment start', JSON.stringify({
+        orderId,
+        amount,
+        hasJwtToken: Boolean(jwtToken),
+        hasClientId: Boolean(clientId),
+        hasCustomerCode: Boolean(process.env.TOCHKA_CUSTOMER_CODE)
+      }))
+
+      if (!jwtToken || !clientId) {
         return {
           success: false,
           error: 'Не настроены TOCHKA_JWT_TOKEN или TOCHKA_CLIENT_ID'
@@ -88,6 +101,15 @@ class TochkaService {
       if (merchantId) {
         requestData.Data.merchantId = merchantId
       }
+
+      console.log('[TOCHKA] createPayment request prepared', JSON.stringify({
+        orderId,
+        customerCode,
+        hasMerchantId: Boolean(merchantId),
+        paymentLinkId: requestData.Data.paymentLinkId,
+        redirectUrl,
+        failRedirectUrl
+      }))
       
       const response = await axios.post(
         `${TOCHKA_API_URL}/payments`,
@@ -108,6 +130,12 @@ class TochkaService {
         response.data?.Data?.paymentId ||
         response.data?.paymentId ||
         response.data?.PaymentId
+
+      console.log('[TOCHKA] createPayment success', JSON.stringify({
+        orderId,
+        paymentId,
+        hasPaymentUrl: Boolean(paymentUrl)
+      }))
 
       return {
         success: true,
@@ -143,6 +171,7 @@ class TochkaService {
 
   async getPaymentStatus(paymentId) {
     try {
+      console.log('[TOCHKA] getPaymentStatus start', JSON.stringify({ paymentId }))
       const response = await axios.get(
         `${TOCHKA_API_URL}/payments/${paymentId}`,
         {

@@ -7,12 +7,22 @@ const router = Router()
 router.post('/create', async (req, res, next) => {
   try {
     const { orderId, amount, description } = req.body
+    console.log('[PAYMENT] /create request', JSON.stringify({
+      orderId,
+      amount,
+      hasDescription: Boolean(description)
+    }))
 
     if (!orderId || !amount) {
+      console.warn('[PAYMENT] /create validation failed: missing orderId or amount')
       return res.status(400).json({ error: 'Не указан ID заказа или сумма' })
     }
 
     const baseUrl = process.env.TOCHKA_REDIRECT_BASE_URL || process.env.CLIENT_URL || ''
+    console.log('[PAYMENT] /create redirect baseUrl check', JSON.stringify({
+      baseUrl,
+      isHttps: baseUrl.startsWith('https://')
+    }))
     if (!baseUrl || !baseUrl.startsWith('https://')) {
       return res.status(400).json({
         error: 'Для интеграции Точка требуется HTTPS URL для редиректов. Укажите TOCHKA_REDIRECT_BASE_URL=https://... в .env'
@@ -30,12 +40,21 @@ router.post('/create', async (req, res, next) => {
     )
 
     if (result.success && result.paymentUrl) {
+      console.log('[PAYMENT] /create success', JSON.stringify({
+        orderId,
+        paymentId: result.paymentId
+      }))
       res.json({ 
         success: true, 
         paymentUrl: result.paymentUrl,
         paymentId: result.paymentId
       })
     } else {
+      console.error('[PAYMENT] /create failed', JSON.stringify({
+        orderId,
+        error: result.error,
+        debug: result.debug || null
+      }))
       const response = { error: result.error || 'Ошибка создания платежа' }
       if (process.env.NODE_ENV !== 'production' && result.debug) {
         response.details = result.debug
