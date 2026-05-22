@@ -4,6 +4,55 @@ const TOCHKA_API_URL = 'https://enter.tochka.com/uapi/acquiring/v1.0'
 const TOCHKA_OPEN_BANKING_URL = 'https://enter.tochka.com/uapi/open-banking/v1.0'
 
 class TochkaService {
+  extractPaymentUrl(payload) {
+    const candidates = [
+      payload?.Data?.paymentUrl,
+      payload?.Data?.PaymentUrl,
+      payload?.Data?.paymentLink,
+      payload?.Data?.PaymentLink,
+      payload?.Data?.url,
+      payload?.Data?.Url,
+      payload?.Data?.redirectUrl,
+      payload?.paymentUrl,
+      payload?.PaymentUrl,
+      payload?.paymentLink,
+      payload?.PaymentLink,
+      payload?.url,
+      payload?.Url
+    ]
+
+    const direct = candidates.find(value => typeof value === 'string' && value.startsWith('http'))
+    if (direct) return direct
+
+    const scan = (obj) => {
+      if (!obj || typeof obj !== 'object') return null
+      for (const value of Object.values(obj)) {
+        if (typeof value === 'string' && /^https?:\/\//i.test(value)) return value
+        if (value && typeof value === 'object') {
+          const nested = scan(value)
+          if (nested) return nested
+        }
+      }
+      return null
+    }
+
+    return scan(payload)
+  }
+
+  extractPaymentId(payload) {
+    return (
+      payload?.Data?.operationId ||
+      payload?.Data?.OperationId ||
+      payload?.Data?.paymentId ||
+      payload?.Data?.PaymentId ||
+      payload?.operationId ||
+      payload?.OperationId ||
+      payload?.paymentId ||
+      payload?.PaymentId ||
+      null
+    )
+  }
+
   getEnv() {
     return {
       jwtToken: process.env.TOCHKA_JWT_TOKEN,
@@ -120,22 +169,27 @@ class TochkaService {
       )
 
       // Handle different response formats
-      const paymentUrl =
-        response.data?.Data?.paymentUrl ||
-        response.data?.Data?.PaymentUrl ||
-        response.data?.paymentUrl ||
-        response.data?.PaymentUrl
-      const paymentId =
-        response.data?.Data?.operationId ||
-        response.data?.Data?.paymentId ||
-        response.data?.paymentId ||
-        response.data?.PaymentId
+      const paymentUrl = this.extractPaymentUrl(response.data)
+      const paymentId = this.extractPaymentId(response.data)
 
       console.log('[TOCHKA] createPayment success', JSON.stringify({
         orderId,
         paymentId,
         hasPaymentUrl: Boolean(paymentUrl)
       }))
+
+      if (!paymentUrl) {
+        console.error('[TOCHKA] createPayment missing payment URL', JSON.stringify({
+          orderId,
+          paymentId,
+          response: response.data
+        }))
+        return {
+          success: false,
+          error: 'Точка не вернула ссылку на оплату',
+          debug: response.data || null
+        }
+      }
 
       return {
         success: true,
