@@ -161,6 +161,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import axios from 'axios'
 import { useAuthStore } from '../store/auth'
 
 const router = useRouter()
@@ -198,6 +199,31 @@ const visibleTabs = computed(() => {
     return true
   })
 })
+
+function mapOrderStatus(status) {
+  const normalized = String(status || '').toUpperCase()
+  if (normalized === 'DELIVERED') return { css: 'completed', text: 'Выполнен' }
+  if (normalized === 'CANCELLED') return { css: 'cancelled', text: 'Отменён' }
+  return { css: 'pending', text: 'В обработке' }
+}
+
+async function loadOrders() {
+  try {
+    const { data } = await axios.get('/api/orders/my')
+    orders.value = (data.orders || []).map(order => {
+      const statusView = mapOrderStatus(order.status)
+      return {
+        ...order,
+        date: formatDate(order.createdAt),
+        status: statusView.css,
+        statusText: statusView.text
+      }
+    })
+  } catch (error) {
+    orders.value = []
+    console.error('Failed to load orders:', error)
+  }
+}
 
 function navigateTab(tab) {
   if (tab.id === 'partner') {
@@ -252,6 +278,8 @@ onMounted(() => {
     address: authStore.user?.address || '',
     newPassword: ''
   }
+
+  loadOrders()
 })
 </script>
 
