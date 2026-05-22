@@ -212,6 +212,7 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import axios from 'axios'
+import deliveryApi from '../api/delivery'
 
 // Global axios error handler - prevents crashes on API errors
 axios.interceptors.response.use(
@@ -265,7 +266,7 @@ const newOrder = ref({
 // Load balance
 async function loadBalance() {
   try {
-    const res = await axios.get('/api/delivery/balance')
+    const res = await deliveryApi.get('/balance')
     if (res.data) {
       balance.value = res.data
     }
@@ -278,7 +279,7 @@ async function loadBalance() {
 async function loadOrders() {
   loading.value = true
   try {
-    const res = await axios.get('/api/delivery/orders')
+    const res = await deliveryApi.get('/orders')
     if (res.data) {
       cdekOrders.value = Array.isArray(res.data) ? res.data : (res.data.entity ? [res.data.entity] : [])
     }
@@ -298,7 +299,7 @@ async function searchOrders() {
   }
   loading.value = true
   try {
-    const { data } = await axios.get(`/api/delivery/orders?order_number=${orderSearch.value}`)
+    const { data } = await deliveryApi.get(`/orders?order_number=${orderSearch.value}`)
     cdekOrders.value = Array.isArray(data) ? data : (data.entity ? [data.entity] : [])
   } catch (e) {
     console.error('Search error:', e)
@@ -310,7 +311,7 @@ async function searchOrders() {
 // View order details
 async function viewOrder(uuid) {
   try {
-    const { data } = await axios.get(`/api/delivery/orders/${uuid}`)
+    const { data } = await deliveryApi.get(`/orders/${uuid}`)
     console.log('Order details:', data)
     alert(JSON.stringify(data, null, 2))
   } catch (e) {
@@ -322,7 +323,7 @@ async function viewOrder(uuid) {
 async function cancelOrder(uuid) {
   if (!confirm('Отменить заказ?')) return
   try {
-    const { data } = await axios.post(`/api/delivery/orders/${uuid}/cancel`)
+    const { data } = await deliveryApi.post(`/orders/${uuid}/cancel`)
     alert('Заказ отменён')
     loadOrders()
   } catch (e) {
@@ -342,7 +343,7 @@ function onCitySearch() {
   cityTimeout = setTimeout(async () => {
     cityLoading.value = true
     try {
-      const { data } = await axios.post('/api/delivery/find-city', { name: citySearch.value })
+      const { data } = await deliveryApi.post('/find-city', { name: citySearch.value })
       cityResults.value = Array.isArray(data) ? data : []
     } catch (e) {
       console.error('City search error:', e)
@@ -357,7 +358,7 @@ function onCitySearch() {
 async function loadPickupPoints(cityCode) {
   pickupLoading.value = true
   try {
-    const res = await axios.get(`/api/delivery/pickup-points?city_code=${cityCode}&limit=50`)
+    const res = await deliveryApi.get(`/pickup-points?city_code=${cityCode}&limit=50`)
     if (res.data) {
       pickupPoints.value = Array.isArray(res.data) ? res.data : []
     }
@@ -378,7 +379,7 @@ async function searchCityAndLoadPickup() {
   foundCityCode.value = ''
   
   try {
-    const res = await axios.post('/api/delivery/find-city', { name: citySearch.value })
+    const res = await deliveryApi.post('/find-city', { name: citySearch.value })
     if (res.data && Array.isArray(res.data) && res.data.length > 0) {
       const city = res.data[0]
       foundCityName.value = city.city
@@ -396,7 +397,7 @@ async function searchCityAndLoadPickup() {
 async function loadTariffs() {
   tariffLoading.value = true
   try {
-    const { data } = await axios.get('/api/delivery/tariffs')
+    const { data } = await deliveryApi.get('/tariffs')
     tariffs.value = Array.isArray(data) ? data : []
   } catch (e) {
     console.error('Tariffs error:', e)
@@ -409,7 +410,7 @@ async function loadTariffs() {
 async function createOrder() {
   creating.value = true
   try {
-    const { data } = await axios.post('/api/delivery/orders', {
+    const { data } = await deliveryApi.post('/orders', {
       number: newOrder.value.number,
       tariff_code: parseInt(newOrder.value.tariff_code),
       recipient_name: newOrder.value.recipient_name,

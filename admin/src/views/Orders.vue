@@ -298,9 +298,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
+import deliveryApi from '../api/delivery'
 
 const API_URL = '/api/admin'
-const DELIVERY_API = '/api/delivery'
 
 const orders = ref([])
 const loading = ref(true)
@@ -354,7 +354,7 @@ async function createCdekOrder() {
       weight: 500 * item.quantity // 500g per item
     }))
     
-    const { data } = await axios.post(`${DELIVERY_API}/orders`, {
+    const { data } = await deliveryApi.post('/orders', {
       number: `order-${selectedOrder.value.id}`,
       tariff_code: selectedOrder.value.deliveryTariffCode || 136,
       recipient_name: selectedOrder.value.customerName,
@@ -385,7 +385,7 @@ async function syncCdekStatus() {
   
   syncingCdek.value = true
   try {
-    const { data } = await axios.get(`${DELIVERY_API}/orders/${selectedOrder.value.cdekOrderUuid}`)
+    const { data } = await deliveryApi.get(`/orders/${selectedOrder.value.cdekOrderUuid}`)
     
     if (data.entity?.statuses) {
       cdekStatus.value = data.entity.statuses.map(s => ({

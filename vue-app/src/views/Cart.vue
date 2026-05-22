@@ -484,6 +484,7 @@ import { useCartStore } from '../store/cart'
 import { useProductStore } from '../store/products'
 import { useAuthStore } from '../store/auth'
 import axios from 'axios'
+import deliveryApi from '../api/delivery'
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -610,14 +611,14 @@ async function searchCityAndPickup() {
   foundCityCode.value = ''
   
   try {
-    const res = await axios.post('/api/delivery/find-city', { name: citySearch.value })
+    const res = await deliveryApi.post('/find-city', { name: citySearch.value })
     if (res.data && Array.isArray(res.data) && res.data.length > 0) {
       const city = res.data[0]
       foundCityName.value = city.city
       foundCityCode.value = city.code
       
       // Load pickup points
-      const pointsRes = await axios.get(`/api/delivery/pickup-points?city_code=${city.code}&limit=50`)
+      const pointsRes = await deliveryApi.get(`/pickup-points?city_code=${city.code}&limit=50`)
       pickupPoints.value = pointsRes.data || []
       
       // Calculate courier price for this city
@@ -635,7 +636,7 @@ async function calculateCourierPrice() {
   
   loadingDelivery.value = true
   try {
-    const res = await axios.post('/api/delivery/calculate-by-tariff', {
+    const res = await deliveryApi.post('/calculate-by-tariff', {
       tariff_code: 137, // Courier tariff
       from_code: 270, // Moscow
       to_code: foundCityCode.value,
@@ -679,7 +680,7 @@ async function onPickupSelect() {
   
   loadingDelivery.value = true
   try {
-    const res = await axios.post('/api/delivery/calculate-by-tariff', {
+    const res = await deliveryApi.post('/calculate-by-tariff', {
       tariff_code: 136, // PVZ tariff
       from_code: 270,
       to_code: foundCityCode.value,
@@ -865,7 +866,7 @@ async function placeOrder() {
           }
         }
 
-        await axios.post('/api/delivery/orders', {
+        await deliveryApi.post('/orders', {
           ...cdekPayload
         })
       } catch (e) {

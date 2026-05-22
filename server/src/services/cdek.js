@@ -220,16 +220,24 @@ export async function createOrder({
     }))
   }
 
-  // Если указан ПВЗ
-  if (delivery_point) {
-    orderPayload.delivery_point = delivery_point
-  }
+  const hasDeliveryPoint = Boolean(delivery_point)
 
-  // Локация получателя (обязательна для части тарифов)
-  if (to_location && (to_location.code || to_location.address || to_location.city)) {
-    orderPayload.to_location = { ...to_location }
-  } else if (address) {
-    orderPayload.to_location = { address }
+  // Если указан ПВЗ, адрес курьера передавать нельзя
+  if (hasDeliveryPoint) {
+    orderPayload.delivery_point = delivery_point
+    const pickupToLocation = {}
+    if (to_location?.code) pickupToLocation.code = to_location.code
+    if (to_location?.city) pickupToLocation.city = to_location.city
+    if (Object.keys(pickupToLocation).length > 0) {
+      orderPayload.to_location = pickupToLocation
+    }
+  } else {
+    // Для курьера обязателен адрес получателя
+    if (to_location && (to_location.code || to_location.address || to_location.city)) {
+      orderPayload.to_location = { ...to_location }
+    } else if (address) {
+      orderPayload.to_location = { address }
+    }
   }
 
   // Контакт отправителя
