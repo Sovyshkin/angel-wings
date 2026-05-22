@@ -310,10 +310,19 @@
               <div v-if="foundCityName" class="found-info">
                 ПВЗ в г. {{ foundCityName }}:
               </div>
+
+              <div v-if="pickupPoints.length" class="pickup-filter">
+                <input
+                  v-model="pickupFilter"
+                  type="text"
+                  class="input"
+                  placeholder="Поиск ПВЗ по улице или адресу..."
+                >
+              </div>
               
               <div class="pickup-list">
                 <label 
-                  v-for="point in pickupPoints" 
+                  v-for="point in filteredPickupPoints" 
                   :key="point.code" 
                   class="pickup-point"
                   :class="{ selected: selectedPickupPoint?.code === point.code }"
@@ -330,6 +339,9 @@
                     <span v-if="point.work_time" class="point-time">{{ point.work_time }}</span>
                   </div>
                 </label>
+                <div v-if="pickupPoints.length && !filteredPickupPoints.length" class="no-points-found">
+                  По вашему запросу ПВЗ не найдено
+                </div>
               </div>
             </div>
 
@@ -516,6 +528,7 @@ const citySearch = ref('')
 const foundCityName = ref('')
 const foundCityCode = ref('')
 const pickupPoints = ref([])
+const pickupFilter = ref('')
 const selectedPickupPoint = ref(null)
 const courierAddress = ref('')
 const addressInput = ref('')
@@ -523,6 +536,16 @@ const loadingPickup = ref(false)
 const loadingDelivery = ref(false)
 const deliveryPrice = ref(0)
 const deliveryInfo = ref({})
+
+const filteredPickupPoints = computed(() => {
+  const q = pickupFilter.value.trim().toLowerCase()
+  if (!q) return pickupPoints.value
+  return pickupPoints.value.filter(point => {
+    const name = String(point?.name || '').toLowerCase()
+    const address = String(point?.address || '').toLowerCase()
+    return name.includes(q) || address.includes(q)
+  })
+})
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -587,6 +610,7 @@ function retryOrder() {
 
 function changeDelivery() {
   selectedPickupPoint.value = null
+  pickupFilter.value = ''
   courierAddress.value = ''
   addressInput.value = ''
   deliveryPrice.value = 0
@@ -607,6 +631,7 @@ async function searchCityAndPickup() {
   
   loadingPickup.value = true
   pickupPoints.value = []
+  pickupFilter.value = ''
   foundCityName.value = ''
   foundCityCode.value = ''
   
@@ -1358,6 +1383,10 @@ watch(() => authStore.user, () => {
   flex: 1;
 }
 
+.pickup-filter {
+  margin-bottom: 0.75rem;
+}
+
 .loading-pickup {
   display: flex;
   align-items: center;
@@ -1379,6 +1408,12 @@ watch(() => authStore.user, () => {
   gap: 0.5rem;
   max-height: 200px;
   overflow-y: auto;
+}
+
+.no-points-found {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 0.5rem 0.25rem;
 }
 
 .pickup-point {
