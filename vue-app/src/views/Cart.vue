@@ -883,9 +883,6 @@ async function placeOrder() {
 
         if (deliveryType.value === 'pvz') {
           cdekPayload.delivery_point = deliveryData.pickup_point
-          cdekPayload.to_location = {
-            code: Number(foundCityCode.value) || foundCityCode.value
-          }
         } else {
           cdekPayload.address = deliveryData.address
           cdekPayload.to_location = {

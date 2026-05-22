@@ -222,15 +222,9 @@ export async function createOrder({
 
   const hasDeliveryPoint = Boolean(delivery_point)
 
-  // Если указан ПВЗ, адрес курьера передавать нельзя
+  // Если указан ПВЗ, to_location/address передавать нельзя
   if (hasDeliveryPoint) {
     orderPayload.delivery_point = delivery_point
-    const pickupToLocation = {}
-    if (to_location?.code) pickupToLocation.code = to_location.code
-    if (to_location?.city) pickupToLocation.city = to_location.city
-    if (Object.keys(pickupToLocation).length > 0) {
-      orderPayload.to_location = pickupToLocation
-    }
   } else {
     // Для курьера обязателен адрес получателя
     if (to_location && (to_location.code || to_location.address || to_location.city)) {
