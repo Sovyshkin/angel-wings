@@ -489,8 +489,8 @@ const router = useRouter()
 const cartStore = useCartStore()
 const productStore = useProductStore()
 const authStore = useAuthStore()
-const ENABLE_PVZ = false
-const ENABLE_CDEK = false
+const ENABLE_PVZ = true
+const ENABLE_CDEK = true
 
 const customer = ref({ name: '', phone: '', email: '', comment: '' })
 const consents = ref({
