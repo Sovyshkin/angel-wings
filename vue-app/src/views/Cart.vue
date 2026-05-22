@@ -637,7 +637,7 @@ async function calculateCourierPrice() {
   loadingDelivery.value = true
   try {
     const res = await deliveryApi.post('/calculate-by-tariff', {
-      tariff_code: 137, // Courier tariff
+      tariff_code: 136, // Courier tariff
       from_code: 270, // Moscow
       to_code: foundCityCode.value,
       weight: cartStore.totalWeight
@@ -681,7 +681,7 @@ async function onPickupSelect() {
   loadingDelivery.value = true
   try {
     const res = await deliveryApi.post('/calculate-by-tariff', {
-      tariff_code: 136, // PVZ tariff
+      tariff_code: 137, // PVZ tariff
       from_code: 270,
       to_code: foundCityCode.value,
       weight: cartStore.totalWeight
@@ -804,13 +804,13 @@ async function placeOrder() {
 
     if (ENABLE_CDEK) {
       if (deliveryType.value === 'pvz') {
-        deliveryData.tariff_code = 136
+        deliveryData.tariff_code = 137
         deliveryData.tariff_name = 'Экспресс лайт склад-склад'
         deliveryData.pickup_point = selectedPickupPoint.value.code
         deliveryData.pickup_point_name = selectedPickupPoint.value.name
         deliveryData.address = selectedPickupPoint.value.address
       } else {
-        deliveryData.tariff_code = 137
+        deliveryData.tariff_code = 136
         deliveryData.tariff_name = 'Экспресс лайт склад-дверь'
         deliveryData.address = courierAddress.value
       }

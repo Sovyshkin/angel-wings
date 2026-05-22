@@ -354,9 +354,10 @@ async function createCdekOrder() {
       weight: 500 * item.quantity // 500g per item
     }))
     
+    const isPickup = Boolean(selectedOrder.value.deliveryPickupPoint)
     const { data } = await deliveryApi.post('/orders', {
       number: `order-${selectedOrder.value.id}`,
-      tariff_code: selectedOrder.value.deliveryTariffCode || 136,
+      tariff_code: selectedOrder.value.deliveryTariffCode || (isPickup ? 137 : 136),
       recipient_name: selectedOrder.value.customerName,
       recipient_phone: selectedOrder.value.customerPhone,
       recipient_email: selectedOrder.value.customerEmail,

@@ -194,7 +194,7 @@ export async function createOrder({
   
   const orderPayload = {
     number: String(number),
-    tariff_code: tariff_code || 136, // 136 - Экспресс лайт дверь-дверь
+    tariff_code: tariff_code || 137, // safer default for pickup flow; explicit value should be passed from client
     comment: comment || '',
     // Don't use both shipment_point and from_location together
     from_location: { code: 270 }, // Москва - код для склада отправителя
