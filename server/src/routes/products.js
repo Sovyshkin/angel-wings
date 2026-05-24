@@ -5,6 +5,7 @@ import { upload } from '../utils/fileUpload.js'
 
 const router = Router()
 const prisma = new PrismaClient()
+const ACTIVE_ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED']
 
 function parseImagesField(images) {
   if (!images) return []
@@ -14,6 +15,20 @@ function parseImagesField(images) {
     return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
+  }
+}
+
+function getDosagePriceFromSpecs(specsRaw, dosage) {
+  if (!specsRaw || !dosage) return null
+  try {
+    const specs = typeof specsRaw === 'string' ? JSON.parse(specsRaw) : specsRaw
+    const dosages = Array.isArray(specs?.dosages) ? specs.dosages : []
+    const matched = dosages.find(item => String(item?.dosage || '').trim() === String(dosage).trim())
+    if (!matched) return null
+    if (matched.price === undefined || matched.price === null || matched.price === '') return null
+    return Math.max(0, parseFloat(matched.price) || 0)
+  } catch {
+    return null
   }
 }
 
@@ -189,6 +204,50 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
       where: { id: parseInt(req.params.id) },
       data: updateData
     })
+
+    // If product is used in active orders, reflect current product data in those order positions.
+    const activeOrderItems = await prisma.orderItem.findMany({
+      where: {
+        productId: product.id,
+        order: { status: { in: ACTIVE_ORDER_STATUSES } }
+      },
+      select: { id: true, dosage: true, orderId: true }
+    })
+
+    if (activeOrderItems.length) {
+      const basePrice = Math.max(0, parseFloat(updateData.price) || 0)
+      const specsSource = updateData.specs || '{}'
+
+      await prisma.$transaction(async (tx) => {
+        for (const item of activeOrderItems) {
+          const dosagePrice = getDosagePriceFromSpecs(specsSource, item.dosage)
+          const nextPrice = dosagePrice !== null ? dosagePrice : basePrice
+          await tx.orderItem.update({
+            where: { id: item.id },
+            data: { price: nextPrice }
+          })
+        }
+
+        const touchedOrderIds = [...new Set(activeOrderItems.map(item => item.orderId))]
+        for (const orderId of touchedOrderIds) {
+          const orderWithItems = await tx.order.findUnique({
+            where: { id: orderId },
+            include: { items: true }
+          })
+          if (!orderWithItems) continue
+
+          const itemsTotal = orderWithItems.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+          const delivery = Math.max(0, parseFloat(orderWithItems.deliveryPrice) || 0)
+          const discount = Math.max(0, parseFloat(orderWithItems.discountAmount) || 0)
+          const nextTotal = Math.max(0, itemsTotal + delivery - discount)
+
+          await tx.order.update({
+            where: { id: orderId },
+            data: { total: nextTotal }
+          })
+        }
+      })
+    }
     
     res.json({ product })
   } catch (error) {
@@ -198,12 +257,34 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
 
 router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
+    const productId = parseInt(req.params.id)
+
     await prisma.product.delete({
-      where: { id: parseInt(req.params.id) }
+      where: { id: productId }
     })
-    
-    res.json({ message: 'Product deleted' })
+
+    res.json({ message: 'Product deleted', deleted: true })
   } catch (error) {
+    // Product is referenced by order_items: keep order history and soft-delete product instead.
+    if (error?.code === 'P2003') {
+      try {
+        const productId = parseInt(req.params.id)
+        const product = await prisma.product.update({
+          where: { id: productId },
+          data: { active: false, featured: false }
+        })
+
+        return res.json({
+          message: 'Товар связан с заказами и не может быть удалён физически. Товар скрыт из каталога.',
+          deleted: false,
+          deactivated: true,
+          productId: product.id
+        })
+      } catch (fallbackError) {
+        return next(fallbackError)
+      }
+    }
+
     next(error)
   }
 })

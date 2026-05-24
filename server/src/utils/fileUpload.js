@@ -3,11 +3,20 @@ import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import fs from 'fs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-export const uploadDir = join(__dirname, '../../uploads')
+const defaultUploadDir = join(__dirname, '../../uploads')
+const configuredUploadDir = (process.env.UPLOAD_DIR || '').trim()
+export const uploadDir = configuredUploadDir
+  ? (path.isAbsolute(configuredUploadDir) ? configuredUploadDir : join(__dirname, '../../', configuredUploadDir))
+  : defaultUploadDir
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true })
+}
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
