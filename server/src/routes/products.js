@@ -6,6 +6,12 @@ import { upload } from '../utils/fileUpload.js'
 const router = Router()
 const prisma = new PrismaClient()
 const ACTIVE_ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED']
+const CYRILLIC_TO_LATIN = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z',
+  и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r',
+  с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch',
+  ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya'
+}
 
 function parseImagesField(images) {
   if (!images) return []
@@ -30,6 +36,34 @@ function getDosagePriceFromSpecs(specsRaw, dosage) {
   } catch {
     return null
   }
+}
+
+function slugifyTitle(title) {
+  const normalized = String(title || '')
+    .toLowerCase()
+    .trim()
+    .split('')
+    .map(char => CYRILLIC_TO_LATIN[char] ?? char)
+    .join('')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+
+  return normalized || 'product'
+}
+
+async function generateUniqueProductSlug(title) {
+  const baseSlug = slugifyTitle(title)
+  let slug = baseSlug
+  let suffix = 2
+
+  // Ensure uniqueness for slug unique constraint in DB
+  while (await prisma.product.findUnique({ where: { slug } })) {
+    slug = `${baseSlug}-${suffix}`
+    suffix += 1
+  }
+
+  return slug
 }
 
 router.get('/', async (req, res, next) => {
@@ -120,7 +154,7 @@ router.post('/', authenticate, requireAdmin, upload.fields([
     const galleryImages = galleryFiles.map(file => `/uploads/${file.filename}`)
     const mainImage = mainFile ? `/uploads/${mainFile.filename}` : (galleryImages[0] || null)
     
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    const slug = await generateUniqueProductSlug(title)
     
     const parsedWeight = parseInt(weight)
     if (!Number.isFinite(parsedWeight) || parsedWeight <= 0) {
