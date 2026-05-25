@@ -9,7 +9,17 @@
 
     <div class="container">
       <div class="catalog__layout">
-        <aside class="sidebar" data-aos="fade-right" data-aos-delay="100">
+        <aside class="sidebar" :class="{ 'sidebar--open': mobileFiltersOpen }">
+          <div class="sidebar-header">
+            <h3>Фильтры</h3>
+            <button class="sidebar-close" type="button" @click="closeMobileFilters" aria-label="Закрыть фильтры">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
           <div class="filter-section">
             <h3 class="filter-title">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -63,11 +73,21 @@
             </div>
           </div>
         </aside>
+
+        <div v-if="mobileFiltersOpen" class="filters-overlay" @click="closeMobileFilters"></div>
         
         <div class="catalog__main">
           <div class="catalog__bar">
-            <div class="results-count">
-              <span>{{ filteredProducts.length }}</span> товаров
+            <div class="catalog__bar-left">
+              <button class="catalog__filters-toggle" type="button" @click="toggleMobileFilters">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                </svg>
+                Фильтры
+              </button>
+              <div class="results-count">
+                <span>{{ filteredProducts.length }}</span> товаров
+              </div>
             </div>
             <div class="sort-select">
               <select v-model="sortBy" class="input">
@@ -115,7 +135,7 @@
                 </div>
               </div>
               <div class="product-content">
-                <span class="product-category-badge">{{ getCategoryName(product.categories?.[0]?.slug) }}</span>
+                <span class="product-category-badge">{{ getCategoryName(product.categories?.[0]) }}</span>
                 <h3 class="product-title">{{ product.title }}</h3>
                 <p class="product-desc">{{ truncate(product.description, 100) }}</p>
                 <div class="product-footer">
@@ -162,6 +182,7 @@ const sortBy = ref('default')
 const priceMin = ref(null)
 const priceMax = ref(null)
 const loading = ref(false)
+const mobileFiltersOpen = ref(false)
 
 const products = computed(() => productStore.products)
 const categories = computed(() => productStore.categories)
@@ -198,6 +219,7 @@ const filteredProducts = computed(() => {
 
 function selectCategory(slug) {
   selectedCategory.value = slug
+  closeMobileFilters()
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -206,7 +228,16 @@ function resetFilters() {
   priceMin.value = null
   priceMax.value = null
   sortBy.value = 'default'
+  closeMobileFilters()
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function toggleMobileFilters() {
+  mobileFiltersOpen.value = !mobileFiltersOpen.value
+}
+
+function closeMobileFilters() {
+  mobileFiltersOpen.value = false
 }
 
 function getCategoryIcon(slug) {
@@ -219,10 +250,21 @@ function getCategoryIcon(slug) {
   return icons[slug] || ''
 }
 
-function getCategoryName(slug) {
-  if (!slug) return ''
-  const cat = categories.value.find(c => c.slug === slug)
-  return cat ? cat.name : slug
+function getCategoryName(category) {
+  if (!category) return ''
+  if (category.name) return category.name
+
+  if (category.slug) {
+    const bySlug = categories.value.find(c => c.slug === category.slug)
+    if (bySlug?.name) return bySlug.name
+  }
+
+  if (category.id !== undefined && category.id !== null) {
+    const byId = categories.value.find(c => Number(c.id ?? c.term_id) === Number(category.id))
+    if (byId?.name) return byId.name
+  }
+
+  return ''
 }
 
 function getCategoryCount(slug) {
@@ -283,6 +325,14 @@ watch(() => route.query.category, (newCat) => {
   position: sticky;
   top: 100px;
   height: fit-content;
+}
+
+.sidebar-header {
+  display: none;
+}
+
+.filters-overlay {
+  display: none;
 }
 
 .filter-section {
@@ -393,6 +443,25 @@ watch(() => route.query.category, (newCat) => {
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid var(--border);
+}
+
+.catalog__bar-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.catalog__filters-toggle {
+  display: none;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .results-count {
@@ -661,7 +730,8 @@ watch(() => route.query.category, (newCat) => {
   }
 
   .filter-item {
-    min-width: calc(50% - 0.25rem);
+    min-width: 0;
+    width: 100%;
     padding: 0.625rem 0.5rem;
     font-size: 0.8rem;
   }
@@ -690,6 +760,15 @@ watch(() => route.query.category, (newCat) => {
     align-items: flex-start;
   }
 
+  .catalog__bar-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .sort-select {
+    width: 100%;
+  }
+
   .results-count {
     font-size: 0.8rem;
   }
@@ -710,6 +789,10 @@ watch(() => route.query.category, (newCat) => {
     padding: 1rem;
   }
 
+  .product-footer {
+    gap: 0.5rem;
+  }
+
   .product-title {
     font-size: 0.9375rem;
   }
@@ -721,6 +804,76 @@ watch(() => route.query.category, (newCat) => {
 
   .price-value {
     font-size: 1.125rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .catalog__filters-toggle {
+    display: inline-flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: min(86vw, 340px);
+    height: 100vh;
+    padding: 1rem;
+    background: rgba(9, 11, 22, 0.98);
+    border-right: 1px solid var(--border);
+    transform: translateX(-108%) !important;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 40;
+    overflow-y: auto;
+    transition: transform 0.28s ease, opacity 0.28s ease;
+  }
+
+  .sidebar--open {
+    transform: translateX(0) !important;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .sidebar-header h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+
+  .sidebar-close {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+  }
+
+  .filters-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 7, 16, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 30;
+  }
+
+  .filter-section {
+    margin-bottom: 1rem;
   }
 }
 </style>

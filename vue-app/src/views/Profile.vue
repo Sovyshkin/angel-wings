@@ -210,6 +210,7 @@ const activeTab = ref('info')
 const orders = ref([])
 const successMessage = ref('')
 const expandedOrderId = ref(null)
+const partnerTabAvailable = ref(authStore.user?.role === 'ADMIN')
 
 const tabs = [
   { id: 'info', label: 'Мои данные', icon: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
@@ -234,10 +235,29 @@ const getInitials = computed(() => {
 const visibleTabs = computed(() => {
   return tabs.filter(tab => {
     if (!tab.role) return true
-    if (tab.role === 'PARTNER') return authStore.user?.role === 'PARTNER' || authStore.user?.role === 'ADMIN'
+    if (tab.role === 'PARTNER') return partnerTabAvailable.value
     return true
   })
 })
+
+async function resolvePartnerTabAvailability() {
+  if (!authStore.isAuthenticated) {
+    partnerTabAvailable.value = false
+    return
+  }
+
+  if (authStore.user?.role === 'ADMIN') {
+    partnerTabAvailable.value = true
+    return
+  }
+
+  try {
+    await axios.get('/api/partner/cabinet/stats')
+    partnerTabAvailable.value = true
+  } catch (error) {
+    partnerTabAvailable.value = false
+  }
+}
 
 function mapOrderStatus(status) {
   const normalized = String(status || '').toUpperCase()
@@ -274,6 +294,9 @@ async function loadOrders() {
 
 function navigateTab(tab) {
   if (tab.id === 'partner') {
+    if (!partnerTabAvailable.value) {
+      return
+    }
     router.push('/partner')
   } else {
     activeTab.value = tab.id
@@ -307,14 +330,20 @@ function handleDeleteAccount() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (!authStore.isAuthenticated) {
     router.push('/auth')
     return
   }
 
+  await resolvePartnerTabAvailability()
+
   const tabParam = route.query.tab
-  if (tabParam && tabs.some(t => t.id === tabParam)) {
+  if (
+    tabParam &&
+    tabs.some(t => t.id === tabParam) &&
+    (tabParam !== 'partner' || partnerTabAvailable.value)
+  ) {
     activeTab.value = tabParam
   }
 
@@ -820,6 +849,17 @@ onMounted(() => {
 
   .info-value {
     font-size: 0.875rem;
+  }
+
+  .order-item-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .order-item-meta {
+    width: 100%;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
   }
 
   .settings-form {

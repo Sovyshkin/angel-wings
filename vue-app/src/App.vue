@@ -991,4 +991,30 @@ onMounted(() => {
     text-align: center;
   }
 }
+
+@media (max-width: 640px) {
+  .header__container {
+    height: 60px;
+  }
+
+  .mobile-menu {
+    top: 56px;
+  }
+
+  .footer__grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .footer__col--brand {
+    grid-column: auto;
+  }
+
+  .footer__payments {
+    width: 100%;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+}
 </style>

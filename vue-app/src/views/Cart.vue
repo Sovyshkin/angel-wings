@@ -1720,12 +1720,96 @@ watch(() => authStore.user, () => {
 @media (max-width: 768px) {
   .cart__layout {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
-  
+
+  .cart-header {
+    display: none;
+  }
+
+  .cart-item {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .col-product {
+    align-items: flex-start;
+  }
+
+  .item-image {
+    width: 64px;
+    height: 64px;
+  }
+
+  .item-info h4 {
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+
+  .col-qty,
+  .col-price,
+  .col-total,
+  .col-remove {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  .col-qty::before {
+    content: 'Количество';
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .col-price::before {
+    content: 'Цена';
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .col-total::before {
+    content: 'Сумма';
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .col-remove {
+    justify-content: flex-end;
+  }
+
+  .cart-actions {
+    padding: 0.75rem 1rem;
+  }
+
+  .checkout-card {
+    position: static;
+  }
+
   .form-row {
     grid-template-columns: 1fr;
   }
-  
+
+  .delivery-price {
+    font-size: 0.95rem;
+  }
+
+  .checkout-total {
+    font-size: 1.5rem;
+  }
+
+  .order-summary-row {
+    font-size: 0.875rem;
+  }
+
   .delivery-type-options {
     flex-direction: column;
   }

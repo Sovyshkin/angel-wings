@@ -15,6 +15,7 @@ import OrderSuccess from '../views/OrderSuccess.vue'
 import OrderFail from '../views/OrderFail.vue'
 import PartnerCabinet from '../views/PartnerCabinet.vue'
 import { useAuthStore } from '../store/auth'
+import axios from 'axios'
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -31,7 +32,7 @@ const routes = [
   { path: '/requisites', name: 'Requisites', component: Requisites },
   { path: '/order-success', name: 'OrderSuccess', component: OrderSuccess },
   { path: '/order-failed', name: 'OrderFail', component: OrderFail },
-  { path: '/partner', name: 'PartnerCabinet', component: PartnerCabinet, meta: { requiresAuth: true } },
+  { path: '/partner', name: 'PartnerCabinet', component: PartnerCabinet, meta: { requiresAuth: true, requiresPartner: true } },
 ]
 
 const router = createRouter({
@@ -49,13 +50,30 @@ const router = createRouter({
   }
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/auth')
-  } else {
-    next()
+    return next('/auth')
+  }
+
+  if (!to.meta.requiresPartner) {
+    return next()
+  }
+
+  if (authStore.user?.role === 'ADMIN') {
+    return next()
+  }
+
+  try {
+    await axios.get('/api/partner/cabinet/stats')
+    return next()
+  } catch (error) {
+    if (error?.response?.status === 401) {
+      authStore.logout()
+      return next('/auth')
+    }
+    return next('/profile')
   }
 })
 

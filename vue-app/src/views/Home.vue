@@ -18,6 +18,11 @@
         <p class="hero__desc">
           Фармацевтический подход производства пептидов. 20+ лет опыта в производстве и разработке лекарств
         </p>
+        <div class="hero__chips">
+          <span class="hero-chip">in vitro only</span>
+          <span class="hero-chip">GMP-подход</span>
+          <span class="hero-chip">Контроль партий</span>
+        </div>
         <div class="hero__actions">
           <router-link to="/catalog" class="btn btn-primary">
             Перейти в каталог
@@ -46,45 +51,69 @@
 
     <section class="features" id="features" data-aos="fade-up" data-aos-offset="100">
       <div class="container">
-        <div class="features__grid" data-aos="fade-up" data-aos-delay="100">
-          <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
-            <div class="feature-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
-              </svg>
+        <div class="features-panel" data-aos="fade-up" data-aos-delay="100">
+          <article class="features-lead">
+            <span class="features-kicker">Производственный контур Angel Wings</span>
+            <h2>Фармацевтическая дисциплина на каждом этапе</h2>
+            <p>
+              Мы выстроили цикл от разработки до выпуска так, чтобы клиент получал прогнозируемое качество,
+              а не случайный результат от партии к партии.
+            </p>
+            <div class="features-metrics">
+              <div class="features-metric">
+                <strong>100%</strong>
+                <span>собственное производство</span>
+              </div>
+              <div class="features-metric">
+                <strong>20+</strong>
+                <span>лет экспертизы в фарме</span>
+              </div>
             </div>
-            <h3>Свое производство.</h3>
-            <p>Единственные кто производит 100% своих продуктов самостоятельно и ничего не перепродает</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 12l2 2 4-4"/>
-                <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.71 0 3.37.5 4.8 1.4"/>
-                <circle cx="12" cy="12" r="9"/>
-              </svg>
-            </div>
-            <h3>Фармацевтическое качество</h3>
-            <p>Мы не просто производитель пептидов, в первую очередь мы фармкомпания с 20-летним опыт экспертизы в лекарствах</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-            </div>
-            <h3>Генноинженерные продукты</h3>
-            <p>Наши основные продукты делаются без применения химического синтеза и содержат минимум примесей</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-            </div>
-            <h3>Уникальные разработки</h3>
-            <p>Многие наши препараты не имеют аналогов в мире</p>
+          </article>
+
+          <div class="features-cards">
+            <article class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+                </svg>
+              </div>
+              <h3>Свое производство</h3>
+              <p>Единственные, кто производит 100% своих продуктов самостоятельно и ничего не перепродает.</p>
+            </article>
+
+            <article class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 12l2 2 4-4"/>
+                  <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.71 0 3.37.5 4.8 1.4"/>
+                  <circle cx="12" cy="12" r="9"/>
+                </svg>
+              </div>
+              <h3>Фармацевтическое качество</h3>
+              <p>В основе процессов — стандарты фармкомпании с 20-летней экспертизой в разработке лекарств.</p>
+            </article>
+
+            <article class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+              </div>
+              <h3>Генноинженерные продукты</h3>
+              <p>Основные продукты создаются без химического синтеза и содержат минимальный уровень примесей.</p>
+            </article>
+
+            <article class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <h3>Уникальные разработки</h3>
+              <p>Многие препараты не имеют прямых аналогов в мире и формируют отдельные продуктовые ниши.</p>
+            </article>
           </div>
         </div>
       </div>
@@ -102,7 +131,7 @@
           </router-link>
         </div>
         <div class="categories-grid" data-aos="fade-up" data-aos-delay="100">
-          <router-link to="/catalog?category=longevitiya" class="category-card">
+          <router-link to="/catalog?category=longevitiya" class="category-card category-card--main">
             <div class="category-icon">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z"/>
@@ -110,6 +139,7 @@
             </div>
             <h3>Долголетие</h3>
             <span class="category-count">6 товаров</span>
+            <p class="category-note">Фокус на восстановление и устойчивый функциональный тонус.</p>
           </router-link>
           <router-link to="/catalog?category=immunomodulyatory" class="category-card">
             <div class="category-icon">
@@ -207,26 +237,34 @@
         <div class="section-header" data-aos="fade-up">
           <h2 class="section-title">Почему выбирают нас</h2>
         </div>
-        <div class="benefits__grid" data-aos="fade-up" data-aos-delay="100">
-          <div class="benefit-card benefit-card--accent">
-            <div class="benefit-number">01</div>
-            <h3>GMP-сертификация</h3>
-            <p>Все производственные площадки имеют сертификаты GMP — гарантия качества на каждом этапе</p>
+        <div class="benefits__timeline" data-aos="fade-up" data-aos-delay="100">
+          <div class="timeline-item">
+            <div class="timeline-index">01</div>
+            <div class="timeline-content">
+              <h3>GMP-сертификация</h3>
+              <p>Все производственные площадки имеют сертификаты GMP — гарантия качества на каждом этапе.</p>
+            </div>
           </div>
-          <div class="benefit-card">
-            <div class="benefit-number">02</div>
-            <h3>Тройной контроль</h3>
-            <p>HPLC, Mass-Spectrometry, Amino Acid Analysis — три независимых метода проверки каждой партии</p>
+          <div class="timeline-item">
+            <div class="timeline-index">02</div>
+            <div class="timeline-content">
+              <h3>Тройной контроль</h3>
+              <p>HPLC, Mass-Spectrometry, Amino Acid Analysis — три независимых метода проверки каждой партии.</p>
+            </div>
           </div>
-          <div class="benefit-card benefit-card--dark" data-aos="fade-up" data-aos-delay="100">
-            <div class="benefit-number">03</div>
-            <h3>Быстрая доставка</h3>
-            <p>Отправка в течение 24 часов. DHL, FedEx, EMS — доставка в 150+ стран мира</p>
+          <div class="timeline-item">
+            <div class="timeline-index">03</div>
+            <div class="timeline-content">
+              <h3>Быстрая доставка</h3>
+              <p>Отправка в течение 24 часов. DHL, FedEx, EMS — доставка в 150+ стран мира.</p>
+            </div>
           </div>
-          <div class="benefit-card">
-            <div class="benefit-number">04</div>
-            <h3>Анонимность</h3>
-            <p>Конфиденциальная упаковка без указания содержимого. Оплата криптовалютой</p>
+          <div class="timeline-item">
+            <div class="timeline-index">04</div>
+            <div class="timeline-content">
+              <h3>Анонимность</h3>
+              <p>Конфиденциальная упаковка без указания содержимого. Оплата криптовалютой.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -471,8 +509,27 @@ function handleImageError(e) {
   line-height: 1.7;
   color: var(--text-secondary);
   max-width: 560px;
-  margin-bottom: 3rem;
+  margin-bottom: 1.5rem;
   animation: slideUp 0.8s ease-out 0.2s both;
+}
+
+.hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 2.25rem;
+  animation: slideUp 0.8s ease-out 0.25s both;
+}
+
+.hero-chip {
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--bg-card), transparent);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .hero__actions {
@@ -555,36 +612,120 @@ function handleImageError(e) {
   padding: 8rem 0;
 }
 
-.features__grid {
+.features-panel {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 1.25rem;
+}
+
+.features-lead {
+  position: relative;
+  padding: 2.2rem;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(circle at 18% 15%, rgba(166, 185, 248, 0.16), transparent 42%),
+    linear-gradient(160deg, var(--bg-card), var(--bg-secondary));
+  overflow: hidden;
+}
+
+.features-lead::after {
+  content: '';
+  position: absolute;
+  right: -120px;
+  bottom: -120px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  border: 1px dashed rgba(166, 185, 248, 0.2);
+}
+
+.features-kicker {
+  display: inline-flex;
+  margin-bottom: 1rem;
+  padding: 0.32rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.features-lead h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
+  line-height: 1.15;
+  margin-bottom: 0.9rem;
+}
+
+.features-lead p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 1.2rem;
+}
+
+.features-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.features-metric {
+  background: rgba(166, 185, 248, 0.08);
+  border: 1px solid rgba(166, 185, 248, 0.18);
+  border-radius: 14px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.features-metric strong {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: 1.15rem;
+}
+
+.features-metric span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.features-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
 }
 
 .feature-card {
-  padding: 2rem;
-  background: var(--bg-card);
+  position: relative;
+  padding: 1.35rem;
+  background:
+    linear-gradient(145deg, rgba(166, 185, 248, 0.07), transparent 35%),
+    linear-gradient(145deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 18px;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
 }
 
 .feature-card:hover {
   border-color: rgba(166, 185, 248, 0.3);
-  transform: translateY(-8px);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  transform: translateY(-6px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
 }
 
 .feature-icon {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--accent-dim);
   border-radius: 14px;
   color: var(--accent);
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.9rem;
   transition: all 0.4s ease;
 }
 
@@ -596,15 +737,15 @@ function handleImageError(e) {
 
 .feature-card h3 {
   font-family: var(--font-display);
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 700;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.45rem;
 }
 
 .feature-card p {
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
 .categories-preview {
@@ -640,18 +781,28 @@ function handleImageError(e) {
 
 .categories-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 1.5rem;
 }
 
 .category-card {
   position: relative;
   padding: 2.5rem 2rem;
-  background: var(--bg-card);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(166, 185, 248, 0.08), transparent 55%),
+    var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 20px;
   overflow: hidden;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.category-card--main {
+  grid-column: span 6;
+}
+
+.category-card:not(.category-card--main) {
+  grid-column: span 2;
 }
 
 .category-card::before {
@@ -668,7 +819,7 @@ function handleImageError(e) {
 
 .category-card:hover {
   border-color: rgba(166, 185, 248, 0.3);
-  transform: translateY(-8px);
+  transform: translateY(-8px) scale(1.01);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
 }
 
@@ -698,6 +849,13 @@ function handleImageError(e) {
   color: var(--text-muted);
 }
 
+.category-note {
+  margin-top: 0.85rem;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
 .featured-products {
   padding: 0 0 8rem;
 }
@@ -709,7 +867,10 @@ function handleImageError(e) {
 }
 
 .featured-card {
-  background: var(--bg-card);
+  position: relative;
+  background:
+    linear-gradient(160deg, rgba(166, 185, 248, 0.07), transparent 35%),
+    var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 20px;
   overflow: hidden;
@@ -718,8 +879,24 @@ function handleImageError(e) {
 
 .featured-card:hover {
   border-color: rgba(166, 185, 248, 0.3);
-  transform: translateY(-8px);
+  transform: translateY(-8px) scale(1.01);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.featured-card::after {
+  content: '';
+  position: absolute;
+  inset: -120% auto auto -40%;
+  width: 60%;
+  height: 260%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  transform: rotate(18deg);
+  pointer-events: none;
+  transition: transform 0.7s ease;
+}
+
+.featured-card:hover::after {
+  transform: translateX(280%) rotate(18deg);
 }
 
 .featured-image {
@@ -799,7 +976,9 @@ function handleImageError(e) {
 .cta__inner {
   position: relative;
   padding: 5rem;
-  background: var(--bg-card);
+  background:
+    radial-gradient(circle at 90% 15%, rgba(166, 185, 248, 0.13), transparent 35%),
+    var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 28px;
   overflow: hidden;
@@ -897,53 +1076,52 @@ function handleImageError(e) {
   padding: 8rem 0;
 }
 
-.benefits__grid {
+.benefits__timeline {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
+  gap: 0.85rem;
 }
 
-.benefit-card {
+.timeline-item {
   position: relative;
-  padding: 2.5rem 2rem;
-  background: var(--bg-card);
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 1rem;
+  padding: 1rem;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 18px;
+  background:
+    linear-gradient(175deg, rgba(166, 185, 248, 0.06), transparent 28%),
+    var(--bg-card);
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.benefit-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+.timeline-item:hover {
+  transform: translateX(6px);
+  border-color: rgba(166, 185, 248, 0.35);
 }
 
-.benefit-card--accent {
-  background: linear-gradient(135deg, var(--accent-dim), transparent);
-  border-color: rgba(166, 185, 248, 0.2);
-}
-
-.benefit-card--dark {
-  background: var(--bg-secondary);
-}
-
-.benefit-number {
-  font-family: var(--font-mono);
-  font-size: 3rem;
-  font-weight: 800;
+.timeline-index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--accent-dim);
   color: var(--accent);
-  opacity: 0.3;
-  margin-bottom: 1rem;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 1.2rem;
 }
 
-.benefit-card h3 {
+.timeline-content h3 {
   font-family: var(--font-display);
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
+  font-size: 1.08rem;
+  margin-bottom: 0.35rem;
 }
 
-.benefit-card p {
-  font-size: 0.9rem;
+.timeline-content p {
+  margin: 0;
+  font-size: 0.92rem;
   color: var(--text-secondary);
   line-height: 1.6;
 }
@@ -959,6 +1137,7 @@ function handleImageError(e) {
   position: absolute;
   inset: 0;
   background: linear-gradient(135deg, var(--accent) 0%, #1a4a6e 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 92%, 84% 100%, 0 94%);
   z-index: 0;
 }
 
@@ -1082,16 +1261,20 @@ function handleImageError(e) {
 }
 
 .testimonial-card {
+  position: relative;
   padding: 2rem;
-  background: var(--bg-card);
+  background:
+    radial-gradient(circle at 100% 0, rgba(166, 185, 248, 0.08), transparent 45%),
+    var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 20px;
   transition: all 0.4s ease;
+  overflow: hidden;
 }
 
 .testimonial-card:hover {
   border-color: rgba(166, 185, 248, 0.3);
-  transform: translateY(-5px);
+  transform: translateY(-5px) scale(1.01);
 }
 
 .testimonial-stars {
@@ -1151,7 +1334,9 @@ function handleImageError(e) {
   align-items: center;
   justify-content: space-between;
   padding: 4rem;
-  background: var(--bg-card);
+  background:
+    radial-gradient(circle at 12% 20%, rgba(166, 185, 248, 0.12), transparent 30%),
+    var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 28px;
 }
@@ -1273,17 +1458,25 @@ function handleImageError(e) {
 }
 
 @media (max-width: 1280px) {
-  .features__grid,
-  .categories-grid,
-  .featured-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .benefits__grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  .features-panel { grid-template-columns: 1fr; }
+  .features-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .featured-grid { grid-template-columns: repeat(2, 1fr); }
   .testimonials__grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .categories-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .category-card--main {
+    grid-column: span 6;
+  }
+
+  .category-card:not(.category-card--main) {
+    grid-column: span 3;
+  }
+
 }
 
 @media (max-width: 768px) {
@@ -1312,6 +1505,10 @@ function handleImageError(e) {
     margin-bottom: 2rem;
   }
 
+  .hero__chips {
+    margin-bottom: 1.5rem;
+  }
+
   .hero__stats {
     flex-wrap: wrap;
     gap: 1.5rem;
@@ -1327,8 +1524,8 @@ function handleImageError(e) {
     margin-bottom: 3rem;
   }
 
-.feature-card,
-.btn {
+  .feature-card,
+  .btn {
     padding: 0.875rem 1.5rem;
     font-size: 0.875rem;
   }
@@ -1337,12 +1534,39 @@ function handleImageError(e) {
     padding: 4rem 0;
   }
 
-  .features__grid,
-  .categories-grid,
+  .features-panel,
   .featured-grid,
-  .benefits__grid,
   .testimonials__grid {
     grid-template-columns: 1fr;
+  }
+
+  .features-lead {
+    padding: 1.4rem;
+  }
+
+  .features-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .features-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .categories-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .featured-products {
+    padding: 0 0 2rem;
+  }
+
+  .featured-products .section-header {
+    margin-bottom: 1rem;
+  }
+
+  .category-card--main,
+  .category-card:not(.category-card--main) {
+    grid-column: auto;
   }
 
   .section-header {
@@ -1365,7 +1589,7 @@ function handleImageError(e) {
   }
 
   .cta {
-    padding: 3rem 0 4rem;
+    padding: 1rem 0 3rem;
   }
 
   .cta__decoration {
@@ -1389,13 +1613,30 @@ function handleImageError(e) {
     padding: 4rem 0;
   }
 
-  .benefit-card {
-    padding: 1.5rem 1rem;
+  .timeline-item {
+    grid-template-columns: 52px 1fr;
+    padding: 0.85rem;
+  }
+
+  .timeline-index {
+    font-size: 1rem;
+  }
+
+  .timeline-content h3 {
+    font-size: 0.95rem;
+  }
+
+  .timeline-content p {
+    font-size: 0.84rem;
   }
 
   .promo-banner {
     padding: 3rem 0;
     margin: 2rem 0 4rem;
+  }
+
+  .promo-bg {
+    clip-path: none;
   }
 
   .promo-content h2 {

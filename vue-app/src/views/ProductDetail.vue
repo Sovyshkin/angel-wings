@@ -40,7 +40,7 @@
         
         <div class="product-info" data-aos="fade-left" data-aos-delay="300">
           <div class="product-meta">
-            <span class="product-category">{{ getCategoryName(product.categories?.[0]?.slug) }}</span>
+            <span class="product-category">{{ getCategoryName(product.categories?.[0]) }}</span>
             <span class="product-stock" :class="{ available: currentStock > 0 }">
               {{ currentStock > 0 ? 'В наличии' : 'Нет в наличии' }}
             </span>
@@ -225,10 +225,21 @@ const hasSpecs = computed(() => {
   return Object.keys(visibleSpecs.value).length > 0
 })
 
-function getCategoryName(slug) {
-  if (!slug || !slug.length) return ''
-  const cat = productStore.categories.find(c => c.slug === slug[0])
-  return cat ? cat.name : slug
+function getCategoryName(category) {
+  if (!category) return ''
+  if (category.name) return category.name
+
+  if (category.slug) {
+    const bySlug = productStore.categories.find(c => c.slug === category.slug)
+    if (bySlug?.name) return bySlug.name
+  }
+
+  if (category.id !== undefined && category.id !== null) {
+    const byId = productStore.categories.find(c => Number(c.id ?? c.term_id) === Number(category.id))
+    if (byId?.name) return byId.name
+  }
+
+  return ''
 }
 
 function decreaseQty() {
