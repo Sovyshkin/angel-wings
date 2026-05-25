@@ -891,9 +891,16 @@ async function placeOrder() {
           }
         }
 
-        await deliveryApi.post('/orders', {
+        const cdekResponse = await deliveryApi.post('/orders', {
           ...cdekPayload
         })
+
+        const cdekOrderUuid = cdekResponse?.data?.entity?.uuid || cdekResponse?.data?.uuid
+        if (cdekOrderUuid && lastOrderId.value) {
+          await axios.put(`/api/orders/${lastOrderId.value}/cdek-link`, {
+            cdekOrderUuid
+          })
+        }
       } catch (e) {
         console.error('CDEK order creation error:', e)
         orderError.value = 'Ошибка создания заказа в системе доставки СДЭК. Пожалуйста, попробуйте позже или выберите другой способ доставки.'

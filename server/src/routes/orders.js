@@ -367,6 +367,40 @@ router.get('/:id', authenticate, async (req, res, next) => {
   }
 })
 
+// Привязка CDEK UUID к заказу (для заказов пользователя/админа)
+router.put('/:id/cdek-link', authenticate, async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.id)
+    const { cdekOrderUuid } = req.body
+
+    if (!cdekOrderUuid || typeof cdekOrderUuid !== 'string') {
+      return res.status(400).json({ error: 'Необходимо указать cdekOrderUuid' })
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, userId: true, cdekOrderUuid: true }
+    })
+
+    if (!order) {
+      return res.status(404).json({ error: 'Заказ не найден' })
+    }
+
+    if (order.userId && order.userId !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Доступ запрещён' })
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: { cdekOrderUuid: cdekOrderUuid.trim() }
+    })
+
+    res.json({ order: updatedOrder })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.put('/:id/status', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { status } = req.body
