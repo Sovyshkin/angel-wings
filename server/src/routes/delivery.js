@@ -1,64 +1,10 @@
 import express from 'express'
 import { PrismaClient } from '@prisma/client'
 import cdek from '../services/cdek.js'
+import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
 
 const router = express.Router()
 const prisma = new PrismaClient()
-
-function getLatestCdekStatusCode(payload) {
-  const direct = payload?.entity?.status?.code || payload?.entity?.status || payload?.status?.code || payload?.status
-  if (direct) return String(direct).toUpperCase()
-
-  const statuses = Array.isArray(payload?.entity?.statuses) ? payload.entity.statuses : []
-  if (!statuses.length) return null
-
-  const sorted = [...statuses].sort((a, b) => {
-    const aDate = new Date(a?.date_time || a?.date || 0).getTime()
-    const bDate = new Date(b?.date_time || b?.date || 0).getTime()
-    return aDate - bDate
-  })
-
-  const latest = sorted[sorted.length - 1]
-  const code = latest?.code || latest?.status || latest?.name
-  return code ? String(code).toUpperCase() : null
-}
-
-function mapCdekStatusToLocal(cdekStatusCode) {
-  const code = String(cdekStatusCode || '').toUpperCase()
-  if (!code) return null
-
-  if (code.includes('DELIVERED')) return 'DELIVERED'
-
-  if (
-    code.includes('NOT_DELIVERED') ||
-    code.includes('CANCEL') ||
-    code.includes('RETURN') ||
-    code.includes('INVALID') ||
-    code.includes('REMOVED')
-  ) {
-    return 'CANCELLED'
-  }
-
-  if (
-    code.includes('READY_FOR_PICKUP') ||
-    code.includes('IN_TRANSIT') ||
-    code.includes('ON_WAY') ||
-    code.includes('AT_PICKUP') ||
-    code.includes('IN_CITY')
-  ) {
-    return 'SHIPPED'
-  }
-
-  if (
-    code.includes('CREATED') ||
-    code.includes('ACCEPTED') ||
-    code.includes('NEW')
-  ) {
-    return 'PROCESSING'
-  }
-
-  return null
-}
 
 // ==================== КАЛЬКУЛЯТОР ====================
 
@@ -302,7 +248,8 @@ router.post('/orders/:uuid/sync-status', async (req, res) => {
     const { uuid } = req.params
 
     const cdekOrder = await cdek.getOrder(uuid)
-    const cdekStatusCode = getLatestCdekStatusCode(cdekOrder)
+    const latestStatus = extractLatestCdekStatus(cdekOrder)
+    const cdekStatusCode = latestStatus?.code || null
     const nextLocalStatus = mapCdekStatusToLocal(cdekStatusCode)
 
     const order = await prisma.order.findFirst({

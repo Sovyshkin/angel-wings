@@ -226,7 +226,7 @@ router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
         },
         take: parseInt(limit),
         skip: parseInt(offset),
-        orderBy: { createdAt: 'desc' }
+        orderBy: [{ active: 'desc' }, { createdAt: 'desc' }]
       }),
       prisma.product.count({ where })
     ])

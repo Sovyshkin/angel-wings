@@ -124,7 +124,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
-const API_URL = '/api/products'
+const API_URL = '/api/admin/products'
 
 const products = ref([])
 const loading = ref(true)

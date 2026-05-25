@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
+import cdek from '../services/cdek.js'
+import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -328,8 +330,55 @@ router.get('/my', authenticate, async (req, res, next) => {
       },
       orderBy: { createdAt: 'desc' }
     })
-    
-    res.json({ orders })
+
+    const statusMetaByOrderId = new Map()
+    const ordersWithCdek = orders.filter(order => Boolean(order.cdekOrderUuid))
+
+    if (ordersWithCdek.length) {
+      const cdekResults = await Promise.allSettled(
+        ordersWithCdek.map(async (order) => {
+          const cdekOrder = await cdek.getOrder(order.cdekOrderUuid)
+          const latestStatus = extractLatestCdekStatus(cdekOrder)
+          const mappedLocalStatus = mapCdekStatusToLocal(latestStatus?.code)
+
+          if (mappedLocalStatus && mappedLocalStatus !== order.status) {
+            await prisma.order.update({
+              where: { id: order.id },
+              data: { status: mappedLocalStatus }
+            })
+          }
+
+          return {
+            orderId: order.id,
+            source: 'cdek',
+            cdekStatusCode: latestStatus?.code || null,
+            cdekStatusName: latestStatus?.name || null,
+            cdekStatusDate: latestStatus?.dateTime || null,
+            mappedLocalStatus
+          }
+        })
+      )
+
+      for (const result of cdekResults) {
+        if (result.status !== 'fulfilled') continue
+        statusMetaByOrderId.set(result.value.orderId, result.value)
+      }
+    }
+
+    const responseOrders = orders.map((order) => {
+      const meta = statusMetaByOrderId.get(order.id)
+      const effectiveStatus = meta?.mappedLocalStatus || order.status
+      return {
+        ...order,
+        status: effectiveStatus,
+        deliveryStatusSource: meta?.source || 'local',
+        cdekStatusCode: meta?.cdekStatusCode || null,
+        cdekStatusName: meta?.cdekStatusName || null,
+        cdekStatusDate: meta?.cdekStatusDate || null
+      }
+    })
+
+    res.json({ orders: responseOrders })
   } catch (error) {
     next(error)
   }

@@ -86,7 +86,15 @@
                 <div v-for="order in orders" :key="order.id" class="order-item">
                   <div class="order-header">
                     <span class="order-id">Заказ #{{ order.id }}</span>
-                    <span class="order-status" :class="order.status">{{ order.statusText }}</span>
+                    <div class="order-status-wrap">
+                      <span class="order-status" :class="order.status">{{ order.statusText }}</span>
+                      <span
+                        v-if="order.deliveryStatusSource === 'cdek' && (order.cdekStatusName || order.cdekStatusCode)"
+                        class="order-delivery-status"
+                      >
+                        СДЭК: {{ order.cdekStatusName || order.cdekStatusCode }}
+                      </span>
+                    </div>
                   </div>
                   <div class="order-details">
                     <span>{{ order.date }}</span>
@@ -261,8 +269,11 @@ async function resolvePartnerTabAvailability() {
 
 function mapOrderStatus(status) {
   const normalized = String(status || '').toUpperCase()
-  if (normalized === 'DELIVERED') return { css: 'completed', text: 'Выполнен' }
+  if (normalized === 'DELIVERED') return { css: 'completed', text: 'Доставлен' }
   if (normalized === 'CANCELLED') return { css: 'cancelled', text: 'Отменён' }
+  if (normalized === 'SHIPPED') return { css: 'pending', text: 'В доставке' }
+  if (normalized === 'PROCESSING') return { css: 'pending', text: 'Собирается' }
+  if (normalized === 'PENDING') return { css: 'pending', text: 'Принят' }
   return { css: 'pending', text: 'В обработке' }
 }
 
@@ -539,8 +550,9 @@ onMounted(async () => {
 .order-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 0.75rem;
+  gap: 0.75rem;
 }
 
 .order-id {
@@ -554,6 +566,19 @@ onMounted(async () => {
   text-transform: uppercase;
   padding: 0.25rem 0.75rem;
   border-radius: 100px;
+}
+
+.order-status-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+
+.order-delivery-status {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: right;
 }
 
 .order-status.completed {
@@ -854,6 +879,19 @@ onMounted(async () => {
   .order-item-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .order-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .order-status-wrap {
+    align-items: flex-start;
+  }
+
+  .order-delivery-status {
+    text-align: left;
   }
 
   .order-item-meta {
