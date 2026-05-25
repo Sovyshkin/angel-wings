@@ -60,15 +60,18 @@
       <div v-else-if="cdekOrders.length > 0" class="orders-list">
         <div v-for="order in cdekOrders" :key="order.uuid" class="order-card">
           <div class="order-header">
-            <span class="order-number">{{ order.number }}</span>
+            <div class="order-main">
+              <span class="order-number">{{ formatOrderNumber(order.number) }}</span>
+              <span class="order-uuid">UUID: {{ order.uuid }}</span>
+            </div>
             <span :class="['status-badge', getStatusClass(order.status)]">
-              {{ order.status }}
+              {{ getStatusText(order.status) }}
             </span>
           </div>
           <div class="order-details">
             <div class="detail">
-              <span class="label">UUID:</span>
-              <span class="value">{{ order.uuid }}</span>
+              <span class="label">Статус API:</span>
+              <span class="value value--status">{{ order.status || '—' }}</span>
             </div>
             <div class="detail">
               <span class="label">Тариф:</span>
@@ -76,7 +79,7 @@
             </div>
             <div v-if="order.entity" class="detail">
               <span class="label">Получатель:</span>
-              <span class="value">{{ order.entity?.recipient?.name }}</span>
+              <span class="value">{{ order.entity?.recipient?.name || '—' }}</span>
             </div>
           </div>
           <div class="order-actions">
@@ -209,6 +212,94 @@
         </div>
       </div>
     </div>
+
+    <!-- Order Details Modal -->
+    <div v-if="showOrderDetailsModal" class="modal-overlay" @click.self="closeOrderDetails">
+      <div class="modal details-modal">
+        <div class="modal-header">
+          <h3>Заказ СДЭК {{ orderDetails?.entity?.number || selectedOrderUuid || '' }}</h3>
+          <button class="close-btn" @click="closeOrderDetails">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="orderDetailsLoading" class="loading">
+            <span class="spinner"></span> Загружаем детали...
+          </div>
+
+          <div v-else-if="orderDetails" class="details-layout">
+            <div class="detail-block detail-block--hero">
+              <div>
+                <div class="detail-block__label">Текущий статус</div>
+                <div class="detail-block__value detail-block__value--status">
+                  {{ getStatusText(getCurrentStatus(orderDetails)) }}
+                </div>
+                <div class="detail-block__sub">
+                  Код: {{ (getCurrentStatus(orderDetails) || '—').toString().toUpperCase() }}
+                </div>
+              </div>
+              <div>
+                <div class="detail-block__label">UUID</div>
+                <div class="detail-block__value detail-block__value--mono">{{ selectedOrderUuid || '—' }}</div>
+              </div>
+            </div>
+
+            <div class="detail-grid">
+              <div class="detail-block">
+                <div class="detail-block__label">Получатель</div>
+                <div class="detail-block__value">{{ orderDetails?.entity?.recipient?.name || '—' }}</div>
+                <div class="detail-block__sub">{{ orderDetails?.entity?.recipient?.phones?.[0]?.number || '—' }}</div>
+                <div class="detail-block__sub">{{ orderDetails?.entity?.recipient?.email || '—' }}</div>
+              </div>
+              <div class="detail-block">
+                <div class="detail-block__label">Доставка</div>
+                <div class="detail-block__value">{{ orderDetails?.entity?.tariff_code || '—' }}</div>
+                <div class="detail-block__sub">ПВЗ: {{ orderDetails?.entity?.delivery_point || '—' }}</div>
+                <div class="detail-block__sub">Город код: {{ orderDetails?.entity?.to_location?.code || '—' }}</div>
+              </div>
+            </div>
+
+            <div class="detail-block">
+              <div class="detail-block__label">Посылки</div>
+              <div v-if="orderDetails?.entity?.packages?.length" class="packages-list">
+                <div v-for="pkg in orderDetails.entity.packages" :key="pkg.number || pkg.barcode" class="package-row">
+                  <div>
+                    <strong>{{ pkg.number || 'Без номера' }}</strong>
+                    <div class="detail-block__sub">Вес: {{ pkg.weight || 0 }} г</div>
+                  </div>
+                  <div class="detail-block__sub">
+                    Габариты: {{ pkg.length || 0 }}×{{ pkg.width || 0 }}×{{ pkg.height || 0 }}
+                  </div>
+                </div>
+              </div>
+              <div v-else class="detail-block__sub">Данные по посылкам отсутствуют</div>
+            </div>
+
+              <div class="detail-block">
+              <div class="detail-block__label">История статусов</div>
+              <div v-if="getSortedStatuses(orderDetails).length" class="timeline">
+                <div v-for="(s, idx) in getSortedStatuses(orderDetails)" :key="`${s.code}-${idx}`" class="timeline-row">
+                  <span class="timeline-dot"></span>
+                  <div class="timeline-content">
+                    <div class="timeline-top">
+                      <strong>{{ getStatusText(s.code || s.name) }}</strong>
+                      <span class="timeline-code">{{ (s.code || s.name || '—').toString().toUpperCase() }}</span>
+                    </div>
+                    <div class="timeline-date">{{ formatDateTime(s.date_time || s.date) }}</div>
+                    <div v-if="s.city || s.office || s.reason" class="timeline-note">
+                      {{ [s.city, s.office, s.reason].filter(Boolean).join(' • ') }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="detail-block__sub">История статусов пока не передана API СДЭК</div>
+            </div>
+          </div>
+
+          <div v-else class="empty-state">
+            <p>Не удалось загрузить детали заказа</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -256,6 +347,10 @@ const foundCityCode = ref('')
 
 // Modal
 const showCreateOrderModal = ref(false)
+const showOrderDetailsModal = ref(false)
+const orderDetailsLoading = ref(false)
+const selectedOrderUuid = ref('')
+const orderDetails = ref(null)
 const newOrder = ref({
   number: '',
   tariff_code: 136,
@@ -266,6 +361,23 @@ const newOrder = ref({
   weight: 500,
   address: ''
 })
+
+const STATUS_LABELS = {
+  PROCESSING: 'В обработке',
+  CREATED: 'Создан',
+  ACCEPTED: 'Принят',
+  NEW: 'Новый',
+  SHIPPED: 'В пути',
+  IN_TRANSIT: 'В пути',
+  ON_WAREHOUSE: 'На складе',
+  AT_PICKUP: 'В пункте выдачи',
+  READY_FOR_PICKUP: 'Готов к выдаче',
+  DELIVERED: 'Доставлен',
+  CANCELLED: 'Отменён',
+  NOT_DELIVERED: 'Не доставлен',
+  RETURNED: 'Возврат',
+  INVALID: 'Ошибка данных'
+}
 
 // Load balance
 async function loadBalance() {
@@ -314,13 +426,27 @@ async function searchOrders() {
 
 // View order details
 async function viewOrder(uuid) {
+  selectedOrderUuid.value = uuid
+  showOrderDetailsModal.value = true
+  orderDetailsLoading.value = true
+  orderDetails.value = null
+
   try {
     const { data } = await deliveryApi.get(`/orders/${uuid}`)
-    console.log('Order details:', data)
-    alert(JSON.stringify(data, null, 2))
+    orderDetails.value = data || null
   } catch (e) {
     console.error('View order error:', e)
+    orderDetails.value = null
+  } finally {
+    orderDetailsLoading.value = false
   }
+}
+
+function closeOrderDetails() {
+  showOrderDetailsModal.value = false
+  orderDetails.value = null
+  orderDetailsLoading.value = false
+  selectedOrderUuid.value = ''
 }
 
 // Cancel order
@@ -458,14 +584,56 @@ async function createOrder() {
 
 // Status class helper
 function getStatusClass(status) {
-  const statusMap = {
-    'CREATED': 'success',
-    'CONFIRMED': 'info',
-    'ON_WAREHOUSE': 'warning',
-    'DELIVERED': 'success',
-    'CANCELLED': 'danger'
-  }
-  return statusMap[status] || 'default'
+  const key = String(status || '').toUpperCase()
+  if (['DELIVERED', 'READY_FOR_PICKUP', 'AT_PICKUP'].includes(key)) return 'success'
+  if (['CANCELLED', 'NOT_DELIVERED', 'INVALID', 'RETURNED'].includes(key)) return 'danger'
+  if (['CREATED', 'ACCEPTED', 'NEW', 'PROCESSING'].includes(key)) return 'info'
+  if (['IN_TRANSIT', 'SHIPPED', 'ON_WAREHOUSE'].includes(key)) return 'warning'
+  return 'default'
+}
+
+function getStatusText(status) {
+  const key = String(status || '').toUpperCase()
+  return STATUS_LABELS[key] || key || 'Неизвестно'
+}
+
+function formatOrderNumber(number) {
+  if (!number) return 'Заказ без номера'
+  return String(number).replace(/^order-?/i, 'Заказ №')
+}
+
+function getLatestStatusEntry(details) {
+  const statuses = getSortedStatuses(details)
+  if (!statuses.length) return null
+  return statuses[statuses.length - 1]
+}
+
+function getCurrentStatus(details) {
+  const latest = getLatestStatusEntry(details)
+  return latest?.code || latest?.name || details?.entity?.status || details?.status || ''
+}
+
+function getSortedStatuses(details) {
+  const statuses = details?.entity?.statuses
+  if (!Array.isArray(statuses) || !statuses.length) return []
+  return [...statuses].sort((a, b) => {
+    const aTime = new Date(a?.date_time || a?.date || 0).getTime()
+    const bTime = new Date(b?.date_time || b?.date || 0).getTime()
+    return aTime - bTime
+  })
+}
+
+function formatDateTime(dateValue) {
+  if (!dateValue) return '—'
+  const date = new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 // Load data on mount
@@ -626,13 +794,27 @@ onMounted(() => {
 .order-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1rem;
+  gap: 1rem;
 }
 
 .order-number {
   font-family: var(--font-mono);
   font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.order-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.order-uuid {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 0.78rem;
 }
 
 .status-badge {
@@ -681,6 +863,18 @@ onMounted(() => {
 
 .detail .value {
   font-family: var(--font-mono);
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.detail .value--status {
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+.status-badge.default {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-secondary);
 }
 
 .order-actions {
@@ -882,6 +1076,135 @@ onMounted(() => {
   border-top: 1px solid var(--border);
 }
 
+.details-modal {
+  max-width: 860px;
+}
+
+.details-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.detail-block {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+}
+
+.detail-block--hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.detail-block__label {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+
+.detail-block__value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.detail-block__value--status {
+  color: var(--accent);
+}
+
+.detail-block__value--mono {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.detail-block__sub {
+  margin-top: 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.packages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.package-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.timeline-row {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.timeline-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 0.42rem;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(166, 185, 248, 0.16);
+}
+
+.timeline-content {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+}
+
+.timeline-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.timeline-code {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.timeline-date {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.timeline-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
 .form-group {
   margin-bottom: 1rem;
 }
@@ -913,6 +1236,15 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
 
+  .order-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .order-actions {
+    flex-wrap: wrap;
+  }
+
   .tabs {
     overflow-x: auto;
     flex-wrap: nowrap;
@@ -920,6 +1252,18 @@ onMounted(() => {
 
   .tab {
     flex-shrink: 0;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-block--hero {
+    grid-template-columns: 1fr;
+  }
+
+  .package-row {
+    flex-direction: column;
   }
 }
 </style>
