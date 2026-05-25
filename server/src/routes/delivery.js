@@ -11,8 +11,8 @@ router.post('/calculate-by-tariff', async (req, res) => {
   try {
     const { tariff_code, from_code, to_code, weight, length, width, height } = req.body
 
-    if (!from_code || !to_code || !weight) {
-      return res.status(400).json({ error: 'Необходимо указать from_code, to_code и weight' })
+    if (!to_code || !weight) {
+      return res.status(400).json({ error: 'Необходимо указать to_code и weight' })
     }
 
     const result = await cdek.calculateDeliveryByTariff({
@@ -38,8 +38,8 @@ router.post('/calculate', async (req, res) => {
   try {
     const { from_code, to_code, weight, length, width, height } = req.body
 
-    if (!from_code || !to_code || !weight) {
-      return res.status(400).json({ error: 'Необходимо указать from_code, to_code и weight' })
+    if (!to_code || !weight) {
+      return res.status(400).json({ error: 'Необходимо указать to_code и weight' })
     }
 
     const result = await cdek.calculateDelivery({
@@ -188,11 +188,15 @@ router.post('/orders', async (req, res) => {
 // Получить список заказов
 router.get('/orders', async (req, res) => {
   try {
-    const { order_number, date_from, date_to } = req.query
-    // If no filter provided, return empty array
+    let { order_number, date_from, date_to } = req.query
+
+    // If no filters are provided, return recent orders (last 30 days)
     if (!order_number && !date_from && !date_to) {
-      return res.json([])
+      const from = new Date()
+      from.setDate(from.getDate() - 30)
+      date_from = from.toISOString()
     }
+
     const result = await cdek.getOrders({ order_number, date_from, date_to })
     res.json(result)
   } catch (error) {

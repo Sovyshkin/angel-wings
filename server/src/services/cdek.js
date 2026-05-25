@@ -6,7 +6,7 @@ const CDEK_URL = process.env.CDEK_URL || 'https://api.cdek.ru/v2'
 const CDEK_TOKEN_URL = process.env.CDEK_TOKEN_URL || 'https://api.cdek.ru/v2/oauth/token'
 
 const CDEK_SENDER_LOCATION = {
-  code: 270,
+  code: 44,
   city: 'Москва',
   address: 'Волоколамский пр-д, 1',
   postal_code: '125424'
@@ -111,11 +111,25 @@ async function cdekRequest(endpoint, method = 'GET', body = null) {
 
 // ==================== КАЛЬКУЛЯТОР ====================
 
+const FALLBACK_TARIFFS = [
+  { id: 136, name: 'Экспресс лайт склад-склад', description: 'ПВЗ → ПВЗ', delivery_mode: 1 },
+  { id: 137, name: 'Экспресс лайт склад-дверь', description: 'ПВЗ/склад → дверь', delivery_mode: 2 },
+  { id: 138, name: 'Экспресс лайт дверь-дверь', description: 'Дверь → дверь', delivery_mode: 2 }
+]
+
 // Получить список тарифов
 export async function getTariffs() {
-  return cdekRequest('/tariff/list', 'POST', {
-    type: 1 // 1 - все тарифы
-  })
+  try {
+    return await cdekRequest('/tariff/list', 'POST', {
+      type: 1 // 1 - все тарифы
+    })
+  } catch (error) {
+    if (error?.status === 410) {
+      log('warn', 'Tariff list endpoint returned 410. Using local fallback tariffs.')
+      return FALLBACK_TARIFFS
+    }
+    throw error
+  }
 }
 
 // Расчёт стоимости доставки по конкретному тарифу
@@ -123,7 +137,7 @@ export async function calculateDeliveryByTariff({ tariff_code, from_code, to_cod
   // Для /calculator/tariff поле date не является обязательным - убираем его
   return cdekRequest('/calculator/tariff', 'POST', {
     tariff_code,
-    from_location: { code: from_code },
+    from_location: { ...CDEK_SENDER_LOCATION },
     to_location: { code: to_code },
     packages: [{
       weight: weight,
@@ -138,7 +152,7 @@ export async function calculateDeliveryByTariff({ tariff_code, from_code, to_cod
 export async function calculateDelivery({ from_code, to_code, weight, length, width, height }) {
   // Для /calculator поле date не является обязательным - убираем его
   return cdekRequest('/calculator', 'POST', {
-    from_location: { code: from_code },
+    from_location: { ...CDEK_SENDER_LOCATION },
     to_location: { code: to_code },
     packages: [{
       weight: weight,
@@ -306,7 +320,20 @@ export async function getPrintForm(order_uuid) {
 
 // Информация о балансе
 export async function getBalance() {
-  return cdekRequest('/accounting/balance', 'GET')
+  try {
+    return await cdekRequest('/accounting/balance', 'GET')
+  } catch (error) {
+    if (error?.status === 410) {
+      log('warn', 'Balance endpoint returned 410. Returning fallback balance object.')
+      return {
+        balance: 0,
+        orders_balance: 0,
+        unavailable: true,
+        message: 'Endpoint /accounting/balance currently unavailable (410 Gone)'
+      }
+    }
+    throw error
+  }
 }
 
 // Статусы заказов

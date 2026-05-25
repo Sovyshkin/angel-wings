@@ -664,7 +664,7 @@ async function calculateCourierPrice() {
     const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
     const res = await deliveryApi.post('/calculate-by-tariff', {
       tariff_code: 137, // Courier tariff
-      from_code: 270, // Moscow
+      from_code: 44, // Moscow
       to_code: foundCityCode.value,
       weight: safeWeight
     })
@@ -709,7 +709,7 @@ async function onPickupSelect() {
     const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
     const res = await deliveryApi.post('/calculate-by-tariff', {
       tariff_code: 136, // PVZ tariff
-      from_code: 270,
+      from_code: 44,
       to_code: foundCityCode.value,
       weight: safeWeight
     })
