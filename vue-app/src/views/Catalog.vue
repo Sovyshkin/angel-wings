@@ -140,8 +140,14 @@
                 <p class="product-desc">{{ truncate(product.description, 100) }}</p>
                 <div class="product-footer">
                   <div class="product-price">
-                    <span class="price-value">{{ product.price.toLocaleString() }}</span>
-                    <span class="price-currency">₽</span>
+                    <div class="price-current">
+                      <span class="price-value">{{ getDisplayPrice(product).toLocaleString('ru-RU') }}</span>
+                      <span class="price-currency">₽</span>
+                    </div>
+                    <div v-if="getOldPrice(product)" class="price-discount-row">
+                      <span class="price-old">{{ getOldPrice(product).toLocaleString('ru-RU') }} ₽</span>
+                      <span class="price-discount-badge">-{{ getDiscountPercent(product) }}%</span>
+                    </div>
                   </div>
                   <button 
                     class="add-to-cart-btn"
@@ -278,6 +284,29 @@ function truncate(text, length) {
 
 function isProductInCart(productId) {
   return cartStore.items.some(item => item.id === productId)
+}
+
+function normalizePrice(value) {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+function getDisplayPrice(product) {
+  return normalizePrice(product?.price)
+}
+
+function getOldPrice(product) {
+  const current = getDisplayPrice(product)
+  const old = normalizePrice(product?.comparePrice)
+  if (!old || old <= current) return null
+  return old
+}
+
+function getDiscountPercent(product) {
+  const current = getDisplayPrice(product)
+  const old = getOldPrice(product)
+  if (!old || old <= 0 || current <= 0 || old <= current) return 0
+  return Math.round(((old - current) / old) * 100)
 }
 
 function handleImageError(e) {
@@ -638,6 +667,13 @@ watch(() => route.query.category, (newCat) => {
 
 .product-price {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.price-current {
+  display: flex;
   align-items: baseline;
   gap: 0.25rem;
 }
@@ -651,6 +687,28 @@ watch(() => route.query.category, (newCat) => {
 .price-currency {
   font-size: 0.875rem;
   color: var(--text-muted);
+}
+
+.price-discount-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.price-old {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.price-discount-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
 }
 
 .add-to-cart-btn {

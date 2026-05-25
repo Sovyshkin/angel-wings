@@ -130,46 +130,103 @@
             </svg>
           </router-link>
         </div>
-        <div class="categories-grid" data-aos="fade-up" data-aos-delay="100">
-          <router-link to="/catalog?category=longevitiya" class="category-card category-card--main">
-            <div class="category-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z"/>
-              </svg>
+
+        <div class="categories-lab" data-aos="fade-up" data-aos-delay="100">
+          <aside class="categories-lab__panel">
+            <span class="categories-lab__kicker">Навигатор ассортимента</span>
+            <h3>Выберите направление и соберите свой протокол под задачу</h3>
+            <p>
+              Категории распределены по функциональным направлениям: восстановление, нейро-поддержка,
+              иммунный баланс и регенерация.
+            </p>
+            <div class="categories-lab__metrics">
+              <div class="categories-lab__metric"><strong>20+</strong><span>позиций</span></div>
+              <div class="categories-lab__metric"><strong>4</strong><span>направления</span></div>
+              <div class="categories-lab__metric"><strong>100%</strong><span>in-house</span></div>
             </div>
-            <h3>Долголетие</h3>
-            <span class="category-count">6 товаров</span>
-            <p class="category-note">Фокус на восстановление и устойчивый функциональный тонус.</p>
-          </router-link>
-          <router-link to="/catalog?category=immunomodulyatory" class="category-card">
-            <div class="category-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                <path d="M9 12l2 2 4-4"/>
+            <router-link to="/catalog" class="categories-lab__cta">
+              Открыть полный каталог
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
-            </div>
-            <h3>Иммуномодуляторы</h3>
-            <span class="category-count">5 товаров</span>
-          </router-link>
-          <router-link to="/catalog?category=neiropeptide" class="category-card">
-            <div class="category-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 01-2 2H10a2 2 0 01-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z"/>
-                <path d="M9 22h6"/>
-              </svg>
-            </div>
-            <h3>Нейропептиды</h3>
-            <span class="category-count">5 товаров</span>
-          </router-link>
-          <router-link to="/catalog?category=growth" class="category-card">
-            <div class="category-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-              </svg>
-            </div>
-            <h3>Факторы роста</h3>
-            <span class="category-count">4 товаров</span>
-          </router-link>
+            </router-link>
+          </aside>
+
+          <div class="categories-lanes">
+            <router-link to="/catalog?category=longevitiya" class="category-lane lane-longevity">
+              <div class="category-lane__left">
+                <span class="category-lane__icon">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z"/>
+                  </svg>
+                </span>
+                <div>
+                  <h4>Долголетие</h4>
+                  <p>Восстановление, устойчивый функциональный тонус и anti-age подход.</p>
+                </div>
+              </div>
+              <div class="category-lane__right">
+                <span class="category-lane__count">6</span>
+                <span class="category-lane__meta">товаров</span>
+              </div>
+            </router-link>
+
+            <router-link to="/catalog?category=immunomodulyatory" class="category-lane lane-immune">
+              <div class="category-lane__left">
+                <span class="category-lane__icon">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="M9 12l2 2 4-4"/>
+                  </svg>
+                </span>
+                <div>
+                  <h4>Иммуномодуляторы</h4>
+                  <p>Поддержка иммунного ответа и адаптации к стрессовым факторам.</p>
+                </div>
+              </div>
+              <div class="category-lane__right">
+                <span class="category-lane__count">5</span>
+                <span class="category-lane__meta">товаров</span>
+              </div>
+            </router-link>
+
+            <router-link to="/catalog?category=neiropeptide" class="category-lane lane-neuro">
+              <div class="category-lane__left">
+                <span class="category-lane__icon">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 01-2 2H10a2 2 0 01-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z"/>
+                    <path d="M9 22h6"/>
+                  </svg>
+                </span>
+                <div>
+                  <h4>Нейропептиды</h4>
+                  <p>Когнитивные функции, ясность мышления и поддержка нервной системы.</p>
+                </div>
+              </div>
+              <div class="category-lane__right">
+                <span class="category-lane__count">5</span>
+                <span class="category-lane__meta">товаров</span>
+              </div>
+            </router-link>
+
+            <router-link to="/catalog?category=growth" class="category-lane lane-growth">
+              <div class="category-lane__left">
+                <span class="category-lane__icon">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                  </svg>
+                </span>
+                <div>
+                  <h4>Факторы роста</h4>
+                  <p>Регенеративные механизмы и усиление восстановительных процессов.</p>
+                </div>
+              </div>
+              <div class="category-lane__right">
+                <span class="category-lane__count">4</span>
+                <span class="category-lane__meta">товара</span>
+              </div>
+            </router-link>
+          </div>
         </div>
       </div>
     </section>
@@ -199,7 +256,13 @@
               <span class="featured-category">{{ product.categories?.[0]?.name || product.categories?.[0]?.slug }}</span>
               <h3>{{ product.title }}</h3>
               <div class="featured-footer">
-                <span class="featured-price">{{ product.price }} ₽</span>
+                <div class="featured-price-block">
+                  <span class="featured-price">{{ formatPrice(product.price) }} ₽</span>
+                  <div v-if="getOldPrice(product)" class="featured-discount-row">
+                    <span class="featured-old-price">{{ formatPrice(getOldPrice(product)) }} ₽</span>
+                    <span class="featured-discount-badge">-{{ getDiscountPercent(product) }}%</span>
+                  </div>
+                </div>
                 <span class="featured-arrow">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -380,6 +443,29 @@ function handleImageError(e) {
   if (img.dataset.fallbackApplied === 'true') return
   img.dataset.fallbackApplied = 'true'
   img.src = '/logo.png'
+}
+
+function normalizePrice(value) {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+function formatPrice(value) {
+  return normalizePrice(value).toLocaleString('ru-RU')
+}
+
+function getOldPrice(product) {
+  const current = normalizePrice(product?.price)
+  const old = normalizePrice(product?.comparePrice)
+  if (!old || old <= current) return null
+  return old
+}
+
+function getDiscountPercent(product) {
+  const current = normalizePrice(product?.price)
+  const old = getOldPrice(product)
+  if (!old || old <= 0 || current <= 0 || old <= current) return 0
+  return Math.round(((old - current) / old) * 100)
 }
 </script>
 
@@ -779,81 +865,184 @@ function handleImageError(e) {
   gap: 0.75rem;
 }
 
-.categories-grid {
+.categories-lab {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: minmax(280px, 0.9fr) 1.2fr;
+  gap: 1rem;
 }
 
-.category-card {
-  position: relative;
-  padding: 2.5rem 2rem;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(166, 185, 248, 0.08), transparent 55%),
-    var(--bg-card);
+.categories-lab__panel {
+  padding: 1.5rem;
+  border-radius: 22px;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  background:
+    radial-gradient(circle at 25% 12%, rgba(166, 185, 248, 0.16), transparent 40%),
+    linear-gradient(155deg, var(--bg-card), var(--bg-secondary));
+}
+
+.categories-lab__kicker {
+  display: inline-flex;
+  margin-bottom: 0.9rem;
+  padding: 0.32rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(166, 185, 248, 0.35);
+  color: var(--accent);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.categories-lab__panel h3 {
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 2.1vw, 1.8rem);
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
+}
+
+.categories-lab__panel p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.categories-lab__metrics {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.categories-lab__metric {
+  padding: 0.55rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  text-align: center;
+}
+
+.categories-lab__metric strong {
+  display: block;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: 0.98rem;
+}
+
+.categories-lab__metric span {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.categories-lab__cta {
+  margin-top: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.categories-lab__cta:hover {
+  gap: 0.7rem;
+}
+
+.categories-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.category-lane {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(90deg, rgba(166, 185, 248, 0.08), transparent 42%),
+    var(--bg-card);
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
 }
 
-.category-card--main {
-  grid-column: span 6;
-}
-
-.category-card:not(.category-card--main) {
-  grid-column: span 2;
-}
-
-.category-card::before {
+.category-lane::after {
   content: '';
   position: absolute;
-  top: 0;
   left: 0;
-  width: 100%;
-  height: 3px;
+  bottom: 0;
+  width: var(--lane-progress, 40%);
+  height: 2px;
   background: linear-gradient(90deg, var(--accent), transparent);
-  opacity: 0;
-  transition: opacity 0.4s ease;
 }
 
-.category-card:hover {
-  border-color: rgba(166, 185, 248, 0.3);
-  transform: translateY(-8px) scale(1.01);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+.category-lane:hover {
+  transform: translateX(6px);
+  border-color: rgba(166, 185, 248, 0.32);
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.2);
 }
 
-.category-card:hover::before {
-  opacity: 1;
+.lane-longevity { --lane-progress: 88%; }
+.lane-immune { --lane-progress: 76%; }
+.lane-neuro { --lane-progress: 74%; }
+.lane-growth { --lane-progress: 62%; }
+
+.category-lane__left {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.8rem;
+  align-items: center;
 }
 
-.category-icon {
+.category-lane__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--accent);
-  margin-bottom: 1.5rem;
-  transition: transform 0.4s ease;
+  background: rgba(166, 185, 248, 0.13);
+  border: 1px solid rgba(166, 185, 248, 0.3);
 }
 
-.category-card:hover .category-icon {
-  transform: scale(1.1) rotate(-5deg);
+.category-lane h4 {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
 }
 
-.category-card h3 {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.category-count {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.category-note {
-  margin-top: 0.85rem;
+.category-lane p {
+  margin: 0;
   color: var(--text-secondary);
-  font-size: 0.86rem;
-  line-height: 1.5;
+  font-size: 0.83rem;
+  line-height: 1.45;
+}
+
+.category-lane__right {
+  text-align: right;
+  min-width: 72px;
+}
+
+.category-lane__count {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.category-lane__meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .featured-products {
@@ -945,11 +1134,39 @@ function handleImageError(e) {
   justify-content: space-between;
 }
 
+.featured-price-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .featured-price {
   font-family: var(--font-mono);
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.featured-discount-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.featured-old-price {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.featured-discount-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 999px;
+  padding: 0.1rem 0.42rem;
 }
 
 .featured-arrow {
@@ -1465,16 +1682,8 @@ function handleImageError(e) {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .categories-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  .category-card--main {
-    grid-column: span 6;
-  }
-
-  .category-card:not(.category-card--main) {
-    grid-column: span 3;
+  .categories-lab {
+    grid-template-columns: 1fr;
   }
 
 }
@@ -1552,8 +1761,54 @@ function handleImageError(e) {
     grid-template-columns: 1fr;
   }
 
-  .categories-grid {
+  .categories-lab {
     grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+
+  .categories-lab__panel {
+    padding: 1.2rem 1rem;
+  }
+
+  .categories-lab__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .categories-lane {
+    grid-template-columns: 1fr;
+    align-items: start;
+    padding: 0.95rem;
+  }
+
+  .category-lane:hover {
+    transform: none;
+  }
+
+  .category-lane__left {
+    grid-template-columns: 46px 1fr;
+    gap: 0.65rem;
+  }
+
+  .category-lane__icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+  }
+
+  .category-lane h4 {
+    font-size: 0.95rem;
+  }
+
+  .category-lane p {
+    font-size: 0.79rem;
+  }
+
+  .category-lane__right {
+    margin-top: 0.55rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    text-align: left;
   }
 
   .featured-products {
@@ -1562,11 +1817,6 @@ function handleImageError(e) {
 
   .featured-products .section-header {
     margin-bottom: 1rem;
-  }
-
-  .category-card--main,
-  .category-card:not(.category-card--main) {
-    grid-column: auto;
   }
 
   .section-header {
@@ -1584,8 +1834,9 @@ function handleImageError(e) {
     padding: 1.5rem;
   }
 
-  .category-card {
-    padding: 1.5rem 1rem;
+  .categories-lab__panel p {
+    font-size: 0.85rem;
+    line-height: 1.55;
   }
 
   .cta {
@@ -1730,21 +1981,6 @@ function handleImageError(e) {
 
 .feature-card:hover::before {
   left: 100%;
-}
-
-.category-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 3px;
-  height: 0;
-  background: var(--accent);
-  transition: height 0.4s ease;
-}
-
-.category-card:hover::before {
-  height: 100%;
 }
 
 @keyframes ripple {

@@ -5,6 +5,13 @@ const CDEK_PASSWORD = process.env.CDEK_PASSWORD
 const CDEK_URL = process.env.CDEK_URL || 'https://api.cdek.ru/v2'
 const CDEK_TOKEN_URL = process.env.CDEK_TOKEN_URL || 'https://api.cdek.ru/v2/oauth/token'
 
+const CDEK_SENDER_LOCATION = {
+  code: 270,
+  city: 'Москва',
+  address: 'Волоколамский пр-д, 1',
+  postal_code: '125424'
+}
+
 function log(level, message, data = null) {
   const timestamp = new Date().toISOString()
   const logMessage = `[${timestamp}] [${level.toUpperCase()}] [CDEK] ${message}`
@@ -189,15 +196,12 @@ export async function createOrder({
   from_contact,
   address
 }) {
-  // Код склада отправителя (Москва) - можно вынести в .env
-  const shipment_point = process.env.CDEK_SHIPMENT_POINT || 'MSK99'
-  
   const orderPayload = {
     number: String(number),
     tariff_code: tariff_code || 137, // safer default for pickup flow; explicit value should be passed from client
     comment: comment || '',
-    // Don't use both shipment_point and from_location together
-    from_location: { code: 270 }, // Москва - код для склада отправителя
+    // Фиксированный адрес отправления
+    from_location: { ...CDEK_SENDER_LOCATION },
     recipient: {
       name: recipient_name,
       phones: [{ number: recipient_phone }],

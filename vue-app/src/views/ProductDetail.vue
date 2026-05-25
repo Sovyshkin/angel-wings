@@ -49,9 +49,15 @@
           <h1 class="product-title">{{ product.title }}</h1>
           
           <div class="product-price-block">
-            <span class="product-price">{{ currentPrice }}</span>
-            <span class="product-currency">₽</span>
-            <span class="price-unit">/ уп.</span>
+            <div class="product-price-main">
+              <span class="product-price">{{ formatPrice(currentPrice) }}</span>
+              <span class="product-currency">₽</span>
+              <span class="price-unit">/ уп.</span>
+            </div>
+            <div v-if="currentComparePrice" class="product-price-discount">
+              <span class="product-old-price">{{ formatPrice(currentComparePrice) }} ₽</span>
+              <span class="product-discount-badge">-{{ currentDiscountPercent }}%</span>
+            </div>
           </div>
 
           <div class="product-variants" v-if="dosageSpecs.length">
@@ -67,7 +73,13 @@
                 @click="selectedDosageIndex = index"
               >
                 <span class="variant-title">{{ item.dosage }}</span>
-                <span class="variant-price">{{ getDosagePrice(item).toLocaleString() }} ₽</span>
+                <span class="variant-price">{{ formatPrice(getDosagePrice(item)) }} ₽</span>
+                <div v-if="getDosageComparePrice(item)" class="variant-price-meta">
+                  <span class="variant-old-price">{{ formatPrice(getDosageComparePrice(item)) }} ₽</span>
+                  <span class="variant-discount-badge">
+                    -{{ getDiscountPercentByValues(getDosagePrice(item), getDosageComparePrice(item)) }}%
+                  </span>
+                </div>
                 <span class="variant-stock">{{ item.quantity > 0 ? `В наличии: ${item.quantity} шт.` : 'Нет в наличии' }}</span>
               </button>
             </div>
@@ -205,7 +217,8 @@ const dosageSpecs = computed(() => {
     .map(item => ({
       dosage: typeof item?.dosage === 'string' ? item.dosage.trim() : '',
       quantity: Math.max(0, parseInt(item?.quantity) || 0),
-      price: item?.price !== undefined && item?.price !== null ? Math.max(0, parseFloat(item.price) || 0) : null
+      price: item?.price !== undefined && item?.price !== null ? Math.max(0, parseFloat(item.price) || 0) : null,
+      comparePrice: item?.comparePrice !== undefined && item?.comparePrice !== null ? Math.max(0, parseFloat(item.comparePrice) || 0) : null
     }))
     .filter(item => item.dosage)
 })
@@ -219,6 +232,23 @@ const currentStock = computed(() => {
   if (!dosageSpecs.value.length) return product.value?.stock || 0
   const selected = dosageSpecs.value[selectedDosageIndex.value]
   return selected ? selected.quantity : 0
+})
+
+const currentComparePrice = computed(() => {
+  if (!product.value) return null
+
+  if (!dosageSpecs.value.length) {
+    const old = normalizePrice(product.value.comparePrice)
+    const current = normalizePrice(product.value.price)
+    return old > current ? old : null
+  }
+
+  const selected = dosageSpecs.value[selectedDosageIndex.value]
+  return getDosageComparePrice(selected)
+})
+
+const currentDiscountPercent = computed(() => {
+  return getDiscountPercentByValues(currentPrice.value, currentComparePrice.value)
 })
 
 const hasSpecs = computed(() => {
@@ -265,6 +295,37 @@ function getDosagePrice(item) {
   if (!item) return product.value?.price || 0
   if (item.price === null || item.price === undefined) return product.value?.price || 0
   return item.price
+}
+
+function normalizePrice(value) {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+function formatPrice(value) {
+  return normalizePrice(value).toLocaleString('ru-RU')
+}
+
+function getDosageComparePrice(item) {
+  if (!item) return null
+  const current = normalizePrice(getDosagePrice(item))
+
+  if (item.comparePrice !== null && item.comparePrice !== undefined) {
+    const dosageCompare = normalizePrice(item.comparePrice)
+    if (dosageCompare > current) return dosageCompare
+  }
+
+  const baseCompare = normalizePrice(product.value?.comparePrice)
+  if (baseCompare > current) return baseCompare
+
+  return null
+}
+
+function getDiscountPercentByValues(currentValue, oldValue) {
+  const current = normalizePrice(currentValue)
+  const old = normalizePrice(oldValue)
+  if (!old || old <= current || current <= 0) return 0
+  return Math.round(((old - current) / old) * 100)
 }
 
 function nextImage() {
@@ -445,11 +506,18 @@ onMounted(async () => {
 
 .product-price-block {
   display: flex;
-  align-items: baseline;
-  gap: 0.25rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
   margin-bottom: 2rem;
   padding-bottom: 2rem;
   border-bottom: 1px solid var(--border);
+}
+
+.product-price-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
 }
 
 .product-price {
@@ -468,6 +536,28 @@ onMounted(async () => {
   font-size: 0.9rem;
   color: var(--text-muted);
   margin-left: 0.5rem;
+}
+
+.product-price-discount {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.product-old-price {
+  font-size: 1rem;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.product-discount-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 999px;
+  padding: 0.16rem 0.5rem;
 }
 
 .product-variants {
@@ -524,6 +614,28 @@ onMounted(async () => {
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--accent);
+}
+
+.variant-price-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.variant-old-price {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.variant-discount-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 999px;
+  padding: 0.08rem 0.35rem;
 }
 
 .variant-stock {
