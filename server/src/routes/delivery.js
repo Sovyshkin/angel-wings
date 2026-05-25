@@ -1,7 +1,64 @@
 import express from 'express'
+import { PrismaClient } from '@prisma/client'
 import cdek from '../services/cdek.js'
 
 const router = express.Router()
+const prisma = new PrismaClient()
+
+function getLatestCdekStatusCode(payload) {
+  const direct = payload?.entity?.status?.code || payload?.entity?.status || payload?.status?.code || payload?.status
+  if (direct) return String(direct).toUpperCase()
+
+  const statuses = Array.isArray(payload?.entity?.statuses) ? payload.entity.statuses : []
+  if (!statuses.length) return null
+
+  const sorted = [...statuses].sort((a, b) => {
+    const aDate = new Date(a?.date_time || a?.date || 0).getTime()
+    const bDate = new Date(b?.date_time || b?.date || 0).getTime()
+    return aDate - bDate
+  })
+
+  const latest = sorted[sorted.length - 1]
+  const code = latest?.code || latest?.status || latest?.name
+  return code ? String(code).toUpperCase() : null
+}
+
+function mapCdekStatusToLocal(cdekStatusCode) {
+  const code = String(cdekStatusCode || '').toUpperCase()
+  if (!code) return null
+
+  if (code.includes('DELIVERED')) return 'DELIVERED'
+
+  if (
+    code.includes('NOT_DELIVERED') ||
+    code.includes('CANCEL') ||
+    code.includes('RETURN') ||
+    code.includes('INVALID') ||
+    code.includes('REMOVED')
+  ) {
+    return 'CANCELLED'
+  }
+
+  if (
+    code.includes('READY_FOR_PICKUP') ||
+    code.includes('IN_TRANSIT') ||
+    code.includes('ON_WAY') ||
+    code.includes('AT_PICKUP') ||
+    code.includes('IN_CITY')
+  ) {
+    return 'SHIPPED'
+  }
+
+  if (
+    code.includes('CREATED') ||
+    code.includes('ACCEPTED') ||
+    code.includes('NEW')
+  ) {
+    return 'PROCESSING'
+  }
+
+  return null
+}
 
 // ==================== КАЛЬКУЛЯТОР ====================
 
@@ -188,13 +245,33 @@ router.post('/orders', async (req, res) => {
 // Получить список заказов
 router.get('/orders', async (req, res) => {
   try {
-    let { order_number, date_from, date_to } = req.query
+    const { order_number, date_from, date_to } = req.query
 
-    // If no filters are provided, return recent orders (last 30 days)
+    // CDEK API requires order_number/order_uuid for this endpoint.
+    // For admin list page without filters, return recent linked orders from local DB.
     if (!order_number && !date_from && !date_to) {
-      const from = new Date()
-      from.setDate(from.getDate() - 30)
-      date_from = from.toISOString()
+      const recentOrders = await prisma.order.findMany({
+        where: { cdekOrderUuid: { not: null } },
+        orderBy: { createdAt: 'desc' },
+        take: 100
+      })
+
+      const mapped = recentOrders.map((order) => ({
+        uuid: order.cdekOrderUuid,
+        number: `order-${order.id}`,
+        status: order.status,
+        tariff_code: order.deliveryTariffCode,
+        created_at: order.createdAt,
+        entity: {
+          recipient: {
+            name: order.customerName,
+            phones: order.customerPhone ? [{ number: order.customerPhone }] : [],
+            email: order.customerEmail
+          }
+        }
+      }))
+
+      return res.json(mapped)
     }
 
     const result = await cdek.getOrders({ order_number, date_from, date_to })
@@ -214,6 +291,55 @@ router.get('/orders/:uuid', async (req, res) => {
     res.json(result)
   } catch (error) {
     console.error('[CDEK] Get order error:', error)
+    res.status(400).json(error.data || { error: error.message })
+  }
+})
+
+// POST /api/delivery/orders/:uuid/sync-status
+// Синхронизировать локальный статус заказа со статусом в СДЭК
+router.post('/orders/:uuid/sync-status', async (req, res) => {
+  try {
+    const { uuid } = req.params
+
+    const cdekOrder = await cdek.getOrder(uuid)
+    const cdekStatusCode = getLatestCdekStatusCode(cdekOrder)
+    const nextLocalStatus = mapCdekStatusToLocal(cdekStatusCode)
+
+    const order = await prisma.order.findFirst({
+      where: { cdekOrderUuid: uuid }
+    })
+
+    if (!order) {
+      return res.status(404).json({
+        error: 'Локальный заказ с таким CDEK UUID не найден',
+        cdekStatusCode,
+        mappedStatus: nextLocalStatus
+      })
+    }
+
+    let updated = false
+    let currentStatus = order.status
+
+    if (nextLocalStatus && nextLocalStatus !== order.status) {
+      const updatedOrder = await prisma.order.update({
+        where: { id: order.id },
+        data: { status: nextLocalStatus }
+      })
+      currentStatus = updatedOrder.status
+      updated = true
+    }
+
+    res.json({
+      success: true,
+      updated,
+      orderId: order.id,
+      cdekOrderUuid: uuid,
+      cdekStatusCode,
+      localStatus: currentStatus,
+      mappedStatus: nextLocalStatus
+    })
+  } catch (error) {
+    console.error('[CDEK] Sync order status error:', error)
     res.status(400).json(error.data || { error: error.message })
   }
 })

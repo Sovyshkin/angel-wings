@@ -83,6 +83,9 @@
             <button class="btn btn-sm btn-secondary" @click="viewOrder(order.uuid)">
               Подробнее
             </button>
+            <button class="btn btn-sm btn-primary" :disabled="syncingUuid === order.uuid" @click="syncOrderStatus(order.uuid)">
+              {{ syncingUuid === order.uuid ? 'Синхронизация...' : 'Синхронизировать статус' }}
+            </button>
             <button class="btn btn-sm btn-danger" @click="cancelOrder(order.uuid)">
               Отменить
             </button>
@@ -236,6 +239,7 @@ const cityLoading = ref(false)
 const pickupLoading = ref(false)
 const tariffLoading = ref(false)
 const creating = ref(false)
+const syncingUuid = ref('')
 
 // Data
 const balance = ref(null)
@@ -329,6 +333,26 @@ async function cancelOrder(uuid) {
   } catch (e) {
     console.error('Cancel error:', e)
     alert('Ошибка при отмене заказа')
+  }
+}
+
+// Sync local order status by CDEK uuid
+async function syncOrderStatus(uuid) {
+  if (!uuid) return
+  syncingUuid.value = uuid
+  try {
+    const { data } = await deliveryApi.post(`/orders/${uuid}/sync-status`)
+    if (data?.success) {
+      const cdekInfo = data.cdekStatusCode ? ` (СДЭК: ${data.cdekStatusCode})` : ''
+      const updatedInfo = data.updated ? 'обновлён' : 'уже актуален'
+      alert(`Статус ${updatedInfo}: ${data.localStatus}${cdekInfo}`)
+      await loadOrders()
+    }
+  } catch (e) {
+    console.error('Sync order status error:', e)
+    alert('Не удалось синхронизировать статус заказа')
+  } finally {
+    syncingUuid.value = ''
   }
 }
 
