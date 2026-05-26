@@ -9,11 +9,11 @@
           Назад
         </button>
         <div>
-          <h1 class="page-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">{{ partner?.user?.name || 'Партнёр' }}</h1>
-          <p class="page-subtitle">{{ partner?.user?.email }}</p>
+          <h1 class="page-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">{{ partner?.user?.name || (notFound ? 'Партнёр не найден' : 'Партнёр') }}</h1>
+          <p class="page-subtitle">{{ partner?.user?.email || (notFound ? 'Возможно, он уже удалён' : '') }}</p>
         </div>
       </div>
-      <div class="header-actions">
+      <div v-if="partner" class="header-actions">
         <label class="toggle">
           <input type="checkbox" :checked="partner?.isActive" @change="toggleActive">
           <span class="toggle-slider"></span>
@@ -204,6 +204,24 @@
         </div>
       </div>
     </div>
+
+    <div v-else class="empty-detail card">
+      <div class="empty-detail__icon" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <h2 class="empty-detail__title">{{ notFound ? 'Партнёр не найден' : 'Не удалось загрузить партнёра' }}</h2>
+      <p class="empty-detail__text">
+        {{ loadError || 'Проверьте ссылку или откройте список партнёров.' }}
+      </p>
+      <div class="empty-detail__actions">
+        <button class="btn btn-primary" @click="router.push('/partners')">К списку партнёров</button>
+        <button class="btn btn-secondary" @click="router.push('/dashboard')">На дашборд</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -219,20 +237,34 @@ const API_URL = '/api/admin/partners'
 const partner = ref(null)
 const loading = ref(true)
 const percentage = ref(5)
+const notFound = ref(false)
+const loadError = ref('')
 
 async function fetchPartner() {
+  loading.value = true
+  notFound.value = false
+  loadError.value = ''
+  partner.value = null
   try {
     const { data } = await axios.get(`${API_URL}/${route.params.id}`)
     partner.value = data.partner
     percentage.value = data.partner.percentage
   } catch (e) {
-    console.error(e)
+    const status = e?.response?.status
+    if (status === 404) {
+      notFound.value = true
+      loadError.value = 'Партнёр был удалён или ссылка больше не актуальна.'
+    } else {
+      loadError.value = e?.response?.data?.error || 'Ошибка загрузки данных партнёра.'
+      console.error(e)
+    }
   } finally {
     loading.value = false
   }
 }
 
 async function updatePercentage() {
+  if (!partner.value) return
   try {
     await axios.put(`${API_URL}/${route.params.id}`, { percentage: percentage.value })
     partner.value.percentage = percentage.value
@@ -242,6 +274,7 @@ async function updatePercentage() {
 }
 
 async function toggleActive() {
+  if (!partner.value) return
   try {
     const newStatus = !partner.value.isActive
     await axios.put(`${API_URL}/${route.params.id}`, { isActive: newStatus })
@@ -525,6 +558,42 @@ onMounted(fetchPartner)
 .btn-sm {
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
+}
+
+.empty-detail {
+  margin-top: 1rem;
+  padding: 2.25rem;
+  text-align: center;
+}
+
+.empty-detail__icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+
+.empty-detail__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.empty-detail__text {
+  margin: 0 auto 1.25rem;
+  max-width: 540px;
+  color: var(--text-secondary);
+}
+
+.empty-detail__actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 768px) {
