@@ -201,22 +201,6 @@
             </div>
           </div>
 
-          <div class="promo-code-card">
-            <label class="promo-code-label" for="promo-code-input">Промокод</label>
-            <div class="promo-code-controls">
-              <input
-                id="promo-code-input"
-                v-model="promoCode"
-                type="text"
-                class="input promo-code-input"
-                placeholder="Введите промокод"
-                @input="normalizePromoCodeInput"
-              >
-              <button v-if="promoCode" type="button" class="promo-code-clear" @click="promoCode = ''">Сбросить</button>
-            </div>
-            <p class="promo-code-hint">Скидка будет применена после проверки промокода при оформлении заказа.</p>
-          </div>
-          
           <!-- Delivery Details Card -->
           <div v-if="isDeliverySelected" class="delivery-details-card">
             <div class="delivery-detail-header">
@@ -481,6 +465,22 @@
                   биологически активных добавок, косметических средства или бытовой химии.
                 </span>
               </label>
+            </div>
+
+            <div class="promo-code-card">
+              <label class="promo-code-label" for="promo-code-input">Промокод</label>
+              <div class="promo-code-controls">
+                <input
+                  id="promo-code-input"
+                  v-model="promoCode"
+                  type="text"
+                  class="input promo-code-input"
+                  placeholder="Введите промокод"
+                  @input="normalizePromoCodeInput"
+                >
+                <button v-if="promoCode" type="button" class="promo-code-clear" @click="promoCode = ''">Сбросить</button>
+              </div>
+              <p class="promo-code-hint">Скидка будет применена после проверки промокода при оформлении заказа.</p>
             </div>
             
             <button class="btn btn-primary btn-submit" @click="placeOrder" :disabled="!isFormValid || ordering">
