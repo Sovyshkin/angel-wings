@@ -79,6 +79,7 @@
               <th>Товары</th>
               <th>Сумма</th>
               <th>Статус</th>
+              <th>Оплата</th>
               <th>Дата</th>
               <th></th>
             </tr>
@@ -119,6 +120,11 @@
                   <option value="DELIVERED">Доставлен</option>
                   <option value="CANCELLED">Отменён</option>
                 </select>
+              </td>
+              <td>
+                <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
+                  {{ getPaymentLabel(order.paymentStatus) }}
+                </span>
               </td>
               <td class="cell-date">{{ formatDate(order.createdAt) }}</td>
               <td>
@@ -171,6 +177,12 @@
             <div class="detail-row">
               <span class="detail-label">Телефон</span>
               <span class="detail-value">{{ selectedOrder.customerPhone }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Оплата</span>
+              <span :class="['payment-badge', getPaymentBadge(selectedOrder.paymentStatus)]">
+                {{ getPaymentLabel(selectedOrder.paymentStatus) }}
+              </span>
             </div>
           </div>
 
@@ -476,6 +488,28 @@ function getStatusLabel(status) {
   return labels[status] || status
 }
 
+function getPaymentBadge(status) {
+  const key = String(status || '').trim().toUpperCase()
+  if (['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].some(code => key.includes(code))) {
+    return 'payment-paid'
+  }
+  if (['FAILED', 'CANCELLED', 'CANCELED', 'ERROR', 'EXPIRED', 'REFUNDED'].some(code => key.includes(code))) {
+    return 'payment-failed'
+  }
+  return 'payment-pending'
+}
+
+function getPaymentLabel(status) {
+  const key = String(status || '').trim().toUpperCase()
+  if (['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].some(code => key.includes(code))) {
+    return 'Оплачен'
+  }
+  if (['FAILED', 'CANCELLED', 'CANCELED', 'ERROR', 'EXPIRED', 'REFUNDED'].some(code => key.includes(code))) {
+    return 'Не оплачен'
+  }
+  return 'Ожидает оплату'
+}
+
 onMounted(fetchOrders)
 </script>
 
@@ -705,6 +739,33 @@ onMounted(fetchOrders)
 .badge-warning { background: #f59e0b22; color: #f59e0b; }
 .badge-danger { background: #ef444422; color: #ef4444; }
 .badge-info { background: var(--accent-dim); color: var(--accent); }
+
+.payment-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.payment-badge.payment-paid {
+  background: #22c55e22;
+  color: #22c55e;
+}
+
+.payment-badge.payment-pending {
+  background: #f59e0b22;
+  color: #f59e0b;
+}
+
+.payment-badge.payment-failed {
+  background: #ef444422;
+  color: #ef4444;
+}
 
 .loading-state {
   display: flex;

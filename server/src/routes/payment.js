@@ -1,7 +1,24 @@
 import { Router } from 'express'
+import { PrismaClient } from '@prisma/client'
 import tochkaService from '../services/tochka.js'
+import { authenticate } from '../middleware/auth.js'
 
 const router = Router()
+const prisma = new PrismaClient()
+
+function normalizePaymentStatus(status) {
+  const raw = String(status || '').trim().toUpperCase()
+
+  if (!raw) return 'PENDING'
+  if (['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].some(code => raw.includes(code))) {
+    return 'PAID'
+  }
+  if (['CANCEL', 'FAILED', 'ERROR', 'EXPIRED', 'REFUND'].some(code => raw.includes(code))) {
+    return 'FAILED'
+  }
+
+  return 'PENDING'
+}
 
 // Create payment link
 router.post('/create', async (req, res, next) => {
@@ -40,6 +57,16 @@ router.post('/create', async (req, res, next) => {
     )
 
     if (result.success && result.paymentUrl) {
+      if (result.paymentId && Number.isFinite(Number(orderId))) {
+        await prisma.order.update({
+          where: { id: parseInt(orderId, 10) },
+          data: {
+            paymentId: String(result.paymentId),
+            paymentStatus: 'PENDING'
+          }
+        })
+      }
+
       console.log('[PAYMENT] /create success', JSON.stringify({
         orderId,
         paymentId: result.paymentId
@@ -73,10 +100,64 @@ router.get('/status/:paymentId', async (req, res, next) => {
     const result = await tochkaService.getPaymentStatus(paymentId)
     
     if (result.success) {
-      res.json({ success: true, status: result.status })
+      const paymentStatus = normalizePaymentStatus(result.status)
+      await prisma.order.updateMany({
+        where: { paymentId: String(paymentId) },
+        data: { paymentStatus }
+      })
+      res.json({ success: true, status: result.status, paymentStatus })
     } else {
       res.status(500).json({ error: result.error })
     }
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.orderId, 10)
+    if (!Number.isFinite(orderId)) {
+      return res.status(400).json({ error: 'Некорректный orderId' })
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, userId: true, paymentId: true, paymentStatus: true }
+    })
+
+    if (!order) {
+      return res.status(404).json({ error: 'Заказ не найден' })
+    }
+
+    if (order.userId && order.userId !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Доступ запрещён' })
+    }
+
+    if (!order.paymentId) {
+      return res.json({
+        success: true,
+        paymentStatus: order.paymentStatus || 'PENDING',
+        status: null
+      })
+    }
+
+    const result = await tochkaService.getPaymentStatus(order.paymentId)
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || 'Ошибка проверки статуса' })
+    }
+
+    const paymentStatus = normalizePaymentStatus(result.status)
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { paymentStatus }
+    })
+
+    res.json({
+      success: true,
+      paymentStatus,
+      status: result.status
+    })
   } catch (error) {
     next(error)
   }
@@ -94,13 +175,16 @@ router.post('/webhook', async (req, res, next) => {
     res.status(200).send('OK')
     
     // Process asynchronously
-    if (status === 'paid' || status === 'success') {
-      // Update order payment status
-      const orderId = String(paymentLinkId || '').replace(/^order-/i, '')
-      if (orderId) {
-        // You can emit an event or call order update here
-        console.log(`Payment confirmed for order ${orderId}`)
-      }
+    const normalized = normalizePaymentStatus(status)
+    const orderIdMatch = String(paymentLinkId || '').match(/order-(\d+)/i)
+    const orderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : NaN
+
+    if (Number.isFinite(orderId)) {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { paymentStatus: normalized }
+      })
+      console.log(`[PAYMENT] Webhook updated order ${orderId} paymentStatus=${normalized}`)
     }
   } catch (error) {
     next(error)

@@ -20,12 +20,24 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import axios from 'axios'
 
 const route = useRoute()
 const orderId = ref(null)
 
-onMounted(() => {
+async function syncPaymentStatus() {
+  if (!orderId.value) return
+
+  try {
+    await axios.post(`/api/payment/sync-order/${orderId.value}`)
+  } catch (error) {
+    console.warn('Payment sync on success page failed:', error?.response?.data || error?.message)
+  }
+}
+
+onMounted(async () => {
   orderId.value = route.query.orderId || null
+  await syncPaymentStatus()
 })
 </script>
 
