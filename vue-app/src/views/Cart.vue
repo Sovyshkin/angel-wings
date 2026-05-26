@@ -200,6 +200,22 @@
               </div>
             </div>
           </div>
+
+          <div class="promo-code-card">
+            <label class="promo-code-label" for="promo-code-input">Промокод</label>
+            <div class="promo-code-controls">
+              <input
+                id="promo-code-input"
+                v-model="promoCode"
+                type="text"
+                class="input promo-code-input"
+                placeholder="Введите промокод"
+                @input="normalizePromoCodeInput"
+              >
+              <button v-if="promoCode" type="button" class="promo-code-clear" @click="promoCode = ''">Сбросить</button>
+            </div>
+            <p class="promo-code-hint">Скидка будет применена после проверки промокода при оформлении заказа.</p>
+          </div>
           
           <!-- Delivery Details Card -->
           <div v-if="isDeliverySelected" class="delivery-details-card">
@@ -509,6 +525,7 @@ const consents = ref({
   acceptPrivacy: true,
   acceptResearchTerms: true
 })
+const promoCode = ref('')
 const ordering = ref(false)
 const orderComplete = ref(false)
 const orderError = ref(null)
@@ -547,6 +564,12 @@ const isDeliverySelected = computed(() => {
   if (deliveryType.value === 'pvz') return Boolean(selectedPickupPoint.value)
   return Boolean(courierAddress.value)
 })
+
+function normalizePromoCodeInput() {
+  promoCode.value = String(promoCode.value || '')
+    .toUpperCase()
+    .replace(/\s+/g, '')
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -815,6 +838,11 @@ async function placeOrder() {
       notes: customer.value.comment,
       delivery: deliveryData
     }
+
+    const normalizedPromoCode = String(promoCode.value || '').trim().toUpperCase()
+    if (normalizedPromoCode) {
+      orderData.promoCode = normalizedPromoCode
+    }
     
     if (authStore.isAuthenticated && authStore.user?.id) {
       orderData.userId = authStore.user.id
@@ -822,6 +850,7 @@ async function placeOrder() {
     
     const { data } = await axios.post('/api/orders', orderData)
     lastOrderId.value = data.order?.id
+    const createdOrderTotal = Number(data?.order?.total || totalWithDelivery.value)
     if (data?.meta?.partnerNotice) {
       alert(data.meta.partnerNotice)
     }
@@ -868,7 +897,7 @@ async function placeOrder() {
     try {
       const paymentResponse = await axios.post('/api/payment/create', {
         orderId: lastOrderId.value,
-        amount: totalWithDelivery.value,
+        amount: createdOrderTotal,
         description: `Оплата заказа #${lastOrderId.value}`
       })
 
@@ -892,7 +921,7 @@ async function placeOrder() {
       orderComplete.value = false
     }, 10000)
   } catch (e) {
-    orderError.value = e.response?.data?.message || e.message || 'Ошибка оформления заказа'
+    orderError.value = e.response?.data?.error || e.response?.data?.message || e.message || 'Ошибка оформления заказа'
   } finally {
     ordering.value = false
   }
@@ -1242,6 +1271,55 @@ watch(() => authStore.user, () => {
   justify-content: space-between;
   padding: 1.25rem 0;
   margin-bottom: 2rem;
+}
+
+.promo-code-card {
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  border-radius: 10px;
+}
+
+.promo-code-label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.promo-code-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.promo-code-input {
+  flex: 1;
+}
+
+.promo-code-clear {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.promo-code-clear:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.promo-code-hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.35;
 }
 
 .summary-total span:first-child {
