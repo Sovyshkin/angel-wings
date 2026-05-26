@@ -213,6 +213,41 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
   }
 })
 
+router.delete('/orders/:id', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.id)
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true }
+    })
+
+    if (!order) {
+      return res.status(404).json({ error: 'Заказ не найден' })
+    }
+
+    if (order.status !== 'CANCELLED') {
+      return res.status(400).json({ error: 'Удалять можно только отменённые заказы' })
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.partnerCommission.deleteMany({
+        where: { orderId }
+      })
+      await tx.orderItem.deleteMany({
+        where: { orderId }
+      })
+      await tx.order.delete({
+        where: { id: orderId }
+      })
+    })
+
+    res.json({ message: 'Заказ удалён' })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { active, limit = 100, offset = 0 } = req.query
