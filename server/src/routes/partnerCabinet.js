@@ -93,7 +93,7 @@ router.get('/cabinet/promo-code', authenticate, requirePartner, async (req, res,
       return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
-    res.json({ promoCodes: partner.promoCodes, referralCode: partner.referralCode })
+    res.json({ promoCodes: partner.promoCodes })
   } catch (error) {
     next(error)
   }
@@ -408,7 +408,7 @@ router.get('/cabinet/export', authenticate, requirePartner, async (req, res, nex
     const csv = csvRows.map(row => row.join(',')).join('\n')
 
     res.setHeader('Content-Type', 'text/csv')
-    res.setHeader('Content-Disposition', `attachment; filename=partner-report-${partner.referralCode}.csv`)
+    res.setHeader('Content-Disposition', `attachment; filename=partner-report-${partner.id}.csv`)
     res.send(csv)
   } catch (error) {
     next(error)

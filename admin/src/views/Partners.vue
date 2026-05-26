@@ -44,7 +44,6 @@
               <th>ID</th>
               <th>Имя</th>
               <th>Email</th>
-              <th>Реф. код</th>
               <th>Процент</th>
               <th>Пользователей</th>
               <th>Заказов</th>
@@ -58,7 +57,6 @@
               <td class="cell-id">{{ partner.id }}</td>
               <td class="cell-name">{{ partner.user.name }}</td>
               <td class="cell-email">{{ partner.user.email }}</td>
-              <td><code class="code-tag">{{ partner.referralCode }}</code></td>
               <td>
                 <div class="percentage-edit">
                   <input type="number" :value="partner.percentage" @blur="updatePercentage(partner.id, $event.target.value)"
@@ -112,7 +110,7 @@
 
           <div class="form-group">
             <label class="form-label">Пароль</label>
-            <input type="password" v-model="form.password" required class="input" placeholder="Минимум 6 символов">
+            <input type="password" v-model="form.password" required minlength="6" class="input" placeholder="Минимум 6 символов">
           </div>
 
           <div class="form-group">

@@ -43,7 +43,7 @@ export const useAuthStore = defineStore('auth', () => {
       'User not found': 'Пользователь не найден',
       'Incorrect password': 'Неверный пароль',
       'Validation error': 'Ошибка валидации',
-      'password': 'Пароль должен содержать минимум 8 символов',
+      'password': 'Пароль должен содержать минимум 6 символов',
       'Network Error': 'Ошибка сети. Проверьте подключение к интернету',
     }
     const lowerMessage = message.toLowerCase()

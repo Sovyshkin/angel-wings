@@ -19,7 +19,7 @@
         <select v-model="filterPartnerId" @change="fetchPromoCodes" class="input">
           <option :value="null">Все партнёры</option>
           <option v-for="p in partners" :key="p.id" :value="p.id">
-            {{ p.user.name }} ({{ p.referralCode }})
+            {{ p.user.name }}
           </option>
         </select>
       </div>

@@ -48,10 +48,6 @@
           <div class="stat-card__value">{{ partner.percentage }}%</div>
           <div class="stat-card__label">Процент комиссии</div>
         </div>
-        <div class="stat-card card">
-          <div class="stat-card__value"><code class="code-tag">{{ partner.referralCode }}</code></div>
-          <div class="stat-card__label">Реферальный код</div>
-        </div>
       </div>
 
       <div class="info-grid">

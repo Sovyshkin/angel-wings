@@ -28,9 +28,9 @@
                 v-model="form.password" 
                 :type="showPassword ? 'text' : 'password'" 
                 class="input" 
-                placeholder="Минимум 8 символов"
+                placeholder="Минимум 6 символов"
                 required
-                minlength="8"
+                minlength="6"
               >
               <button type="button" class="password-toggle" @click="showPassword = !showPassword">
                 <svg v-if="showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

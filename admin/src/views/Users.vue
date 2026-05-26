@@ -130,7 +130,7 @@
 
           <div class="form-group">
             <label class="form-label">Пароль</label>
-            <input type="password" v-model="form.password" required class="input" placeholder="Минимум 6 символов">
+            <input type="password" v-model="form.password" required minlength="6" class="input" placeholder="Минимум 6 символов">
           </div>
 
           <div class="form-group">

@@ -72,25 +72,10 @@
       <div class="dashboard-grid section-space">
         <div class="card">
           <div class="card-header">
-            <h3 class="card-title">Мой промокод</h3>
+            <h3 class="card-title">Мои промокоды</h3>
           </div>
           <div class="card-body">
-            <div class="referral-section">
-              <div class="referral-code-box">
-                <span class="code-label">Ваш реферальный код:</span>
-                <div class="code-value">{{ referralCode || '—' }}</div>
-                <button @click="copyCode" class="btn btn-sm btn-secondary" :disabled="!referralCode">Копировать</button>
-              </div>
-
-              <div class="referral-link-box">
-                <span class="code-label">Реферальная ссылка:</span>
-                <div class="link-value">{{ referralLink || '—' }}</div>
-                <button @click="copyLink" class="btn btn-sm btn-secondary" :disabled="!referralCode">Копировать</button>
-              </div>
-            </div>
-
             <div class="promo-codes-section">
-              <h4 class="section-title">Мои промокоды</h4>
               <div v-if="promoCodes.length === 0" class="empty-state">
                 У вас пока нет промокодов.
               </div>
@@ -289,7 +274,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../store/auth'
 
@@ -300,18 +285,12 @@ const loading = ref(true)
 const accessDenied = ref(false)
 const stats = ref({})
 const promoCodes = ref([])
-const referralCode = ref('')
 const partnerUsers = ref([])
 const commissions = ref([])
 const dailyStats = ref([])
 const usersLoading = ref(false)
 const filterStartDate = ref('')
 const filterEndDate = ref('')
-
-const referralLink = computed(() => {
-  if (!referralCode.value) return ''
-  return `${window.location.origin}?ref=${referralCode.value}`
-})
 
 function isPartnerAccessError(error) {
   const status = error?.response?.status
@@ -326,7 +305,6 @@ async function fetchStats() {
 async function fetchPromoCodes() {
   const { data } = await axios.get(`${API_URL}/cabinet/promo-code`)
   promoCodes.value = data.promoCodes || []
-  referralCode.value = data.referralCode || ''
 }
 
 async function fetchUsers() {
@@ -372,16 +350,6 @@ function exportReport() {
   const url = `${window.location.origin}/api/partner/cabinet/export${queryString ? '?' + queryString : ''}`
 
   window.open(url, '_blank', 'noopener,noreferrer')
-}
-
-function copyCode() {
-  if (!referralCode.value) return
-  navigator.clipboard.writeText(referralCode.value)
-}
-
-function copyLink() {
-  if (!referralLink.value) return
-  navigator.clipboard.writeText(referralLink.value)
 }
 
 function getBarHeight(amount) {
@@ -547,47 +515,8 @@ onMounted(async () => {
   padding: 1rem;
 }
 
-.referral-section {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.75rem;
-}
-
-.referral-code-box,
-.referral-link-box {
-  padding: 0.85rem;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
-
-.code-label {
-  display: block;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  margin-bottom: 0.45rem;
-}
-
-.code-value {
-  font-size: clamp(1rem, 3vw, 1.4rem);
-  font-weight: 700;
-  font-family: var(--font-body);
-  letter-spacing: 0.03em;
-  margin-bottom: 0.6rem;
-}
-
-.link-value {
-  font-size: 0.82rem;
-  font-family: var(--font-body);
-  word-break: break-all;
-  margin-bottom: 0.6rem;
-  color: var(--text-secondary);
-}
-
 .promo-codes-section {
-  margin-top: 1rem;
+  margin-top: 0.2rem;
 }
 
 .section-title {

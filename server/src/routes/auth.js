@@ -10,6 +10,10 @@ const prisma = new PrismaClient()
 router.post('/register', async (req, res, next) => {
   try {
     const { email, password, name, phone } = req.body
+
+    if (typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ error: 'Пароль должен содержать минимум 6 символов' })
+    }
     
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
@@ -113,6 +117,10 @@ router.put('/me', authenticate, async (req, res, next) => {
 router.put('/password', authenticate, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body
+
+    if (typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({ error: 'Пароль должен содержать минимум 6 символов' })
+    }
     
     const user = await prisma.user.findUnique({ where: { id: req.user.id } })
     

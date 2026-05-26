@@ -88,6 +88,10 @@ router.get('/users', authenticate, requireAdmin, async (req, res, next) => {
 router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { email, password, name, role = 'USER', phone } = req.body
+
+    if (typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ error: 'Пароль должен содержать минимум 6 символов' })
+    }
     
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {

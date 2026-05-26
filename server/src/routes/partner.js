@@ -18,7 +18,7 @@ router.get('/promo-codes', authenticate, requireAdmin, async (req, res, next) =>
       prisma.promoCode.findMany({
         where,
         include: {
-          partner: { select: { id: true, referralCode: true, user: { select: { name: true } } } }
+          partner: { select: { id: true, user: { select: { name: true } } } }
         },
         take: parseInt(limit),
         skip: parseInt(offset),
@@ -147,7 +147,7 @@ router.get('/partner-users', authenticate, requireAdmin, async (req, res, next) 
         where,
         include: {
           user: { select: { id: true, email: true, name: true, createdAt: true } },
-          partner: { select: { id: true, referralCode: true, user: { select: { name: true } } } },
+          partner: { select: { id: true, user: { select: { name: true } } } },
           promoCode: { select: { code: true } }
         },
         take: parseInt(limit),
@@ -192,7 +192,7 @@ router.put('/partner-users/:userId/partner', authenticate, requireAdmin, async (
       },
       include: {
         user: { select: { id: true, email: true, name: true } },
-        partner: { select: { id: true, referralCode: true } }
+        partner: { select: { id: true } }
       }
     })
 
@@ -230,7 +230,7 @@ router.get('/commissions', authenticate, requireAdmin, async (req, res, next) =>
       prisma.partnerCommission.findMany({
         where,
         include: {
-          partner: { select: { id: true, referralCode: true, user: { select: { name: true } } } },
+          partner: { select: { id: true, user: { select: { name: true } } } },
           order: { select: { id: true, total: true, createdAt: true, user: { select: { email: true, name: true } } } }
         },
         take: parseInt(limit),
@@ -258,7 +258,7 @@ router.get('/payments', authenticate, requireAdmin, async (req, res, next) => {
       prisma.partnerPayment.findMany({
         where,
         include: {
-          partner: { select: { id: true, referralCode: true, user: { select: { name: true } } } }
+          partner: { select: { id: true, user: { select: { name: true } } } }
         },
         take: parseInt(limit),
         skip: parseInt(offset),
@@ -360,7 +360,6 @@ router.get('/', authenticate, requireAdmin, async (req, res, next) => {
         id: p.id,
         user: p.user,
         percentage: p.percentage,
-        referralCode: p.referralCode,
         isActive: p.isActive,
         createdAt: p.createdAt,
         usersCount: p._count.partnerUsers,
@@ -379,13 +378,17 @@ router.post('/', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { email, password, name, phone, percentage = 5.0 } = req.body
 
+    if (typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ error: 'Пароль должен содержать минимум 6 символов' })
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
       return res.status(400).json({ error: 'Пользователь с таким email уже существует' })
     }
 
     const hashedPassword = await bcrypt.hash(password, 10)
-    const referralCode = uuidv4().substring(0, 8).toUpperCase()
+    const internalPartnerCode = uuidv4().substring(0, 8).toUpperCase()
 
     const user = await prisma.user.create({
       data: {
@@ -401,7 +404,7 @@ router.post('/', authenticate, requireAdmin, async (req, res, next) => {
       data: {
         userId: user.id,
         percentage,
-        referralCode
+        referralCode: internalPartnerCode
       },
       include: {
         user: { select: { id: true, email: true, name: true } }
@@ -473,9 +476,10 @@ router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
       take: 20
     })
 
+    const { referralCode, ...partnerWithoutReferralCode } = partner
     res.json({
       partner: {
-        ...partner,
+        ...partnerWithoutReferralCode,
         totalCommission,
         user: partner.user,
         users: partner.partnerUsers.map(pu => ({
