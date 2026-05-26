@@ -432,6 +432,22 @@
               <textarea v-model="customer.comment" class="input" rows="2" placeholder="Дополнительные пожелания..."></textarea>
             </div>
 
+            <div class="promo-code-card">
+              <label class="promo-code-label" for="promo-code-input">Промокод</label>
+              <div class="promo-code-controls">
+                <input
+                  id="promo-code-input"
+                  v-model="promoCode"
+                  type="text"
+                  class="input promo-code-input"
+                  placeholder="Введите промокод"
+                  @input="normalizePromoCodeInput"
+                >
+                <button v-if="promoCode" type="button" class="promo-code-clear" @click="promoCode = ''">Сбросить</button>
+              </div>
+              <p class="promo-code-hint">Скидка будет применена после проверки промокода при оформлении заказа.</p>
+            </div>
+
             <div class="consents">
               <label class="consent-item">
                 <input type="checkbox" v-model="consents.rememberContacts">
@@ -467,22 +483,6 @@
               </label>
             </div>
 
-            <div class="promo-code-card">
-              <label class="promo-code-label" for="promo-code-input">Промокод</label>
-              <div class="promo-code-controls">
-                <input
-                  id="promo-code-input"
-                  v-model="promoCode"
-                  type="text"
-                  class="input promo-code-input"
-                  placeholder="Введите промокод"
-                  @input="normalizePromoCodeInput"
-                >
-                <button v-if="promoCode" type="button" class="promo-code-clear" @click="promoCode = ''">Сбросить</button>
-              </div>
-              <p class="promo-code-hint">Скидка будет применена после проверки промокода при оформлении заказа.</p>
-            </div>
-            
             <button class="btn btn-primary btn-submit" @click="placeOrder" :disabled="!isFormValid || ordering">
               <svg v-if="!ordering" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
