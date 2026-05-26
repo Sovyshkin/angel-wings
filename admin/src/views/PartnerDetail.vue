@@ -165,7 +165,9 @@
           <div v-for="code in partner.promoCodes" :key="code.id" class="promo-card card">
             <div class="promo-code"><code>{{ code.code }}</code></div>
             <div class="promo-info">
-              <span class="promo-discount">{{ code.discountType === 'percent' ? code.discount + '%' : formatCurrency(code.discount) }}</span>
+              <span class="promo-discount">
+                {{ code.discountType === 'percentage' ? code.discountValue + '%' : formatCurrency(code.discountValue) }}
+              </span>
               <span :class="['badge', code.isActive ? 'badge-success' : 'badge-danger']">
                 {{ code.isActive ? 'Активен' : 'Отключён' }}
               </span>

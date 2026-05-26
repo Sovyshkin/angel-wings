@@ -140,8 +140,8 @@
               иммунный баланс и регенерация.
             </p>
             <div class="categories-lab__metrics">
-              <div class="categories-lab__metric"><strong>20+</strong><span>позиций</span></div>
-              <div class="categories-lab__metric"><strong>4</strong><span>направления</span></div>
+              <div class="categories-lab__metric"><strong>{{ totalProductsCount }}</strong><span>позиций</span></div>
+              <div class="categories-lab__metric"><strong>{{ totalDirectionsCount }}</strong><span>направления</span></div>
               <div class="categories-lab__metric"><strong>100%</strong><span>in-house</span></div>
             </div>
             <router-link to="/catalog" class="categories-lab__cta">
@@ -166,8 +166,8 @@
                 </div>
               </div>
               <div class="category-lane__right">
-                <span class="category-lane__count">6</span>
-                <span class="category-lane__meta">товаров</span>
+                <span class="category-lane__count">{{ getCategoryCount('longevitiya') }}</span>
+                <span class="category-lane__meta">{{ getProductWord(getCategoryCount('longevitiya')) }}</span>
               </div>
             </router-link>
 
@@ -185,8 +185,8 @@
                 </div>
               </div>
               <div class="category-lane__right">
-                <span class="category-lane__count">5</span>
-                <span class="category-lane__meta">товаров</span>
+                <span class="category-lane__count">{{ getCategoryCount('immunomodulyatory') }}</span>
+                <span class="category-lane__meta">{{ getProductWord(getCategoryCount('immunomodulyatory')) }}</span>
               </div>
             </router-link>
 
@@ -204,8 +204,8 @@
                 </div>
               </div>
               <div class="category-lane__right">
-                <span class="category-lane__count">5</span>
-                <span class="category-lane__meta">товаров</span>
+                <span class="category-lane__count">{{ getCategoryCount('neiropeptide') }}</span>
+                <span class="category-lane__meta">{{ getProductWord(getCategoryCount('neiropeptide')) }}</span>
               </div>
             </router-link>
 
@@ -222,8 +222,8 @@
                 </div>
               </div>
               <div class="category-lane__right">
-                <span class="category-lane__count">4</span>
-                <span class="category-lane__meta">товара</span>
+                <span class="category-lane__count">{{ getCategoryCount('growth') }}</span>
+                <span class="category-lane__meta">{{ getProductWord(getCategoryCount('growth')) }}</span>
               </div>
             </router-link>
           </div>
@@ -355,49 +355,6 @@
       </div>
     </section>
 
-    <section class="testimonials" data-aos="fade-left" data-aos-offset="100">
-      <div class="container">
-        <div class="section-header" data-aos="fade-up">
-          <h2 class="section-title">Отзывы клиентов</h2>
-        </div>
-        <div class="testimonials__grid" data-aos="fade-up" data-aos-delay="100">
-          <div class="testimonial-card">
-            <div class="testimonial-stars">★★★★★</div>
-            <p class="testimonial-text">"BPC-157令我印象非常深刻。伤口愈合速度明显加快，关节疼痛也在一周内消失。品质卓越！"</p>
-            <div class="testimonial-author">
-              <div class="author-avatar">A</div>
-              <div class="author-info">
-                <span class="author-name">Алексей М.</span>
-                <span class="author-date">Март 2026</span>
-              </div>
-            </div>
-          </div>
-          <div class="testimonial-card">
-            <div class="testimonial-stars">★★★★★</div>
-            <p class="testimonial-text">"Заказываю уже третий раз. Качество стабильно высокое, доставка быстрая. Специалисты помогли подобрать комплекс для сна."</p>
-            <div class="testimonial-author">
-              <div class="author-avatar">E</div>
-              <div class="author-info">
-                <span class="author-name">Елена К.</span>
-                <span class="author-date">Февраль 2026</span>
-              </div>
-            </div>
-          </div>
-          <div class="testimonial-card">
-            <div class="testimonial-stars">★★★★★</div>
-            <p class="testimonial-text">"TB-500 и BPC-157 комбинация — это что-то невероятное. Восстановился после травмы в два раза быстрее, чем ожидал."</p>
-            <div class="testimonial-author">
-              <div class="author-avatar">M</div>
-              <div class="author-info">
-                <span class="author-name">Михаил Д.</span>
-                <span class="author-date">Январь 2026</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section class="newsletter" data-aos="fade-up" data-aos-offset="100">
       <div class="container">
         <div class="newsletter__inner">
@@ -429,13 +386,43 @@ import { computed, onMounted } from 'vue'
 import { useProductStore } from '../store/products'
 
 const productStore = useProductStore()
+const DISPLAY_CATEGORY_SLUGS = ['longevitiya', 'immunomodulyatory', 'neiropeptide', 'growth']
 
 const featuredProducts = computed(() => {
   return productStore.products.slice(0, 4)
 })
 
+const totalProductsCount = computed(() => productStore.products.length)
+
+const categoryProductCountMap = computed(() => {
+  const counts = Object.create(null)
+  for (const slug of DISPLAY_CATEGORY_SLUGS) counts[slug] = 0
+
+  for (const product of productStore.products) {
+    const categoryList = Array.isArray(product?.categories) ? product.categories : []
+    const seen = new Set()
+    for (const category of categoryList) {
+      const slug = String(category?.slug || '').trim()
+      if (!slug || seen.has(slug)) continue
+      seen.add(slug)
+      if (counts[slug] !== undefined) {
+        counts[slug] += 1
+      }
+    }
+  }
+
+  return counts
+})
+
+const totalDirectionsCount = computed(() => {
+  return DISPLAY_CATEGORY_SLUGS.filter((slug) => getCategoryCount(slug) > 0).length
+})
+
 onMounted(async () => {
-  await productStore.fetchProducts()
+  await Promise.all([
+    productStore.fetchProducts(),
+    productStore.fetchCategories()
+  ])
 })
 
 function handleImageError(e) {
@@ -466,6 +453,19 @@ function getDiscountPercent(product) {
   const old = getOldPrice(product)
   if (!old || old <= 0 || current <= 0 || old <= current) return 0
   return Math.round(((old - current) / old) * 100)
+}
+
+function getCategoryCount(slug) {
+  return categoryProductCountMap.value[slug] || 0
+}
+
+function getProductWord(count) {
+  const value = Math.abs(Number(count) || 0)
+  const mod10 = value % 10
+  const mod100 = value % 100
+  if (mod10 === 1 && mod100 !== 11) return 'товар'
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'товара'
+  return 'товаров'
 }
 </script>
 
@@ -1467,52 +1467,6 @@ function getDiscountPercent(product) {
   opacity: 0.8;
 }
 
-.testimonials {
-  padding: 8rem 0;
-}
-
-.testimonials__grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem;
-}
-
-.testimonial-card {
-  position: relative;
-  padding: 2rem;
-  background:
-    radial-gradient(circle at 100% 0, rgba(166, 185, 248, 0.08), transparent 45%),
-    var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  transition: all 0.4s ease;
-  overflow: hidden;
-}
-
-.testimonial-card:hover {
-  border-color: rgba(166, 185, 248, 0.3);
-  transform: translateY(-5px) scale(1.01);
-}
-
-.testimonial-stars {
-  color: #fab1a0;
-  font-size: 1rem;
-  margin-bottom: 1rem;
-}
-
-.testimonial-text {
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-  line-height: 1.7;
-  margin-bottom: 1.5rem;
-}
-
-.testimonial-author {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
 .author-avatar {
   width: 40px;
   height: 40px;
@@ -1678,9 +1632,6 @@ function getDiscountPercent(product) {
   .features-panel { grid-template-columns: 1fr; }
   .features-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .featured-grid { grid-template-columns: repeat(2, 1fr); }
-  .testimonials__grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
 
   .categories-lab {
     grid-template-columns: 1fr;
@@ -1744,8 +1695,7 @@ function getDiscountPercent(product) {
   }
 
   .features-panel,
-  .featured-grid,
-  .testimonials__grid {
+  .featured-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1905,14 +1855,6 @@ function getDiscountPercent(product) {
 
   .promo-timer {
     font-size: 0.8rem;
-  }
-
-  .testimonials {
-    padding: 4rem 0;
-  }
-
-  .testimonial-card {
-    padding: 1.5rem;
   }
 
   .newsletter {

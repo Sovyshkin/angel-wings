@@ -64,7 +64,7 @@
                   {{ pc.usageType === 'single' ? 'Однократный' : 'Многоразовый' }}
                 </span>
               </td>
-              <td class="cell-num">{{ pc.activationCount }} / {{ pc.maxActivations }}</td>
+              <td class="cell-num">{{ pc.activationCount }} / {{ pc.maxActivations === 0 ? '∞' : pc.maxActivations }}</td>
               <td>
                 <span v-if="pc.partner">
                   {{ pc.partner.user.name }}
@@ -147,7 +147,8 @@
             </div>
             <div class="form-group">
               <label class="form-label">Макс. активаций</label>
-              <input type="number" v-model="form.maxActivations" class="input" min="1" :disabled="form.usageType === 'single'">
+              <input type="number" v-model="form.maxActivations" class="input" min="0" :disabled="form.usageType === 'single'">
+              <small v-if="form.usageType === 'multi'" class="input-hint">0 = без лимита</small>
             </div>
           </div>
 
@@ -219,7 +220,7 @@ const form = ref({
   discountType: 'percentage',
   discountValue: 5,
   usageType: 'single',
-  maxActivations: 1,
+  maxActivations: 0,
   startDate: '',
   endDate: '',
   minOrderAmount: null,
@@ -290,7 +291,7 @@ function openModal() {
     discountType: 'percentage',
     discountValue: 5,
     usageType: 'single',
-    maxActivations: 1,
+    maxActivations: 0,
     startDate: '',
     endDate: '',
     minOrderAmount: null,
@@ -612,6 +613,11 @@ onMounted(() => {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-secondary);
+}
+
+.input-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .checkbox-label {

@@ -148,6 +148,13 @@
           <div class="footer__col footer__col--brand">
             <div class="footer__logo">ANGEL WINGS</div>
             <p class="footer__desc">Высокочистые пептиды для научных исследований и персональной оптимизации. GMP-сертифицированное производство.</p>
+            <div class="footer__requisites">
+              <p><strong>ИП Кириллов Никита Сергеевич</strong></p>
+              <p>ИНН: 773323389224</p>
+              <p>ОГРН: 325774600301379</p>
+              <p>Юридический адрес: 125362, РОССИЯ, Г МОСКВА, УЛ ТУШИНСКАЯ, Д 13, КВ 70</p>
+              <p>Email: <a href="mailto:nickkirillov001@gmail.com">nickkirillov001@gmail.com</a></p>
+            </div>
             <div class="footer__social">
               <router-link to="/contact#messengers" class="social-link" aria-label="Telegram">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.03-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.37.09 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
@@ -176,7 +183,6 @@
               <li><router-link to="/delivery-payment">Доставка и оплата</router-link></li>
               <li><router-link to="/guarantees">Гарантии</router-link></li>
               <li><router-link to="/faq">Частые вопросы</router-link></li>
-              <li><router-link to="/requisites">Реквизиты</router-link></li>
               <li><router-link to="/contact">Контакты</router-link></li>
               <li><a href="/policy.pdf" target="_blank" rel="noopener">Политика Конфиденциальности</a></li>
               <li><a href="/public-offer-2026.pdf" target="_blank" rel="noopener">Публичная оферта</a></li>
@@ -635,7 +641,34 @@ onMounted(() => {
   font-size: 0.875rem;
   color: var(--text-secondary);
   line-height: 1.7;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.footer__requisites {
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.footer__requisites p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.footer__requisites p strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.footer__requisites a {
+  color: var(--accent);
+}
+
+.footer__requisites a:hover {
+  opacity: 0.85;
 }
 
 .footer__social {

@@ -40,7 +40,7 @@ router.post('/promo-codes', authenticate, requireAdmin, async (req, res, next) =
       discountType = 'percentage',
       discountValue,
       usageType = 'single',
-      maxActivations = 1,
+      maxActivations = 0,
       startDate,
       endDate,
       minOrderAmount,
@@ -53,13 +53,17 @@ router.post('/promo-codes', authenticate, requireAdmin, async (req, res, next) =
       return res.status(400).json({ error: 'Промокод уже существует' })
     }
 
+    const normalizedMaxActivations = usageType === 'single'
+      ? 1
+      : Math.max(0, parseInt(maxActivations ?? 0, 10) || 0)
+
     const promoCode = await prisma.promoCode.create({
       data: {
         code: code.toUpperCase(),
         discountType,
         discountValue,
         usageType,
-        maxActivations,
+        maxActivations: normalizedMaxActivations,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         minOrderAmount,
@@ -93,7 +97,15 @@ router.put('/promo-codes/:id', authenticate, requireAdmin, async (req, res, next
     if (discountType !== undefined) data.discountType = discountType
     if (discountValue !== undefined) data.discountValue = discountValue
     if (usageType !== undefined) data.usageType = usageType
-    if (maxActivations !== undefined) data.maxActivations = maxActivations
+    if (usageType === 'single') data.maxActivations = 1
+    if (maxActivations !== undefined) {
+      const nextUsageType = usageType !== undefined ? usageType : undefined
+      if (nextUsageType === 'single') {
+        data.maxActivations = 1
+      } else {
+        data.maxActivations = Math.max(0, parseInt(maxActivations, 10) || 0)
+      }
+    }
     if (startDate !== undefined) data.startDate = startDate ? new Date(startDate) : null
     if (endDate !== undefined) data.endDate = endDate ? new Date(endDate) : null
     if (minOrderAmount !== undefined) data.minOrderAmount = minOrderAmount

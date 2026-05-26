@@ -83,26 +83,70 @@
                 <router-link to="/catalog" class="btn btn-secondary">Перейти в каталог</router-link>
               </div>
               <div v-else class="orders-list">
-                <div v-for="order in orders" :key="order.id" class="order-item">
-                  <div class="order-header">
-                    <span class="order-id">Заказ #{{ order.id }}</span>
+                <article v-for="order in orders" :key="order.id" class="order-card">
+                  <div class="order-card__header">
+                    <div class="order-card__heading">
+                      <span class="order-id">Заказ #{{ order.id }}</span>
+                      <span class="order-date">{{ order.date }}</span>
+                    </div>
                     <div class="order-status-wrap">
                       <span class="order-status" :class="order.status">{{ order.statusText }}</span>
-                      <span
+                      <div
                         v-if="order.deliveryStatusSource === 'cdek' && (order.cdekStatusName || order.cdekStatusCode)"
                         class="order-delivery-status"
+                        :class="`order-delivery-status--${getCdekStatusTone(order)}`"
                       >
-                        СДЭК: {{ order.cdekStatusName || order.cdekStatusCode }}
-                      </span>
+                        <span class="order-delivery-status__brand">СДЭК</span>
+                        <span class="order-delivery-status__value">{{ order.cdekStatusName || order.cdekStatusCode }}</span>
+                        <span v-if="order.cdekStatusDate" class="order-delivery-status__time">{{ formatDateTime(order.cdekStatusDate) }}</span>
+                      </div>
                     </div>
                   </div>
-                  <div class="order-details">
-                    <span>{{ order.date }}</span>
-                    <span>{{ order.total.toLocaleString() }} ₽</span>
+
+                  <div class="order-metrics">
+                    <div class="order-metric">
+                      <span>Сумма</span>
+                      <strong>{{ formatCurrency(order.total) }}</strong>
+                    </div>
+                    <div class="order-metric">
+                      <span>Позиции</span>
+                      <strong>{{ order.items?.length || 0 }}</strong>
+                    </div>
+                    <div class="order-metric">
+                      <span>Доставка</span>
+                      <strong>{{ formatCurrency(order.deliveryPrice || 0) }}</strong>
+                    </div>
                   </div>
+
+                  <div class="order-products">
+                    <h4 class="order-products__title">Товары в заказе</h4>
+                    <div v-if="!order.items?.length" class="order-products-empty">Позиции заказа не найдены</div>
+                    <div v-else class="order-products-grid">
+                      <article v-for="item in order.items" :key="item.id" class="order-product-card">
+                        <div class="order-product-card__media">
+                          <img
+                            :src="item.product?.image || '/logo.png'"
+                            :alt="item.product?.title || `Товар #${item.productId}`"
+                            @error="onOrderImageError"
+                          >
+                        </div>
+                        <div class="order-product-card__body">
+                          <h5 class="order-product-card__title">{{ item.product?.title || `Товар #${item.productId}` }}</h5>
+                          <span v-if="item.dosage" class="order-item-dosage">{{ item.dosage }}</span>
+                          <div class="order-product-card__meta">
+                            <span>{{ item.quantity }} шт</span>
+                            <span>{{ formatCurrency(item.price) }}</span>
+                          </div>
+                          <div class="order-product-card__sum">{{ formatCurrency((item.price || 0) * (item.quantity || 0)) }}</div>
+                        </div>
+                      </article>
+                    </div>
+                  </div>
+
                   <button class="order-toggle" @click="toggleOrderDetails(order.id)">
                     {{ expandedOrderId === order.id ? 'Скрыть детали' : 'Показать детали' }}
                   </button>
+
                   <div v-if="expandedOrderId === order.id" class="order-expanded">
                     <div class="order-expanded-grid">
                       <div>
@@ -116,21 +160,7 @@
                         <p>{{ order.shippingAddress || order.deliveryPickupName || order.deliveryCity || '—' }}</p>
                         <p v-if="order.deliveryTariffName">{{ order.deliveryTariffName }}</p>
                         <p>Стоимость доставки: {{ formatCurrency(order.deliveryPrice || 0) }}</p>
-                      </div>
-                    </div>
-                    <div class="order-items">
-                      <h4>Состав заказа</h4>
-                      <div v-if="!order.items?.length" class="order-item-row empty">Позиции заказа не найдены</div>
-                      <div v-for="item in order.items" :key="item.id" class="order-item-row">
-                        <div class="order-item-main">
-                          <span class="order-item-title">{{ item.product?.title || `Товар #${item.productId}` }}</span>
-                          <span v-if="item.dosage" class="order-item-dosage">{{ item.dosage }}</span>
-                        </div>
-                        <div class="order-item-meta">
-                          <span>{{ item.quantity }} шт</span>
-                          <span>{{ formatCurrency(item.price) }}</span>
-                          <span>{{ formatCurrency((item.price || 0) * (item.quantity || 0)) }}</span>
-                        </div>
+                        <p v-if="order.cdekOrderUuid">Трек-номер СДЭК: {{ order.cdekOrderUuid }}</p>
                       </div>
                     </div>
                     <div class="order-note" v-if="order.notes">
@@ -138,7 +168,7 @@
                       <p>{{ order.notes }}</p>
                     </div>
                   </div>
-                </div>
+                </article>
               </div>
             </div>
           </div>
@@ -279,6 +309,33 @@ function mapOrderStatus(status) {
 
 function formatCurrency(value) {
   return `${Number(value || 0).toLocaleString('ru-RU')} ₽`
+}
+
+function formatDateTime(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function getCdekStatusTone(order) {
+  const localStatus = String(order?.status || '').toLowerCase()
+  if (localStatus === 'completed') return 'success'
+  if (localStatus === 'cancelled') return 'danger'
+  return 'progress'
+}
+
+function onOrderImageError(event) {
+  const img = event?.target
+  if (!img || img.dataset.fallbackApplied === 'true') return
+  img.dataset.fallbackApplied = 'true'
+  img.src = '/logo.png'
 }
 
 function toggleOrderDetails(orderId) {
@@ -538,26 +595,44 @@ onMounted(async () => {
 .orders-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
-.order-item {
+.order-card {
+  position: relative;
   padding: 1.25rem;
-  background: var(--bg-secondary);
-  border-radius: 12px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(166, 185, 248, 0.1), transparent 55%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 100%),
+    var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
 }
 
-.order-header {
+.order-card__header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 0.75rem;
-  gap: 0.75rem;
+  margin-bottom: 0.95rem;
+  gap: 1rem;
+}
+
+.order-card__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .order-id {
   font-family: var(--font-mono);
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.order-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .order-status {
@@ -572,13 +647,56 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.3rem;
+  gap: 0.45rem;
 }
 
 .order-delivery-status {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  text-align: right;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(87, 200, 111, 0.3);
+  background: rgba(87, 200, 111, 0.12);
+  color: #8de9a1;
+}
+
+.order-delivery-status__brand {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5ad070;
+}
+
+.order-delivery-status__value {
+  color: var(--text-primary);
+}
+
+.order-delivery-status__time {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.order-delivery-status--progress {
+  border-color: rgba(90, 208, 112, 0.35);
+  background: rgba(90, 208, 112, 0.14);
+}
+
+.order-delivery-status--success {
+  border-color: rgba(85, 229, 130, 0.45);
+  background: rgba(85, 229, 130, 0.18);
+}
+
+.order-delivery-status--danger {
+  border-color: rgba(255, 100, 100, 0.4);
+  background: rgba(255, 100, 100, 0.15);
+  color: #ffc0c0;
+}
+
+.order-delivery-status--danger .order-delivery-status__brand {
+  color: #ff8f8f;
 }
 
 .order-status.completed {
@@ -596,21 +714,125 @@ onMounted(async () => {
   color: var(--danger);
 }
 
-.order-details {
+.order-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.order-metric {
   display: flex;
-  justify-content: space-between;
-  font-size: 0.875rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.7rem 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.order-metric span {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.order-metric strong {
+  font-size: 0.96rem;
+  color: var(--text-primary);
+}
+
+.order-products {
+  margin-bottom: 1rem;
+}
+
+.order-products__title {
+  margin: 0 0 0.55rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.order-products-empty {
+  padding: 0.9rem;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.order-products-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.order-product-card {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg-primary);
+}
+
+.order-product-card__media {
+  width: 74px;
+  height: 74px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+
+.order-product-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.order-product-card__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.order-product-card__title {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.order-product-card__meta {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
   color: var(--text-secondary);
 }
 
+.order-product-card__sum {
+  margin-top: auto;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
 .order-toggle {
-  margin-top: 0.8rem;
+  margin-top: 0.1rem;
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-primary);
-  padding: 0.45rem 0.75rem;
-  border-radius: 8px;
-  font-size: 0.8rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -622,7 +844,7 @@ onMounted(async () => {
 .order-expanded {
   margin-top: 0.9rem;
   border-top: 1px solid var(--border);
-  padding-top: 0.9rem;
+  padding-top: 0.95rem;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -646,52 +868,13 @@ onMounted(async () => {
   font-size: 0.9rem;
 }
 
-.order-items {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.order-item-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.65rem;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-
-.order-item-row.empty {
-  color: var(--text-muted);
-}
-
-.order-item-main {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  flex-wrap: wrap;
-}
-
-.order-item-title {
-  font-weight: 600;
-}
-
 .order-item-dosage {
+  align-self: flex-start;
   font-size: 0.8rem;
   padding: 0.18rem 0.5rem;
   border-radius: 999px;
   background: var(--accent-dim);
   color: var(--accent);
-}
-
-.order-item-meta {
-  display: grid;
-  grid-template-columns: repeat(3, auto);
-  gap: 0.8rem;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
 }
 
 .order-note p {
@@ -810,6 +993,10 @@ onMounted(async () => {
   .order-expanded-grid {
     grid-template-columns: 1fr;
   }
+
+  .order-products-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -876,28 +1063,31 @@ onMounted(async () => {
     font-size: 0.875rem;
   }
 
-  .order-item-row {
+  .order-card__header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .order-header {
-    flex-direction: column;
-    align-items: flex-start;
+  .order-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .order-product-card {
+    grid-template-columns: 64px 1fr;
+  }
+
+  .order-product-card__media {
+    width: 64px;
+    height: 64px;
   }
 
   .order-status-wrap {
     align-items: flex-start;
+    width: 100%;
   }
 
   .order-delivery-status {
-    text-align: left;
-  }
-
-  .order-item-meta {
     width: 100%;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
   }
 
   .settings-form {

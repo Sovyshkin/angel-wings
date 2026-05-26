@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import cdek from '../services/cdek.js'
 import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
+import { notifyCourierOrderToTelegram } from '../services/telegram.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -44,7 +45,12 @@ async function applyPromoCode(code, userId) {
     return { error: 'Промокод достиг лимита использований' }
   }
 
-  if (promoCode.usageType === 'multi' && promoCode.activationCount >= promoCode.maxActivations) {
+  // maxActivations = 0 means unlimited activations for multi-use coupons
+  if (
+    promoCode.usageType === 'multi' &&
+    Number(promoCode.maxActivations) > 0 &&
+    promoCode.activationCount >= promoCode.maxActivations
+  ) {
     return { error: 'Промокод достиг лимита использований' }
   }
 
@@ -133,6 +139,14 @@ router.post('/', authenticate, async (req, res, next) => {
       return res.status(400).json({ error: 'Корзина пуста' })
     }
 
+    const normalizedDeliveryType = String(delivery?.type || '').trim()
+    if (normalizedDeliveryType === 'courier_internal_moscow') {
+      const courierAddress = String(delivery?.address || shippingAddress || '').trim()
+      if (!courierAddress) {
+        return res.status(400).json({ error: 'Для курьерской доставки по Москве укажите адрес' })
+      }
+    }
+
     const productIds = items.map(item => item.productId)
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } }
@@ -163,14 +177,45 @@ router.post('/', authenticate, async (req, res, next) => {
       })
     }
 
-    // Add delivery price to total
+    // total = sum of products in cart (without delivery)
+    const itemsSubtotal = total
     const deliveryPrice = delivery?.price || 0
-    const orderTotal = total + deliveryPrice
+    const orderTotal = itemsSubtotal + deliveryPrice
 
     let discountAmount = 0
     let appliedPromoCode = null
     let promoCodeId = null
     let partnerId = null
+    let partnerLockNotice = null
+
+    const actualUserId = req.user?.id || userId || null
+
+    const existingBinding = actualUserId
+      ? await prisma.partnerUser.findUnique({
+          where: { userId: actualUserId }
+        })
+      : null
+
+    // Best-effort lifetime protection for re-registrations:
+    // if user has no direct binding, try to restore partner by historical email/phone orders.
+    let historicalPartnerId = null
+    if (!existingBinding && req.user) {
+      const historicalOr = [{ customerEmail: req.user.email }]
+      if (req.user.phone) {
+        historicalOr.push({ customerPhone: req.user.phone })
+      }
+
+      const historicalOrder = await prisma.order.findFirst({
+        where: {
+          partnerId: { not: null },
+          OR: historicalOr
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { partnerId: true }
+      })
+
+      historicalPartnerId = historicalOrder?.partnerId || null
+    }
 
     if (promoCode) {
       const promoResult = await applyPromoCode(promoCode, req.user?.id || userId)
@@ -200,22 +245,34 @@ router.post('/', authenticate, async (req, res, next) => {
         }
 
         if (appliedPromoCode.partnerId) {
-          partnerId = appliedPromoCode.partnerId
+          const existingPartnerId = existingBinding?.partnerId || historicalPartnerId
+          const promoPartnerId = appliedPromoCode.partnerId
+
+          // Lifetime single-partner rule: never rebind user to another partner automatically.
+          if (existingPartnerId && existingPartnerId !== promoPartnerId) {
+            if (appliedPromoCode.isFirstPurchase) {
+              return res.status(400).json({
+                error: 'Вы уже закреплены за другим партнёром'
+              })
+            }
+
+            partnerId = existingPartnerId
+            partnerLockNotice = 'Вы уже закреплены за другим партнёром'
+          } else {
+            partnerId = promoPartnerId
+          }
         }
       }
     }
 
-    const actualUserId = req.user?.id || userId || null
-
-    if (!partnerId && actualUserId) {
-      const existingBinding = await prisma.partnerUser.findUnique({
-        where: { userId: actualUserId }
-      })
-
-      if (existingBinding) {
-        partnerId = existingBinding.partnerId
-      }
+    if (!partnerId && existingBinding) {
+      partnerId = existingBinding.partnerId
     }
+    if (!partnerId && historicalPartnerId) {
+      partnerId = historicalPartnerId
+    }
+
+    const isInternalMoscowCourier = normalizedDeliveryType === 'courier_internal_moscow'
 
     const order = await prisma.$transaction(async (tx) => {
       for (const item of items) {
@@ -237,7 +294,7 @@ router.post('/', authenticate, async (req, res, next) => {
           customerName,
           customerEmail,
           customerPhone,
-          shippingAddress,
+          shippingAddress: shippingAddress || delivery?.address || null,
           notes,
           total: orderTotal - discountAmount,
           userId: actualUserId,
@@ -245,12 +302,12 @@ router.post('/', authenticate, async (req, res, next) => {
           discountAmount,
           partnerId,
           // Delivery info
-          deliveryTariffCode: delivery?.tariff_code,
-          deliveryTariffName: delivery?.tariff_name,
+          deliveryTariffCode: isInternalMoscowCourier ? null : delivery?.tariff_code,
+          deliveryTariffName: delivery?.tariff_name || (isInternalMoscowCourier ? 'Курьер по Москве (внутренняя доставка)' : null),
           deliveryPrice: deliveryPrice,
-          deliveryCity: delivery?.city,
-          deliveryPickupPoint: delivery?.pickup_point,
-          deliveryPickupName: delivery?.pickup_point_name,
+          deliveryCity: delivery?.city || (isInternalMoscowCourier ? 'Москва' : null),
+          deliveryPickupPoint: isInternalMoscowCourier ? null : delivery?.pickup_point,
+          deliveryPickupName: isInternalMoscowCourier ? (delivery?.address || shippingAddress || null) : delivery?.pickup_point_name,
           items: {
             create: orderItems
           }
@@ -267,11 +324,11 @@ router.post('/', authenticate, async (req, res, next) => {
       })
 
       if (partnerId && actualUserId) {
-        const existingBinding = await tx.partnerUser.findUnique({
+        const existingBindingInTx = await tx.partnerUser.findUnique({
           where: { userId: actualUserId }
         })
 
-        if (!existingBinding) {
+        if (!existingBindingInTx) {
           const promoCodeForBinding = appliedPromoCode ? promoCodeId : null
           await tx.partnerUser.create({
             data: {
@@ -285,14 +342,14 @@ router.post('/', authenticate, async (req, res, next) => {
       }
 
       if (partnerId) {
-        const commissionTotal = orderTotal - discountAmount
         const partner = await tx.partner.findUnique({
           where: { id: partnerId }
         })
 
         if (partner && partner.isActive) {
-          const percentage = partner.percentage || 5.0
-          const commissionAmount = commissionTotal * (percentage / 100)
+          // Per specification: commission is calculated from products subtotal only (without delivery).
+          const percentage = Number(partner.percentage) > 0 ? Number(partner.percentage) : 5.0
+          const commissionAmount = itemsSubtotal * (percentage / 100)
 
           await tx.partnerCommission.create({
             data: {
@@ -309,7 +366,16 @@ router.post('/', authenticate, async (req, res, next) => {
       return createdOrder
     })
 
-    res.status(201).json({ order })
+    if (isInternalMoscowCourier) {
+      notifyCourierOrderToTelegram(order).catch((error) => {
+        console.error('[TELEGRAM] Courier order notification error:', error?.message || error)
+      })
+    }
+
+    res.status(201).json({
+      order,
+      meta: partnerLockNotice ? { partnerNotice: partnerLockNotice } : undefined
+    })
   } catch (error) {
     next(error)
   }

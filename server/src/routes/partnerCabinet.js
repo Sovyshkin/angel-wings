@@ -6,6 +6,12 @@ import { v4 as uuidv4 } from 'uuid'
 const router = Router()
 const prisma = new PrismaClient()
 
+function getOrderAmountWithoutDelivery(order) {
+  const total = Number(order?.total || 0)
+  const deliveryPrice = Number(order?.deliveryPrice || 0)
+  return Math.max(0, total - deliveryPrice)
+}
+
 router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next) => {
   try {
     const partner = await prisma.partner.findUnique({
@@ -46,13 +52,13 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
     const ordersData = referredUserIds.length > 0
       ? await prisma.order.findMany({
           where: { userId: { in: referredUserIds } },
-          select: { total: true, status: true }
+          select: { total: true, status: true, deliveryPrice: true }
         })
       : []
 
     const totalOrdersAmount = ordersData
       .filter(o => o.status !== 'CANCELLED')
-      .reduce((sum, o) => sum + o.total, 0)
+      .reduce((sum, o) => sum + getOrderAmountWithoutDelivery(o), 0)
 
     const totalPaidOut = paymentsData._sum.amount || 0
     const totalEarned = commissionsData._sum.amount || 0
@@ -103,7 +109,7 @@ router.post('/cabinet/promo-code', authenticate, requirePartner, async (req, res
       return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
-    const { discountType = 'percentage', discountValue, usageType = 'multi', maxActivations = 100 } = req.body
+    const { discountType = 'percentage', discountValue, usageType = 'multi', maxActivations = 0 } = req.body
 
     const code = uuidv4().substring(0, 8).toUpperCase()
 
@@ -113,7 +119,9 @@ router.post('/cabinet/promo-code', authenticate, requirePartner, async (req, res
         discountType,
         discountValue: discountValue || 5,
         usageType,
-        maxActivations,
+        maxActivations: usageType === 'single'
+          ? 1
+          : Math.max(0, parseInt(maxActivations ?? 0, 10) || 0),
         partnerId: partner.id
       }
     })
@@ -154,7 +162,7 @@ router.get('/cabinet/users', authenticate, requirePartner, async (req, res, next
               name: true,
               createdAt: true,
               orders: {
-                select: { total: true, status: true }
+                select: { total: true, status: true, deliveryPrice: true }
               }
             }
           },
@@ -169,7 +177,7 @@ router.get('/cabinet/users', authenticate, requirePartner, async (req, res, next
 
     const usersWithStats = partnerUsers.map(pu => {
       const userOrders = pu.user.orders.filter(o => o.status !== 'CANCELLED')
-      const totalSpent = userOrders.reduce((sum, o) => sum + o.total, 0)
+      const totalSpent = userOrders.reduce((sum, o) => sum + getOrderAmountWithoutDelivery(o), 0)
       return {
         id: pu.user.id,
         email: pu.user.email,
@@ -289,7 +297,8 @@ router.get('/cabinet/daily-stats', authenticate, requirePartner, async (req, res
       },
       select: {
         createdAt: true,
-        total: true
+        total: true,
+        deliveryPrice: true
       }
     })
 
@@ -318,7 +327,7 @@ router.get('/cabinet/daily-stats', authenticate, requirePartner, async (req, res
       const day = dailyMap.get(key)
       if (day) {
         day.ordersCount++
-        day.ordersAmount += order.total
+        day.ordersAmount += getOrderAmountWithoutDelivery(order)
       }
     })
 
@@ -372,7 +381,7 @@ router.get('/cabinet/export', authenticate, requirePartner, async (req, res, nex
                   ...(endDate ? { lte: new Date(endDate) } : {})
                 }
               } : undefined,
-              select: { total: true, status: true, createdAt: true }
+              select: { total: true, status: true, createdAt: true, deliveryPrice: true }
             }
           }
         }
@@ -392,7 +401,7 @@ router.get('/cabinet/export', authenticate, requirePartner, async (req, res, nex
         pu.boundAt.toISOString().split('T')[0],
         pu.referralSource,
         userOrders.length,
-        userOrders.reduce((sum, o) => sum + o.total, 0).toFixed(2)
+        userOrders.reduce((sum, o) => sum + getOrderAmountWithoutDelivery(o), 0).toFixed(2)
       ])
     })
 

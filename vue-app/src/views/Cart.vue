@@ -189,9 +189,10 @@
               <span>{{ cartStore.total.toLocaleString() }} ₽</span>
             </div>
             <div class="summary-row">
-              <span>Доставка СДЭК</span>
+              <span>{{ deliveryType === 'pvz' ? 'Доставка СДЭК' : 'Курьер по Москве' }}</span>
               <div class="delivery-info">
                 <span v-if="deliveryPrice > 0" class="delivery-price">{{ deliveryPrice.toLocaleString() }} ₽</span>
+                <span v-else-if="isDeliverySelected" class="delivery-calc">Бесплатно</span>
                 <span v-else class="delivery-calc">Не выбрана</span>
                 <span v-if="deliveryInfo.period_min && deliveryInfo.period_max" class="delivery-period">
                   {{ deliveryInfo.period_min }}-{{ deliveryInfo.period_max }} дн.
@@ -201,7 +202,7 @@
           </div>
           
           <!-- Delivery Details Card -->
-          <div v-if="deliveryPrice > 0" class="delivery-details-card">
+          <div v-if="isDeliverySelected" class="delivery-details-card">
             <div class="delivery-detail-header">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="1" y="3" width="15" height="13"/>
@@ -213,7 +214,12 @@
             </div>
             <div class="delivery-detail-row">
               <span>Срок доставки:</span>
-              <span>{{ deliveryInfo.period_min }}-{{ deliveryInfo.period_max }} рабочих дней</span>
+              <span>
+                {{ deliveryInfo.period_min && deliveryInfo.period_max
+                  ? `${deliveryInfo.period_min}-${deliveryInfo.period_max} рабочих дней`
+                  : 'Уточняется менеджером'
+                }}
+              </span>
             </div>
             <div v-if="deliveryInfo.delivery_date_min" class="delivery-detail-row">
               <span>Дата прибытия:</span>
@@ -225,7 +231,7 @@
             </div>
             <div class="delivery-detail-row">
               <span>Тариф:</span>
-              <span>{{ deliveryType === 'pvz' ? 'ПВЗ СДЭК' : 'Курьер СДЭК' }}</span>
+              <span>{{ deliveryType === 'pvz' ? 'ПВЗ СДЭК' : 'Курьер по Москве (внутренняя)' }}</span>
             </div>
           </div>
           
@@ -282,7 +288,7 @@
                 </div>
                 <div class="option-content">
                   <strong>Курьер</strong>
-                  <span>Доставка до двери</span>
+                  <span>Только по Москве, в пределах МКАД</span>
                 </div>
               </label>
             </div>
@@ -363,23 +369,10 @@
 
             <!-- Courier Address -->
             <div v-if="!loadingDelivery && deliveryType === 'courier' && !courierAddress" class="courier-section">
-              <div class="pickup-search">
-                <input 
-                  v-model="citySearch" 
-                  type="text" 
-                  class="input" 
-                  placeholder="Введите название города..."
-                  @keyup.enter="searchCityAndPickup"
-                >
-                <button class="btn btn-secondary" @click="searchCityAndPickup" :disabled="loadingPickup">
-                  Найти
-                </button>
+              <div class="found-info">
+                Курьерская доставка работает только в пределах Москвы.
               </div>
-              
-              <div v-if="foundCityName" class="found-info">
-                Доставка в г. {{ foundCityName }}
-              </div>
-              
+
               <div class="form-group" style="margin-top: 1rem;">
                 <label>Адрес доставки</label>
                 <textarea 
@@ -394,7 +387,7 @@
                 class="btn btn-primary" 
                 style="width: 100%; margin-top: 1rem;"
                 @click="selectCourierDelivery"
-                :disabled="!foundCityName || !addressInput"
+                :disabled="!addressInput"
               >
                 Подтвердить адрес
               </button>
@@ -409,7 +402,7 @@
                 </svg>
                 <div class="point-content">
                   <strong>Доставка курьером</strong>
-                  <span class="point-address">{{ foundCityName }}</span>
+                  <span class="point-address">{{ INTERNAL_COURIER_CITY }}</span>
                   <span class="point-time">{{ courierAddress }}</span>
                 </div>
               </div>
@@ -504,6 +497,9 @@ const productStore = useProductStore()
 const authStore = useAuthStore()
 const ENABLE_PVZ = true
 const ENABLE_CDEK = true
+const INTERNAL_COURIER_CITY = 'Москва'
+const INTERNAL_COURIER_CITY_CODE = '44'
+const INTERNAL_COURIER_PRICE = 690
 
 const customer = ref({ name: '', phone: '', email: '', comment: '' })
 const consents = ref({
@@ -545,6 +541,11 @@ const filteredPickupPoints = computed(() => {
     const address = String(point?.address || '').toLowerCase()
     return name.includes(q) || address.includes(q)
   })
+})
+
+const isDeliverySelected = computed(() => {
+  if (deliveryType.value === 'pvz') return Boolean(selectedPickupPoint.value)
+  return Boolean(courierAddress.value)
 })
 
 function formatDate(dateStr) {
@@ -645,59 +646,11 @@ async function searchCityAndPickup() {
       // Load pickup points
       const pointsRes = await deliveryApi.get(`/pickup-points?city_code=${city.code}&limit=50`)
       pickupPoints.value = pointsRes.data || []
-      
-      // Calculate courier price for this city
-      calculateCourierPrice()
     }
   } catch (e) {
     console.error('City search error:', e)
   } finally {
     loadingPickup.value = false
-  }
-}
-
-async function calculateCourierPrice() {
-  if (!foundCityCode.value) return
-  
-  loadingDelivery.value = true
-  try {
-    const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
-    const res = await deliveryApi.post('/calculate-by-tariff', {
-      tariff_code: 137, // Courier tariff
-      from_code: 44, // Moscow
-      to_code: foundCityCode.value,
-      weight: safeWeight
-    })
-    
-    console.log('CDEK Response:', res.data)
-    
-    // Handle both response formats (total_sum or total_price)
-    const price = res.data?.total_sum || res.data?.total_price || res.data?.delivery_sum
-    if (price) {
-      deliveryPrice.value = price
-      deliveryInfo.value = {
-        period_min: res.data.period_min,
-        period_max: res.data.period_max,
-        delivery_date_min: res.data.delivery_date_range?.min,
-        delivery_date_max: res.data.delivery_date_range?.max
-      }
-      cartStore.setDeliveryPrice(price)
-      cartStore.setDelivery({
-        type: 'courier',
-        city: foundCityName.value,
-        cityCode: foundCityCode.value,
-        courierAddress: courierAddress.value || addressInput.value,
-        deliveryPrice: price,
-        deliveryInfo: deliveryInfo.value
-      })
-    }
-  } catch (e) {
-    console.error('Delivery calculation error:', e)
-    deliveryPrice.value = 0
-    deliveryInfo.value = {}
-    cartStore.setDeliveryPrice(0)
-  } finally {
-    loadingDelivery.value = false
   }
 }
 
@@ -747,16 +700,26 @@ async function onPickupSelect() {
 }
 
 function selectCourierDelivery() {
-  if (!foundCityName.value || !addressInput.value) return
-  
-  courierAddress.value = addressInput.value
+  const normalizedAddress = String(addressInput.value || '').trim()
+  if (!normalizedAddress) return
+
+  foundCityName.value = INTERNAL_COURIER_CITY
+  foundCityCode.value = INTERNAL_COURIER_CITY_CODE
+  courierAddress.value = normalizedAddress
+  deliveryPrice.value = INTERNAL_COURIER_PRICE
+  deliveryInfo.value = {
+    period_min: 1,
+    period_max: 2
+  }
+  cartStore.setDeliveryPrice(INTERNAL_COURIER_PRICE)
   cartStore.setDelivery({
     type: 'courier',
-    city: foundCityName.value,
-    cityCode: foundCityCode.value,
-    courierAddress: courierAddress.value
+    city: INTERNAL_COURIER_CITY,
+    cityCode: INTERNAL_COURIER_CITY_CODE,
+    courierAddress: courierAddress.value,
+    deliveryPrice: INTERNAL_COURIER_PRICE,
+    deliveryInfo: deliveryInfo.value
   })
-  calculateCourierPrice()
 }
 
 const totalWithDelivery = computed(() => {
@@ -821,26 +784,22 @@ async function placeOrder() {
       localStorage.removeItem('peptidi_guest_contacts')
     }
 
-    const deliveryData = ENABLE_CDEK ? {
-      price: deliveryPrice.value,
-      city: foundCityName.value
-    } : {
-      price: 0,
-      city: ''
-    }
-
-    if (ENABLE_CDEK) {
-      if (deliveryType.value === 'pvz') {
-        deliveryData.tariff_code = 136
-        deliveryData.tariff_name = 'Экспресс лайт склад-склад'
-        deliveryData.pickup_point = selectedPickupPoint.value.code
-        deliveryData.pickup_point_name = selectedPickupPoint.value.name
-        deliveryData.address = selectedPickupPoint.value.address
-      } else {
-        deliveryData.tariff_code = 137
-        deliveryData.tariff_name = 'Экспресс лайт склад-дверь'
-        deliveryData.address = courierAddress.value
-      }
+    const deliveryData = { price: 0, city: '' }
+    if (deliveryType.value === 'pvz') {
+      deliveryData.price = deliveryPrice.value
+      deliveryData.city = foundCityName.value
+      deliveryData.type = 'pvz_cdek'
+      deliveryData.tariff_code = 136
+      deliveryData.tariff_name = 'Экспресс лайт склад-склад'
+      deliveryData.pickup_point = selectedPickupPoint.value.code
+      deliveryData.pickup_point_name = selectedPickupPoint.value.name
+      deliveryData.address = selectedPickupPoint.value.address
+    } else {
+      deliveryData.price = INTERNAL_COURIER_PRICE
+      deliveryData.city = INTERNAL_COURIER_CITY
+      deliveryData.type = 'courier_internal_moscow'
+      deliveryData.tariff_name = 'Курьер по Москве (внутренняя доставка)'
+      deliveryData.address = courierAddress.value
     }
     
     const orderData = {
@@ -852,6 +811,7 @@ async function placeOrder() {
       customerName: customer.value.name,
       customerEmail: customer.value.email,
       customerPhone: customer.value.phone,
+      shippingAddress: deliveryType.value === 'courier' ? courierAddress.value : (selectedPickupPoint.value?.address || null),
       notes: customer.value.comment,
       delivery: deliveryData
     }
@@ -862,8 +822,11 @@ async function placeOrder() {
     
     const { data } = await axios.post('/api/orders', orderData)
     lastOrderId.value = data.order?.id
+    if (data?.meta?.partnerNotice) {
+      alert(data.meta.partnerNotice)
+    }
     
-    if (ENABLE_CDEK) {
+    if (ENABLE_CDEK && deliveryType.value === 'pvz') {
       // Create CDEK order - critical error if fails
       try {
         const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
@@ -881,15 +844,7 @@ async function placeOrder() {
           }]
         }
 
-        if (deliveryType.value === 'pvz') {
-          cdekPayload.delivery_point = deliveryData.pickup_point
-        } else {
-          cdekPayload.address = deliveryData.address
-          cdekPayload.to_location = {
-            code: Number(foundCityCode.value) || foundCityCode.value,
-            address: deliveryData.address
-          }
-        }
+        cdekPayload.delivery_point = deliveryData.pickup_point
 
         const cdekResponse = await deliveryApi.post('/orders', {
           ...cdekPayload
@@ -964,6 +919,8 @@ onMounted(async () => {
   if (savedDelivery.type === 'courier' && savedDelivery.courierAddress) {
     courierAddress.value = savedDelivery.courierAddress
     addressInput.value = savedDelivery.courierAddress
+    foundCityName.value = INTERNAL_COURIER_CITY
+    foundCityCode.value = INTERNAL_COURIER_CITY_CODE
   }
   if (savedDelivery.deliveryPrice) {
     deliveryPrice.value = savedDelivery.deliveryPrice
@@ -1318,17 +1275,20 @@ watch(() => authStore.user, () => {
 
 /* Delivery Type Options */
 .delivery-type-options {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
 
 .delivery-type-option {
-  flex: 1;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: start;
   gap: 0.75rem;
-  padding: 0.875rem 1rem;
+  min-height: 88px;
+  padding: 0.95rem 1rem;
   background: var(--bg-card);
   border: 2px solid var(--border);
   border-radius: 10px;
@@ -1350,14 +1310,18 @@ watch(() => authStore.user, () => {
 }
 
 .option-icon {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bg-secondary);
   border-radius: 8px;
   color: var(--text-secondary);
+}
+
+.option-icon svg {
+  display: block;
 }
 
 .delivery-type-option.selected .option-icon {
@@ -1368,16 +1332,19 @@ watch(() => authStore.user, () => {
 .option-content {
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
 .option-content strong {
   font-size: 0.875rem;
+  line-height: 1.2;
 }
 
 .option-content span {
   font-size: 0.75rem;
   color: var(--text-muted);
+  line-height: 1.35;
 }
 
 .pickup-search {
@@ -1818,7 +1785,7 @@ watch(() => authStore.user, () => {
   }
 
   .delivery-type-options {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 }
 
