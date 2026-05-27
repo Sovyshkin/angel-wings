@@ -116,6 +116,14 @@
             </tbody>
           </table>
         </div>
+        <div v-if="partner.users?.length" class="detail-cards">
+          <div v-for="user in partner.users" :key="`user-mobile-${user.id}`" class="detail-mobile-card card">
+            <div class="detail-mobile-card__title">{{ user.name || 'Пользователь #' + user.id }}</div>
+            <div class="detail-mobile-card__meta">{{ user.email }}</div>
+            <div class="detail-mobile-card__row"><span>ID</span><strong>{{ user.id }}</strong></div>
+            <div class="detail-mobile-card__row"><span>Дата привязки</span><strong>{{ formatDate(user.boundAt) }}</strong></div>
+          </div>
+        </div>
         <div v-else class="empty-state card">
           <p>Нет привязанных пользователей</p>
         </div>
@@ -149,6 +157,15 @@
               </tr>
             </tbody>
           </table>
+        </div>
+        <div v-if="partner.recentOrders?.length" class="detail-cards">
+          <div v-for="order in partner.recentOrders" :key="`order-mobile-${order.id}`" class="detail-mobile-card card">
+            <div class="detail-mobile-card__title">Заказ #{{ order.id }}</div>
+            <div class="detail-mobile-card__meta">{{ order.user?.name || '—' }} · {{ order.user?.email || '—' }}</div>
+            <div class="detail-mobile-card__row"><span>Сумма</span><strong>{{ formatCurrency(order.total) }}</strong></div>
+            <div class="detail-mobile-card__row"><span>Статус</span><strong>{{ getStatusLabel(order.status) }}</strong></div>
+            <div class="detail-mobile-card__row"><span>Дата</span><strong>{{ formatDate(order.createdAt) }}</strong></div>
+          </div>
         </div>
         <div v-else class="empty-state card">
           <p>Нет заказов</p>
@@ -196,6 +213,14 @@
               </tr>
             </tbody>
           </table>
+        </div>
+        <div v-if="partner.commissions?.length" class="detail-cards">
+          <div v-for="comm in partner.commissions" :key="`comm-mobile-${comm.id}`" class="detail-mobile-card card">
+            <div class="detail-mobile-card__title">Комиссия #{{ comm.id }}</div>
+            <div class="detail-mobile-card__row"><span>Заказ</span><strong>#{{ comm.orderId }}</strong></div>
+            <div class="detail-mobile-card__row"><span>Сумма</span><strong>{{ formatCurrency(comm.amount) }}</strong></div>
+            <div class="detail-mobile-card__row"><span>Дата</span><strong>{{ formatDate(comm.createdAt) }}</strong></div>
+          </div>
         </div>
         <div v-else class="empty-state card">
           <p>Нет комиссий</p>
@@ -430,6 +455,10 @@ onMounted(fetchPartner)
   overflow-x: auto;
 }
 
+.detail-cards {
+  display: none;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -594,6 +623,37 @@ onMounted(fetchPartner)
   flex-wrap: wrap;
 }
 
+.detail-mobile-card {
+  padding: 1rem;
+}
+
+.detail-mobile-card__title {
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.detail-mobile-card__meta {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin-bottom: 0.6rem;
+}
+
+.detail-mobile-card__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.detail-mobile-card__row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-mobile-card__row span {
+  color: var(--text-muted);
+}
+
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
@@ -606,6 +666,26 @@ onMounted(fetchPartner)
 
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .table-wrapper {
+    display: none;
+  }
+
+  .detail-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .info-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+  }
+
+  .percentage-edit {
+    flex-wrap: wrap;
   }
 }
 </style>

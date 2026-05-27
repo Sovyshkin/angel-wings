@@ -171,7 +171,7 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
         include: {
           items: {
             include: {
-              product: { select: { title: true } }
+              product: { select: { title: true, image: true } }
             }
           },
           user: { select: { email: true, name: true } }

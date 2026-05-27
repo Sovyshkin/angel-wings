@@ -84,6 +84,47 @@
           </tbody>
         </table>
       </div>
+
+      <div class="partners-cards">
+        <div v-for="partner in partners" :key="`mobile-partner-${partner.id}`" class="partner-card card">
+          <button class="partner-card__link" @click="goToPartner(partner.id)">
+            <div class="partner-card__name">{{ partner.user.name }}</div>
+            <div class="partner-card__email">{{ partner.user.email }}</div>
+          </button>
+
+          <div class="partner-card__stats">
+            <div><span>Пользователи:</span><strong>{{ partner.usersCount }}</strong></div>
+            <div><span>Заказы:</span><strong>{{ partner.ordersCount }}</strong></div>
+            <div><span>Комиссия:</span><strong>{{ formatCurrency(partner.totalCommission) }}</strong></div>
+          </div>
+
+          <div class="partner-card__controls">
+            <label class="form-label">Процент комиссии</label>
+            <div class="percentage-edit">
+              <input
+                type="number"
+                :value="partner.percentage"
+                @blur="updatePercentage(partner.id, $event.target.value)"
+                min="0"
+                max="100"
+                step="0.5"
+                class="input input-sm"
+              >
+              <span>%</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" :checked="partner.isActive" @change="toggleActive(partner.id, $event.target.checked)">
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">{{ partner.isActive ? 'Активен' : 'Отключён' }}</span>
+            </label>
+          </div>
+
+          <div class="partner-card__actions">
+            <button class="btn btn-secondary btn-sm" @click="goToPartner(partner.id)">Подробнее</button>
+            <button class="btn btn-danger btn-sm" @click="deletePartner(partner.id)">Удалить</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-if="showModal" class="modal-overlay">
@@ -275,6 +316,10 @@ onMounted(() => {
 
 .table-wrapper {
   overflow-x: auto;
+}
+
+.partners-cards {
+  display: none;
 }
 
 .data-table {
@@ -531,6 +576,62 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
+.partner-card {
+  padding: 1rem;
+}
+
+.partner-card__link {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  margin-bottom: 0.8rem;
+}
+
+.partner-card__name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.partner-card__email {
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.partner-card__stats {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.8rem;
+}
+
+.partner-card__stats > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.partner-card__stats span {
+  color: var(--text-muted);
+}
+
+.partner-card__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-bottom: 0.9rem;
+}
+
+.partner-card__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.partner-card__actions .btn {
+  flex: 1;
+}
+
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
@@ -544,6 +645,28 @@ onMounted(() => {
 
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .table-wrapper {
+    display: none;
+  }
+
+  .partners-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .modal-overlay {
+    padding: 0;
+  }
+
+  .modal {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin: 1rem;
   }
 }
 

@@ -103,6 +103,29 @@
           </tbody>
         </table>
       </div>
+
+      <div class="promo-cards">
+        <div v-for="pc in promoCodes" :key="`mobile-promo-${pc.id}`" class="promo-mobile-card card">
+          <div class="promo-mobile-card__header">
+            <code class="code-tag">{{ pc.code }}</code>
+            <label class="toggle">
+              <input type="checkbox" :checked="pc.isActive" @change="toggleActive(pc.id, $event.target.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="promo-mobile-card__rows">
+            <div><span>Скидка</span><strong>{{ pc.discountType === 'percentage' ? pc.discountValue + '%' : formatCurrency(pc.discountValue) }}</strong></div>
+            <div><span>Тип</span><strong>{{ pc.usageType === 'single' ? 'Однократный' : 'Многоразовый' }}</strong></div>
+            <div><span>Активации</span><strong>{{ pc.activationCount }} / {{ pc.maxActivations === 0 ? '∞' : pc.maxActivations }}</strong></div>
+            <div><span>Партнёр</span><strong>{{ pc.partner ? pc.partner.user.name : 'Общий' }}</strong></div>
+            <div><span>Мин. сумма</span><strong>{{ pc.minOrderAmount ? formatCurrency(pc.minOrderAmount) : '—' }}</strong></div>
+          </div>
+          <div class="promo-mobile-card__actions">
+            <button @click="editPromoCode(pc)" class="btn btn-secondary btn-sm">Изменить</button>
+            <button @click="deletePromoCode(pc.id)" class="btn btn-danger btn-sm">Удалить</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-if="showModal" class="modal-overlay">
@@ -377,6 +400,10 @@ onMounted(() => {
   overflow-x: auto;
 }
 
+.promo-cards {
+  display: none;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -648,6 +675,44 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
+.promo-mobile-card {
+  padding: 1rem;
+}
+
+.promo-mobile-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.promo-mobile-card__rows {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.9rem;
+}
+
+.promo-mobile-card__rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.promo-mobile-card__rows span {
+  color: var(--text-muted);
+}
+
+.promo-mobile-card__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.promo-mobile-card__actions .btn {
+  flex: 1;
+}
+
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
@@ -666,6 +731,28 @@ onMounted(() => {
 
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .table-wrapper {
+    display: none;
+  }
+
+  .promo-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .modal-overlay {
+    padding: 0;
+  }
+
+  .modal {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin: 1rem;
   }
 }
 </style>

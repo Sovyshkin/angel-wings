@@ -157,6 +157,71 @@
           </tbody>
         </table>
       </div>
+
+      <div class="orders-cards">
+        <div v-for="order in orders" :key="`mobile-${order.id}`" class="order-card card">
+          <div class="order-card__header">
+            <div class="order-card__id">Заказ #{{ order.id }}</div>
+            <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
+              {{ getPaymentLabel(order.paymentStatus) }}
+            </span>
+          </div>
+
+          <div class="order-card__body">
+            <div class="order-card__row">
+              <span class="order-card__label">Клиент</span>
+              <span class="order-card__value">{{ order.customerName }}</span>
+            </div>
+            <div class="order-card__row">
+              <span class="order-card__label">Телефон</span>
+              <span class="order-card__value">{{ order.customerPhone }}</span>
+            </div>
+            <div class="order-card__row">
+              <span class="order-card__label">Сумма</span>
+              <span class="order-card__value">{{ formatPrice(order.total) }}</span>
+            </div>
+            <div class="order-card__row">
+              <span class="order-card__label">Статус</span>
+              <span class="order-card__value">{{ getStatusLabel(order.status) }}</span>
+            </div>
+            <div class="order-card__row">
+              <span class="order-card__label">Доставка</span>
+              <span class="order-card__value">{{ order.deliveryTariffName || 'Адресная доставка' }}</span>
+            </div>
+            <div class="order-card__row">
+              <span class="order-card__label">Дата</span>
+              <span class="order-card__value">{{ formatDate(order.createdAt) }}</span>
+            </div>
+          </div>
+
+          <div class="order-card__controls">
+            <select :value="order.status" @change="updateStatus(order.id, $event.target.value)" class="status-select-full">
+              <option value="PENDING">Ожидает</option>
+              <option value="PROCESSING">В обработке</option>
+              <option value="SHIPPED">Отправлен</option>
+              <option value="DELIVERED">Доставлен</option>
+              <option value="CANCELLED">Отменён</option>
+            </select>
+            <div class="order-card__actions">
+              <button @click="viewOrder(order)" class="btn btn-secondary btn-sm">Подробнее</button>
+              <button
+                v-if="!isOrderPaid(order.paymentStatus)"
+                @click="markAsPaid(order)"
+                class="btn btn-outline btn-sm"
+              >
+                Отметить оплаченным
+              </button>
+              <button
+                v-if="order.status === 'CANCELLED'"
+                @click="deleteOrder(order)"
+                class="btn btn-danger btn-sm"
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-if="selectedOrder" class="modal-overlay" @click.self="selectedOrder = null">
@@ -284,14 +349,29 @@
 
           <div class="detail-section">
             <h4 class="section-title">Товары</h4>
-            <div class="order-items">
-              <div v-for="item in selectedOrder.items" :key="item.id" class="order-item-row">
-                <div class="item-info">
+            <div class="order-items-cards">
+              <div v-for="item in selectedOrder.items" :key="item.id" class="order-item-card">
+                <div class="order-item-card__media">
+                  <img
+                    v-if="item.product?.image"
+                    :src="item.product.image"
+                    :alt="item.product?.title || 'Товар'"
+                    class="order-item-card__img"
+                  >
+                  <div v-else class="order-item-card__placeholder">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+                    </svg>
+                  </div>
+                </div>
+                <div class="order-item-card__content">
                   <span class="item-name">{{ item.product?.title || 'Товар #' + item.productId }}</span>
                   <span v-if="item.dosage" class="item-qty">Дозировка: {{ item.dosage }}</span>
                   <span class="item-qty">{{ item.quantity }} шт × {{ formatPrice(item.price) }}</span>
                 </div>
-                <span class="item-total">{{ formatPrice(item.quantity * item.price) }}</span>
+                <div class="order-item-card__sum">
+                  {{ formatPrice(item.quantity * item.price) }}
+                </div>
               </div>
             </div>
           </div>
@@ -620,6 +700,10 @@ onMounted(fetchOrders)
   overflow-x: auto;
 }
 
+.orders-cards {
+  display: none;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -733,6 +817,66 @@ onMounted(fetchOrders)
   color: inherit;
   cursor: pointer;
   font-size: 0.8125rem;
+}
+
+.order-card {
+  padding: 1rem;
+}
+
+.order-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.order-card__id {
+  font-weight: 700;
+}
+
+.order-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.order-card__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.order-card__label {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.order-card__value {
+  text-align: right;
+  font-size: 0.9rem;
+}
+
+.order-card__controls {
+  margin-top: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.order-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #ff4d4d;
 }
 
 .action-btn {
@@ -1102,6 +1246,57 @@ onMounted(fetchOrders)
   gap: 0.75rem;
 }
 
+.order-items-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.order-item-card {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.order-item-card__media {
+  width: 48px;
+  height: 48px;
+}
+
+.order-item-card__img {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.order-item-card__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+.order-item-card__content {
+  display: flex;
+  flex-direction: column;
+}
+
+.order-item-card__sum {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .order-item-row {
   display: flex;
   justify-content: space-between;
@@ -1234,6 +1429,12 @@ onMounted(fetchOrders)
     display: none;
   }
 
+  .orders-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
   .modal-overlay {
     padding: 0;
   }
@@ -1244,6 +1445,16 @@ onMounted(fetchOrders)
     border-radius: var(--radius);
     padding: 1.25rem;
     margin: 1rem;
+  }
+
+  .order-item-card {
+    grid-template-columns: 44px 1fr;
+  }
+
+  .order-item-card__sum {
+    grid-column: 2;
+    justify-self: end;
+    margin-top: 0.35rem;
   }
 }
 </style>
