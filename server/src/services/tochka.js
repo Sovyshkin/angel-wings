@@ -4,6 +4,13 @@ const TOCHKA_API_URL = 'https://enter.tochka.com/uapi/acquiring/v1.0'
 const TOCHKA_OPEN_BANKING_URL = 'https://enter.tochka.com/uapi/open-banking/v1.0'
 
 class TochkaService {
+  pickFirstString(candidates = []) {
+    for (const value of candidates) {
+      if (typeof value === 'string' && value.trim()) return value.trim()
+    }
+    return null
+  }
+
   extractPaymentUrl(payload) {
     const candidates = [
       payload?.Data?.paymentUrl,
@@ -40,17 +47,68 @@ class TochkaService {
   }
 
   extractPaymentId(payload) {
-    return (
-      payload?.Data?.operationId ||
-      payload?.Data?.OperationId ||
-      payload?.Data?.paymentId ||
-      payload?.Data?.PaymentId ||
-      payload?.operationId ||
-      payload?.OperationId ||
-      payload?.paymentId ||
-      payload?.PaymentId ||
-      null
-    )
+    const direct = this.pickFirstString([
+      payload?.Data?.paymentId,
+      payload?.Data?.PaymentId,
+      payload?.paymentId,
+      payload?.PaymentId,
+      payload?.Data?.operationId,
+      payload?.Data?.OperationId,
+      payload?.operationId,
+      payload?.OperationId
+    ])
+    if (direct) return direct
+
+    const paymentUrl = this.extractPaymentUrl(payload)
+    if (paymentUrl) {
+      try {
+        const parsed = new URL(paymentUrl)
+        const uuid = parsed.searchParams.get('uuid')
+        if (uuid) return uuid
+      } catch {
+        // ignore invalid URL
+      }
+    }
+
+    return null
+  }
+
+  extractPaymentStatus(payload) {
+    const direct = this.pickFirstString([
+      payload?.Data?.status,
+      payload?.Data?.Status,
+      payload?.Data?.paymentStatus,
+      payload?.Data?.PaymentStatus,
+      payload?.Data?.operationStatus,
+      payload?.Data?.OperationStatus,
+      payload?.Data?.Payment?.status,
+      payload?.Data?.Payment?.Status,
+      payload?.Data?.Operation?.status,
+      payload?.Data?.Operation?.Status,
+      payload?.status,
+      payload?.Status
+    ])
+    if (direct) return direct
+
+    const scan = (obj, depth = 0) => {
+      if (!obj || typeof obj !== 'object' || depth > 4) return null
+      for (const [key, value] of Object.entries(obj)) {
+        if (
+          typeof value === 'string' &&
+          /status/i.test(key) &&
+          value.trim()
+        ) {
+          return value.trim()
+        }
+        if (value && typeof value === 'object') {
+          const nested = scan(value, depth + 1)
+          if (nested) return nested
+        }
+      }
+      return null
+    }
+
+    return scan(payload)
   }
 
   getEnv() {
@@ -233,9 +291,10 @@ class TochkaService {
         }
       )
 
+      const status = this.extractPaymentStatus(response.data)
       return {
         success: true,
-        status: response.data?.Data?.status || response.data?.Data?.Status || response.data?.status,
+        status,
         amount: response.data?.Data?.amount || response.data?.Data?.Amount || response.data?.amount
       }
     } catch (error) {

@@ -10,14 +10,67 @@ function normalizePaymentStatus(status) {
   const raw = String(status || '').trim().toUpperCase()
 
   if (!raw) return 'PENDING'
-  if (['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].some(code => raw.includes(code))) {
+  if (['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED', 'AUTHORIZED', 'CAPTURED', 'EXECUTED', 'SETTLED'].some(code => raw.includes(code))) {
     return 'PAID'
   }
-  if (['CANCEL', 'FAILED', 'ERROR', 'EXPIRED', 'REFUND'].some(code => raw.includes(code))) {
+  if (['CANCEL', 'FAILED', 'ERROR', 'EXPIRED', 'REFUND', 'REJECT', 'DECLIN'].some(code => raw.includes(code))) {
     return 'FAILED'
   }
 
   return 'PENDING'
+}
+
+function extractUuidFromPaymentUrl(paymentUrl) {
+  if (!paymentUrl || typeof paymentUrl !== 'string') return null
+  try {
+    const parsed = new URL(paymentUrl)
+    return parsed.searchParams.get('uuid') || null
+  } catch {
+    return null
+  }
+}
+
+function pickFirstString(values = []) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
+function extractWebhookFields(payload) {
+  const root = payload || {}
+  const data = root?.Data || root?.data || {}
+
+  const paymentLinkId = pickFirstString([
+    root?.paymentLinkId,
+    root?.PaymentLinkId,
+    data?.paymentLinkId,
+    data?.PaymentLinkId
+  ])
+
+  const paymentId = pickFirstString([
+    root?.paymentId,
+    root?.PaymentId,
+    root?.operationId,
+    root?.OperationId,
+    data?.paymentId,
+    data?.PaymentId,
+    data?.operationId,
+    data?.OperationId
+  ])
+
+  const status = pickFirstString([
+    root?.status,
+    root?.Status,
+    root?.paymentStatus,
+    root?.PaymentStatus,
+    data?.status,
+    data?.Status,
+    data?.paymentStatus,
+    data?.PaymentStatus
+  ])
+
+  return { paymentLinkId, paymentId, status }
 }
 
 // Create payment link
@@ -57,11 +110,12 @@ router.post('/create', async (req, res, next) => {
     )
 
     if (result.success && result.paymentUrl) {
-      if (result.paymentId && Number.isFinite(Number(orderId))) {
+      const resolvedPaymentId = result.paymentId || extractUuidFromPaymentUrl(result.paymentUrl)
+      if (resolvedPaymentId && Number.isFinite(Number(orderId))) {
         await prisma.order.update({
           where: { id: parseInt(orderId, 10) },
           data: {
-            paymentId: String(result.paymentId),
+            paymentId: String(resolvedPaymentId),
             paymentStatus: 'PENDING'
           }
         })
@@ -69,12 +123,12 @@ router.post('/create', async (req, res, next) => {
 
       console.log('[PAYMENT] /create success', JSON.stringify({
         orderId,
-        paymentId: result.paymentId
+        paymentId: resolvedPaymentId || null
       }))
       res.json({ 
         success: true, 
         paymentUrl: result.paymentUrl,
-        paymentId: result.paymentId
+        paymentId: resolvedPaymentId || null
       })
     } else {
       console.error('[PAYMENT] /create failed', JSON.stringify({
@@ -148,6 +202,12 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
     }
 
     const paymentStatus = normalizePaymentStatus(result.status)
+    console.log('[PAYMENT] /sync-order status resolved', JSON.stringify({
+      orderId: order.id,
+      paymentId: order.paymentId,
+      rawStatus: result.status,
+      paymentStatus
+    }))
     await prisma.order.update({
       where: { id: order.id },
       data: { paymentStatus }
@@ -166,25 +226,49 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
 // Webhook for Tochka notifications
 router.post('/webhook', async (req, res, next) => {
   try {
-    // Handle webhook notifications from Tochka
-    const { paymentLinkId, status } = req.body
-    
-    console.log('Tochka webhook received:', { paymentLinkId, status })
+    const { paymentLinkId, paymentId, status } = extractWebhookFields(req.body)
+    console.log('Tochka webhook received:', {
+      paymentLinkId,
+      paymentId,
+      status,
+      body: req.body
+    })
     
     // Respond OK immediately
     res.status(200).send('OK')
     
     // Process asynchronously
     const normalized = normalizePaymentStatus(status)
-    const orderIdMatch = String(paymentLinkId || '').match(/order-(\d+)/i)
-    const orderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : NaN
 
-    if (Number.isFinite(orderId)) {
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { paymentStatus: normalized }
+    let updatedOrder = null
+    const orderIdMatch = String(paymentLinkId || '').match(/order-(\d+)/i)
+    if (orderIdMatch) {
+      const orderId = parseInt(orderIdMatch[1], 10)
+      if (Number.isFinite(orderId)) {
+        updatedOrder = await prisma.order.update({
+          where: { id: orderId },
+          data: { paymentStatus: normalized }
+        })
+      }
+    }
+
+    if (!updatedOrder && paymentId) {
+      const found = await prisma.order.findFirst({
+        where: { paymentId: String(paymentId) },
+        select: { id: true }
       })
-      console.log(`[PAYMENT] Webhook updated order ${orderId} paymentStatus=${normalized}`)
+      if (found) {
+        updatedOrder = await prisma.order.update({
+          where: { id: found.id },
+          data: { paymentStatus: normalized }
+        })
+      }
+    }
+
+    if (updatedOrder) {
+      console.log(`[PAYMENT] Webhook updated order ${updatedOrder.id} paymentStatus=${normalized}`)
+    } else {
+      console.warn('[PAYMENT] Webhook did not match any order', { paymentLinkId, paymentId, normalized })
     }
   } catch (error) {
     next(error)

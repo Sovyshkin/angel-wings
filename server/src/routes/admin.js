@@ -3,9 +3,23 @@ import bcrypt from 'bcryptjs'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
+import tochkaService from '../services/tochka.js'
 
 const router = Router()
 const prisma = new PrismaClient()
+
+function normalizePaymentStatus(status) {
+  const raw = String(status || '').trim().toUpperCase()
+
+  if (!raw) return 'PENDING'
+  if (['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED', 'AUTHORIZED', 'CAPTURED', 'EXECUTED', 'SETTLED'].some(code => raw.includes(code))) {
+    return 'PAID'
+  }
+  if (['CANCEL', 'FAILED', 'ERROR', 'EXPIRED', 'REFUND', 'REJECT', 'DECLIN'].some(code => raw.includes(code))) {
+    return 'FAILED'
+  }
+  return 'PENDING'
+}
 
 function parseImagesField(images) {
   if (!images) return []
@@ -169,6 +183,37 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
       prisma.order.count({ where })
     ])
     
+    const maybeUnsynced = orders.filter(order => order.paymentId && order.paymentStatus !== 'PAID')
+    if (maybeUnsynced.length) {
+      const syncResults = await Promise.allSettled(
+        maybeUnsynced.map(async (order) => {
+          const statusResult = await tochkaService.getPaymentStatus(order.paymentId)
+          if (!statusResult.success) return null
+          const normalized = normalizePaymentStatus(statusResult.status)
+          if (normalized === order.paymentStatus) return null
+
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { paymentStatus: normalized }
+          })
+          return { id: order.id, paymentStatus: normalized }
+        })
+      )
+
+      const updates = new Map(
+        syncResults
+          .filter(item => item.status === 'fulfilled' && item.value)
+          .map(item => [item.value.id, item.value.paymentStatus])
+      )
+      if (updates.size) {
+        for (const order of orders) {
+          if (updates.has(order.id)) {
+            order.paymentStatus = updates.get(order.id)
+          }
+        }
+      }
+    }
+
     res.json({ orders, total })
   } catch (error) {
     next(error)
