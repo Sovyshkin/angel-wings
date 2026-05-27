@@ -88,11 +88,26 @@ export async function notifyCourierOrderToTelegram(order) {
     textLength: payload.text?.length || 0
   }))
 
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  })
+  let response
+  try {
+    response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+  } catch (error) {
+    console.error('[TELEGRAM] sendMessage network error', JSON.stringify({
+      orderId: order?.id || null,
+      message: error?.message || null,
+      causeMessage: error?.cause?.message || null,
+      code: error?.cause?.code || error?.code || null,
+      errno: error?.cause?.errno || null,
+      syscall: error?.cause?.syscall || null,
+      address: error?.cause?.address || null,
+      port: error?.cause?.port || null
+    }))
+    throw error
+  }
 
   const data = await response.json().catch(() => ({}))
   console.log('[TELEGRAM] sendMessage response', JSON.stringify({

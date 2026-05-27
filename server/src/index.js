@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import dns from 'node:dns'
 import { PrismaClient } from '@prisma/client'
 import authRoutes from './routes/auth.js'
 import productRoutes from './routes/products.js'
@@ -15,6 +16,14 @@ import { errorHandler } from './middleware/errorHandler.js'
 import { uploadDir } from './utils/fileUpload.js'
 
 dotenv.config()
+
+// Prefer IPv4 on servers where IPv6 routing is broken.
+try {
+  dns.setDefaultResultOrder('ipv4first')
+  console.log('[NETWORK] DNS default result order set to ipv4first')
+} catch (error) {
+  console.warn('[NETWORK] Failed to set DNS default result order:', error?.message || error)
+}
 
 const app = express()
 const prisma = new PrismaClient()
