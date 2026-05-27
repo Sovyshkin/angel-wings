@@ -70,6 +70,25 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function setAuth(newToken, newUser) {
+    token.value = newToken || ''
+    user.value = newUser || null
+
+    if (token.value) {
+      localStorage.setItem('peptidi_token', token.value)
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
+    } else {
+      localStorage.removeItem('peptidi_token')
+      delete axios.defaults.headers.common['Authorization']
+    }
+
+    if (user.value) {
+      localStorage.setItem('peptidi_user', JSON.stringify(user.value))
+    } else {
+      localStorage.removeItem('peptidi_user')
+    }
+  }
+
   function logout() {
     user.value = null
     token.value = ''
@@ -101,6 +120,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     login,
     register,
+    setAuth,
     logout,
     updateUser,
     fetchUser

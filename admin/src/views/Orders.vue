@@ -125,6 +125,13 @@
                 <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
                   {{ getPaymentLabel(order.paymentStatus) }}
                 </span>
+                <button
+                  v-if="!isOrderPaid(order.paymentStatus)"
+                  @click="markAsPaid(order)"
+                  class="pay-now-btn"
+                >
+                  Отметить как оплаченный
+                </button>
               </td>
               <td class="cell-date">{{ formatDate(order.createdAt) }}</td>
               <td>
@@ -180,9 +187,18 @@
             </div>
             <div class="detail-row">
               <span class="detail-label">Оплата</span>
-              <span :class="['payment-badge', getPaymentBadge(selectedOrder.paymentStatus)]">
-                {{ getPaymentLabel(selectedOrder.paymentStatus) }}
-              </span>
+              <div class="payment-control">
+                <span :class="['payment-badge', getPaymentBadge(selectedOrder.paymentStatus)]">
+                  {{ getPaymentLabel(selectedOrder.paymentStatus) }}
+                </span>
+                <button
+                  v-if="!isOrderPaid(selectedOrder.paymentStatus)"
+                  @click="markAsPaid(selectedOrder)"
+                  class="pay-now-btn"
+                >
+                  Отметить как оплаченный
+                </button>
+              </div>
             </div>
           </div>
 
@@ -392,6 +408,27 @@ async function deleteOrder(order) {
   }
 }
 
+async function markAsPaid(order) {
+  if (!order?.id) return
+
+  const confirmed = confirm(`Отметить заказ #${order.id} как оплаченный?`)
+  if (!confirmed) return
+
+  try {
+    await axios.put(`${API_URL}/orders/${order.id}/payment-status`, { paymentStatus: 'PAID' })
+
+    const localOrder = orders.value.find(o => o.id === order.id)
+    if (localOrder) {
+      localOrder.paymentStatus = 'PAID'
+    }
+    if (selectedOrder.value?.id === order.id) {
+      selectedOrder.value.paymentStatus = 'PAID'
+    }
+  } catch (e) {
+    alert(e.response?.data?.error || 'Не удалось обновить статус оплаты')
+  }
+}
+
 function viewOrder(order) {
   selectedOrder.value = order
   cdekStatus.value = null
@@ -508,6 +545,11 @@ function getPaymentLabel(status) {
     return 'Не оплачен'
   }
   return 'Ожидает оплату'
+}
+
+function isOrderPaid(status) {
+  const key = String(status || '').trim().toUpperCase()
+  return ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].some(code => key.includes(code))
 }
 
 onMounted(fetchOrders)
@@ -765,6 +807,30 @@ onMounted(fetchOrders)
 .payment-badge.payment-failed {
   background: #ef444422;
   color: #ef4444;
+}
+
+.pay-now-btn {
+  display: block;
+  margin-top: 0.45rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #22c55e;
+  border: 1px solid #22c55e55;
+  background: #22c55e12;
+  transition: var(--transition);
+}
+
+.pay-now-btn:hover {
+  background: #22c55e22;
+  color: #86efac;
+}
+
+.payment-control {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
 .loading-state {

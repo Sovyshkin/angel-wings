@@ -68,6 +68,16 @@ async function applyPromoCode(code, userId) {
   return { promoCode }
 }
 
+function calculatePromoDiscount(amount, promoCode) {
+  const normalizedAmount = Math.max(0, Number(amount) || 0)
+  if (!promoCode || normalizedAmount <= 0) return 0
+
+  if (promoCode.discountType === 'percentage') {
+    return normalizedAmount * (promoCode.discountValue / 100)
+  }
+  return Math.min(promoCode.discountValue, normalizedAmount)
+}
+
 async function bindUserToPartner(userId, partnerId, promoCodeId = null, source = 'link') {
   const existing = await prisma.partnerUser.findUnique({
     where: { userId }
@@ -119,6 +129,43 @@ async function calculateCommission(orderId, partnerId, userId, orderTotal) {
     }
   })
 }
+
+// Создание заказа - требуется авторизация
+router.post('/promo/validate', authenticate, async (req, res, next) => {
+  try {
+    const code = String(req.body?.code || '').trim().toUpperCase()
+    const amount = Number(req.body?.amount || 0)
+
+    if (!code) {
+      return res.status(400).json({ error: 'Укажите промокод' })
+    }
+
+    const promoResult = await applyPromoCode(code, req.user?.id)
+    if (promoResult.error) {
+      return res.status(400).json({ error: promoResult.error })
+    }
+
+    const appliedPromoCode = promoResult.code || promoResult.promoCode
+    const minOrderAmount = promoResult.minOrderAmount || appliedPromoCode?.minOrderAmount || 0
+    if (minOrderAmount > 0 && amount < minOrderAmount) {
+      return res.status(400).json({
+        error: `Минимальная сумма заказа для этого промокода: ${minOrderAmount}`
+      })
+    }
+
+    const discountAmount = calculatePromoDiscount(amount, appliedPromoCode)
+    return res.json({
+      valid: true,
+      code: appliedPromoCode.code,
+      discountType: appliedPromoCode.discountType,
+      discountValue: appliedPromoCode.discountValue,
+      discountAmount,
+      finalAmount: Math.max(0, amount - discountAmount)
+    })
+  } catch (error) {
+    next(error)
+  }
+})
 
 // Создание заказа - требуется авторизация
 router.post('/', authenticate, async (req, res, next) => {
@@ -238,11 +285,7 @@ router.post('/', authenticate, async (req, res, next) => {
       if (appliedPromoCode) {
         promoCodeId = appliedPromoCode.id
 
-        if (appliedPromoCode.discountType === 'percentage') {
-          discountAmount = orderTotal * (appliedPromoCode.discountValue / 100)
-        } else {
-          discountAmount = Math.min(appliedPromoCode.discountValue, orderTotal)
-        }
+        discountAmount = calculatePromoDiscount(orderTotal, appliedPromoCode)
 
         if (appliedPromoCode.partnerId) {
           const existingPartnerId = existingBinding?.partnerId || historicalPartnerId

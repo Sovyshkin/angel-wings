@@ -190,6 +190,32 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
   }
 })
 
+router.put('/orders/:id/payment-status', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.id, 10)
+    const { paymentStatus } = req.body
+    const allowedStatuses = ['PENDING', 'PAID', 'FAILED']
+    const normalizedStatus = String(paymentStatus || '').trim().toUpperCase()
+
+    if (!Number.isFinite(orderId)) {
+      return res.status(400).json({ error: 'Некорректный ID заказа' })
+    }
+
+    if (!allowedStatuses.includes(normalizedStatus)) {
+      return res.status(400).json({ error: 'Некорректный статус оплаты' })
+    }
+
+    const order = await prisma.order.update({
+      where: { id: orderId },
+      data: { paymentStatus: normalizedStatus }
+    })
+
+    res.json({ order })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { cdekOrderUuid, deliveryTariffCode, deliveryTariffName, deliveryPrice, deliveryCity, deliveryPickupPoint, deliveryPickupName } = req.body

@@ -199,6 +199,10 @@
                 </span>
               </div>
             </div>
+            <div v-if="promoDiscountPreview > 0" class="summary-row summary-row-discount">
+              <span>Скидка по промокоду</span>
+              <span>-{{ promoDiscountPreview.toLocaleString() }} ₽</span>
+            </div>
           </div>
 
           <!-- Delivery Details Card -->
@@ -237,7 +241,7 @@
           
           <div class="summary-total">
             <span>Итого</span>
-            <span class="total-value">{{ totalWithDelivery.toLocaleString() }} ₽</span>
+            <span class="total-value">{{ totalWithPromo.toLocaleString() }} ₽</span>
           </div>
           
           <!-- Delivery Type Selection -->
@@ -443,9 +447,12 @@
                   placeholder="Введите промокод"
                   @input="normalizePromoCodeInput"
                 >
-                <button v-if="promoCode" type="button" class="promo-code-clear" @click="promoCode = ''">Сбросить</button>
+                <button v-if="promoCode" type="button" class="promo-code-clear" @click="clearPromoCode">Сбросить</button>
               </div>
-              <p class="promo-code-hint">Скидка будет применена после проверки промокода при оформлении заказа.</p>
+              <p v-if="promoFeedbackMessage" :class="['promo-code-status', `promo-code-status--${promoFeedbackType}`]">
+                {{ promoFeedbackMessage }}
+              </p>
+              <p v-else class="promo-code-hint">Промокод применяется автоматически после ввода.</p>
             </div>
 
             <div class="consents">
@@ -499,7 +506,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../store/cart'
 import { useProductStore } from '../store/products'
@@ -526,6 +533,10 @@ const consents = ref({
   acceptResearchTerms: true
 })
 const promoCode = ref('')
+const promoDiscountPreview = ref(0)
+const promoFeedbackType = ref('idle')
+const promoFeedbackMessage = ref('')
+const validatingPromo = ref(false)
 const ordering = ref(false)
 const orderComplete = ref(false)
 const orderError = ref(null)
@@ -549,6 +560,8 @@ const loadingPickup = ref(false)
 const loadingDelivery = ref(false)
 const deliveryPrice = ref(0)
 const deliveryInfo = ref({})
+let promoValidateTimer = null
+let promoValidateSeq = 0
 
 const filteredPickupPoints = computed(() => {
   const q = pickupFilter.value.trim().toLowerCase()
@@ -564,11 +577,86 @@ const isDeliverySelected = computed(() => {
   if (deliveryType.value === 'pvz') return Boolean(selectedPickupPoint.value)
   return Boolean(courierAddress.value)
 })
+const promoCodeNormalized = computed(() => String(promoCode.value || '').trim().toUpperCase())
 
 function normalizePromoCodeInput() {
   promoCode.value = String(promoCode.value || '')
     .toUpperCase()
     .replace(/\s+/g, '')
+}
+
+function clearPromoCode() {
+  promoCode.value = ''
+  promoDiscountPreview.value = 0
+  promoFeedbackType.value = 'idle'
+  promoFeedbackMessage.value = ''
+}
+
+function setPromoFeedback(type, message) {
+  promoFeedbackType.value = type
+  promoFeedbackMessage.value = message
+}
+
+function schedulePromoValidation(delayMs = 450) {
+  if (promoValidateTimer) clearTimeout(promoValidateTimer)
+  promoValidateTimer = setTimeout(() => {
+    validatePromoCode()
+  }, delayMs)
+}
+
+async function validatePromoCode(options = {}) {
+  const { silent = false } = options
+  const code = promoCodeNormalized.value
+  const currentAmount = Number(totalWithDelivery.value || 0)
+
+  if (!code) {
+    promoDiscountPreview.value = 0
+    if (!silent) {
+      setPromoFeedback('idle', '')
+    }
+    return { valid: false, reason: 'empty' }
+  }
+
+  if (!authStore.isAuthenticated) {
+    promoDiscountPreview.value = 0
+    setPromoFeedback('info', 'Войдите в аккаунт, чтобы применить промокод')
+    return { valid: false, reason: 'auth_required', message: 'Войдите в аккаунт, чтобы применить промокод' }
+  }
+
+  const seq = ++promoValidateSeq
+  validatingPromo.value = true
+  if (!silent) {
+    setPromoFeedback('info', 'Проверяем промокод...')
+  }
+
+  try {
+    const { data } = await axios.post('/api/orders/promo/validate', {
+      code,
+      amount: currentAmount
+    })
+
+    if (seq !== promoValidateSeq) {
+      return { valid: false, reason: 'stale' }
+    }
+
+    const discount = Math.max(0, Number(data?.discountAmount || 0))
+    promoDiscountPreview.value = discount
+    setPromoFeedback('success', `Промокод применён. Скидка: ${discount.toLocaleString('ru-RU')} ₽`)
+    return { valid: true, data }
+  } catch (e) {
+    if (seq !== promoValidateSeq) {
+      return { valid: false, reason: 'stale' }
+    }
+
+    const message = e.response?.data?.error || 'Промокод не применён'
+    promoDiscountPreview.value = 0
+    setPromoFeedback('error', message)
+    return { valid: false, reason: 'invalid', message }
+  } finally {
+    if (seq === promoValidateSeq) {
+      validatingPromo.value = false
+    }
+  }
 }
 
 function formatDate(dateStr) {
@@ -749,6 +837,10 @@ const totalWithDelivery = computed(() => {
   return cartStore.total + deliveryPrice.value
 })
 
+const totalWithPromo = computed(() => {
+  return Math.max(0, totalWithDelivery.value - promoDiscountPreview.value)
+})
+
 const isFormValid = computed(() => {
   const hasContact = customer.value.name && customer.value.phone && customer.value.email
   const hasDelivery = ENABLE_CDEK
@@ -797,6 +889,15 @@ async function placeOrder() {
   
   ordering.value = true
   try {
+    if (promoCodeNormalized.value) {
+      const promoValidation = await validatePromoCode({ silent: true })
+      if (!promoValidation.valid) {
+        orderError.value = promoValidation.message || 'Промокод не прошёл проверку'
+        ordering.value = false
+        return
+      }
+    }
+
     if (consents.value.rememberContacts) {
       localStorage.setItem('peptidi_guest_contacts', JSON.stringify({
         name: customer.value.name,
@@ -963,6 +1064,37 @@ onMounted(async () => {
 watch(() => authStore.user, () => {
   prefillFromProfile()
 }, { deep: true })
+
+watch(promoCodeNormalized, (nextCode) => {
+  if (!nextCode) {
+    promoDiscountPreview.value = 0
+    setPromoFeedback('idle', '')
+    return
+  }
+  schedulePromoValidation()
+})
+
+watch(totalWithDelivery, () => {
+  if (!promoCodeNormalized.value || !authStore.isAuthenticated) return
+  schedulePromoValidation(250)
+})
+
+watch(() => authStore.isAuthenticated, (isAuthenticated) => {
+  if (!isAuthenticated) {
+    promoDiscountPreview.value = 0
+    if (promoCodeNormalized.value) {
+      setPromoFeedback('info', 'Войдите в аккаунт, чтобы применить промокод')
+    }
+    return
+  }
+  if (promoCodeNormalized.value) {
+    schedulePromoValidation(100)
+  }
+})
+
+onUnmounted(() => {
+  if (promoValidateTimer) clearTimeout(promoValidateTimer)
+})
 </script>
 
 <style scoped>
@@ -1322,9 +1454,37 @@ watch(() => authStore.user, () => {
   line-height: 1.35;
 }
 
+.promo-code-status {
+  margin: 0.45rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.promo-code-status--success {
+  color: #22c55e;
+}
+
+.promo-code-status--error {
+  color: #ef4444;
+}
+
+.promo-code-status--info {
+  color: var(--accent);
+}
+
 .summary-total span:first-child {
   font-family: var(--font-display);
   font-size: 1rem;
+  font-weight: 700;
+}
+
+.summary-row-discount span:first-child {
+  color: #22c55e;
+}
+
+.summary-row-discount span:last-child {
+  color: #22c55e;
   font-weight: 700;
 }
 
