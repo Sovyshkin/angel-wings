@@ -182,6 +182,33 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
       }),
       prisma.order.count({ where })
     ])
+
+    const promoCodeIds = [...new Set(orders.map(order => order.promoCodeId).filter(Boolean))]
+    const promoCodes = promoCodeIds.length
+      ? await prisma.promoCode.findMany({
+          where: { id: { in: promoCodeIds } },
+          select: {
+            id: true,
+            code: true,
+            partnerId: true,
+            partner: {
+              select: {
+                id: true,
+                user: {
+                  select: {
+                    name: true,
+                    email: true
+                  }
+                }
+              }
+            }
+          }
+        })
+      : []
+    const promoById = new Map(promoCodes.map(promo => [promo.id, promo]))
+    for (const order of orders) {
+      order.promoCode = order.promoCodeId ? (promoById.get(order.promoCodeId) || null) : null
+    }
     
     const maybeUnsynced = orders.filter(order => order.paymentId && order.paymentStatus !== 'PAID')
     if (maybeUnsynced.length) {

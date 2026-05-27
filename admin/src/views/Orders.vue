@@ -80,6 +80,7 @@
               <th>Сумма</th>
               <th>Статус</th>
               <th>Оплата</th>
+              <th>Промокод</th>
               <th>Дата</th>
               <th></th>
             </tr>
@@ -132,6 +133,20 @@
                 >
                   Отметить как оплаченный
                 </button>
+              </td>
+              <td>
+                <div class="promo-meta">
+                  <span v-if="order.promoCode?.code" class="promo-code-tag">{{ order.promoCode.code }}</span>
+                  <span v-else class="promo-empty">—</span>
+                  <router-link
+                    v-if="order.promoCode?.partner?.id"
+                    :to="`/partners/${order.promoCode.partner.id}`"
+                    class="promo-partner-link"
+                    :title="order.promoCode.partner.user?.email || ''"
+                  >
+                    {{ order.promoCode.partner.user?.name || `Партнёр #${order.promoCode.partner.id}` }}
+                  </router-link>
+                </div>
               </td>
               <td class="cell-date">{{ formatDate(order.createdAt) }}</td>
               <td>
@@ -191,6 +206,19 @@
             <div class="order-card__row">
               <span class="order-card__label">Дата</span>
               <span class="order-card__value">{{ formatDate(order.createdAt) }}</span>
+            </div>
+            <div class="order-card__row">
+              <span class="order-card__label">Промокод</span>
+              <span v-if="order.promoCode?.code" class="order-card__value">
+                {{ order.promoCode.code }}
+              </span>
+              <span v-else class="order-card__value">—</span>
+            </div>
+            <div v-if="order.promoCode?.partner?.id" class="order-card__row">
+              <span class="order-card__label">Партнёр</span>
+              <router-link :to="`/partners/${order.promoCode.partner.id}`" class="promo-partner-link">
+                {{ order.promoCode.partner.user?.name || `Партнёр #${order.promoCode.partner.id}` }}
+              </router-link>
             </div>
           </div>
 
@@ -263,6 +291,22 @@
                 >
                   Отметить как оплаченный
                 </button>
+              </div>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Промокод</span>
+              <div class="promo-meta promo-meta--right">
+                <span v-if="selectedOrder.promoCode?.code" class="promo-code-tag">{{ selectedOrder.promoCode.code }}</span>
+                <span v-else class="promo-empty">—</span>
+                <router-link
+                  v-if="selectedOrder.promoCode?.partner?.id"
+                  :to="`/partners/${selectedOrder.promoCode.partner.id}`"
+                  class="promo-partner-link"
+                  :title="selectedOrder.promoCode.partner.user?.email || ''"
+                  @click="selectedOrder = null"
+                >
+                  {{ selectedOrder.promoCode.partner.user?.name || `Партнёр #${selectedOrder.promoCode.partner.id}` }}
+                </router-link>
               </div>
             </div>
           </div>
@@ -707,7 +751,7 @@ onMounted(fetchOrders)
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 900px;
+  min-width: 1040px;
 }
 
 .data-table th,
@@ -975,6 +1019,46 @@ onMounted(fetchOrders)
   display: inline-flex;
   flex-direction: column;
   align-items: flex-end;
+}
+
+.promo-meta {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.promo-meta--right {
+  align-items: flex-end;
+}
+
+.promo-code-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.promo-empty {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.promo-partner-link {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.promo-partner-link:hover {
+  color: var(--accent);
 }
 
 .loading-state {
