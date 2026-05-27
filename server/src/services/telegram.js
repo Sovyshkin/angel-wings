@@ -58,6 +58,13 @@ export async function notifyCourierOrderToTelegram(order) {
   const chatId = (process.env.TELEGRAM_ORDERS_CHAT_ID || '').trim()
   const threadId = (process.env.TELEGRAM_ORDERS_THREAD_ID || '').trim()
 
+  console.log('[TELEGRAM] notifyCourierOrderToTelegram start', JSON.stringify({
+    orderId: order?.id || null,
+    hasToken: Boolean(token),
+    chatId: chatId || null,
+    hasThreadId: Boolean(threadId)
+  }))
+
   if (!token || !chatId) {
     console.warn('[TELEGRAM] Skip courier notification: TELEGRAM_BOT_TOKEN or TELEGRAM_ORDERS_CHAT_ID is not set')
     return { ok: false, skipped: true }
@@ -74,6 +81,13 @@ export async function notifyCourierOrderToTelegram(order) {
     payload.message_thread_id = Number(threadId) || threadId
   }
 
+  console.log('[TELEGRAM] sendMessage request', JSON.stringify({
+    orderId: order?.id || null,
+    chatId,
+    hasThreadId: Boolean(payload.message_thread_id),
+    textLength: payload.text?.length || 0
+  }))
+
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -81,10 +95,21 @@ export async function notifyCourierOrderToTelegram(order) {
   })
 
   const data = await response.json().catch(() => ({}))
+  console.log('[TELEGRAM] sendMessage response', JSON.stringify({
+    orderId: order?.id || null,
+    httpStatus: response.status,
+    ok: data?.ok,
+    description: data?.description || null,
+    errorCode: data?.error_code || null
+  }))
+
   if (!response.ok || data?.ok === false) {
     throw new Error(`[TELEGRAM] sendMessage failed: ${JSON.stringify(data)}`)
   }
 
+  console.log('[TELEGRAM] courier notification sent', JSON.stringify({
+    orderId: order?.id || null,
+    messageId: data?.result?.message_id || null
+  }))
   return { ok: true }
 }
-

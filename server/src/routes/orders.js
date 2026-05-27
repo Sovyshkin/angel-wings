@@ -187,7 +187,11 @@ router.post('/', authenticate, async (req, res, next) => {
     }
 
     const normalizedDeliveryType = String(delivery?.type || '').trim()
-    if (normalizedDeliveryType === 'courier_internal_moscow') {
+    const isInternalMoscowCourier =
+      normalizedDeliveryType === 'courier_internal_moscow' ||
+      normalizedDeliveryType === 'courier'
+
+    if (isInternalMoscowCourier) {
       const courierAddress = String(delivery?.address || shippingAddress || '').trim()
       if (!courierAddress) {
         return res.status(400).json({ error: 'Для курьерской доставки по Москве укажите адрес' })
@@ -315,8 +319,6 @@ router.post('/', authenticate, async (req, res, next) => {
       partnerId = historicalPartnerId
     }
 
-    const isInternalMoscowCourier = normalizedDeliveryType === 'courier_internal_moscow'
-
     const order = await prisma.$transaction(async (tx) => {
       for (const item of items) {
         await tx.product.update({
@@ -410,9 +412,19 @@ router.post('/', authenticate, async (req, res, next) => {
     })
 
     if (isInternalMoscowCourier) {
+      console.log('[TELEGRAM] Courier delivery detected, preparing notification', JSON.stringify({
+        orderId: order.id,
+        deliveryType: normalizedDeliveryType,
+        hasAddress: Boolean(order.shippingAddress || order.deliveryPickupName)
+      }))
       notifyCourierOrderToTelegram(order).catch((error) => {
-        console.error('[TELEGRAM] Courier order notification error:', error?.message || error)
+        console.error('[TELEGRAM] Courier order notification error:', error?.message || error, error?.stack || '')
       })
+    } else {
+      console.log('[TELEGRAM] Skip courier notification: non-courier delivery', JSON.stringify({
+        orderId: order.id,
+        deliveryType: normalizedDeliveryType || null
+      }))
     }
 
     res.status(201).json({

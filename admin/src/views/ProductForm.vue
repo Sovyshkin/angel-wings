@@ -2,12 +2,12 @@
   <div class="product-form">
     <div class="page-header">
       <div class="header-left">
-        <router-link to="/products" class="back-link">
+        <button type="button" @click="goBack" class="back-link">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
           </svg>
           Назад
-        </router-link>
+        </button>
         <h1 class="page-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">
           {{ isEdit ? 'Редактирование товара' : 'Новый товар' }}
         </h1>
@@ -284,6 +284,14 @@ const galleryPreviewUrls = ref([])
 const dosageTotal = computed(() =>
   dosageVariants.value.reduce((sum, item) => sum + Math.max(0, parseInt(item.quantity) || 0), 0)
 )
+
+function goBack() {
+  if (window.history.length > 1) {
+    router.back()
+    return
+  }
+  router.push('/products')
+}
 
 async function fetchCategories() {
   const { data } = await axios.get(`/api/categories`)
