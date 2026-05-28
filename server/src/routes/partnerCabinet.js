@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requirePartner } from '../middleware/auth.js'
 import { v4 as uuidv4 } from 'uuid'
+import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -26,7 +27,7 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
       usersCount,
       referralsData,
       commissionsData,
-      paymentsData
+      balanceData
     ] = await Promise.all([
       prisma.partnerUser.count({ where: { partnerId: partner.id } }),
       prisma.partnerUser.findMany({
@@ -42,10 +43,7 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
         _sum: { amount: true },
         _count: true
       }),
-      prisma.partnerPayment.aggregate({
-        where: { partnerId: partner.id },
-        _sum: { amount: true }
-      })
+      calculatePartnerBalance(prisma, partner.id)
     ])
 
     const referredUserIds = referralsData.map(r => r.userId)
@@ -60,7 +58,6 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
       .filter(o => o.status !== 'CANCELLED')
       .reduce((sum, o) => sum + getOrderAmountWithoutDelivery(o), 0)
 
-    const totalPaidOut = paymentsData._sum.amount || 0
     const totalEarned = commissionsData._sum.amount || 0
 
     res.json({
@@ -69,8 +66,11 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
         ordersCount: commissionsData._count,
         totalOrdersAmount,
         totalEarned,
-        totalPaidOut,
-        pendingAmount: totalEarned - totalPaidOut
+        totalPaidOut: balanceData.totalPaidOut,
+        pendingPayouts: balanceData.pendingPayouts,
+        spentOnOrders: balanceData.totalSpentOnOrders,
+        availableForOrders: balanceData.availableBalance,
+        pendingAmount: balanceData.availableBalance
       }
     })
   } catch (error) {

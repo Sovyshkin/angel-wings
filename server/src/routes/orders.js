@@ -4,6 +4,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 import cdek from '../services/cdek.js'
 import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
 import { notifyCourierOrderToTelegram } from '../services/telegram.js'
+import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -76,6 +77,12 @@ function calculatePromoDiscount(amount, promoCode) {
     return normalizedAmount * (promoCode.discountValue / 100)
   }
   return Math.min(promoCode.discountValue, normalizedAmount)
+}
+
+function createClientError(message, status = 400) {
+  const error = new Error(message)
+  error.status = status
+  return error
 }
 
 async function bindUserToPartner(userId, partnerId, promoCodeId = null, source = 'link') {
@@ -167,6 +174,31 @@ router.post('/promo/validate', authenticate, async (req, res, next) => {
   }
 })
 
+router.get('/partner-balance', authenticate, async (req, res, next) => {
+  try {
+    const partner = await prisma.partner.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true, isActive: true }
+    })
+
+    if (!partner || !partner.isActive) {
+      return res.json({
+        hasPartnerAccess: false,
+        availableBalance: 0
+      })
+    }
+
+    const balance = await calculatePartnerBalance(prisma, partner.id)
+    return res.json({
+      hasPartnerAccess: true,
+      partnerId: partner.id,
+      ...balance
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
 // Создание заказа - требуется авторизация
 router.post('/', authenticate, async (req, res, next) => {
   try {
@@ -179,7 +211,8 @@ router.post('/', authenticate, async (req, res, next) => {
       notes, 
       userId, 
       promoCode,
-      delivery 
+      delivery,
+      partnerBonusAmount
     } = req.body
 
     if (!items || items.length === 0) {
@@ -234,6 +267,8 @@ router.post('/', authenticate, async (req, res, next) => {
     const orderTotal = itemsSubtotal + deliveryPrice
 
     let discountAmount = 0
+    const requestedPartnerBonusAmount = Math.max(0, Number(partnerBonusAmount) || 0)
+    let partnerBonusUsed = 0
     let appliedPromoCode = null
     let promoCodeId = null
     let partnerId = null
@@ -334,6 +369,47 @@ router.post('/', authenticate, async (req, res, next) => {
         })
       }
 
+      const promoDiscountAmount = Math.max(0, Number(discountAmount || 0))
+      const subtotalAfterPromo = Math.max(0, orderTotal - promoDiscountAmount)
+
+      if (requestedPartnerBonusAmount > 0) {
+        if (!actualUserId) {
+          throw createClientError('Для списания партнёрского баланса требуется авторизация')
+        }
+
+        const userPartner = await tx.partner.findUnique({
+          where: { userId: actualUserId },
+          select: { id: true, isActive: true }
+        })
+
+        if (!userPartner || !userPartner.isActive) {
+          throw createClientError('Партнёрский баланс недоступен для этого аккаунта')
+        }
+
+        const partnerBalance = await calculatePartnerBalance(tx, userPartner.id)
+        partnerBonusUsed = Math.min(
+          requestedPartnerBonusAmount,
+          subtotalAfterPromo,
+          Math.max(0, Number(partnerBalance.availableBalance || 0))
+        )
+
+        if (partnerBonusUsed <= 0) {
+          throw createClientError('Недостаточно партнёрского баланса для списания')
+        }
+
+        await tx.partnerPayment.create({
+          data: {
+            partnerId: userPartner.id,
+            amount: partnerBonusUsed,
+            status: 'SPENT_ON_ORDER',
+            paidAt: new Date()
+          }
+        })
+      }
+
+      const totalDiscountAmount = promoDiscountAmount + partnerBonusUsed
+      const finalOrderTotal = Math.max(0, orderTotal - totalDiscountAmount)
+
       const createdOrder = await tx.order.create({
         data: {
           customerName,
@@ -341,10 +417,11 @@ router.post('/', authenticate, async (req, res, next) => {
           customerPhone,
           shippingAddress: shippingAddress || delivery?.address || null,
           notes,
-          total: orderTotal - discountAmount,
+          total: finalOrderTotal,
+          paymentStatus: finalOrderTotal <= 0 ? 'PAID' : 'PENDING',
           userId: actualUserId,
           promoCodeId,
-          discountAmount,
+          discountAmount: totalDiscountAmount,
           partnerId,
           // Delivery info
           deliveryTariffCode: isInternalMoscowCourier ? null : delivery?.tariff_code,
@@ -392,9 +469,11 @@ router.post('/', authenticate, async (req, res, next) => {
         })
 
         if (partner && partner.isActive) {
-          // Per specification: commission is calculated from products subtotal only (without delivery).
+          // Commission base: final order total after discounts, excluding delivery.
           const percentage = Number(partner.percentage) > 0 ? Number(partner.percentage) : 5.0
-          const commissionAmount = itemsSubtotal * (percentage / 100)
+          const deliveryPart = Math.max(0, Number(deliveryPrice || 0))
+          const commissionBase = Math.max(0, Number(createdOrder.total || 0) - deliveryPart)
+          const commissionAmount = commissionBase * (percentage / 100)
 
           await tx.partnerCommission.create({
             data: {
@@ -429,7 +508,10 @@ router.post('/', authenticate, async (req, res, next) => {
 
     res.status(201).json({
       order,
-      meta: partnerLockNotice ? { partnerNotice: partnerLockNotice } : undefined
+      meta: {
+        ...(partnerLockNotice ? { partnerNotice: partnerLockNotice } : {}),
+        partnerBonusUsed
+      }
     })
   } catch (error) {
     next(error)

@@ -65,7 +65,7 @@
 
         <div class="stat-card card stat-card--warning">
           <div class="stat-card__value">{{ formatCurrency(stats.pendingAmount || 0) }}</div>
-          <div class="stat-card__label">Ожидает выплаты</div>
+          <div class="stat-card__label">Доступно для оплаты заказов</div>
         </div>
       </div>
 

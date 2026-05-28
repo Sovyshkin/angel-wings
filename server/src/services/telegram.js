@@ -1,3 +1,6 @@
+import https from 'node:https'
+import axios from 'axios'
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -90,10 +93,14 @@ export async function notifyCourierOrderToTelegram(order) {
 
   let response
   try {
-    response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
+    response = await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, payload, {
+      timeout: 30000,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      httpsAgent: new https.Agent({
+        family: 4,
+        keepAlive: true
+      }),
+      validateStatus: () => true
     })
   } catch (error) {
     console.error('[TELEGRAM] sendMessage network error', JSON.stringify({
@@ -109,16 +116,16 @@ export async function notifyCourierOrderToTelegram(order) {
     throw error
   }
 
-  const data = await response.json().catch(() => ({}))
+  const data = response?.data && typeof response.data === 'object' ? response.data : {}
   console.log('[TELEGRAM] sendMessage response', JSON.stringify({
     orderId: order?.id || null,
-    httpStatus: response.status,
+    httpStatus: response?.status || null,
     ok: data?.ok,
     description: data?.description || null,
     errorCode: data?.error_code || null
   }))
 
-  if (!response.ok || data?.ok === false) {
+  if (Number(response?.status || 0) >= 400 || data?.ok === false) {
     throw new Error(`[TELEGRAM] sendMessage failed: ${JSON.stringify(data)}`)
   }
 

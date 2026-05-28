@@ -203,6 +203,10 @@
               <span>Скидка по промокоду</span>
               <span>-{{ promoDiscountPreview.toLocaleString() }} ₽</span>
             </div>
+            <div v-if="partnerBonusToUse > 0" class="summary-row summary-row-discount summary-row-discount--partner">
+              <span>Оплата из прибыли партнёра</span>
+              <span>-{{ partnerBonusToUse.toLocaleString() }} ₽</span>
+            </div>
           </div>
 
           <!-- Delivery Details Card -->
@@ -241,7 +245,7 @@
           
           <div class="summary-total">
             <span>Итого</span>
-            <span class="total-value">{{ totalWithPromo.toLocaleString() }} ₽</span>
+            <span class="total-value">{{ totalAfterPartnerBonus.toLocaleString() }} ₽</span>
           </div>
           
           <!-- Delivery Type Selection -->
@@ -455,6 +459,35 @@
               <p v-else class="promo-code-hint">Промокод применяется автоматически после ввода.</p>
             </div>
 
+            <div v-if="authStore.isAuthenticated && hasPartnerBalanceAccess" class="promo-code-card partner-balance-card">
+              <label class="promo-code-label" for="partner-bonus-input">Списать из партнёрской прибыли</label>
+              <div class="promo-code-controls">
+                <input
+                  id="partner-bonus-input"
+                  v-model="partnerBonusAmount"
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="input promo-code-input"
+                  placeholder="0"
+                  @input="normalizePartnerBonusInput"
+                >
+                <button
+                  v-if="partnerBonusToUse > 0"
+                  type="button"
+                  class="promo-code-clear"
+                  @click="partnerBonusAmount = ''"
+                >
+                  Сбросить
+                </button>
+              </div>
+              <p class="promo-code-hint">
+                Доступно: <strong>{{ partnerBalanceAvailable.toLocaleString('ru-RU') }} ₽</strong>.
+                Можно списать до 100% суммы заказа.
+              </p>
+              <p v-if="partnerBalanceError" class="promo-code-status promo-code-status--error">{{ partnerBalanceError }}</p>
+            </div>
+
             <div class="consents">
               <label class="consent-item">
                 <input type="checkbox" v-model="consents.rememberContacts">
@@ -488,6 +521,13 @@
                   биологически активных добавок, косметических средства или бытовой химии.
                 </span>
               </label>
+            </div>
+
+            <div v-if="validationErrors.length" class="form-validation-card" role="alert" aria-live="polite">
+              <div class="form-validation-card__title">Проверьте форму перед оформлением</div>
+              <ul class="form-validation-card__list">
+                <li v-for="(item, idx) in validationErrors" :key="`validation-${idx}`">{{ item }}</li>
+              </ul>
             </div>
 
             <button class="btn btn-primary btn-submit" @click="placeOrder" :disabled="!isFormValid || ordering">
@@ -536,8 +576,14 @@ const promoCode = ref('')
 const promoDiscountPreview = ref(0)
 const promoFeedbackType = ref('idle')
 const promoFeedbackMessage = ref('')
+const hasPartnerBalanceAccess = ref(false)
+const partnerBalanceAvailable = ref(0)
+const partnerBalanceLoading = ref(false)
+const partnerBalanceError = ref('')
+const partnerBonusAmount = ref('')
 const validatingPromo = ref(false)
 const ordering = ref(false)
+const validationErrors = ref([])
 const orderComplete = ref(false)
 const orderError = ref(null)
 const lastOrderId = ref(null)
@@ -583,6 +629,21 @@ function normalizePromoCodeInput() {
   promoCode.value = String(promoCode.value || '')
     .toUpperCase()
     .replace(/\s+/g, '')
+}
+
+function normalizePartnerBonusInput() {
+  const raw = String(partnerBonusAmount.value || '')
+  if (!raw.trim()) {
+    partnerBonusAmount.value = ''
+    return
+  }
+  const normalized = raw.replace(',', '.').replace(/[^\d.]/g, '')
+  const numeric = Math.max(0, Number(normalized) || 0)
+  const maxAllowed = Math.min(
+    Math.max(0, Number(partnerBalanceAvailable.value || 0)),
+    Math.max(0, Number(totalWithPromo.value || 0))
+  )
+  partnerBonusAmount.value = String(Math.min(numeric, maxAllowed))
 }
 
 function clearPromoCode() {
@@ -656,6 +717,38 @@ async function validatePromoCode(options = {}) {
     if (seq === promoValidateSeq) {
       validatingPromo.value = false
     }
+  }
+}
+
+async function fetchPartnerBalance() {
+  if (!authStore.isAuthenticated) {
+    hasPartnerBalanceAccess.value = false
+    partnerBalanceAvailable.value = 0
+    partnerBonusAmount.value = ''
+    partnerBalanceError.value = ''
+    return
+  }
+
+  partnerBalanceLoading.value = true
+  partnerBalanceError.value = ''
+
+  try {
+    const { data } = await axios.get('/api/orders/partner-balance')
+    const available = Math.max(0, Number(data?.availableBalance || 0))
+    hasPartnerBalanceAccess.value = Boolean(data?.hasPartnerAccess)
+    partnerBalanceAvailable.value = available
+    if (!hasPartnerBalanceAccess.value) {
+      partnerBonusAmount.value = ''
+    } else {
+      normalizePartnerBonusInput()
+    }
+  } catch (error) {
+    hasPartnerBalanceAccess.value = false
+    partnerBalanceAvailable.value = 0
+    partnerBonusAmount.value = ''
+    partnerBalanceError.value = error?.response?.data?.error || 'Не удалось получить партнёрский баланс'
+  } finally {
+    partnerBalanceLoading.value = false
   }
 }
 
@@ -841,6 +934,20 @@ const totalWithPromo = computed(() => {
   return Math.max(0, totalWithDelivery.value - promoDiscountPreview.value)
 })
 
+const partnerBonusToUse = computed(() => {
+  if (!hasPartnerBalanceAccess.value) return 0
+  const requested = Math.max(0, Number(partnerBonusAmount.value) || 0)
+  const maxAllowed = Math.min(
+    Math.max(0, Number(partnerBalanceAvailable.value || 0)),
+    Math.max(0, Number(totalWithPromo.value || 0))
+  )
+  return Math.min(requested, maxAllowed)
+})
+
+const totalAfterPartnerBonus = computed(() => {
+  return Math.max(0, totalWithPromo.value - partnerBonusToUse.value)
+})
+
 const isFormValid = computed(() => {
   const hasContact = customer.value.name && customer.value.phone && customer.value.email
   const hasDelivery = ENABLE_CDEK
@@ -853,6 +960,44 @@ const isFormValid = computed(() => {
     consents.value.acceptResearchTerms
   return hasContact && hasDelivery && hasAllConsents
 })
+
+function getValidationErrors() {
+  const errors = []
+
+  if (!String(customer.value.name || '').trim()) {
+    errors.push('Укажите имя')
+  }
+  if (!String(customer.value.phone || '').trim()) {
+    errors.push('Укажите телефон')
+  }
+  if (!String(customer.value.email || '').trim()) {
+    errors.push('Укажите email')
+  }
+
+  if (ENABLE_CDEK) {
+    if (deliveryType.value === 'pvz' && !selectedPickupPoint.value) {
+      errors.push('Выберите пункт выдачи СДЭК')
+    }
+    if (deliveryType.value === 'courier' && !String(courierAddress.value || '').trim()) {
+      errors.push('Укажите адрес для курьерской доставки по Москве')
+    }
+  }
+
+  if (!consents.value.acceptOffer) {
+    errors.push('Подтвердите согласие с условиями Оферты')
+  }
+  if (!consents.value.acceptMarketing) {
+    errors.push('Подтвердите согласие на получение информационных и рекламных сообщений')
+  }
+  if (!consents.value.acceptPrivacy) {
+    errors.push('Подтвердите согласие с Политикой конфиденциальности')
+  }
+  if (!consents.value.acceptResearchTerms) {
+    errors.push('Подтвердите согласие с условиями исследовательского использования')
+  }
+
+  return errors
+}
 
 async function handleLogin() {
   loginError.value = ''
@@ -877,9 +1022,10 @@ async function handleLogin() {
 
 async function placeOrder() {
   if (!isFormValid.value) {
-    alert('Пожалуйста, заполните обязательные поля и подтвердите согласия')
+    validationErrors.value = getValidationErrors()
     return
   }
+  validationErrors.value = []
   
   // Check if user is authenticated
   if (!authStore.isAuthenticated) {
@@ -940,6 +1086,10 @@ async function placeOrder() {
       delivery: deliveryData
     }
 
+    if (partnerBonusToUse.value > 0) {
+      orderData.partnerBonusAmount = partnerBonusToUse.value
+    }
+
     const normalizedPromoCode = String(promoCode.value || '').trim().toUpperCase()
     if (normalizedPromoCode) {
       orderData.promoCode = normalizedPromoCode
@@ -951,7 +1101,12 @@ async function placeOrder() {
     
     const { data } = await axios.post('/api/orders', orderData)
     lastOrderId.value = data.order?.id
-    const createdOrderTotal = Number(data?.order?.total || totalWithDelivery.value)
+    const createdOrderTotal = Number(data?.order?.total ?? totalAfterPartnerBonus.value)
+    const actualPartnerBonusUsed = Math.max(0, Number(data?.meta?.partnerBonusUsed || 0))
+    if (actualPartnerBonusUsed > 0) {
+      partnerBalanceAvailable.value = Math.max(0, partnerBalanceAvailable.value - actualPartnerBonusUsed)
+      partnerBonusAmount.value = ''
+    }
     if (data?.meta?.partnerNotice) {
       alert(data.meta.partnerNotice)
     }
@@ -994,6 +1149,15 @@ async function placeOrder() {
       }
     }
     
+    if (createdOrderTotal <= 0) {
+      cartStore.clear()
+      orderComplete.value = true
+      setTimeout(() => {
+        orderComplete.value = false
+      }, 10000)
+      return
+    }
+
     // Create Tochka payment link
     try {
       const paymentResponse = await axios.post('/api/payment/create', {
@@ -1031,6 +1195,7 @@ async function placeOrder() {
 onMounted(async () => {
   await productStore.fetchCategories()
   prefillFromProfile()
+  await fetchPartnerBalance()
 
   const savedDelivery = cartStore.delivery || {}
   if (savedDelivery.type) {
@@ -1065,6 +1230,25 @@ watch(() => authStore.user, () => {
   prefillFromProfile()
 }, { deep: true })
 
+watch(
+  [
+    () => customer.value.name,
+    () => customer.value.phone,
+    () => customer.value.email,
+    () => consents.value.acceptOffer,
+    () => consents.value.acceptMarketing,
+    () => consents.value.acceptPrivacy,
+    () => consents.value.acceptResearchTerms,
+    () => deliveryType.value,
+    () => selectedPickupPoint.value,
+    () => courierAddress.value
+  ],
+  () => {
+    if (!validationErrors.value.length) return
+    validationErrors.value = getValidationErrors()
+  }
+)
+
 watch(promoCodeNormalized, (nextCode) => {
   if (!nextCode) {
     promoDiscountPreview.value = 0
@@ -1079,17 +1263,25 @@ watch(totalWithDelivery, () => {
   schedulePromoValidation(250)
 })
 
+watch(totalWithPromo, () => {
+  if (hasPartnerBalanceAccess.value) {
+    normalizePartnerBonusInput()
+  }
+})
+
 watch(() => authStore.isAuthenticated, (isAuthenticated) => {
   if (!isAuthenticated) {
     promoDiscountPreview.value = 0
     if (promoCodeNormalized.value) {
       setPromoFeedback('info', 'Войдите в аккаунт, чтобы применить промокод')
     }
+    fetchPartnerBalance()
     return
   }
   if (promoCodeNormalized.value) {
     schedulePromoValidation(100)
   }
+  fetchPartnerBalance()
 })
 
 onUnmounted(() => {
@@ -1413,6 +1605,11 @@ onUnmounted(() => {
   border-radius: 10px;
 }
 
+.partner-balance-card {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(34, 197, 94, 0.03));
+}
+
 .promo-code-label {
   display: block;
   margin-bottom: 0.45rem;
@@ -1473,6 +1670,29 @@ onUnmounted(() => {
   color: var(--accent);
 }
 
+.form-validation-card {
+  margin: 0.5rem 0 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.form-validation-card__title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #fecaca;
+  margin-bottom: 0.45rem;
+}
+
+.form-validation-card__list {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #fee2e2;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 .summary-total span:first-child {
   font-family: var(--font-display);
   font-size: 1rem;
@@ -1486,6 +1706,11 @@ onUnmounted(() => {
 .summary-row-discount span:last-child {
   color: #22c55e;
   font-weight: 700;
+}
+
+.summary-row-discount--partner span:first-child,
+.summary-row-discount--partner span:last-child {
+  color: #16a34a;
 }
 
 .total-value {
