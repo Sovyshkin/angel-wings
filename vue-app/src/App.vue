@@ -70,7 +70,16 @@
             <span class="cart-count" v-if="cartStore.items.length">{{ cartStore.items.length }}</span>
           </router-link>
 
-                  <button class="mobile-menu-btn" @click.stop="toggleMobileMenu">
+          <router-link to="/cart" class="mobile-cart-btn" @click="closeMobileMenu" aria-label="Корзина">
+            <svg class="cart-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <path d="M16 10a4 4 0 0 1-8 0"/>
+            </svg>
+            <span class="mobile-header-cart-count" v-if="cartStore.items.length">{{ cartStore.items.length }}</span>
+          </router-link>
+
+          <button class="mobile-menu-btn" @click.stop="toggleMobileMenu">
             <svg v-if="!mobileMenuOpen" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
@@ -864,6 +873,38 @@ onMounted(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
+.mobile-cart-btn {
+  display: none;
+  position: relative;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.mobile-header-cart-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--accent);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.65rem;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .mobile-menu {
   display: none;
   position: fixed;
@@ -925,6 +966,10 @@ onMounted(() => {
 @media (max-width: 768px) {
   .mobile-menu-btn {
     display: flex;
+  }
+
+  .mobile-cart-btn {
+    display: inline-flex;
   }
 
   .header__actions {
@@ -992,6 +1037,12 @@ onMounted(() => {
     color: var(--accent);
   }
 
+  .theme-link {
+    margin-top: 0.5rem;
+    background: var(--bg-primary);
+    border: 1px dashed var(--border);
+  }
+
   .mobile-cart-count {
     margin-left: auto;
     background: var(--accent);
@@ -1000,12 +1051,6 @@ onMounted(() => {
     font-weight: 700;
     padding: 0.2rem 0.5rem;
     border-radius: 10px;
-  }
-
-  .theme-link {
-    margin-top: 0.5rem;
-    background: var(--bg-primary);
-    border: 1px dashed var(--border);
   }
 }
 
