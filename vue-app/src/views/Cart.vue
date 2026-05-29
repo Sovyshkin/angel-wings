@@ -249,8 +249,8 @@
           </div>
           
           <!-- Delivery Type Selection -->
-          <div class="pickup-section">
-            <h4>Способ получения</h4>
+          <div ref="pickupSectionRef" class="pickup-section" :class="{ 'pickup-section--error': showValidationErrors && isDeliveryMissing }" tabindex="-1">
+            <h4>Способ получения <span class="required-mark">*</span></h4>
             
             <div class="delivery-type-options">
               <label
@@ -382,10 +382,12 @@
               </div>
 
               <div class="form-group" style="margin-top: 1rem;">
-                <label>Адрес доставки</label>
+                <label>Адрес доставки <span class="required-mark">*</span></label>
                 <textarea 
+                  ref="courierAddressInputRef"
                   v-model="addressInput" 
-                  class="input" 
+                  class="input"
+                  :class="{ 'input--error': showValidationErrors && isCourierAddressMissing }"
                   rows="3" 
                   placeholder="Улица, дом, квартира..."
                 ></textarea>
@@ -421,27 +423,55 @@
           <div class="checkout-form">
             <h4 v-if="authStore.isAuthenticated">Данные из профиля</h4>
             <h4 v-else>Контактные данные</h4>
+            <p class="required-note">Поля со <span class="required-mark">*</span> обязательны</p>
             <div class="form-group">
-              <label>Имя</label>
-              <input v-model="customer.name" type="text" class="input" placeholder="Иван Иванов" :disabled="authStore.isAuthenticated" required>
+              <label>Имя <span class="required-mark">*</span></label>
+              <input
+                ref="nameInputRef"
+                v-model="customer.name"
+                type="text"
+                class="input"
+                :class="{ 'input--error': showValidationErrors && isNameMissing }"
+                placeholder="Иван Иванов"
+                :disabled="authStore.isAuthenticated"
+                required
+              >
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>Телефон</label>
-                <input v-model="customer.phone" type="tel" class="input" placeholder="+7 (999) 999-99-99" :disabled="authStore.isAuthenticated" required>
+                <label>Телефон <span class="required-mark">*</span></label>
+                <input
+                  ref="phoneInputRef"
+                  v-model="customer.phone"
+                  type="tel"
+                  class="input"
+                  :class="{ 'input--error': showValidationErrors && isPhoneMissing }"
+                  placeholder="+7 (999) 999-99-99"
+                  :disabled="authStore.isAuthenticated"
+                  required
+                >
               </div>
               <div class="form-group">
-                <label>Email</label>
-                <input v-model="customer.email" type="email" class="input" placeholder="example@mail.ru" :disabled="authStore.isAuthenticated" required>
+                <label>Email <span class="required-mark">*</span></label>
+                <input
+                  ref="emailInputRef"
+                  v-model="customer.email"
+                  type="email"
+                  class="input"
+                  :class="{ 'input--error': showValidationErrors && isEmailMissing }"
+                  placeholder="example@mail.ru"
+                  :disabled="authStore.isAuthenticated"
+                  required
+                >
               </div>
             </div>
             <div class="form-group">
-              <label>Комментарий к заказу</label>
+              <label>Комментарий к заказу <span class="optional-mark">(необязательно)</span></label>
               <textarea v-model="customer.comment" class="input" rows="2" placeholder="Дополнительные пожелания..."></textarea>
             </div>
 
             <div class="promo-code-card">
-              <label class="promo-code-label" for="promo-code-input">Промокод</label>
+              <label class="promo-code-label" for="promo-code-input">Промокод <span class="optional-mark">(необязательно)</span></label>
               <div class="promo-code-controls">
                 <input
                   id="promo-code-input"
@@ -488,32 +518,35 @@
               <p v-if="partnerBalanceError" class="promo-code-status promo-code-status--error">{{ partnerBalanceError }}</p>
             </div>
 
-            <div class="consents">
+            <div ref="consentsSectionRef" class="consents" :class="{ 'consents--error': showValidationErrors && hasConsentErrors }" tabindex="-1">
               <label class="consent-item">
                 <input type="checkbox" v-model="consents.rememberContacts">
                 <span>Запомнить контакты в браузере для повторной покупки</span>
               </label>
-              <label class="consent-item">
+              <label class="consent-item" :class="{ 'consent-item--error': showValidationErrors && !consents.acceptOffer }">
                 <input type="checkbox" v-model="consents.acceptOffer">
                 <span>
+                  <span class="required-mark">*</span>
                   Я согласен с условиями
                   <a href="/public-offer-2026.pdf" target="_blank" rel="noopener">Оферты</a>
                 </span>
               </label>
-              <label class="consent-item">
+              <label class="consent-item" :class="{ 'consent-item--error': showValidationErrors && !consents.acceptMarketing }">
                 <input type="checkbox" v-model="consents.acceptMarketing">
-                <span>Я согласен на получение информационных и рекламных сообщений</span>
+                <span><span class="required-mark">*</span> Я согласен на получение информационных и рекламных сообщений</span>
               </label>
-              <label class="consent-item">
+              <label class="consent-item" :class="{ 'consent-item--error': showValidationErrors && !consents.acceptPrivacy }">
                 <input type="checkbox" v-model="consents.acceptPrivacy">
                 <span>
+                  <span class="required-mark">*</span>
                   Я согласен на обработку моих персональных данных для целей и на условиях, изложенных в
                   <a href="/policy.pdf" target="_blank" rel="noopener">Политике конфиденциальности</a>
                 </span>
               </label>
-              <label class="consent-item consent-item--full">
+              <label class="consent-item consent-item--full" :class="{ 'consent-item--error': showValidationErrors && !consents.acceptResearchTerms }">
                 <input type="checkbox" v-model="consents.acceptResearchTerms">
                 <span>
+                  <span class="required-mark">*</span>
                   Мне уже есть полных 18 лет. Я квалифицированный специалист. Я согласен с тем, что материал,
                   представленный на этом сайте, для профессионального использования. Я согласен с тем, что Образцы,
                   приобретенные на этом сайте, для исследовательских целей, и не будут использоваться для человека
@@ -608,6 +641,30 @@ const deliveryPrice = ref(0)
 const deliveryInfo = ref({})
 let promoValidateTimer = null
 let promoValidateSeq = 0
+const pickupSectionRef = ref(null)
+const consentsSectionRef = ref(null)
+const nameInputRef = ref(null)
+const phoneInputRef = ref(null)
+const emailInputRef = ref(null)
+const courierAddressInputRef = ref(null)
+
+const isNameMissing = computed(() => !String(customer.value.name || '').trim())
+const isPhoneMissing = computed(() => !String(customer.value.phone || '').trim())
+const isEmailMissing = computed(() => !String(customer.value.email || '').trim())
+const isCourierAddressMissing = computed(() => {
+  return deliveryType.value === 'courier' && !String(courierAddress.value || '').trim()
+})
+const isDeliveryMissing = computed(() => {
+  if (!ENABLE_CDEK) return false
+  return deliveryType.value === 'pvz' ? !selectedPickupPoint.value : isCourierAddressMissing.value
+})
+const hasConsentErrors = computed(() => {
+  return !consents.value.acceptOffer ||
+    !consents.value.acceptMarketing ||
+    !consents.value.acceptPrivacy ||
+    !consents.value.acceptResearchTerms
+})
+const showValidationErrors = computed(() => validationErrors.value.length > 0)
 
 const filteredPickupPoints = computed(() => {
   const q = pickupFilter.value.trim().toLowerCase()
@@ -999,6 +1056,45 @@ function getValidationErrors() {
   return errors
 }
 
+function focusAndScrollToField(elementRef) {
+  const el = elementRef?.value
+  if (!el) return
+  if (typeof el.scrollIntoView === 'function') {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+  setTimeout(() => {
+    if (typeof el.focus === 'function') {
+      el.focus()
+    }
+  }, 120)
+}
+
+function scrollToFirstInvalidField() {
+  if (isNameMissing.value) {
+    focusAndScrollToField(nameInputRef)
+    return
+  }
+  if (isPhoneMissing.value) {
+    focusAndScrollToField(phoneInputRef)
+    return
+  }
+  if (isEmailMissing.value) {
+    focusAndScrollToField(emailInputRef)
+    return
+  }
+  if (isDeliveryMissing.value) {
+    if (deliveryType.value === 'courier' && courierAddressInputRef.value) {
+      focusAndScrollToField(courierAddressInputRef)
+      return
+    }
+    focusAndScrollToField(pickupSectionRef)
+    return
+  }
+  if (hasConsentErrors.value) {
+    focusAndScrollToField(consentsSectionRef)
+  }
+}
+
 async function handleLogin() {
   loginError.value = ''
   loggingIn.value = true
@@ -1023,6 +1119,7 @@ async function handleLogin() {
 async function placeOrder() {
   if (!isFormValid.value) {
     validationErrors.value = getValidationErrors()
+    scrollToFirstInvalidField()
     return
   }
   validationErrors.value = []
@@ -1693,6 +1790,24 @@ onUnmounted(() => {
   line-height: 1.45;
 }
 
+.required-note {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.required-mark {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.optional-mark {
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .summary-total span:first-child {
   font-family: var(--font-display);
   font-size: 1rem;
@@ -1726,6 +1841,10 @@ onUnmounted(() => {
   padding: 1.5rem;
   background: var(--bg-secondary);
   border-radius: 12px;
+}
+
+.pickup-section--error {
+  border: 1px solid rgba(239, 68, 68, 0.45);
 }
 
 .pickup-section h4 {
@@ -1942,6 +2061,11 @@ onUnmounted(() => {
   margin-bottom: 0.5rem;
 }
 
+.input--error {
+  border-color: rgba(239, 68, 68, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1959,6 +2083,12 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+
+.consents--error {
+  padding: 0.6rem;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 10px;
 }
 
 .consent-item {
@@ -1985,6 +2115,10 @@ onUnmounted(() => {
 
 .consent-item--full {
   padding-top: 0.25rem;
+}
+
+.consent-item--error {
+  color: #fecaca;
 }
 
 /* Modal Overlay */
