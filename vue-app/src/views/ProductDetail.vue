@@ -54,9 +54,9 @@
               <span class="product-currency">₽</span>
               <span class="price-unit">/ уп.</span>
             </div>
-            <div v-if="currentComparePrice" class="product-price-discount">
-              <span class="product-old-price">{{ formatPrice(currentComparePrice) }} ₽</span>
-              <span class="product-discount-badge">-{{ currentDiscountPercent }}%</span>
+            <div v-if="hasMainDiscount" class="product-price-discount">
+              <span class="product-old-price">{{ formatPrice(mainOldPrice) }} ₽</span>
+              <span class="product-discount-badge">-{{ mainDiscountPercent }}%</span>
             </div>
           </div>
 
@@ -249,6 +249,34 @@ const currentComparePrice = computed(() => {
 
 const currentDiscountPercent = computed(() => {
   return getDiscountPercentByValues(currentPrice.value, currentComparePrice.value)
+})
+
+const productCardComparePrice = computed(() => {
+  const old = normalizePrice(product.value?.comparePrice)
+  const current = normalizePrice(product.value?.price)
+  return old > current ? old : null
+})
+
+const productCardDiscountPercent = computed(() => {
+  return getDiscountPercentByValues(product.value?.price, productCardComparePrice.value)
+})
+
+const hasMainDiscount = computed(() => {
+  return currentDiscountPercent.value > 0 || productCardDiscountPercent.value > 0
+})
+
+const mainOldPrice = computed(() => {
+  if (currentDiscountPercent.value > 0 && currentComparePrice.value) {
+    return currentComparePrice.value
+  }
+  return productCardComparePrice.value
+})
+
+const mainDiscountPercent = computed(() => {
+  if (currentDiscountPercent.value > 0) {
+    return currentDiscountPercent.value
+  }
+  return productCardDiscountPercent.value
 })
 
 const hasSpecs = computed(() => {

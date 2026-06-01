@@ -149,19 +149,27 @@
                       <span class="price-discount-badge">-{{ getDiscountPercent(product) }}%</span>
                     </div>
                   </div>
-                  <button 
-                    class="add-to-cart-btn"
-                    :class="{ 'just-added': isProductInCart(product.id) }"
-                    @click.prevent="cartStore.addItem(product)"
-                    :disabled="!product.stock"
-                  >
-                    <svg v-if="isProductInCart(product.id)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                    <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M12 5v14M5 12h14"/>
-                    </svg>
-                  </button>
+                  <div class="catalog-qty-control" @click.prevent>
+                    <button
+                      class="qty-btn"
+                      type="button"
+                      aria-label="Уменьшить"
+                      @click.prevent="decreaseCatalogQty(product)"
+                      :disabled="getCatalogCartQty(product.id) <= 0"
+                    >
+                      −
+                    </button>
+                    <span class="qty-value">{{ getCatalogCartQty(product.id) }}</span>
+                    <button
+                      class="qty-btn"
+                      type="button"
+                      aria-label="Увеличить"
+                      @click.prevent="increaseCatalogQty(product)"
+                      :disabled="!product.stock || getCatalogCartQty(product.id) >= product.stock"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
             </router-link>
@@ -282,8 +290,33 @@ function truncate(text, length) {
   return text.length > length ? text.substring(0, length) + '...' : text
 }
 
-function isProductInCart(productId) {
-  return cartStore.items.some(item => item.id === productId)
+function getBaseCartItem(productId) {
+  return cartStore.items.find(item => item.id === productId && !item.selectedDosage)
+}
+
+function getCatalogCartQty(productId) {
+  const baseItem = getBaseCartItem(productId)
+  return Math.max(0, Number(baseItem?.quantity || 0))
+}
+
+function increaseCatalogQty(product) {
+  const qty = getCatalogCartQty(product.id)
+  const maxStock = Math.max(0, Number(product?.stock || 0))
+  if (maxStock > 0 && qty >= maxStock) return
+  cartStore.addItem({
+    ...product,
+    selectedDosage: null
+  })
+}
+
+function decreaseCatalogQty(product) {
+  const baseItem = getBaseCartItem(product.id)
+  if (!baseItem) return
+  if (baseItem.quantity <= 1) {
+    cartStore.removeItem(product.id, null)
+    return
+  }
+  cartStore.updateQuantity(product.id, baseItem.quantity - 1, null)
 }
 
 function normalizePrice(value) {
@@ -711,41 +744,50 @@ watch(() => route.query.category, (newCat) => {
   padding: 0.12rem 0.45rem;
 }
 
-.add-to-cart-btn {
-  width: 40px;
-  height: 40px;
+.catalog-qty-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+}
+
+.qty-btn {
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
   color: var(--text-primary);
+  font-size: 1.1rem;
+  line-height: 1;
+  font-weight: 700;
   transition: all 0.3s ease;
 }
 
-.add-to-cart-btn:hover:not(:disabled) {
+.qty-btn:hover:not(:disabled) {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--bg-primary);
 }
 
-.add-to-cart-btn:disabled {
+.qty-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.add-to-cart-btn.just-added {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg-primary);
-  animation: pulse-success 0.4s ease;
-}
-
-@keyframes pulse-success {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-  100% { transform: scale(1); }
+.qty-value {
+  min-width: 20px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 @keyframes spin {
@@ -932,6 +974,65 @@ watch(() => route.query.category, (newCat) => {
 
   .filter-section {
     margin-bottom: 1rem;
+  }
+
+  .sidebar .filter-list {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
+
+  .sidebar .filter-item {
+    width: 100%;
+    min-width: 0;
+    flex: none;
+    padding: 0.8rem 0.85rem;
+    font-size: 0.85rem;
+  }
+
+  .sidebar .filter-icon {
+    display: flex;
+    width: 26px;
+    height: 26px;
+  }
+
+  .sidebar .filter-count {
+    margin-left: auto;
+    font-size: 0.72rem;
+    padding: 0.2rem 0.55rem;
+  }
+
+  .sidebar .price-range {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sidebar .price-separator {
+    display: inline;
+  }
+
+  .sidebar .price-input {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar {
+    width: 92vw;
+    padding: max(0.9rem, env(safe-area-inset-top)) 0.8rem 1rem;
+  }
+
+  .sidebar .filter-item {
+    padding: 0.72rem 0.75rem;
+    font-size: 0.82rem;
+  }
+
+  .sidebar-close {
+    width: 34px;
+    height: 34px;
   }
 }
 </style>

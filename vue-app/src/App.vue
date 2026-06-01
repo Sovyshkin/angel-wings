@@ -394,14 +394,18 @@ onMounted(() => {
 
 <style scoped>
 .app {
+  --header-height: 72px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
 .header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
   z-index: 100;
   background: var(--bg-card);
   backdrop-filter: blur(20px);
@@ -417,7 +421,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 72px;
+  height: var(--header-height);
   gap: 1rem;
 }
 
@@ -611,6 +615,7 @@ onMounted(() => {
 
 .main {
   flex: 1;
+  padding-top: var(--header-height);
 }
 
 .footer {
@@ -908,7 +913,7 @@ onMounted(() => {
 .mobile-menu {
   display: none;
   position: fixed;
-  top: 64px;
+  top: var(--header-height);
   left: 0;
   right: 0;
   bottom: 0;
@@ -919,7 +924,7 @@ onMounted(() => {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   overscroll-behavior: contain;
-  min-height: calc(100vh - 64px);
+  min-height: calc(100vh - var(--header-height));
 }
 
 .telegram-fab {
@@ -964,6 +969,10 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  .app {
+    --header-height: 64px;
+  }
+
   .mobile-menu-btn {
     display: flex;
   }
@@ -983,9 +992,9 @@ onMounted(() => {
   }
 
   .mobile-menu {
-    top: 60px;
+    top: var(--header-height);
   }
-  
+
   .mobile-menu.open {
     pointer-events: auto !important;
   }
@@ -997,7 +1006,7 @@ onMounted(() => {
     gap: 0.5rem;
     background: var(--bg-card);
     border-radius: 0 0 20px 20px;
-    min-height: calc(100dvh - 64px);
+    min-height: calc(100dvh - var(--header-height));
   }
 
   .mobile-menu__nav .nav-link {
@@ -1098,10 +1107,6 @@ onMounted(() => {
   .logo-text {
     font-size: 0;
     letter-spacing: 0;
-  }
-
-  .mobile-menu {
-    top: 60px;
   }
 
   .footer {
