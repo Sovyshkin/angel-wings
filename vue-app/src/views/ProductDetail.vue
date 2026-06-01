@@ -117,8 +117,16 @@
               <span>{{ quantity }}</span>
               <button @click="quantity++">+</button>
             </div>
-            <button class="btn btn-primary btn-add-cart" :class="{ 'just-added': justAdded }" @click="addToCart" :disabled="currentStock <= 0">
+            <button
+              class="btn btn-primary btn-add-cart"
+              :class="{ 'just-added': justAdded, 'in-cart': isCurrentVariantInCart }"
+              @click="addToCart"
+              :disabled="currentStock <= 0"
+            >
               <svg v-if="justAdded" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <svg v-else-if="isCurrentVariantInCart" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
               <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -126,7 +134,7 @@
                 <line x1="3" y1="6" x2="21" y2="6"/>
                 <path d="M16 10a4 4 0 0 1-8 0"/>
               </svg>
-              <span>{{ justAdded ? 'Добавлено!' : 'Добавить в корзину' }}</span>
+              <span>{{ justAdded ? 'Добавлено!' : (isCurrentVariantInCart ? `Уже в корзине (${currentVariantCartQty})` : 'Добавить в корзину') }}</span>
             </button>
           </div>
           
@@ -250,6 +258,19 @@ const currentComparePrice = computed(() => {
 const currentDiscountPercent = computed(() => {
   return getDiscountPercentByValues(currentPrice.value, currentComparePrice.value)
 })
+
+const currentSelectedDosage = computed(() => {
+  return dosageSpecs.value[selectedDosageIndex.value]?.dosage || null
+})
+
+const currentVariantCartQty = computed(() => {
+  if (!product.value?.id) return 0
+  const keyDosage = currentSelectedDosage.value || null
+  const item = cartStore.items.find(i => i.id === product.value.id && (i.selectedDosage || null) === keyDosage)
+  return Math.max(0, Number(item?.quantity || 0))
+})
+
+const isCurrentVariantInCart = computed(() => currentVariantCartQty.value > 0)
 
 const productCardComparePrice = computed(() => {
   const old = normalizePrice(product.value?.comparePrice)
@@ -854,6 +875,11 @@ onMounted(async () => {
 
 .btn-add-cart.just-added {
   animation: cart-success 0.4s ease;
+}
+
+.btn-add-cart.in-cart:not(.just-added) {
+  border-color: var(--accent);
+  background: var(--accent-dim);
 }
 
 @keyframes cart-success {
