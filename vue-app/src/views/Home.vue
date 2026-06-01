@@ -263,11 +263,39 @@
                     <span class="featured-discount-badge">-{{ getDiscountPercent(product) }}%</span>
                   </div>
                 </div>
-                <span class="featured-arrow">
+                <button
+                  v-if="getFeaturedCartQty(product.id) === 0"
+                  class="featured-add-btn"
+                  type="button"
+                  aria-label="Добавить в корзину"
+                  @click.stop.prevent="increaseFeaturedQty(product)"
+                  :disabled="!product.stock"
+                >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                    <path d="M12 5v14M5 12h14"/>
                   </svg>
-                </span>
+                </button>
+                <div v-else class="featured-qty-control" @click.stop.prevent>
+                  <button
+                    class="featured-qty-btn"
+                    type="button"
+                    aria-label="Уменьшить"
+                    @click.stop.prevent="decreaseFeaturedQty(product)"
+                    :disabled="getFeaturedCartQty(product.id) <= 0"
+                  >
+                    −
+                  </button>
+                  <span class="featured-qty-value">{{ getFeaturedCartQty(product.id) }}</span>
+                  <button
+                    class="featured-qty-btn"
+                    type="button"
+                    aria-label="Увеличить"
+                    @click.stop.prevent="increaseFeaturedQty(product)"
+                    :disabled="!product.stock || getFeaturedCartQty(product.id) >= product.stock"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
             </div>
           </router-link>
@@ -384,8 +412,10 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useProductStore } from '../store/products'
+import { useCartStore } from '../store/cart'
 
 const productStore = useProductStore()
+const cartStore = useCartStore()
 const DISPLAY_CATEGORY_SLUGS = ['longevitiya', 'immunomodulyatory', 'neiropeptide', 'growth']
 
 const featuredProducts = computed(() => {
@@ -453,6 +483,35 @@ function getDiscountPercent(product) {
   const old = getOldPrice(product)
   if (!old || old <= 0 || current <= 0 || old <= current) return 0
   return Math.round(((old - current) / old) * 100)
+}
+
+function getFeaturedBaseCartItem(productId) {
+  return cartStore.items.find(item => item.id === productId && !item.selectedDosage)
+}
+
+function getFeaturedCartQty(productId) {
+  const baseItem = getFeaturedBaseCartItem(productId)
+  return Math.max(0, Number(baseItem?.quantity || 0))
+}
+
+function increaseFeaturedQty(product) {
+  const qty = getFeaturedCartQty(product.id)
+  const maxStock = Math.max(0, Number(product?.stock || 0))
+  if (maxStock > 0 && qty >= maxStock) return
+  cartStore.addItem({
+    ...product,
+    selectedDosage: null
+  })
+}
+
+function decreaseFeaturedQty(product) {
+  const baseItem = getFeaturedBaseCartItem(product.id)
+  if (!baseItem) return
+  if (baseItem.quantity <= 1) {
+    cartStore.removeItem(product.id, null)
+    return
+  }
+  cartStore.updateQuantity(product.id, baseItem.quantity - 1, null)
 }
 
 function getCategoryCount(slug) {
@@ -1169,21 +1228,74 @@ function getProductWord(count) {
   padding: 0.1rem 0.42rem;
 }
 
-.featured-arrow {
-  width: 32px;
-  height: 32px;
-  display: flex;
+.featured-add-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   background: var(--bg-secondary);
-  border-radius: 8px;
-  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text-primary);
   transition: all 0.3s ease;
 }
 
-.featured-card:hover .featured-arrow {
+.featured-add-btn:hover:not(:disabled) {
   background: var(--accent);
+  border-color: var(--accent);
   color: var(--bg-primary);
+}
+
+.featured-add-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.featured-qty-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.18rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.featured-qty-btn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: all 0.3s ease;
+}
+
+.featured-qty-btn:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-primary);
+}
+
+.featured-qty-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.featured-qty-value {
+  min-width: 18px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .cta {

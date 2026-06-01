@@ -149,7 +149,19 @@
                       <span class="price-discount-badge">-{{ getDiscountPercent(product) }}%</span>
                     </div>
                   </div>
-                  <div class="catalog-qty-control" @click.prevent>
+                  <button
+                    v-if="getCatalogCartQty(product.id) === 0"
+                    class="add-to-cart-btn"
+                    type="button"
+                    aria-label="Добавить в корзину"
+                    @click.prevent="increaseCatalogQty(product)"
+                    :disabled="!product.stock"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                  </button>
+                  <div v-else class="catalog-qty-control" @click.prevent>
                     <button
                       class="qty-btn"
                       type="button"
@@ -742,6 +754,30 @@ watch(() => route.query.category, (newCat) => {
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 999px;
   padding: 0.12rem 0.45rem;
+}
+
+.add-to-cart-btn {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.add-to-cart-btn:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-primary);
+}
+
+.add-to-cart-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .catalog-qty-control {
