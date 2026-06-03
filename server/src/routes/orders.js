@@ -344,7 +344,7 @@ async function calculateCommission(orderId, partnerId, userId, orderTotal) {
 router.post('/promo/validate', authenticate, async (req, res, next) => {
   try {
     const code = String(req.body?.code || '').trim().toUpperCase()
-    const amount = Number(req.body?.amount || 0)
+    const amount = Math.max(0, Number(req.body?.amount || 0))
 
     if (!code) {
       return res.status(400).json({ error: 'Укажите промокод' })
@@ -523,7 +523,7 @@ router.post('/', authenticate, async (req, res, next) => {
       }
 
       if (promoResult.minOrderAmount) {
-        if (orderTotal < promoResult.minOrderAmount) {
+        if (itemsSubtotal < promoResult.minOrderAmount) {
           return res.status(400).json({
             error: `Минимальная сумма заказа для этого промокода: ${promoResult.minOrderAmount}`
           })
@@ -536,7 +536,7 @@ router.post('/', authenticate, async (req, res, next) => {
       if (appliedPromoCode) {
         promoCodeId = appliedPromoCode.id
 
-        discountAmount = calculatePromoDiscount(orderTotal, appliedPromoCode)
+        discountAmount = calculatePromoDiscount(itemsSubtotal, appliedPromoCode)
 
         if (appliedPromoCode.partnerId) {
           const existingPartnerId = existingBinding?.partnerId || historicalPartnerId
@@ -581,8 +581,8 @@ router.post('/', authenticate, async (req, res, next) => {
         })
       }
 
-      const promoDiscountAmount = Math.max(0, Number(discountAmount || 0))
-      const subtotalAfterPromo = Math.max(0, orderTotal - promoDiscountAmount)
+      const promoDiscountAmount = Math.min(itemsSubtotal, Math.max(0, Number(discountAmount || 0)))
+      const subtotalAfterPromo = Math.max(0, itemsSubtotal - promoDiscountAmount) + deliveryPrice
 
       if (requestedPartnerBonusAmount > 0) {
         if (!actualUserId) {

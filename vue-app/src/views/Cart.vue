@@ -266,7 +266,7 @@
               </div>
             </div>
             <div v-if="promoDiscountPreview > 0 && !isOrderAdditionMode" class="summary-row summary-row-discount">
-              <span>Скидка по промокоду</span>
+              <span>Скидка по промокоду на товары</span>
               <span>-{{ promoDiscountPreview.toLocaleString() }} ₽</span>
             </div>
             <div v-if="partnerBonusToUse > 0 && !isOrderAdditionMode" class="summary-row summary-row-discount summary-row-discount--partner">
@@ -983,7 +983,7 @@ function schedulePromoValidation(delayMs = 450) {
 async function validatePromoCode(options = {}) {
   const { silent = false } = options
   const code = promoCodeNormalized.value
-  const currentAmount = Number(totalWithDelivery.value || 0)
+  const currentAmount = Number(cartStore.total || 0)
 
   if (!code) {
     promoDiscountPreview.value = 0
@@ -1017,7 +1017,7 @@ async function validatePromoCode(options = {}) {
 
     const discount = Math.max(0, Number(data?.discountAmount || 0))
     promoDiscountPreview.value = discount
-    setPromoFeedback('success', `Промокод применён. Скидка: ${discount.toLocaleString('ru-RU')} ₽`)
+    setPromoFeedback('success', `Промокод применён к товарам. Скидка: ${discount.toLocaleString('ru-RU')} ₽`)
     return { valid: true, data }
   } catch (e) {
     if (seq !== promoValidateSeq) {
@@ -1365,7 +1365,8 @@ const totalWithDelivery = computed(() => {
 })
 
 const totalWithPromo = computed(() => {
-  return Math.max(0, totalWithDelivery.value - promoDiscountPreview.value)
+  const productsAfterPromo = Math.max(0, cartStore.total - promoDiscountPreview.value)
+  return productsAfterPromo + deliveryPrice.value
 })
 
 const partnerBonusToUse = computed(() => {
