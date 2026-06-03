@@ -172,111 +172,16 @@
                       <div class="order-addition__head">
                         <div>
                           <h4>Добавить товары к заказу</h4>
-                          <p v-if="canAddItems(order)">Выберите позиции, мы пересчитаем доставку и сумму доплаты.</p>
+                          <p v-if="canAddItems(order)">Перейдите в корзину: там будут видны текущие товары заказа и сумма доплаты только за новые позиции.</p>
                           <p v-else>Дозаказ доступен только пока заказ не отправлен.</p>
                         </div>
                         <button
-                          v-if="canAddItems(order) && addingOrderId !== order.id"
+                          v-if="canAddItems(order)"
                           class="order-addition__open"
-                          @click="openAddItems(order)"
+                          @click="startOrderAddition(order)"
                         >
                           Добавить товары
                         </button>
-                      </div>
-
-                      <div v-if="addingOrderId === order.id" class="order-addition-panel">
-                        <div v-if="additionError" class="order-addition-alert order-addition-alert--error">{{ additionError }}</div>
-                        <div v-if="additionSuccess" class="order-addition-alert order-addition-alert--success">{{ additionSuccess }}</div>
-
-                        <div class="order-addition-form">
-                          <div class="addition-field addition-field--product">
-                            <label>Товар</label>
-                            <select v-model.number="additionForm.productId" class="input" @change="onAdditionProductChange">
-                              <option value="">Выберите товар</option>
-                              <option v-for="product in availableProducts" :key="product.id" :value="product.id">
-                                {{ product.title }} · {{ formatCurrency(getProductBasePrice(product)) }}
-                              </option>
-                            </select>
-                          </div>
-
-                          <div v-if="additionSelectedDosages.length" class="addition-field">
-                            <label>Дозировка</label>
-                            <select v-model="additionForm.selectedDosage" class="input">
-                              <option v-for="item in additionSelectedDosages" :key="item.dosage" :value="item.dosage">
-                                {{ item.dosage }} · {{ formatCurrency(getDosagePrice(item, additionSelectedProduct)) }}
-                              </option>
-                            </select>
-                          </div>
-
-                          <div class="addition-field addition-field--qty">
-                            <label>Кол-во</label>
-                            <div class="addition-qty">
-                              <button @click="additionForm.quantity = Math.max(1, additionForm.quantity - 1)">−</button>
-                              <span>{{ additionForm.quantity }}</span>
-                              <button @click="additionForm.quantity += 1">+</button>
-                            </div>
-                          </div>
-
-                          <button class="order-addition__add" @click="addDraftItem" :disabled="!additionSelectedProduct">
-                            В дозаказ
-                          </button>
-                        </div>
-
-                        <div v-if="additionDraft.length" class="addition-draft">
-                          <article v-for="item in additionDraft" :key="getDraftKey(item)" class="addition-draft-item">
-                            <img :src="item.image || '/logo.png'" :alt="item.title" @error="onOrderImageError">
-                            <div class="addition-draft-item__body">
-                              <strong>{{ item.title }}</strong>
-                              <span v-if="item.selectedDosage">{{ item.selectedDosage }}</span>
-                              <small>{{ formatCurrency(item.price) }} за шт</small>
-                            </div>
-                            <div class="addition-draft-item__qty">
-                              <button @click="changeDraftQuantity(item, -1)">−</button>
-                              <span>{{ item.quantity }}</span>
-                              <button @click="changeDraftQuantity(item, 1)">+</button>
-                            </div>
-                            <strong class="addition-draft-item__sum">{{ formatCurrency(item.price * item.quantity) }}</strong>
-                            <button class="addition-draft-item__remove" @click="removeDraftItem(item)">×</button>
-                          </article>
-                        </div>
-
-                        <div v-if="additionDraft.length" class="addition-quote">
-                          <button
-                            class="addition-quote__refresh"
-                            @click="previewOrderAddition(order)"
-                            :disabled="additionPreviewLoading"
-                          >
-                            {{ additionPreviewLoading ? 'Считаем...' : 'Пересчитать доставку' }}
-                          </button>
-
-                          <div class="addition-quote__rows">
-                            <div>
-                              <span>Новые товары</span>
-                              <strong>{{ formatCurrency(additionQuote?.itemsSubtotal ?? additionDraftSubtotal) }}</strong>
-                            </div>
-                            <div>
-                              <span>Доплата за доставку</span>
-                              <strong>{{ formatCurrency(additionQuote?.deliveryAdjustment || 0) }}</strong>
-                            </div>
-                            <div class="addition-quote__total">
-                              <span>{{ additionQuote?.paymentMode === 'cash_on_delivery' ? 'К оплате курьеру' : 'К оплате сейчас' }}</span>
-                              <strong>{{ formatCurrency(additionQuote?.paymentAmount ?? additionDraftSubtotal) }}</strong>
-                            </div>
-                          </div>
-
-                          <p v-if="additionQuote?.warning" class="addition-quote__warning">{{ additionQuote.warning }}</p>
-                        </div>
-
-                        <div class="order-addition-actions">
-                          <button class="btn btn-secondary" @click="closeAddItems">Отмена</button>
-                          <button
-                            class="btn btn-primary"
-                            @click="submitOrderAddition(order)"
-                            :disabled="!additionDraft.length || additionLoading"
-                          >
-                            {{ additionLoading ? 'Добавляем...' : 'Добавить и оплатить' }}
-                          </button>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -351,30 +256,18 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from '../store/auth'
+import { useCartStore } from '../store/cart'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const cartStore = useCartStore()
 
 const activeTab = ref('info')
 const orders = ref([])
 const successMessage = ref('')
 const expandedOrderId = ref(null)
 const partnerTabAvailable = ref(authStore.user?.role === 'ADMIN')
-const addingOrderId = ref(null)
-const availableProducts = ref([])
-const loadingAdditionProducts = ref(false)
-const additionForm = ref({
-  productId: '',
-  selectedDosage: '',
-  quantity: 1
-})
-const additionDraft = ref([])
-const additionQuote = ref(null)
-const additionError = ref('')
-const additionSuccess = ref('')
-const additionLoading = ref(false)
-const additionPreviewLoading = ref(false)
 
 const tabs = [
   { id: 'info', label: 'Мои данные', icon: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
@@ -402,16 +295,6 @@ const visibleTabs = computed(() => {
     if (tab.role === 'PARTNER') return partnerTabAvailable.value
     return true
   })
-})
-
-const additionSelectedProduct = computed(() => {
-  return availableProducts.value.find(product => Number(product.id) === Number(additionForm.value.productId)) || null
-})
-
-const additionSelectedDosages = computed(() => getProductDosages(additionSelectedProduct.value))
-
-const additionDraftSubtotal = computed(() => {
-  return additionDraft.value.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0)
 })
 
 async function resolvePartnerTabAvailability() {
@@ -479,191 +362,11 @@ function canAddItems(order) {
   return ['PENDING', 'PROCESSING'].includes(status)
 }
 
-function getProductBasePrice(product) {
-  return Math.max(0, Number(product?.price || 0))
-}
-
-function getProductDosages(product) {
-  const dosages = product?.specs?.dosages
-  if (!Array.isArray(dosages)) return []
-
-  return dosages
-    .map(item => ({
-      dosage: String(item?.dosage || '').trim(),
-      quantity: Math.max(0, parseInt(item?.quantity, 10) || 0),
-      price: item?.price !== undefined && item?.price !== null && item?.price !== ''
-        ? Math.max(0, Number(item.price) || 0)
-        : null
-    }))
-    .filter(item => item.dosage && item.quantity > 0)
-}
-
-function getDosagePrice(dosage, product) {
-  if (dosage?.price !== null && dosage?.price !== undefined) {
-    return dosage.price
-  }
-  return getProductBasePrice(product)
-}
-
-function getAdditionSelectedPrice() {
-  const product = additionSelectedProduct.value
-  if (!product) return 0
-  const dosage = additionSelectedDosages.value.find(item => item.dosage === additionForm.value.selectedDosage)
-  return dosage ? getDosagePrice(dosage, product) : getProductBasePrice(product)
-}
-
-function getDraftKey(item) {
-  return `${item.productId}::${item.selectedDosage || ''}`
-}
-
-async function fetchAdditionProducts() {
-  if (availableProducts.value.length || loadingAdditionProducts.value) return
-
-  loadingAdditionProducts.value = true
-  try {
-    const { data } = await axios.get('/api/products', { params: { limit: 100 } })
-    availableProducts.value = data.products || []
-  } catch (error) {
-    additionError.value = error.response?.data?.error || 'Не удалось загрузить товары'
-  } finally {
-    loadingAdditionProducts.value = false
-  }
-}
-
-async function openAddItems(order) {
-  expandedOrderId.value = order.id
-  addingOrderId.value = order.id
-  additionDraft.value = []
-  additionQuote.value = null
-  additionError.value = ''
-  additionSuccess.value = ''
-  additionForm.value = { productId: '', selectedDosage: '', quantity: 1 }
-  await fetchAdditionProducts()
-}
-
-function closeAddItems() {
-  addingOrderId.value = null
-  additionDraft.value = []
-  additionQuote.value = null
-  additionError.value = ''
-  additionSuccess.value = ''
-  additionForm.value = { productId: '', selectedDosage: '', quantity: 1 }
-}
-
-function onAdditionProductChange() {
-  const firstDosage = additionSelectedDosages.value[0]
-  additionForm.value.selectedDosage = firstDosage?.dosage || ''
-}
-
-function addDraftItem() {
-  const product = additionSelectedProduct.value
-  if (!product) return
-
-  const dosages = additionSelectedDosages.value
-  const selectedDosage = dosages.length
-    ? (additionForm.value.selectedDosage || dosages[0].dosage)
-    : null
-  const quantity = Math.max(1, parseInt(additionForm.value.quantity, 10) || 1)
-  const price = getAdditionSelectedPrice()
-  const draftItem = {
-    productId: product.id,
-    title: product.title,
-    image: product.image,
-    selectedDosage,
-    quantity,
-    price
-  }
-  const existing = additionDraft.value.find(item => getDraftKey(item) === getDraftKey(draftItem))
-
-  if (existing) {
-    existing.quantity += quantity
-  } else {
-    additionDraft.value.push(draftItem)
-  }
-
-  additionQuote.value = null
-  additionSuccess.value = ''
-}
-
-function removeDraftItem(item) {
-  additionDraft.value = additionDraft.value.filter(draft => getDraftKey(draft) !== getDraftKey(item))
-  additionQuote.value = null
-}
-
-function changeDraftQuantity(item, delta) {
-  const nextQuantity = Math.max(1, Number(item.quantity || 1) + delta)
-  item.quantity = nextQuantity
-  additionQuote.value = null
-}
-
-function getAdditionPayload() {
-  return additionDraft.value.map(item => ({
-    productId: item.productId,
-    quantity: item.quantity,
-    selectedDosage: item.selectedDosage || null
-  }))
-}
-
-async function previewOrderAddition(order) {
-  if (!additionDraft.value.length || !order?.id) return null
-
-  additionPreviewLoading.value = true
-  additionError.value = ''
-  try {
-    const { data } = await axios.post(`/api/orders/${order.id}/add-items/preview`, {
-      items: getAdditionPayload()
-    })
-    additionQuote.value = data.quote
-    return data.quote
-  } catch (error) {
-    additionQuote.value = null
-    additionError.value = error.response?.data?.error || 'Не удалось рассчитать дозаказ'
-    return null
-  } finally {
-    additionPreviewLoading.value = false
-  }
-}
-
-async function submitOrderAddition(order) {
-  if (!additionDraft.value.length || !order?.id) return
-
-  additionLoading.value = true
-  additionError.value = ''
-  additionSuccess.value = ''
-
-  try {
-    const quote = additionQuote.value || await previewOrderAddition(order)
-    if (!quote) return
-
-    const { data } = await axios.post(`/api/orders/${order.id}/add-items`, {
-      items: getAdditionPayload()
-    })
-
-    const paymentAmount = Number(data?.meta?.paymentAmount || 0)
-    if (data?.meta?.requiresOnlinePayment && paymentAmount > 0) {
-      const paymentResponse = await axios.post('/api/payment/create', {
-        orderId: order.id,
-        amount: paymentAmount,
-        description: `Доплата по заказу #${order.id}`
-      })
-
-      if (paymentResponse.data.success && paymentResponse.data.paymentUrl) {
-        window.location.href = paymentResponse.data.paymentUrl
-        return
-      }
-    }
-
-    additionSuccess.value = data?.meta?.paymentMode === 'cash_on_delivery'
-      ? 'Товары добавлены. Доплата будет наличными курьеру.'
-      : 'Товары добавлены к заказу.'
-    await loadOrders()
-    additionDraft.value = []
-    additionQuote.value = null
-  } catch (error) {
-    additionError.value = error.response?.data?.error || error.response?.data?.message || 'Не удалось добавить товары к заказу'
-  } finally {
-    additionLoading.value = false
-  }
+function startOrderAddition(order) {
+  if (!order?.id || !canAddItems(order)) return
+  cartStore.clear()
+  localStorage.setItem('peptidi_order_addition_id', String(order.id))
+  router.push({ path: '/cart', query: { addToOrder: order.id } })
 }
 
 function toggleOrderDetails(orderId) {

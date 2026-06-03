@@ -2,8 +2,10 @@
   <div class="cart">
     <div class="cart__hero" data-aos="fade-up">
       <div class="container">
-        <h1 class="page-title">Корзина</h1>
-        <p class="page-subtitle">Оформите заказ на выбранные товары</p>
+        <h1 class="page-title">{{ isOrderAdditionMode ? `Дозаказ к заказу #${additionOrder?.id || ''}` : 'Корзина' }}</h1>
+        <p class="page-subtitle">
+          {{ isOrderAdditionMode ? 'Добавьте новые товары к уже оформленному заказу' : 'Оформите заказ на выбранные товары' }}
+        </p>
       </div>
     </div>
 
@@ -95,7 +97,7 @@
     </Transition>
 
     <div class="container">
-      <div v-if="cartStore.items.length === 0" class="empty" data-aos="fade-up">
+      <div v-if="cartStore.items.length === 0 && !isOrderAdditionMode && !isOrderAdditionRequested" class="empty" data-aos="fade-up">
         <div class="empty-icon">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
@@ -115,6 +117,58 @@
       
       <div v-else class="cart__layout">
         <div class="cart__items" data-aos="fade-right" data-aos-delay="100">
+          <div v-if="isOrderAdditionMode" class="addition-mode-card">
+            <div class="addition-mode-card__head">
+              <span class="addition-mode-card__badge">Дозаказ</span>
+              <div>
+                <h3>Текущий заказ #{{ additionOrder?.id }}</h3>
+                <p>Эти товары уже оформлены и не входят в сумму доплаты.</p>
+              </div>
+            </div>
+
+            <div v-if="loadingAdditionOrder" class="addition-loading">
+              <span class="spinner"></span>
+              Загружаем текущий заказ...
+            </div>
+
+            <div v-else class="existing-order-items">
+              <article
+                v-for="item in additionExistingItems"
+                :key="`existing-${item.id}`"
+                class="existing-order-item"
+              >
+                <div class="item-image">
+                  <img :src="item.product?.image || '/logo.png'" :alt="item.product?.title || `Товар #${item.productId}`" @error="handleImageError">
+                </div>
+                <div class="existing-order-item__body">
+                  <h4>{{ item.product?.title || `Товар #${item.productId}` }}</h4>
+                  <span v-if="item.dosage" class="item-category">Дозировка: {{ item.dosage }}</span>
+                  <span class="existing-order-item__note">Уже в заказе, не оплачивается повторно</span>
+                </div>
+                <div class="existing-order-item__meta">
+                  <span>{{ item.quantity }} шт</span>
+                  <strong>{{ ((item.price || 0) * (item.quantity || 0)).toLocaleString('ru-RU') }} ₽</strong>
+                </div>
+              </article>
+            </div>
+
+            <div class="addition-mode-actions">
+              <router-link to="/catalog" class="btn btn-secondary">Добавить товары из каталога</router-link>
+              <button class="btn-cancel-addition" @click="cancelOrderAddition">Отменить дозаказ</button>
+            </div>
+          </div>
+
+          <div class="cart-section-title">
+            <h3>{{ isOrderAdditionMode ? 'Новые товары для дозаказа' : 'Товары в корзине' }}</h3>
+            <p v-if="isOrderAdditionMode">В доплату попадут только позиции из этого блока.</p>
+          </div>
+
+          <div v-if="cartStore.items.length === 0" class="addition-empty">
+            <p>Новые товары ещё не добавлены. Перейдите в каталог и добавьте нужные позиции.</p>
+            <router-link to="/catalog" class="btn btn-primary">Перейти в каталог</router-link>
+          </div>
+
+          <template v-else>
           <div class="cart-header">
             <span class="col-product">Товар</span>
             <span class="col-price">Цена</span>
@@ -167,28 +221,33 @@
           </div>
           
           <div class="cart-actions">
-            <button class="btn-clear" @click="cartStore.clear()">
+            <button class="btn-clear" @click="clearCartItems">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
               </svg>
-              Очистить корзину
+              {{ isOrderAdditionMode ? 'Очистить новые товары' : 'Очистить корзину' }}
             </button>
           </div>
+          </template>
         </div>
         
         <div class="cart__summary" data-aos="fade-left" data-aos-delay="200">
           <div class="summary-header">
-            <h3>Ваш заказ</h3>
-            <span class="item-count">{{ cartStore.count }} товаров</span>
+            <h3>{{ isOrderAdditionMode ? 'Расчёт дозаказа' : 'Ваш заказ' }}</h3>
+            <span class="item-count">{{ cartStore.count }} новых товаров</span>
           </div>
           
           <div class="summary-items">
-            <div class="summary-row">
-              <span>Товары</span>
-              <span>{{ cartStore.total.toLocaleString() }} ₽</span>
+            <div v-if="isOrderAdditionMode" class="summary-row summary-row-muted">
+              <span>Уже в заказе</span>
+              <span>{{ additionOldTotal.toLocaleString('ru-RU') }} ₽</span>
             </div>
             <div class="summary-row">
+              <span>{{ isOrderAdditionMode ? 'Новые товары' : 'Товары' }}</span>
+              <span>{{ cartStore.total.toLocaleString() }} ₽</span>
+            </div>
+            <div v-if="!isOrderAdditionMode" class="summary-row">
               <span>{{ deliverySummaryLabel }}</span>
               <div class="delivery-info">
                 <span v-if="deliveryPrice > 0" class="delivery-price">{{ deliveryPrice.toLocaleString() }} ₽</span>
@@ -199,18 +258,52 @@
                 </span>
               </div>
             </div>
-            <div v-if="promoDiscountPreview > 0" class="summary-row summary-row-discount">
+            <div v-if="isOrderAdditionMode" class="summary-row">
+              <span>Доплата за доставку</span>
+              <div class="delivery-info">
+                <span class="delivery-price">{{ additionDeliveryAdjustment.toLocaleString('ru-RU') }} ₽</span>
+                <span v-if="additionPreviewLoading" class="delivery-period">пересчитываем...</span>
+              </div>
+            </div>
+            <div v-if="promoDiscountPreview > 0 && !isOrderAdditionMode" class="summary-row summary-row-discount">
               <span>Скидка по промокоду</span>
               <span>-{{ promoDiscountPreview.toLocaleString() }} ₽</span>
             </div>
-            <div v-if="partnerBonusToUse > 0" class="summary-row summary-row-discount summary-row-discount--partner">
+            <div v-if="partnerBonusToUse > 0 && !isOrderAdditionMode" class="summary-row summary-row-discount summary-row-discount--partner">
               <span>Оплата из прибыли партнёра</span>
               <span>-{{ partnerBonusToUse.toLocaleString() }} ₽</span>
             </div>
           </div>
 
           <!-- Delivery Details Card -->
-          <div v-if="isDeliverySelected" class="delivery-details-card">
+          <div v-if="isOrderAdditionMode" class="delivery-details-card addition-delivery-card">
+            <div class="delivery-detail-header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="1" y="3" width="15" height="13"/>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+                <circle cx="5.5" cy="18.5" r="2.5"/>
+                <circle cx="18.5" cy="18.5" r="2.5"/>
+              </svg>
+              <span>Доставка текущего заказа</span>
+            </div>
+            <div class="delivery-detail-row">
+              <span>Способ:</span>
+              <span>{{ additionOrder?.deliveryTariffName || 'Доставка из заказа' }}</span>
+            </div>
+            <div class="delivery-detail-row">
+              <span>Адрес:</span>
+              <span>{{ additionOrder?.shippingAddress || additionOrder?.deliveryPickupName || additionOrder?.deliveryCity || '—' }}</span>
+            </div>
+            <div class="delivery-detail-row">
+              <span>Текущая доставка:</span>
+              <span>{{ additionCurrentDeliveryPrice.toLocaleString('ru-RU') }} ₽</span>
+            </div>
+            <div v-if="additionQuote?.warning" class="addition-warning">
+              {{ additionQuote.warning }}
+            </div>
+          </div>
+
+          <div v-else-if="isDeliverySelected" class="delivery-details-card">
             <div class="delivery-detail-header">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="1" y="3" width="15" height="13"/>
@@ -244,12 +337,12 @@
           </div>
           
           <div class="summary-total">
-            <span>Итого</span>
-            <span class="total-value">{{ totalAfterPartnerBonus.toLocaleString() }} ₽</span>
+            <span>{{ isOrderAdditionMode ? additionTotalLabel : 'Итого' }}</span>
+            <span class="total-value">{{ visibleTotal.toLocaleString('ru-RU') }} ₽</span>
           </div>
           
           <!-- Delivery Type Selection -->
-          <div ref="pickupSectionRef" class="pickup-section" :class="{ 'pickup-section--error': showValidationErrors && isDeliveryMissing }" tabindex="-1">
+          <div v-if="!isOrderAdditionMode" ref="pickupSectionRef" class="pickup-section" :class="{ 'pickup-section--error': showValidationErrors && isDeliveryMissing }" tabindex="-1">
             <h4>Способ получения <span class="required-mark">*</span></h4>
             
             <div class="delivery-type-options">
@@ -471,7 +564,7 @@
             </div>
           </div>
           
-          <div class="checkout-form">
+          <div v-if="!isOrderAdditionMode" class="checkout-form">
             <h4 v-if="authStore.isAuthenticated">Данные из профиля</h4>
             <h4 v-else>Контактные данные</h4>
             <p class="required-note">Поля со <span class="required-mark">*</span> обязательны</p>
@@ -669,6 +762,28 @@
               {{ ordering ? 'Оформляем...' : 'Оформить заказ' }}
             </button>
           </div>
+
+          <div v-else class="addition-checkout-card">
+            <p>
+              Старые позиции заказа отображаются слева для контроля состава, но в доплату попадут только новые товары.
+            </p>
+
+            <div v-if="validationErrors.length" class="form-validation-card" role="alert" aria-live="polite">
+              <div class="form-validation-card__title">Проверьте дозаказ</div>
+              <ul class="form-validation-card__list">
+                <li v-for="(item, idx) in validationErrors" :key="`addition-validation-${idx}`">{{ item }}</li>
+              </ul>
+            </div>
+
+            <button class="btn btn-primary btn-submit" @click="placeOrder" :disabled="ordering || loadingAdditionOrder || !cartStore.items.length">
+              <svg v-if="!ordering" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              <span v-if="ordering" class="spinner"></span>
+              {{ ordering ? 'Оформляем дозаказ...' : additionSubmitLabel }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -677,7 +792,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useCartStore } from '../store/cart'
 import { useProductStore } from '../store/products'
 import { useAuthStore } from '../store/auth'
@@ -685,6 +800,7 @@ import axios from 'axios'
 import deliveryApi from '../api/delivery'
 
 const router = useRouter()
+const route = useRoute()
 const cartStore = useCartStore()
 const productStore = useProductStore()
 const authStore = useAuthStore()
@@ -720,6 +836,7 @@ const validationErrors = ref([])
 const orderComplete = ref(false)
 const orderError = ref(null)
 const lastOrderId = ref(null)
+const completedOrderAddition = ref(false)
 const showLoginModal = ref(false)
 const loginForm = ref({ email: '', password: '' })
 const loginError = ref('')
@@ -740,6 +857,11 @@ const loadingDelivery = ref(false)
 const deliveryPrice = ref(0)
 const deliveryInfo = ref({})
 const paymentMethod = ref('online')
+const additionOrder = ref(null)
+const additionQuote = ref(null)
+const loadingAdditionOrder = ref(false)
+const additionPreviewLoading = ref(false)
+let additionPreviewTimer = null
 let promoValidateTimer = null
 let promoValidateSeq = 0
 const pickupSectionRef = ref(null)
@@ -768,6 +890,26 @@ const hasConsentErrors = computed(() => {
     !consents.value.acceptResearchTerms
 })
 const showValidationErrors = computed(() => validationErrors.value.length > 0)
+
+const isOrderAdditionMode = computed(() => Boolean(additionOrder.value?.id))
+const isOrderAdditionRequested = computed(() => Boolean(getOrderAdditionId()))
+const additionExistingItems = computed(() => additionOrder.value?.items || [])
+const additionOldTotal = computed(() => Math.max(0, Number(additionOrder.value?.total || 0)))
+const additionCurrentDeliveryPrice = computed(() => Math.max(0, Number(additionOrder.value?.deliveryPrice || 0)))
+const additionDeliveryAdjustment = computed(() => Math.max(0, Number(additionQuote.value?.deliveryAdjustment || 0)))
+const additionPaymentAmount = computed(() => {
+  if (!isOrderAdditionMode.value) return 0
+  return Math.max(0, Number(additionQuote.value?.paymentAmount ?? cartStore.total))
+})
+const additionTotalLabel = computed(() => {
+  return additionQuote.value?.paymentMode === 'cash_on_delivery' ? 'Доплата курьеру' : 'К оплате сейчас'
+})
+const additionSubmitLabel = computed(() => {
+  return additionQuote.value?.paymentMode === 'cash_on_delivery' ? 'Добавить к заказу' : 'Добавить и оплатить'
+})
+const visibleTotal = computed(() => {
+  return isOrderAdditionMode.value ? additionPaymentAmount.value : totalAfterPartnerBonus.value
+})
 
 const filteredPickupPoints = computed(() => {
   const q = pickupFilter.value.trim().toLowerCase()
@@ -954,6 +1096,102 @@ function handleImageError(e) {
   img.src = '/logo.png'
 }
 
+function getOrderAdditionId() {
+  const fromQuery = route.query.addToOrder
+  const queryValue = Array.isArray(fromQuery) ? fromQuery[0] : fromQuery
+  return queryValue || localStorage.getItem('peptidi_order_addition_id') || ''
+}
+
+function getAdditionPayloadItems() {
+  return cartStore.items.map(item => ({
+    productId: item.id,
+    quantity: item.quantity,
+    selectedDosage: item.selectedDosage || null
+  }))
+}
+
+async function loadOrderAdditionContext() {
+  const orderId = getOrderAdditionId()
+  if (!orderId) return
+
+  loadingAdditionOrder.value = true
+  orderError.value = null
+  try {
+    const { data } = await axios.get(`/api/orders/${orderId}`)
+    additionOrder.value = data.order
+    localStorage.setItem('peptidi_order_addition_id', String(data.order.id))
+    prefillFromAdditionOrder(data.order)
+    await previewOrderAddition()
+  } catch (error) {
+    additionOrder.value = null
+    localStorage.removeItem('peptidi_order_addition_id')
+    orderError.value = error.response?.data?.error || 'Не удалось загрузить заказ для дозаказа'
+  } finally {
+    loadingAdditionOrder.value = false
+  }
+}
+
+function prefillFromAdditionOrder(order) {
+  customer.value = {
+    name: order.customerName || authStore.user?.name || '',
+    phone: order.customerPhone || authStore.user?.phone || '',
+    email: order.customerEmail || authStore.user?.email || '',
+    comment: ''
+  }
+
+  deliveryPrice.value = Math.max(0, Number(order.deliveryPrice || 0))
+  deliveryInfo.value = {}
+}
+
+async function previewOrderAddition() {
+  if (!additionOrder.value?.id || !cartStore.items.length) {
+    additionQuote.value = null
+    return null
+  }
+
+  additionPreviewLoading.value = true
+  try {
+    const { data } = await axios.post(`/api/orders/${additionOrder.value.id}/add-items/preview`, {
+      items: getAdditionPayloadItems()
+    })
+    additionQuote.value = data.quote
+    return data.quote
+  } catch (error) {
+    additionQuote.value = null
+    orderError.value = error.response?.data?.error || 'Не удалось пересчитать дозаказ'
+    return null
+  } finally {
+    additionPreviewLoading.value = false
+  }
+}
+
+function scheduleOrderAdditionPreview() {
+  if (!isOrderAdditionMode.value) return
+  if (additionPreviewTimer) clearTimeout(additionPreviewTimer)
+  additionPreviewTimer = setTimeout(() => {
+    previewOrderAddition()
+  }, 350)
+}
+
+function clearOrderAdditionContext() {
+  additionOrder.value = null
+  additionQuote.value = null
+  localStorage.removeItem('peptidi_order_addition_id')
+}
+
+function cancelOrderAddition() {
+  cartStore.clear()
+  clearOrderAdditionContext()
+  router.push('/profile?tab=orders')
+}
+
+function clearCartItems() {
+  cartStore.clear()
+  if (isOrderAdditionMode.value) {
+    additionQuote.value = null
+  }
+}
+
 function prefillFromProfile() {
   if (authStore.isAuthenticated && authStore.user) {
     customer.value = {
@@ -978,7 +1216,8 @@ function prefillFromProfile() {
 
 function continueShopping() {
   orderComplete.value = false
-  router.push('/catalog')
+  router.push(completedOrderAddition.value ? '/profile?tab=orders' : '/catalog')
+  completedOrderAddition.value = false
 }
 
 function retryOrder() {
@@ -1144,6 +1383,10 @@ const totalAfterPartnerBonus = computed(() => {
 })
 
 const isFormValid = computed(() => {
+  if (isOrderAdditionMode.value) {
+    return Boolean(additionOrder.value?.id) && cartStore.items.length > 0
+  }
+
   const hasContact = customer.value.name && customer.value.phone && customer.value.email
   const hasDelivery = ENABLE_CDEK
     ? (deliveryType.value === 'pvz' ? selectedPickupPoint.value : (deliveryType.value === 'courier' ? courierAddress.value : true))
@@ -1158,6 +1401,16 @@ const isFormValid = computed(() => {
 
 function getValidationErrors() {
   const errors = []
+
+  if (isOrderAdditionMode.value) {
+    if (!additionOrder.value?.id) {
+      errors.push('Не удалось загрузить текущий заказ для дозаказа')
+    }
+    if (!cartStore.items.length) {
+      errors.push('Добавьте хотя бы один новый товар для дозаказа')
+    }
+    return errors
+  }
 
   if (!String(customer.value.name || '').trim()) {
     errors.push('Укажите имя')
@@ -1270,6 +1523,45 @@ async function placeOrder() {
   
   ordering.value = true
   try {
+    if (isOrderAdditionMode.value) {
+      const quote = additionQuote.value || await previewOrderAddition()
+      if (!quote) {
+        ordering.value = false
+        return
+      }
+
+      const { data } = await axios.post(`/api/orders/${additionOrder.value.id}/add-items`, {
+        items: getAdditionPayloadItems()
+      })
+
+      lastOrderId.value = additionOrder.value.id
+      const paymentAmount = Math.max(0, Number(data?.meta?.paymentAmount || 0))
+
+      if (data?.meta?.requiresOnlinePayment && paymentAmount > 0) {
+        const paymentResponse = await axios.post('/api/payment/create', {
+          orderId: additionOrder.value.id,
+          amount: paymentAmount,
+          description: `Доплата по заказу #${additionOrder.value.id}`
+        })
+
+        if (paymentResponse.data.success && paymentResponse.data.paymentUrl) {
+          cartStore.clear()
+          clearOrderAdditionContext()
+          window.location.href = paymentResponse.data.paymentUrl
+          return
+        }
+      }
+
+      cartStore.clear()
+      clearOrderAdditionContext()
+      completedOrderAddition.value = true
+      orderComplete.value = true
+      setTimeout(() => {
+        orderComplete.value = false
+      }, 10000)
+      return
+    }
+
     if (promoCodeNormalized.value) {
       const promoValidation = await validatePromoCode({ silent: true })
       if (!promoValidation.valid) {
@@ -1451,6 +1743,7 @@ onMounted(async () => {
   await productStore.fetchCategories()
   prefillFromProfile()
   await fetchPartnerBalance()
+  await loadOrderAdditionContext()
 
   const savedDelivery = cartStore.delivery || {}
   if (savedDelivery.type) {
@@ -1531,6 +1824,13 @@ watch(totalWithDelivery, () => {
   schedulePromoValidation(250)
 })
 
+watch(
+  () => cartStore.items.map(item => `${item.id}:${item.selectedDosage || ''}:${item.quantity}`).join('|'),
+  () => {
+    scheduleOrderAdditionPreview()
+  }
+)
+
 watch(totalWithPromo, () => {
   if (hasPartnerBalanceAccess.value) {
     normalizePartnerBonusInput()
@@ -1554,6 +1854,7 @@ watch(() => authStore.isAuthenticated, (isAuthenticated) => {
 
 onUnmounted(() => {
   if (promoValidateTimer) clearTimeout(promoValidateTimer)
+  if (additionPreviewTimer) clearTimeout(additionPreviewTimer)
 })
 </script>
 
@@ -1602,6 +1903,151 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   overflow: hidden;
+}
+
+.addition-mode-card {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(circle at 0 0, rgba(166, 185, 248, 0.14), transparent 35%),
+    linear-gradient(135deg, rgba(166, 185, 248, 0.06), rgba(255, 255, 255, 0.02));
+}
+
+.addition-mode-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.addition-mode-card__badge {
+  flex-shrink: 0;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.addition-mode-card__head h3 {
+  margin: 0 0 0.2rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.addition-mode-card__head p,
+.cart-section-title p,
+.addition-empty p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.addition-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.existing-order-items {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.existing-order-item {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.7rem;
+  border: 1px solid rgba(166, 185, 248, 0.14);
+  border-radius: 13px;
+  background: rgba(0, 0, 0, 0.12);
+  opacity: 0.82;
+}
+
+.existing-order-item .item-image {
+  width: 58px;
+  height: 58px;
+}
+
+.existing-order-item__body {
+  min-width: 0;
+}
+
+.existing-order-item__body h4 {
+  margin: 0 0 0.25rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.existing-order-item__note {
+  display: inline-flex;
+  margin-top: 0.25rem;
+  color: var(--accent);
+  font-size: 0.72rem;
+}
+
+.existing-order-item__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+
+.existing-order-item__meta span {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.existing-order-item__meta strong {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.addition-mode-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.btn-cancel-addition {
+  padding: 0.72rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cart-section-title {
+  padding: 1.1rem 1.25rem 0.7rem;
+}
+
+.cart-section-title h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.cart-section-title p {
+  margin-top: 0.25rem;
+}
+
+.addition-empty {
+  padding: 1rem 1.25rem 1.35rem;
+}
+
+.addition-empty p {
+  margin-bottom: 0.9rem;
 }
 
 .cart-header {
@@ -1803,6 +2249,15 @@ onUnmounted(() => {
   border-bottom: 1px solid var(--border);
 }
 
+.summary-row-muted {
+  color: var(--text-muted);
+}
+
+.summary-row-muted span:last-child {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
 .delivery-price {
   color: var(--accent);
   font-weight: 700;
@@ -1832,6 +2287,10 @@ onUnmounted(() => {
   margin-bottom: 1rem;
 }
 
+.addition-delivery-card {
+  border: 1px solid rgba(166, 185, 248, 0.18);
+}
+
 .delivery-detail-header {
   display: flex;
   align-items: center;
@@ -1848,6 +2307,16 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 0.375rem 0;
   font-size: 0.8125rem;
+}
+
+.addition-warning {
+  margin-top: 0.75rem;
+  padding: 0.7rem;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #ffd28a;
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 
 .delivery-detail-row span:first-child {
@@ -2004,6 +2473,24 @@ onUnmounted(() => {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--accent);
+}
+
+.addition-checkout-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-secondary);
+}
+
+.addition-checkout-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 /* Pickup Section */
@@ -2700,6 +3187,40 @@ onUnmounted(() => {
 
   .cart-actions {
     padding: 0.75rem 1rem;
+  }
+
+  .addition-mode-card {
+    padding: 1rem;
+  }
+
+  .addition-mode-card__head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .existing-order-item {
+    grid-template-columns: 52px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .existing-order-item .item-image {
+    width: 52px;
+    height: 52px;
+  }
+
+  .existing-order-item__meta {
+    grid-column: 2;
+    align-items: flex-start;
+  }
+
+  .addition-mode-actions .btn,
+  .btn-cancel-addition {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cart-section-title {
+    padding: 1rem;
   }
 
   .checkout-card {
