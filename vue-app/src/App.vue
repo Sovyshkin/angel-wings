@@ -1,25 +1,26 @@
 <template>
   <div class="app">
     <PageLoader />
-    <div class="cursor-snake">
-      <svg width="100%" height="100%">
+    <div ref="cursorRoot" class="cursor-goo" aria-hidden="true">
+      <svg class="cursor-goo__filter" width="0" height="0" focusable="false">
         <defs>
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="4" result="blur"/>
-            <feMerge>
-              <feMergeNode in="blur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
+          <filter id="cursor-goo-filter">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
+            <feColorMatrix
+              in="blur"
+              mode="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9"
+              result="goo"
+            />
+            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
           </filter>
-          <linearGradient id="snakeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="var(--accent)" stop-opacity="0"/>
-            <stop offset="20%" stop-color="var(--accent)" stop-opacity="0.8"/>
-            <stop offset="80%" stop-color="var(--accent)" stop-opacity="0.8"/>
-            <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
-          </linearGradient>
         </defs>
-        <path fill="none" stroke="url(#snakeGrad)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
       </svg>
+      <span
+        v-for="(_, index) in cursorDots"
+        :key="index"
+        :ref="el => setCursorDotRef(el, index)"
+      ></span>
     </div>
     <header class="header">
       <div class="header__container">
@@ -275,7 +276,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useCartStore } from './store/cart'
 import { useThemeStore } from './store/theme'
 import { useAuthStore } from './store/auth'
@@ -285,6 +286,11 @@ const cartStore = useCartStore()
 const themeStore = useThemeStore()
 const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
+const cursorRoot = ref(null)
+const cursorDotRefs = ref([])
+const cursorDots = Array.from({ length: 20 })
+let cursorFrameId = 0
+let removeCursorMoveListener = null
 
 const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value
@@ -303,92 +309,134 @@ const getInitials = computed(() => {
   return authStore.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 })
 
-onMounted(() => {
-  if (window.matchMedia('(pointer: fine)').matches) {
-    const snake = document.querySelector('.cursor-snake')
-    const path = snake.querySelector('path')
-    
-    const maxSegments = 12
-    const segLength = 200 / maxSegments
-    const points = Array.from({ length: maxSegments + 1 }, () => ({ x: 0, y: 0 }))
-    let mx = 0, my = 0, lastMove = Date.now()
-    
-    document.addEventListener('mousemove', (e) => { 
-      mx = e.clientX; my = e.clientY
-      lastMove = Date.now()
-    })
-    
-    function animate() {
-      const elapsed = Date.now() - lastMove
-      const shrink = elapsed > 100 ? Math.max(0, 1 - (elapsed - 100) / 400) : 1
-      
-      points[0].x += (mx - points[0].x) * 0.5
-      points[0].y += (my - points[0].y) * 0.5
-      
-      for (let i = 1; i <= maxSegments; i++) {
-        const prev = points[i - 1], curr = points[i]
-        curr.x += (prev.x - curr.x) * 0.2
-        curr.y += (prev.y - curr.y) * 0.2
-        const dx = curr.x - prev.x
-        const dy = curr.y - prev.y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist > segLength) {
-          const ratio = (dist - segLength) / dist * 0.5
-          curr.x -= dx * ratio
-          curr.y -= dy * ratio
-        }
-      }
-      
-      const activeSeg = Math.max(1, Math.ceil(shrink * maxSegments))
-      
-      let d = `M ${points[0].x} ${points[0].y}`
-      for (let i = 1; i <= activeSeg; i++) {
-        const p1 = points[i - 1], p2 = points[i]
-        d += ` Q ${p1.x} ${p1.y} ${(p1.x + p2.x) / 2} ${(p1.y + p2.y) / 2}`
-      }
-      path.setAttribute('d', d)
-      path.setAttribute('stroke-width', String(14))
-      snake.style.opacity = '1'
-      
-      requestAnimationFrame(animate)
-    }
-    animate()
+function setCursorDotRef(el, index) {
+  if (el) {
+    cursorDotRefs.value[index] = el
   }
+}
+
+onMounted(() => {
+  const canUseCustomCursor =
+    window.matchMedia('(pointer: fine)').matches &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  if (!canUseCustomCursor || !cursorRoot.value) {
+    document.documentElement.classList.remove('has-goo-cursor')
+    return
+  }
+
+  document.documentElement.classList.add('has-goo-cursor')
+
+  const dots = cursorDots.map((_, index) => ({
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+    scale: Math.max(0.2, 1 - index * 0.045)
+  }))
+  const mouse = {
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2
+  }
+
+  const onPointerMove = (event) => {
+    if (event.pointerType === 'touch') return
+    mouse.x = event.clientX
+    mouse.y = event.clientY
+    cursorRoot.value?.classList.add('is-visible')
+  }
+
+  const renderCursor = () => {
+    let x = mouse.x
+    let y = mouse.y
+
+    dots.forEach((dot, index) => {
+      const element = cursorDotRefs.value[index]
+      const easing = index === 0 ? 0.55 : 0.35
+
+      dot.x += (x - dot.x) * easing
+      dot.y += (y - dot.y) * easing
+
+      if (element) {
+        element.style.transform = `translate3d(${dot.x}px, ${dot.y}px, 0) translate(-50%, -50%) scale(${dot.scale})`
+      }
+
+      x = dot.x
+      y = dot.y
+    })
+
+    cursorFrameId = window.requestAnimationFrame(renderCursor)
+  }
+
+  window.addEventListener('pointermove', onPointerMove, { passive: true })
+  removeCursorMoveListener = () => window.removeEventListener('pointermove', onPointerMove)
+  renderCursor()
+})
+
+onBeforeUnmount(() => {
+  if (cursorFrameId) {
+    window.cancelAnimationFrame(cursorFrameId)
+  }
+  if (removeCursorMoveListener) {
+    removeCursorMoveListener()
+  }
+  document.documentElement.classList.remove('has-goo-cursor')
 })
 </script>
 
 <style>
-* { cursor: none !important; }
-
-.cursor-snake {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 99999;
-  opacity: 0;
-  overflow: visible;
-  max-width: 100vw;
+@media (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  html.has-goo-cursor,
+  html.has-goo-cursor * {
+    cursor: none !important;
+  }
 }
 
-.cursor-snake svg {
+.cursor-goo {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: block;
+  pointer-events: none;
+  opacity: 0;
+  overflow: hidden;
+  filter: url("#cursor-goo-filter");
+  mix-blend-mode: difference;
+  transition: opacity 0.18s ease;
+}
+
+.cursor-goo.is-visible {
+  opacity: 1;
+}
+
+.cursor-goo__filter {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.cursor-goo span {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  max-width: 100vw;
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  will-change: transform;
 }
 
-.cursor-snake path {
-  transition: stroke-width 0.15s;
+[data-theme="light"] .cursor-goo {
+  mix-blend-mode: normal;
 }
 
-@media (pointer: coarse) {
-  .cursor-snake { display: none; }
+[data-theme="light"] .cursor-goo span {
+  background: #11131c;
+}
+
+@media (pointer: coarse), (max-width: 480px), (prefers-reduced-motion: reduce) {
+  .cursor-goo {
+    display: none;
+  }
 }
 </style>
 
