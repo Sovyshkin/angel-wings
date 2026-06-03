@@ -189,7 +189,7 @@
               <span>{{ cartStore.total.toLocaleString() }} ₽</span>
             </div>
             <div class="summary-row">
-              <span>{{ deliveryType === 'pvz' ? 'Доставка СДЭК' : 'Курьер по Москве' }}</span>
+              <span>{{ deliverySummaryLabel }}</span>
               <div class="delivery-info">
                 <span v-if="deliveryPrice > 0" class="delivery-price">{{ deliveryPrice.toLocaleString() }} ₽</span>
                 <span v-else-if="isDeliverySelected" class="delivery-calc">Бесплатно</span>
@@ -239,7 +239,7 @@
             </div>
             <div class="delivery-detail-row">
               <span>Тариф:</span>
-              <span>{{ deliveryType === 'pvz' ? 'ПВЗ СДЭК' : 'Курьер по Москве (внутренняя)' }}</span>
+              <span>{{ deliveryTariffLabel }}</span>
             </div>
           </div>
           
@@ -274,6 +274,10 @@
                   <strong>Пункт выдачи</strong>
                   <span>Забрать в ПВЗ СДЭК</span>
                 </div>
+                <div class="option-meta">
+                  <span class="option-price">по тарифу</span>
+                  <span class="option-check"></span>
+                </div>
               </label>
               
               <label 
@@ -297,6 +301,38 @@
                 <div class="option-content">
                   <strong>Курьер</strong>
                   <span>Только по Москве, в пределах МКАД</span>
+                </div>
+                <div class="option-meta">
+                  <span class="option-price">690 ₽</span>
+                  <span class="option-check"></span>
+                </div>
+              </label>
+
+              <label
+                class="delivery-type-option"
+                :class="{ selected: deliveryType === 'self_pickup' }"
+              >
+                <input
+                  type="radio"
+                  value="self_pickup"
+                  v-model="deliveryType"
+                  @change="onDeliveryTypeChange"
+                >
+                <div class="option-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 21h18"/>
+                    <path d="M5 21V7l8-4 8 4v14"/>
+                    <path d="M9 21v-8h6v8"/>
+                    <path d="M9 9h.01M15 9h.01"/>
+                  </svg>
+                </div>
+                <div class="option-content">
+                  <strong>Самовывоз</strong>
+                  <span>Москва, Чкаловский бульвар, 6</span>
+                </div>
+                <div class="option-meta">
+                  <span class="option-price option-price--free">Бесплатно</span>
+                  <span class="option-check"></span>
                 </div>
               </label>
             </div>
@@ -418,6 +454,21 @@
               </div>
               <button class="btn-change-pickup" @click="changeDelivery">Изменить</button>
             </div>
+
+            <!-- Selected Self Pickup -->
+            <div v-if="!loadingDelivery && deliveryType === 'self_pickup'" class="selected-pickup">
+              <div class="pickup-point selected">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <div class="point-content">
+                  <strong>Самовывоз</strong>
+                  <span class="point-address">{{ SELF_PICKUP_CITY }}</span>
+                  <span class="point-time">{{ SELF_PICKUP_ADDRESS }}</span>
+                </div>
+              </div>
+            </div>
           </div>
           
           <div class="checkout-form">
@@ -518,6 +569,52 @@
               <p v-if="partnerBalanceError" class="promo-code-status promo-code-status--error">{{ partnerBalanceError }}</p>
             </div>
 
+            <div v-if="deliveryType === 'courier'" class="payment-method-card">
+              <div class="payment-method-header">
+                <span class="payment-method-eyebrow">Оплата</span>
+                <h4>Способ оплаты <span class="required-mark">*</span></h4>
+              </div>
+
+              <div class="payment-method-options">
+                <label
+                  class="payment-method-option"
+                  :class="{ selected: paymentMethod === 'online' }"
+                >
+                  <input type="radio" value="online" v-model="paymentMethod">
+                  <span class="payment-method-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="5" width="20" height="14" rx="2"/>
+                      <path d="M2 10h20"/>
+                    </svg>
+                  </span>
+                  <span class="payment-method-content">
+                    <strong>Онлайн-оплата</strong>
+                    <small>Картой или СБП через платёжную страницу</small>
+                  </span>
+                  <span class="payment-method-check"></span>
+                </label>
+
+                <label
+                  class="payment-method-option"
+                  :class="{ selected: paymentMethod === 'cash_on_delivery' }"
+                >
+                  <input type="radio" value="cash_on_delivery" v-model="paymentMethod">
+                  <span class="payment-method-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M7 7h10a2 2 0 012 2v6a2 2 0 01-2 2H7a2 2 0 01-2-2V9a2 2 0 012-2z"/>
+                      <circle cx="12" cy="12" r="2"/>
+                      <path d="M5 10a3 3 0 003-3M16 17a3 3 0 003-3"/>
+                    </svg>
+                  </span>
+                  <span class="payment-method-content">
+                    <strong>Наличными курьеру</strong>
+                    <small>Оплата при получении заказа в Москве</small>
+                  </span>
+                  <span class="payment-method-check"></span>
+                </label>
+              </div>
+            </div>
+
             <div ref="consentsSectionRef" class="consents" :class="{ 'consents--error': showValidationErrors && hasConsentErrors }" tabindex="-1">
               <label class="consent-item">
                 <input type="checkbox" v-model="consents.rememberContacts">
@@ -596,6 +693,9 @@ const ENABLE_CDEK = true
 const INTERNAL_COURIER_CITY = 'Москва'
 const INTERNAL_COURIER_CITY_CODE = '44'
 const INTERNAL_COURIER_PRICE = 690
+const SELF_PICKUP_CITY = 'Москва'
+const SELF_PICKUP_ADDRESS = 'г. Москва, Чкаловский бульвар, 6'
+const SELF_PICKUP_PRICE = 0
 
 const customer = ref({ name: '', phone: '', email: '', comment: '' })
 const consents = ref({
@@ -626,7 +726,7 @@ const loginError = ref('')
 const loggingIn = ref(false)
 
 // Delivery state
-const deliveryType = ref(ENABLE_PVZ ? 'pvz' : 'courier') // 'pvz' or 'courier'
+const deliveryType = ref(ENABLE_PVZ ? 'pvz' : 'courier') // 'pvz', 'courier' or 'self_pickup'
 const citySearch = ref('')
 const foundCityName = ref('')
 const foundCityCode = ref('')
@@ -639,6 +739,7 @@ const loadingPickup = ref(false)
 const loadingDelivery = ref(false)
 const deliveryPrice = ref(0)
 const deliveryInfo = ref({})
+const paymentMethod = ref('online')
 let promoValidateTimer = null
 let promoValidateSeq = 0
 const pickupSectionRef = ref(null)
@@ -656,7 +757,9 @@ const isCourierAddressMissing = computed(() => {
 })
 const isDeliveryMissing = computed(() => {
   if (!ENABLE_CDEK) return false
-  return deliveryType.value === 'pvz' ? !selectedPickupPoint.value : isCourierAddressMissing.value
+  if (deliveryType.value === 'pvz') return !selectedPickupPoint.value
+  if (deliveryType.value === 'courier') return isCourierAddressMissing.value
+  return false
 })
 const hasConsentErrors = computed(() => {
   return !consents.value.acceptOffer ||
@@ -678,7 +781,20 @@ const filteredPickupPoints = computed(() => {
 
 const isDeliverySelected = computed(() => {
   if (deliveryType.value === 'pvz') return Boolean(selectedPickupPoint.value)
-  return Boolean(courierAddress.value)
+  if (deliveryType.value === 'courier') return Boolean(courierAddress.value)
+  return deliveryType.value === 'self_pickup'
+})
+
+const deliverySummaryLabel = computed(() => {
+  if (deliveryType.value === 'pvz') return 'Доставка СДЭК'
+  if (deliveryType.value === 'courier') return 'Курьер по Москве'
+  return 'Самовывоз'
+})
+
+const deliveryTariffLabel = computed(() => {
+  if (deliveryType.value === 'pvz') return 'ПВЗ СДЭК'
+  if (deliveryType.value === 'courier') return 'Курьер по Москве (внутренняя)'
+  return 'Самовывоз'
 })
 const promoCodeNormalized = computed(() => String(promoCode.value || '').trim().toUpperCase())
 
@@ -886,6 +1002,9 @@ function onDeliveryTypeChange() {
     deliveryType.value = 'courier'
   }
   changeDelivery()
+  if (deliveryType.value === 'self_pickup') {
+    selectSelfPickup()
+  }
 }
 
 async function searchCityAndPickup() {
@@ -983,6 +1102,25 @@ function selectCourierDelivery() {
   })
 }
 
+function selectSelfPickup() {
+  foundCityName.value = SELF_PICKUP_CITY
+  foundCityCode.value = ''
+  deliveryPrice.value = SELF_PICKUP_PRICE
+  deliveryInfo.value = {
+    period_min: 0,
+    period_max: 0
+  }
+  cartStore.setDeliveryPrice(SELF_PICKUP_PRICE)
+  cartStore.setDelivery({
+    type: 'self_pickup',
+    city: SELF_PICKUP_CITY,
+    pickupPoint: null,
+    pickupPointName: SELF_PICKUP_ADDRESS,
+    deliveryPrice: SELF_PICKUP_PRICE,
+    deliveryInfo: deliveryInfo.value
+  })
+}
+
 const totalWithDelivery = computed(() => {
   return cartStore.total + deliveryPrice.value
 })
@@ -1008,7 +1146,7 @@ const totalAfterPartnerBonus = computed(() => {
 const isFormValid = computed(() => {
   const hasContact = customer.value.name && customer.value.phone && customer.value.email
   const hasDelivery = ENABLE_CDEK
-    ? (deliveryType.value === 'pvz' ? selectedPickupPoint.value : courierAddress.value)
+    ? (deliveryType.value === 'pvz' ? selectedPickupPoint.value : (deliveryType.value === 'courier' ? courierAddress.value : true))
     : true
   const hasAllConsents =
     consents.value.acceptOffer &&
@@ -1161,12 +1299,20 @@ async function placeOrder() {
       deliveryData.pickup_point = selectedPickupPoint.value.code
       deliveryData.pickup_point_name = selectedPickupPoint.value.name
       deliveryData.address = selectedPickupPoint.value.address
-    } else {
+    } else if (deliveryType.value === 'courier') {
       deliveryData.price = INTERNAL_COURIER_PRICE
       deliveryData.city = INTERNAL_COURIER_CITY
       deliveryData.type = 'courier_internal_moscow'
       deliveryData.tariff_name = 'Курьер по Москве (внутренняя доставка)'
       deliveryData.address = courierAddress.value
+    } else {
+      deliveryData.price = SELF_PICKUP_PRICE
+      deliveryData.city = SELF_PICKUP_CITY
+      deliveryData.type = 'self_pickup'
+      deliveryData.tariff_name = 'Самовывоз'
+      deliveryData.pickup_point = null
+      deliveryData.pickup_point_name = SELF_PICKUP_ADDRESS
+      deliveryData.address = SELF_PICKUP_ADDRESS
     }
     
     const orderData = {
@@ -1178,8 +1324,11 @@ async function placeOrder() {
       customerName: customer.value.name,
       customerEmail: customer.value.email,
       customerPhone: customer.value.phone,
-      shippingAddress: deliveryType.value === 'courier' ? courierAddress.value : (selectedPickupPoint.value?.address || null),
+      shippingAddress: deliveryType.value === 'courier'
+        ? courierAddress.value
+        : (deliveryType.value === 'self_pickup' ? SELF_PICKUP_ADDRESS : (selectedPickupPoint.value?.address || null)),
       notes: customer.value.comment,
+      paymentMethod: deliveryType.value === 'courier' ? paymentMethod.value : 'online',
       delivery: deliveryData
     }
 
@@ -1246,6 +1395,15 @@ async function placeOrder() {
       }
     }
     
+    if (deliveryType.value === 'courier' && paymentMethod.value === 'cash_on_delivery') {
+      cartStore.clear()
+      orderComplete.value = true
+      setTimeout(() => {
+        orderComplete.value = false
+      }, 10000)
+      return
+    }
+
     if (createdOrderTotal <= 0) {
       cartStore.clear()
       orderComplete.value = true
@@ -1314,6 +1472,13 @@ onMounted(async () => {
     foundCityName.value = INTERNAL_COURIER_CITY
     foundCityCode.value = INTERNAL_COURIER_CITY_CODE
   }
+  if (savedDelivery.type === 'self_pickup') {
+    foundCityName.value = SELF_PICKUP_CITY
+    foundCityCode.value = ''
+    deliveryPrice.value = SELF_PICKUP_PRICE
+    deliveryInfo.value = savedDelivery.deliveryInfo || {}
+    cartStore.setDeliveryPrice(SELF_PICKUP_PRICE)
+  }
   if (savedDelivery.deliveryPrice) {
     deliveryPrice.value = savedDelivery.deliveryPrice
     cartStore.setDeliveryPrice(savedDelivery.deliveryPrice)
@@ -1345,6 +1510,12 @@ watch(
     validationErrors.value = getValidationErrors()
   }
 )
+
+watch(deliveryType, (nextType) => {
+  if (nextType !== 'courier') {
+    paymentMethod.value = 'online'
+  }
+})
 
 watch(promoCodeNormalized, (nextCode) => {
   if (!nextCode) {
@@ -1857,34 +2028,34 @@ onUnmounted(() => {
 
 /* Delivery Type Options */
 .delivery-type-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
 
 .delivery-type-option {
-  display: flex;
-  flex-direction: column;
-  align-items: start;
-  gap: 0.75rem;
-  min-height: 88px;
-  padding: 0.95rem 1rem;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 74px;
+  padding: 0.9rem;
   background: var(--bg-card);
-  border: 2px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
 }
 
 .delivery-type-option:hover {
   border-color: var(--accent);
+  transform: translateY(-1px);
 }
 
 .delivery-type-option.selected {
   border-color: var(--accent);
-  background: var(--accent-dim);
+  background: linear-gradient(135deg, var(--accent-dim), rgba(166, 185, 248, 0.04));
 }
 
 .delivery-type-option input {
@@ -1914,7 +2085,7 @@ onUnmounted(() => {
 .option-content {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.25rem;
   min-width: 0;
 }
 
@@ -1927,6 +2098,176 @@ onUnmounted(() => {
   font-size: 0.75rem;
   color: var(--text-muted);
   line-height: 1.35;
+}
+
+.option-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  justify-self: end;
+}
+
+.option-price {
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.option-price--free {
+  color: var(--accent);
+}
+
+.option-check {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.delivery-type-option.selected .option-check {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.delivery-type-option.selected .option-check::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 3px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--bg-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.payment-method-card {
+  margin: 1rem 0 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top right, rgba(166, 185, 248, 0.14), transparent 34%),
+    var(--bg-secondary);
+}
+
+.payment-method-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.85rem;
+}
+
+.payment-method-header h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+}
+
+.payment-method-eyebrow {
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.payment-method-options {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.payment-method-option {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.payment-method-option:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.payment-method-option.selected {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--accent-dim), rgba(166, 185, 248, 0.05));
+}
+
+.payment-method-option input {
+  display: none;
+}
+
+.payment-method-icon {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+}
+
+.payment-method-option.selected .payment-method-icon {
+  color: var(--bg-primary);
+  background: var(--accent);
+}
+
+.payment-method-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.payment-method-content strong {
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  line-height: 1.2;
+}
+
+.payment-method-content small {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.payment-method-check {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  position: relative;
+}
+
+.payment-method-option.selected .payment-method-check {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.payment-method-option.selected .payment-method-check::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 3px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--bg-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .pickup-search {
@@ -2382,7 +2723,23 @@ onUnmounted(() => {
   }
 
   .delivery-type-options {
-    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .delivery-type-option {
+    grid-template-columns: 40px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .delivery-type-option .option-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .option-meta {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 0.15rem;
   }
 }
 

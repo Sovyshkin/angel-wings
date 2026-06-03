@@ -651,6 +651,9 @@ function getStatusLabel(status) {
 
 function getPaymentBadge(status) {
   const key = String(status || '').trim().toUpperCase()
+  if (key === 'CASH_ON_DELIVERY') {
+    return 'payment-cash'
+  }
   if (['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].some(code => key.includes(code))) {
     return 'payment-paid'
   }
@@ -662,6 +665,9 @@ function getPaymentBadge(status) {
 
 function getPaymentLabel(status) {
   const key = String(status || '').trim().toUpperCase()
+  if (key === 'CASH_ON_DELIVERY') {
+    return 'Наличными курьеру'
+  }
   if (['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].some(code => key.includes(code))) {
     return 'Оплачен'
   }
@@ -990,6 +996,11 @@ onMounted(fetchOrders)
 .payment-badge.payment-pending {
   background: #f59e0b22;
   color: #f59e0b;
+}
+
+.payment-badge.payment-cash {
+  background: #38bdf822;
+  color: #38bdf8;
 }
 
 .payment-badge.payment-failed {

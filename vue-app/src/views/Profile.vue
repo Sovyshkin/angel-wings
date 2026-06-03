@@ -167,6 +167,118 @@
                       <h4>Комментарий</h4>
                       <p>{{ order.notes }}</p>
                     </div>
+
+                    <div class="order-addition">
+                      <div class="order-addition__head">
+                        <div>
+                          <h4>Добавить товары к заказу</h4>
+                          <p v-if="canAddItems(order)">Выберите позиции, мы пересчитаем доставку и сумму доплаты.</p>
+                          <p v-else>Дозаказ доступен только пока заказ не отправлен.</p>
+                        </div>
+                        <button
+                          v-if="canAddItems(order) && addingOrderId !== order.id"
+                          class="order-addition__open"
+                          @click="openAddItems(order)"
+                        >
+                          Добавить товары
+                        </button>
+                      </div>
+
+                      <div v-if="addingOrderId === order.id" class="order-addition-panel">
+                        <div v-if="additionError" class="order-addition-alert order-addition-alert--error">{{ additionError }}</div>
+                        <div v-if="additionSuccess" class="order-addition-alert order-addition-alert--success">{{ additionSuccess }}</div>
+
+                        <div class="order-addition-form">
+                          <div class="addition-field addition-field--product">
+                            <label>Товар</label>
+                            <select v-model.number="additionForm.productId" class="input" @change="onAdditionProductChange">
+                              <option value="">Выберите товар</option>
+                              <option v-for="product in availableProducts" :key="product.id" :value="product.id">
+                                {{ product.title }} · {{ formatCurrency(getProductBasePrice(product)) }}
+                              </option>
+                            </select>
+                          </div>
+
+                          <div v-if="additionSelectedDosages.length" class="addition-field">
+                            <label>Дозировка</label>
+                            <select v-model="additionForm.selectedDosage" class="input">
+                              <option v-for="item in additionSelectedDosages" :key="item.dosage" :value="item.dosage">
+                                {{ item.dosage }} · {{ formatCurrency(getDosagePrice(item, additionSelectedProduct)) }}
+                              </option>
+                            </select>
+                          </div>
+
+                          <div class="addition-field addition-field--qty">
+                            <label>Кол-во</label>
+                            <div class="addition-qty">
+                              <button @click="additionForm.quantity = Math.max(1, additionForm.quantity - 1)">−</button>
+                              <span>{{ additionForm.quantity }}</span>
+                              <button @click="additionForm.quantity += 1">+</button>
+                            </div>
+                          </div>
+
+                          <button class="order-addition__add" @click="addDraftItem" :disabled="!additionSelectedProduct">
+                            В дозаказ
+                          </button>
+                        </div>
+
+                        <div v-if="additionDraft.length" class="addition-draft">
+                          <article v-for="item in additionDraft" :key="getDraftKey(item)" class="addition-draft-item">
+                            <img :src="item.image || '/logo.png'" :alt="item.title" @error="onOrderImageError">
+                            <div class="addition-draft-item__body">
+                              <strong>{{ item.title }}</strong>
+                              <span v-if="item.selectedDosage">{{ item.selectedDosage }}</span>
+                              <small>{{ formatCurrency(item.price) }} за шт</small>
+                            </div>
+                            <div class="addition-draft-item__qty">
+                              <button @click="changeDraftQuantity(item, -1)">−</button>
+                              <span>{{ item.quantity }}</span>
+                              <button @click="changeDraftQuantity(item, 1)">+</button>
+                            </div>
+                            <strong class="addition-draft-item__sum">{{ formatCurrency(item.price * item.quantity) }}</strong>
+                            <button class="addition-draft-item__remove" @click="removeDraftItem(item)">×</button>
+                          </article>
+                        </div>
+
+                        <div v-if="additionDraft.length" class="addition-quote">
+                          <button
+                            class="addition-quote__refresh"
+                            @click="previewOrderAddition(order)"
+                            :disabled="additionPreviewLoading"
+                          >
+                            {{ additionPreviewLoading ? 'Считаем...' : 'Пересчитать доставку' }}
+                          </button>
+
+                          <div class="addition-quote__rows">
+                            <div>
+                              <span>Новые товары</span>
+                              <strong>{{ formatCurrency(additionQuote?.itemsSubtotal ?? additionDraftSubtotal) }}</strong>
+                            </div>
+                            <div>
+                              <span>Доплата за доставку</span>
+                              <strong>{{ formatCurrency(additionQuote?.deliveryAdjustment || 0) }}</strong>
+                            </div>
+                            <div class="addition-quote__total">
+                              <span>{{ additionQuote?.paymentMode === 'cash_on_delivery' ? 'К оплате курьеру' : 'К оплате сейчас' }}</span>
+                              <strong>{{ formatCurrency(additionQuote?.paymentAmount ?? additionDraftSubtotal) }}</strong>
+                            </div>
+                          </div>
+
+                          <p v-if="additionQuote?.warning" class="addition-quote__warning">{{ additionQuote.warning }}</p>
+                        </div>
+
+                        <div class="order-addition-actions">
+                          <button class="btn btn-secondary" @click="closeAddItems">Отмена</button>
+                          <button
+                            class="btn btn-primary"
+                            @click="submitOrderAddition(order)"
+                            :disabled="!additionDraft.length || additionLoading"
+                          >
+                            {{ additionLoading ? 'Добавляем...' : 'Добавить и оплатить' }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </article>
               </div>
@@ -249,6 +361,20 @@ const orders = ref([])
 const successMessage = ref('')
 const expandedOrderId = ref(null)
 const partnerTabAvailable = ref(authStore.user?.role === 'ADMIN')
+const addingOrderId = ref(null)
+const availableProducts = ref([])
+const loadingAdditionProducts = ref(false)
+const additionForm = ref({
+  productId: '',
+  selectedDosage: '',
+  quantity: 1
+})
+const additionDraft = ref([])
+const additionQuote = ref(null)
+const additionError = ref('')
+const additionSuccess = ref('')
+const additionLoading = ref(false)
+const additionPreviewLoading = ref(false)
 
 const tabs = [
   { id: 'info', label: 'Мои данные', icon: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
@@ -276,6 +402,16 @@ const visibleTabs = computed(() => {
     if (tab.role === 'PARTNER') return partnerTabAvailable.value
     return true
   })
+})
+
+const additionSelectedProduct = computed(() => {
+  return availableProducts.value.find(product => Number(product.id) === Number(additionForm.value.productId)) || null
+})
+
+const additionSelectedDosages = computed(() => getProductDosages(additionSelectedProduct.value))
+
+const additionDraftSubtotal = computed(() => {
+  return additionDraft.value.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0)
 })
 
 async function resolvePartnerTabAvailability() {
@@ -338,6 +474,198 @@ function onOrderImageError(event) {
   img.src = '/logo.png'
 }
 
+function canAddItems(order) {
+  const status = String(order?.rawStatus || order?.status || '').toUpperCase()
+  return ['PENDING', 'PROCESSING'].includes(status)
+}
+
+function getProductBasePrice(product) {
+  return Math.max(0, Number(product?.price || 0))
+}
+
+function getProductDosages(product) {
+  const dosages = product?.specs?.dosages
+  if (!Array.isArray(dosages)) return []
+
+  return dosages
+    .map(item => ({
+      dosage: String(item?.dosage || '').trim(),
+      quantity: Math.max(0, parseInt(item?.quantity, 10) || 0),
+      price: item?.price !== undefined && item?.price !== null && item?.price !== ''
+        ? Math.max(0, Number(item.price) || 0)
+        : null
+    }))
+    .filter(item => item.dosage && item.quantity > 0)
+}
+
+function getDosagePrice(dosage, product) {
+  if (dosage?.price !== null && dosage?.price !== undefined) {
+    return dosage.price
+  }
+  return getProductBasePrice(product)
+}
+
+function getAdditionSelectedPrice() {
+  const product = additionSelectedProduct.value
+  if (!product) return 0
+  const dosage = additionSelectedDosages.value.find(item => item.dosage === additionForm.value.selectedDosage)
+  return dosage ? getDosagePrice(dosage, product) : getProductBasePrice(product)
+}
+
+function getDraftKey(item) {
+  return `${item.productId}::${item.selectedDosage || ''}`
+}
+
+async function fetchAdditionProducts() {
+  if (availableProducts.value.length || loadingAdditionProducts.value) return
+
+  loadingAdditionProducts.value = true
+  try {
+    const { data } = await axios.get('/api/products', { params: { limit: 100 } })
+    availableProducts.value = data.products || []
+  } catch (error) {
+    additionError.value = error.response?.data?.error || 'Не удалось загрузить товары'
+  } finally {
+    loadingAdditionProducts.value = false
+  }
+}
+
+async function openAddItems(order) {
+  expandedOrderId.value = order.id
+  addingOrderId.value = order.id
+  additionDraft.value = []
+  additionQuote.value = null
+  additionError.value = ''
+  additionSuccess.value = ''
+  additionForm.value = { productId: '', selectedDosage: '', quantity: 1 }
+  await fetchAdditionProducts()
+}
+
+function closeAddItems() {
+  addingOrderId.value = null
+  additionDraft.value = []
+  additionQuote.value = null
+  additionError.value = ''
+  additionSuccess.value = ''
+  additionForm.value = { productId: '', selectedDosage: '', quantity: 1 }
+}
+
+function onAdditionProductChange() {
+  const firstDosage = additionSelectedDosages.value[0]
+  additionForm.value.selectedDosage = firstDosage?.dosage || ''
+}
+
+function addDraftItem() {
+  const product = additionSelectedProduct.value
+  if (!product) return
+
+  const dosages = additionSelectedDosages.value
+  const selectedDosage = dosages.length
+    ? (additionForm.value.selectedDosage || dosages[0].dosage)
+    : null
+  const quantity = Math.max(1, parseInt(additionForm.value.quantity, 10) || 1)
+  const price = getAdditionSelectedPrice()
+  const draftItem = {
+    productId: product.id,
+    title: product.title,
+    image: product.image,
+    selectedDosage,
+    quantity,
+    price
+  }
+  const existing = additionDraft.value.find(item => getDraftKey(item) === getDraftKey(draftItem))
+
+  if (existing) {
+    existing.quantity += quantity
+  } else {
+    additionDraft.value.push(draftItem)
+  }
+
+  additionQuote.value = null
+  additionSuccess.value = ''
+}
+
+function removeDraftItem(item) {
+  additionDraft.value = additionDraft.value.filter(draft => getDraftKey(draft) !== getDraftKey(item))
+  additionQuote.value = null
+}
+
+function changeDraftQuantity(item, delta) {
+  const nextQuantity = Math.max(1, Number(item.quantity || 1) + delta)
+  item.quantity = nextQuantity
+  additionQuote.value = null
+}
+
+function getAdditionPayload() {
+  return additionDraft.value.map(item => ({
+    productId: item.productId,
+    quantity: item.quantity,
+    selectedDosage: item.selectedDosage || null
+  }))
+}
+
+async function previewOrderAddition(order) {
+  if (!additionDraft.value.length || !order?.id) return null
+
+  additionPreviewLoading.value = true
+  additionError.value = ''
+  try {
+    const { data } = await axios.post(`/api/orders/${order.id}/add-items/preview`, {
+      items: getAdditionPayload()
+    })
+    additionQuote.value = data.quote
+    return data.quote
+  } catch (error) {
+    additionQuote.value = null
+    additionError.value = error.response?.data?.error || 'Не удалось рассчитать дозаказ'
+    return null
+  } finally {
+    additionPreviewLoading.value = false
+  }
+}
+
+async function submitOrderAddition(order) {
+  if (!additionDraft.value.length || !order?.id) return
+
+  additionLoading.value = true
+  additionError.value = ''
+  additionSuccess.value = ''
+
+  try {
+    const quote = additionQuote.value || await previewOrderAddition(order)
+    if (!quote) return
+
+    const { data } = await axios.post(`/api/orders/${order.id}/add-items`, {
+      items: getAdditionPayload()
+    })
+
+    const paymentAmount = Number(data?.meta?.paymentAmount || 0)
+    if (data?.meta?.requiresOnlinePayment && paymentAmount > 0) {
+      const paymentResponse = await axios.post('/api/payment/create', {
+        orderId: order.id,
+        amount: paymentAmount,
+        description: `Доплата по заказу #${order.id}`
+      })
+
+      if (paymentResponse.data.success && paymentResponse.data.paymentUrl) {
+        window.location.href = paymentResponse.data.paymentUrl
+        return
+      }
+    }
+
+    additionSuccess.value = data?.meta?.paymentMode === 'cash_on_delivery'
+      ? 'Товары добавлены. Доплата будет наличными курьеру.'
+      : 'Товары добавлены к заказу.'
+    await loadOrders()
+    additionDraft.value = []
+    additionQuote.value = null
+  } catch (error) {
+    additionError.value = error.response?.data?.error || error.response?.data?.message || 'Не удалось добавить товары к заказу'
+  } finally {
+    additionLoading.value = false
+  }
+}
+
 function toggleOrderDetails(orderId) {
   expandedOrderId.value = expandedOrderId.value === orderId ? null : orderId
 }
@@ -349,6 +677,7 @@ async function loadOrders() {
       const statusView = mapOrderStatus(order.status)
       return {
         ...order,
+        rawStatus: order.status,
         date: formatDate(order.createdAt),
         status: statusView.css,
         statusText: statusView.text
@@ -881,6 +1210,266 @@ onMounted(async () => {
   color: var(--text-secondary);
 }
 
+.order-addition {
+  padding: 1rem;
+  border: 1px solid rgba(166, 185, 248, 0.18);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 0 0, rgba(166, 185, 248, 0.14), transparent 38%),
+    rgba(255, 255, 255, 0.025);
+}
+
+.order-addition__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.order-addition__head h4 {
+  margin: 0 0 0.25rem;
+  color: var(--text-primary);
+}
+
+.order-addition__head p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.order-addition__open,
+.order-addition__add,
+.addition-quote__refresh {
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-addition__open {
+  padding: 0.65rem 0.95rem;
+  white-space: nowrap;
+}
+
+.order-addition-panel {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.order-addition-alert {
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.order-addition-alert--error {
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+  color: #ffb4b4;
+}
+
+.order-addition-alert--success {
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.12);
+  color: #9ff0b9;
+}
+
+.order-addition-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, 0.6fr) 118px auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.addition-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.addition-field label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.addition-field .input {
+  min-height: 42px;
+}
+
+.addition-qty {
+  display: grid;
+  grid-template-columns: 34px 1fr 34px;
+  align-items: center;
+  min-height: 42px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-primary);
+}
+
+.addition-qty button,
+.addition-draft-item__qty button {
+  height: 100%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.addition-qty span,
+.addition-draft-item__qty span {
+  text-align: center;
+  font-weight: 800;
+}
+
+.order-addition__add {
+  min-height: 42px;
+  padding: 0 0.9rem;
+}
+
+.order-addition__add:disabled,
+.addition-quote__refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.addition-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.addition-draft-item {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 96px auto 28px;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg-primary);
+}
+
+.addition-draft-item img {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.addition-draft-item__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.addition-draft-item__body strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.addition-draft-item__body span,
+.addition-draft-item__body small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.addition-draft-item__qty {
+  display: grid;
+  grid-template-columns: 28px 1fr 28px;
+  align-items: center;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.addition-draft-item__sum {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.addition-draft-item__remove {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ff9a9a;
+  cursor: pointer;
+}
+
+.addition-quote {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.9rem;
+  align-items: start;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.addition-quote__refresh {
+  padding: 0.65rem 0.9rem;
+}
+
+.addition-quote__rows {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.addition-quote__rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.addition-quote__rows strong {
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.addition-quote__total {
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+}
+
+.addition-quote__total strong {
+  color: var(--accent);
+  font-size: 1rem;
+}
+
+.addition-quote__warning {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #ffd88a;
+  font-size: 0.82rem;
+}
+
+.order-addition-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
 .settings-form {
   display: flex;
   flex-direction: column;
@@ -994,6 +1583,22 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 
+  .order-addition-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .addition-field--product {
+    grid-column: 1 / -1;
+  }
+
+  .order-addition__add {
+    grid-column: 1 / -1;
+  }
+
+  .addition-quote {
+    grid-template-columns: 1fr;
+  }
+
   .order-products-grid {
     grid-template-columns: 1fr;
   }
@@ -1087,6 +1692,60 @@ onMounted(async () => {
   }
 
   .order-delivery-status {
+    width: 100%;
+  }
+
+  .order-addition {
+    padding: 0.85rem;
+  }
+
+  .order-addition__head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-addition__open {
+    width: 100%;
+  }
+
+  .order-addition-form {
+    grid-template-columns: 1fr;
+  }
+
+  .addition-field--product,
+  .order-addition__add {
+    grid-column: auto;
+  }
+
+  .addition-draft-item {
+    grid-template-columns: 48px minmax(0, 1fr) 28px;
+    align-items: start;
+  }
+
+  .addition-draft-item img {
+    width: 48px;
+    height: 48px;
+  }
+
+  .addition-draft-item__qty {
+    grid-column: 2;
+    width: 96px;
+  }
+
+  .addition-draft-item__sum {
+    grid-column: 2;
+  }
+
+  .addition-draft-item__remove {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .addition-quote__rows > div {
+    font-size: 0.82rem;
+  }
+
+  .order-addition-actions .btn {
     width: 100%;
   }
 

@@ -9,6 +9,7 @@ import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 const router = Router()
 const prisma = new PrismaClient()
 const VALID_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+const ADDABLE_ORDER_STATUSES = ['PENDING', 'PROCESSING']
 
 function getDosagePriceFromSpecs(product, selectedDosage) {
   if (!selectedDosage || !product?.specs) return null
@@ -83,6 +84,208 @@ function createClientError(message, status = 400) {
   const error = new Error(message)
   error.status = status
   return error
+}
+
+function normalizePaymentStatusValue(status) {
+  return String(status || '').trim().toUpperCase()
+}
+
+function isPaidStatus(status) {
+  return ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].some(code =>
+    normalizePaymentStatusValue(status).includes(code)
+  )
+}
+
+function normalizeAdditionItems(rawItems) {
+  if (!Array.isArray(rawItems)) return []
+
+  return rawItems
+    .map((item) => ({
+      productId: parseInt(item?.productId, 10),
+      quantity: Math.max(1, parseInt(item?.quantity, 10) || 1),
+      selectedDosage: item?.selectedDosage ? String(item.selectedDosage).trim() : null
+    }))
+    .filter(item => Number.isFinite(item.productId) && item.productId > 0)
+}
+
+function getOrderItemsWeight(items = []) {
+  return items.reduce((sum, item) => {
+    const weight = Math.max(0, parseInt(item?.product?.weight, 10) || 0)
+    const quantity = Math.max(0, parseInt(item?.quantity, 10) || 0)
+    return sum + weight * quantity
+  }, 0)
+}
+
+function getPickupPointCityCode(pickupPoint) {
+  return pickupPoint?.location?.city_code ||
+    pickupPoint?.location?.cityCode ||
+    pickupPoint?.city_code ||
+    pickupPoint?.cityCode ||
+    null
+}
+
+async function calculateUpdatedDeliveryPrice(order, totalWeight) {
+  const currentDeliveryPrice = Math.max(0, Number(order?.deliveryPrice || 0))
+  const isCdekPickup = Boolean(order?.deliveryPickupPoint && order?.deliveryTariffCode)
+  const isInternalCourier = String(order?.deliveryTariffName || '').toLowerCase().includes('курьер по москве')
+
+  if (isInternalCourier || !isCdekPickup) {
+    return {
+      deliveryPrice: currentDeliveryPrice,
+      recalculated: false,
+      warning: null
+    }
+  }
+
+  try {
+    const pickupPoint = await cdek.getPickupPoint(order.deliveryPickupPoint)
+    const toCode = getPickupPointCityCode(pickupPoint)
+
+    if (!toCode) {
+      return {
+        deliveryPrice: currentDeliveryPrice,
+        recalculated: false,
+        warning: 'Не удалось определить город ПВЗ СДЭК для пересчёта доставки'
+      }
+    }
+
+    const calculated = await cdek.calculateDeliveryByTariff({
+      tariff_code: order.deliveryTariffCode,
+      to_code: toCode,
+      weight: Math.max(1, totalWeight),
+      length: 10,
+      width: 10,
+      height: 10
+    })
+
+    const nextDeliveryPrice = Math.max(
+      currentDeliveryPrice,
+      Number(calculated?.delivery_sum || calculated?.total_sum || calculated?.price || currentDeliveryPrice) || currentDeliveryPrice
+    )
+
+    return {
+      deliveryPrice: nextDeliveryPrice,
+      recalculated: true,
+      warning: order.cdekOrderUuid
+        ? 'Доставка пересчитана локально. Если заказ уже создан в СДЭК, состав отправления нужно проверить в кабинете СДЭК.'
+        : null
+    }
+  } catch (error) {
+    console.error('[ORDER_ADD_ITEMS] CDEK delivery recalculation failed:', error?.message || error)
+    return {
+      deliveryPrice: currentDeliveryPrice,
+      recalculated: false,
+      warning: 'СДЭК временно не ответил на пересчёт доставки, поэтому стоимость доставки оставлена без изменений'
+    }
+  }
+}
+
+async function buildOrderAdditionQuote(orderId, user, rawItems) {
+  if (!Number.isFinite(orderId)) {
+    throw createClientError('Некорректный ID заказа')
+  }
+
+  const additionItems = normalizeAdditionItems(rawItems)
+  if (!additionItems.length) {
+    throw createClientError('Выберите товары для добавления')
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          product: {
+            select: { id: true, title: true, image: true, price: true, stock: true, weight: true, specs: true, active: true }
+          }
+        }
+      }
+    }
+  })
+
+  if (!order) {
+    throw createClientError('Заказ не найден', 404)
+  }
+
+  if (order.userId && order.userId !== user.id && user.role !== 'ADMIN') {
+    throw createClientError('Доступ запрещён', 403)
+  }
+
+  if (!ADDABLE_ORDER_STATUSES.includes(String(order.status || '').toUpperCase())) {
+    throw createClientError('Добавить товары можно только в заказ, который ещё не отправлен')
+  }
+
+  const productIds = [...new Set(additionItems.map(item => item.productId))]
+  const products = await prisma.product.findMany({
+    where: {
+      id: { in: productIds },
+      active: true
+    },
+    select: { id: true, title: true, image: true, price: true, stock: true, weight: true, specs: true }
+  })
+  const productMap = new Map(products.map(product => [product.id, product]))
+
+  const normalizedItems = []
+  let itemsSubtotal = 0
+  let addedWeight = 0
+
+  for (const item of additionItems) {
+    const product = productMap.get(item.productId)
+    if (!product) {
+      throw createClientError(`Товар ${item.productId} не найден или скрыт`)
+    }
+    if (product.stock < item.quantity) {
+      throw createClientError(`Недостаточно товара "${product.title}"`)
+    }
+
+    const dosagePrice = getDosagePriceFromSpecs(product, item.selectedDosage)
+    const price = dosagePrice !== null ? dosagePrice : Math.max(0, Number(product.price) || 0)
+    const weight = Math.max(0, parseInt(product.weight, 10) || 0)
+    const lineTotal = price * item.quantity
+
+    itemsSubtotal += lineTotal
+    addedWeight += weight * item.quantity
+    normalizedItems.push({
+      productId: product.id,
+      title: product.title,
+      image: product.image,
+      selectedDosage: item.selectedDosage,
+      quantity: item.quantity,
+      price,
+      lineTotal,
+      weight
+    })
+  }
+
+  const currentDeliveryPrice = Math.max(0, Number(order.deliveryPrice || 0))
+  const currentWeight = getOrderItemsWeight(order.items)
+  const nextWeight = Math.max(1, currentWeight + addedWeight)
+  const deliveryQuote = await calculateUpdatedDeliveryPrice(order, nextWeight)
+  const deliveryAdjustment = Math.max(0, Number(deliveryQuote.deliveryPrice || 0) - currentDeliveryPrice)
+  const oldOrderTotal = Math.max(0, Number(order.total || 0))
+  const newOrderTotal = oldOrderTotal + itemsSubtotal + deliveryAdjustment
+  const isCashOnDelivery = normalizePaymentStatusValue(order.paymentStatus) === 'CASH_ON_DELIVERY'
+  const requiresOnlinePayment = !isCashOnDelivery && (isPaidStatus(order.paymentStatus) ? itemsSubtotal + deliveryAdjustment : newOrderTotal) > 0
+  const paymentAmount = isCashOnDelivery
+    ? 0
+    : (isPaidStatus(order.paymentStatus) ? itemsSubtotal + deliveryAdjustment : newOrderTotal)
+
+  return {
+    order,
+    items: normalizedItems,
+    itemsSubtotal,
+    currentDeliveryPrice,
+    nextDeliveryPrice: deliveryQuote.deliveryPrice,
+    deliveryAdjustment,
+    oldOrderTotal,
+    newOrderTotal,
+    paymentAmount,
+    requiresOnlinePayment,
+    paymentMode: isCashOnDelivery ? 'cash_on_delivery' : 'online',
+    totalWeight: nextWeight,
+    deliveryRecalculated: deliveryQuote.recalculated,
+    warning: deliveryQuote.warning
+  }
 }
 
 async function bindUserToPartner(userId, partnerId, promoCodeId = null, source = 'link') {
@@ -212,6 +415,7 @@ router.post('/', authenticate, async (req, res, next) => {
       userId, 
       promoCode,
       delivery,
+      paymentMethod,
       partnerBonusAmount
     } = req.body
 
@@ -223,6 +427,14 @@ router.post('/', authenticate, async (req, res, next) => {
     const isInternalMoscowCourier =
       normalizedDeliveryType === 'courier_internal_moscow' ||
       normalizedDeliveryType === 'courier'
+    const normalizedPaymentMethod = String(paymentMethod || 'online').trim().toLowerCase()
+    const isCashOnDelivery = normalizedPaymentMethod === 'cash_on_delivery'
+
+    if (isCashOnDelivery && !isInternalMoscowCourier) {
+      return res.status(400).json({
+        error: 'Оплата наличными доступна только для курьерской доставки по Москве'
+      })
+    }
 
     if (isInternalMoscowCourier) {
       const courierAddress = String(delivery?.address || shippingAddress || '').trim()
@@ -418,7 +630,7 @@ router.post('/', authenticate, async (req, res, next) => {
           shippingAddress: shippingAddress || delivery?.address || null,
           notes,
           total: finalOrderTotal,
-          paymentStatus: finalOrderTotal <= 0 ? 'PAID' : 'PENDING',
+          paymentStatus: finalOrderTotal <= 0 ? 'PAID' : (isCashOnDelivery ? 'CASH_ON_DELIVERY' : 'PENDING'),
           userId: actualUserId,
           promoCodeId,
           discountAmount: totalDiscountAmount,
@@ -510,7 +722,8 @@ router.post('/', authenticate, async (req, res, next) => {
       order,
       meta: {
         ...(partnerLockNotice ? { partnerNotice: partnerLockNotice } : {}),
-        partnerBonusUsed
+        partnerBonusUsed,
+        paymentMethod: isCashOnDelivery ? 'cash_on_delivery' : 'online'
       }
     })
   } catch (error) {
@@ -582,6 +795,136 @@ router.get('/my', authenticate, async (req, res, next) => {
     })
 
     res.json({ orders: responseOrders })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/:id/add-items/preview', authenticate, async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.id, 10)
+    const quote = await buildOrderAdditionQuote(orderId, req.user, req.body?.items)
+
+    res.json({
+      success: true,
+      quote: {
+        items: quote.items,
+        itemsSubtotal: quote.itemsSubtotal,
+        currentDeliveryPrice: quote.currentDeliveryPrice,
+        nextDeliveryPrice: quote.nextDeliveryPrice,
+        deliveryAdjustment: quote.deliveryAdjustment,
+        oldOrderTotal: quote.oldOrderTotal,
+        newOrderTotal: quote.newOrderTotal,
+        paymentAmount: quote.paymentAmount,
+        requiresOnlinePayment: quote.requiresOnlinePayment,
+        paymentMode: quote.paymentMode,
+        totalWeight: quote.totalWeight,
+        deliveryRecalculated: quote.deliveryRecalculated,
+        warning: quote.warning
+      }
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/:id/add-items', authenticate, async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.id, 10)
+    const quote = await buildOrderAdditionQuote(orderId, req.user, req.body?.items)
+
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      for (const item of quote.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { decrement: item.quantity } }
+        })
+
+        const existingItem = quote.order.items.find(orderItem =>
+          orderItem.productId === item.productId &&
+          String(orderItem.dosage || '') === String(item.selectedDosage || '')
+        )
+
+        if (existingItem) {
+          await tx.orderItem.update({
+            where: { id: existingItem.id },
+            data: {
+              quantity: { increment: item.quantity },
+              price: item.price
+            }
+          })
+        } else {
+          await tx.orderItem.create({
+            data: {
+              orderId: quote.order.id,
+              productId: item.productId,
+              dosage: item.selectedDosage || null,
+              quantity: item.quantity,
+              price: item.price
+            }
+          })
+        }
+      }
+
+      const paymentStatus = quote.paymentMode === 'cash_on_delivery'
+        ? 'CASH_ON_DELIVERY'
+        : (quote.paymentAmount > 0 ? 'PENDING' : quote.order.paymentStatus)
+
+      const order = await tx.order.update({
+        where: { id: quote.order.id },
+        data: {
+          total: quote.newOrderTotal,
+          deliveryPrice: quote.nextDeliveryPrice,
+          paymentStatus,
+          paymentId: quote.paymentAmount > 0 && quote.paymentMode !== 'cash_on_delivery' ? null : quote.order.paymentId
+        },
+        include: {
+          items: {
+            include: {
+              product: {
+                select: { title: true, image: true }
+              }
+            }
+          }
+        }
+      })
+
+      if (order.partnerId) {
+        const existingCommission = await tx.partnerCommission.findUnique({
+          where: { orderId: order.id }
+        })
+
+        if (existingCommission) {
+          const deliveryPart = Math.max(0, Number(order.deliveryPrice || 0))
+          const commissionBase = Math.max(0, Number(order.total || 0) - deliveryPart)
+          const nextCommissionAmount = commissionBase * (Number(existingCommission.percentage || 0) / 100)
+
+          await tx.partnerCommission.update({
+            where: { orderId: order.id },
+            data: { amount: nextCommissionAmount }
+          })
+        }
+      }
+
+      return order
+    })
+
+    res.json({
+      success: true,
+      order: updatedOrder,
+      meta: {
+        addedItems: quote.items,
+        itemsSubtotal: quote.itemsSubtotal,
+        deliveryAdjustment: quote.deliveryAdjustment,
+        oldOrderTotal: quote.oldOrderTotal,
+        newOrderTotal: quote.newOrderTotal,
+        paymentAmount: quote.paymentAmount,
+        requiresOnlinePayment: quote.requiresOnlinePayment,
+        paymentMode: quote.paymentMode,
+        deliveryRecalculated: quote.deliveryRecalculated,
+        warning: quote.warning
+      }
+    })
   } catch (error) {
     next(error)
   }
