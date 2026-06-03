@@ -73,6 +73,66 @@ function extractWebhookFields(payload) {
   return { paymentLinkId, paymentId, status }
 }
 
+function getRedirectUrls(orderId) {
+  const baseUrl = process.env.TOCHKA_REDIRECT_BASE_URL || process.env.CLIENT_URL || ''
+  console.log('[PAYMENT] redirect baseUrl check', JSON.stringify({
+    baseUrl,
+    isHttps: baseUrl.startsWith('https://')
+  }))
+
+  if (!baseUrl || !baseUrl.startsWith('https://')) {
+    const error = new Error('Для интеграции Точка требуется HTTPS URL для редиректов. Укажите TOCHKA_REDIRECT_BASE_URL=https://... в .env')
+    error.status = 400
+    throw error
+  }
+
+  return {
+    redirectUrl: `${baseUrl}/order-success?orderId=${orderId}`,
+    failRedirectUrl: `${baseUrl}/order-failed?orderId=${orderId}`
+  }
+}
+
+async function createPaymentForOrder(order, description) {
+  const amount = Math.max(0, Number(order.total || 0))
+
+  if (amount <= 0) {
+    return {
+      success: true,
+      alreadyPaid: true,
+      paymentStatus: order.paymentStatus || 'PAID'
+    }
+  }
+
+  const { redirectUrl, failRedirectUrl } = getRedirectUrls(order.id)
+  const result = await tochkaService.createPayment(
+    amount,
+    order.id,
+    description || `Оплата заказа #${order.id}`,
+    redirectUrl,
+    failRedirectUrl
+  )
+
+  if (!result.success || !result.paymentUrl) {
+    return result
+  }
+
+  const resolvedPaymentId = result.paymentId || extractUuidFromPaymentUrl(result.paymentUrl)
+  if (resolvedPaymentId) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        paymentId: String(resolvedPaymentId),
+        paymentStatus: 'PENDING'
+      }
+    })
+  }
+
+  return {
+    ...result,
+    paymentId: resolvedPaymentId || null
+  }
+}
+
 // Create payment link
 router.post('/create', async (req, res, next) => {
   try {
@@ -88,18 +148,7 @@ router.post('/create', async (req, res, next) => {
       return res.status(400).json({ error: 'Не указан ID заказа или сумма' })
     }
 
-    const baseUrl = process.env.TOCHKA_REDIRECT_BASE_URL || process.env.CLIENT_URL || ''
-    console.log('[PAYMENT] /create redirect baseUrl check', JSON.stringify({
-      baseUrl,
-      isHttps: baseUrl.startsWith('https://')
-    }))
-    if (!baseUrl || !baseUrl.startsWith('https://')) {
-      return res.status(400).json({
-        error: 'Для интеграции Точка требуется HTTPS URL для редиректов. Укажите TOCHKA_REDIRECT_BASE_URL=https://... в .env'
-      })
-    }
-    const redirectUrl = `${baseUrl}/order-success?orderId=${orderId}`
-    const failRedirectUrl = `${baseUrl}/order-failed?orderId=${orderId}`
+    const { redirectUrl, failRedirectUrl } = getRedirectUrls(orderId)
 
     const result = await tochkaService.createPayment(
       amount,
@@ -142,6 +191,63 @@ router.post('/create', async (req, res, next) => {
       }
       res.status(500).json(response)
     }
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/create-for-order/:orderId', authenticate, async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.orderId, 10)
+    if (!Number.isFinite(orderId)) {
+      return res.status(400).json({ error: 'Некорректный orderId' })
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        userId: true,
+        total: true,
+        paymentStatus: true
+      }
+    })
+
+    if (!order) {
+      return res.status(404).json({ error: 'Заказ не найден' })
+    }
+
+    if (order.userId && order.userId !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Доступ запрещён' })
+    }
+
+    if (normalizePaymentStatus(order.paymentStatus) === 'PAID') {
+      return res.json({
+        success: true,
+        alreadyPaid: true,
+        paymentStatus: 'PAID'
+      })
+    }
+
+    if (String(order.paymentStatus || '').toUpperCase() === 'CASH_ON_DELIVERY') {
+      return res.status(400).json({ error: 'Этот заказ оплачивается наличными при получении' })
+    }
+
+    const result = await createPaymentForOrder(order, req.body?.description)
+
+    if (result.success && result.paymentUrl) {
+      return res.json({
+        success: true,
+        paymentUrl: result.paymentUrl,
+        paymentId: result.paymentId || null
+      })
+    }
+
+    if (result.alreadyPaid) {
+      return res.json(result)
+    }
+
+    res.status(500).json({ error: result.error || 'Ошибка создания платежа' })
   } catch (error) {
     next(error)
   }

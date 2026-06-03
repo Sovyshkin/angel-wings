@@ -91,6 +91,9 @@
                     </div>
                     <div class="order-status-wrap">
                       <span class="order-status" :class="order.status">{{ order.statusText }}</span>
+                      <span class="payment-status" :class="getPaymentStatusTone(order.paymentStatus)">
+                        {{ getPaymentStatusLabel(order.paymentStatus) }}
+                      </span>
                       <div
                         v-if="order.deliveryStatusSource === 'cdek' && (order.cdekStatusName || order.cdekStatusCode)"
                         class="order-delivery-status"
@@ -101,6 +104,24 @@
                         <span v-if="order.cdekStatusDate" class="order-delivery-status__time">{{ formatDateTime(order.cdekStatusDate) }}</span>
                       </div>
                     </div>
+                  </div>
+
+                  <div v-if="canPayOrder(order)" class="order-payment-alert">
+                    <div>
+                      <strong>Заказ ожидает оплату</strong>
+                      <span>Если вы вернулись со страницы оплаты без платежа, можно продолжить оплату по новой ссылке.</span>
+                    </div>
+                    <button
+                      class="order-pay-button"
+                      :disabled="payingOrderId === order.id"
+                      @click="payOrder(order)"
+                    >
+                      {{ payingOrderId === order.id ? 'Создаём ссылку...' : 'Оплатить' }}
+                    </button>
+                  </div>
+
+                  <div v-if="paymentErrorByOrderId[order.id]" class="order-payment-error">
+                    {{ paymentErrorByOrderId[order.id] }}
                   </div>
 
                   <div class="order-metrics">
@@ -268,6 +289,8 @@ const orders = ref([])
 const successMessage = ref('')
 const expandedOrderId = ref(null)
 const partnerTabAvailable = ref(authStore.user?.role === 'ADMIN')
+const payingOrderId = ref(null)
+const paymentErrorByOrderId = ref({})
 
 const tabs = [
   { id: 'info', label: 'Мои данные', icon: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
@@ -348,6 +371,73 @@ function getCdekStatusTone(order) {
   if (localStatus === 'completed') return 'success'
   if (localStatus === 'cancelled') return 'danger'
   return 'progress'
+}
+
+function getPaymentStatusLabel(status) {
+  const normalized = String(status || '').toUpperCase()
+  if (normalized === 'PAID') return 'Оплачен'
+  if (normalized === 'CASH_ON_DELIVERY') return 'Оплата наличными'
+  if (normalized === 'FAILED') return 'Не оплачен'
+  if (normalized === 'PENDING') return 'Ожидает оплату'
+  return 'Ожидает оплату'
+}
+
+function getPaymentStatusTone(status) {
+  const normalized = String(status || '').toUpperCase()
+  if (normalized === 'PAID') return 'payment-status--paid'
+  if (normalized === 'CASH_ON_DELIVERY') return 'payment-status--cash'
+  if (normalized === 'FAILED') return 'payment-status--failed'
+  return 'payment-status--pending'
+}
+
+function canPayOrder(order) {
+  const paymentStatus = String(order?.paymentStatus || '').toUpperCase()
+  const orderStatus = String(order?.rawStatus || '').toUpperCase()
+  return Number(order?.total || 0) > 0 &&
+    ['PENDING', 'FAILED', ''].includes(paymentStatus) &&
+    orderStatus !== 'CANCELLED'
+}
+
+async function payOrder(order) {
+  if (!order?.id || payingOrderId.value) return
+
+  payingOrderId.value = order.id
+  paymentErrorByOrderId.value = {
+    ...paymentErrorByOrderId.value,
+    [order.id]: ''
+  }
+
+  try {
+    const syncResponse = await axios.post(`/api/payment/sync-order/${order.id}`)
+    const syncedStatus = String(syncResponse?.data?.paymentStatus || '').toUpperCase()
+    if (syncedStatus === 'PAID') {
+      order.paymentStatus = 'PAID'
+      return
+    }
+
+    const { data } = await axios.post(`/api/payment/create-for-order/${order.id}`, {
+      description: `Оплата заказа #${order.id}`
+    })
+
+    if (data.alreadyPaid) {
+      order.paymentStatus = 'PAID'
+      return
+    }
+
+    if (data.success && data.paymentUrl) {
+      window.location.href = data.paymentUrl
+      return
+    }
+
+    throw new Error(data.error || 'Не удалось создать ссылку для оплаты')
+  } catch (error) {
+    paymentErrorByOrderId.value = {
+      ...paymentErrorByOrderId.value,
+      [order.id]: error?.response?.data?.error || error.message || 'Не удалось создать ссылку для оплаты'
+    }
+  } finally {
+    payingOrderId.value = null
+  }
 }
 
 function onOrderImageError(event) {
@@ -744,6 +834,103 @@ onMounted(async () => {
 .order-status.cancelled {
   background: rgba(255, 100, 100, 0.15);
   color: var(--danger);
+}
+
+.payment-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.payment-status--paid {
+  border-color: rgba(34, 197, 94, 0.34);
+  background: rgba(34, 197, 94, 0.13);
+  color: #77f0a0;
+}
+
+.payment-status--pending {
+  border-color: rgba(251, 191, 36, 0.34);
+  background: rgba(251, 191, 36, 0.13);
+  color: #ffd36a;
+}
+
+.payment-status--failed {
+  border-color: rgba(239, 68, 68, 0.36);
+  background: rgba(239, 68, 68, 0.13);
+  color: #ff9d9d;
+}
+
+.payment-status--cash {
+  border-color: rgba(166, 185, 248, 0.34);
+  background: rgba(166, 185, 248, 0.13);
+  color: var(--accent);
+}
+
+.order-payment-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 0 0, rgba(251, 191, 36, 0.16), transparent 42%),
+    rgba(251, 191, 36, 0.06);
+}
+
+.order-payment-alert strong,
+.order-payment-alert span {
+  display: block;
+}
+
+.order-payment-alert strong {
+  margin-bottom: 0.2rem;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.order-payment-alert span {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.order-pay-button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 0.65rem 1rem;
+  border: 1px solid rgba(166, 185, 248, 0.55);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), #d8e0ff);
+  color: #11131c;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(166, 185, 248, 0.18);
+}
+
+.order-pay-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.order-payment-error {
+  margin: -0.35rem 0 1rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ffb4b4;
+  font-size: 0.86rem;
 }
 
 .order-metrics {
@@ -1395,6 +1582,19 @@ onMounted(async () => {
   }
 
   .order-delivery-status {
+    width: 100%;
+  }
+
+  .payment-status {
+    width: 100%;
+  }
+
+  .order-payment-alert {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-pay-button {
     width: 100%;
   }
 
