@@ -312,7 +312,7 @@
           </div>
 
           <div class="detail-section" v-if="selectedOrder.deliveryTariffName">
-            <h4 class="section-title">Доставка СДЭК</h4>
+            <h4 class="section-title">{{ getDeliverySectionTitle(selectedOrder) }}</h4>
             <div class="cdek-info">
               <div class="cdek-tariff">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -338,12 +338,12 @@
                 </div>
               </div>
               <div v-if="selectedOrder.cdekOrderUuid" class="cdek-uuid">
-                <span class="uuid-label">UUID заказа:</span>
+                <span class="uuid-label">UUID СДЭК:</span>
                 <code>{{ selectedOrder.cdekOrderUuid }}</code>
               </div>
             </div>
 
-            <div class="cdek-actions">
+            <div v-if="isCdekDelivery(selectedOrder)" class="cdek-actions">
               <button 
                 v-if="!selectedOrder.cdekOrderUuid" 
                 @click="createCdekOrder" 
@@ -558,8 +558,42 @@ function viewOrder(order) {
   cdekStatus.value = null
 }
 
+function getDeliveryType(order) {
+  const tariffName = String(order?.deliveryTariffName || '').toLowerCase()
+
+  if (tariffName.includes('самовывоз')) {
+    return 'self_pickup'
+  }
+
+  if (tariffName.includes('курьер по москве') || tariffName.includes('внутренняя доставка')) {
+    return 'courier'
+  }
+
+  if (order?.deliveryPickupPoint || order?.cdekOrderUuid || order?.deliveryTariffCode) {
+    return 'cdek'
+  }
+
+  return 'delivery'
+}
+
+function isCdekDelivery(order) {
+  return getDeliveryType(order) === 'cdek'
+}
+
+function getDeliverySectionTitle(order) {
+  const type = getDeliveryType(order)
+  if (type === 'courier') return 'Курьерская доставка'
+  if (type === 'self_pickup') return 'Самовывоз'
+  if (type === 'cdek') return 'Доставка СДЭК'
+  return 'Доставка'
+}
+
 async function createCdekOrder() {
   if (!selectedOrder.value) return
+  if (!isCdekDelivery(selectedOrder.value)) {
+    alert('Создание заказа в СДЭК доступно только для доставки СДЭК')
+    return
+  }
   
   creatingCdek.value = true
   try {
