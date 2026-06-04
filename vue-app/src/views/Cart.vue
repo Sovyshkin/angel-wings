@@ -442,7 +442,7 @@
                   v-model="pickupCombinedSearch" 
                   type="text" 
                   class="input" 
-                  placeholder="Город и улица, например: Оренбург, Дзержинского"
+                  placeholder="Город и улица, например: Москва, Тверская"
                   @keyup.enter="searchCityAndPickup"
                 >
                 <button class="btn btn-secondary" @click="searchCityAndPickup" :disabled="loadingPickup">
