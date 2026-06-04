@@ -929,14 +929,44 @@ const parsedPickupSearch = computed(() => {
   }
 
   const words = raw.split(/\s+/).filter(Boolean)
-  if (words.length >= 3) {
+  if (words.length === 1) {
+    return { city: raw, street: '' }
+  }
+
+  const first = words[0].toLowerCase()
+  const second = words[1]?.toLowerCase() || ''
+  const threeWordCityStarts = new Set(['ростов'])
+  const twoWordCityStarts = new Set([
+    'санкт',
+    'нижний',
+    'великий',
+    'великие',
+    'старый',
+    'новый',
+    'новая',
+    'набережные',
+    'минеральные',
+    'сергиев'
+  ])
+
+  if (threeWordCityStarts.has(first) && second === 'на' && words.length >= 3) {
+    return {
+      city: words.slice(0, 3).join(' '),
+      street: words.slice(3).join(' ')
+    }
+  }
+
+  if (twoWordCityStarts.has(first) && words.length >= 2) {
     return {
       city: words.slice(0, 2).join(' '),
       street: words.slice(2).join(' ')
     }
   }
 
-  return { city: raw, street: '' }
+  return {
+    city: words[0],
+    street: words.slice(1).join(' ')
+  }
 })
 
 const isDeliverySelected = computed(() => {
