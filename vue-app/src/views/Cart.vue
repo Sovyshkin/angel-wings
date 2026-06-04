@@ -439,28 +439,22 @@
             <div v-if="ENABLE_PVZ && !loadingDelivery && deliveryType === 'pvz' && !selectedPickupPoint" class="pvz-section">
               <div class="pickup-search">
                 <input 
-                  v-model="citySearch" 
+                  v-model="pickupCombinedSearch" 
                   type="text" 
                   class="input" 
-                  placeholder="Введите название города..."
+                  placeholder="Город и улица, например: Оренбург, Дзержинского"
                   @keyup.enter="searchCityAndPickup"
                 >
                 <button class="btn btn-secondary" @click="searchCityAndPickup" :disabled="loadingPickup">
                   Найти
                 </button>
               </div>
+              <p class="pickup-search-hint">
+                Можно указать только город или город и улицу через запятую.
+              </p>
               
               <div v-if="foundCityName" class="found-info">
-                ПВЗ в г. {{ foundCityName }}:
-              </div>
-
-              <div v-if="pickupPoints.length" class="pickup-filter">
-                <input
-                  v-model="pickupFilter"
-                  type="text"
-                  class="input"
-                  placeholder="Поиск ПВЗ по улице или адресу..."
-                >
+                ПВЗ в г. {{ foundCityName }}<span v-if="pickupFilter">, поиск: {{ pickupFilter }}</span>
               </div>
               
               <div class="pickup-list">
@@ -845,6 +839,7 @@ const loggingIn = ref(false)
 // Delivery state
 const deliveryType = ref(ENABLE_PVZ ? 'pvz' : 'courier') // 'pvz', 'courier' or 'self_pickup'
 const citySearch = ref('')
+const pickupCombinedSearch = ref('')
 const foundCityName = ref('')
 const foundCityCode = ref('')
 const pickupPoints = ref([])
@@ -919,6 +914,29 @@ const filteredPickupPoints = computed(() => {
     const address = String(point?.address || '').toLowerCase()
     return name.includes(q) || address.includes(q)
   })
+})
+
+const parsedPickupSearch = computed(() => {
+  const raw = String(pickupCombinedSearch.value || '').trim()
+  if (!raw) return { city: '', street: '' }
+
+  const commaParts = raw.split(',').map(part => part.trim()).filter(Boolean)
+  if (commaParts.length > 1) {
+    return {
+      city: commaParts[0],
+      street: commaParts.slice(1).join(' ')
+    }
+  }
+
+  const words = raw.split(/\s+/).filter(Boolean)
+  if (words.length >= 3) {
+    return {
+      city: words.slice(0, 2).join(' '),
+      street: words.slice(2).join(' ')
+    }
+  }
+
+  return { city: raw, street: '' }
 })
 
 const isDeliverySelected = computed(() => {
@@ -1228,6 +1246,8 @@ function retryOrder() {
 function changeDelivery() {
   selectedPickupPoint.value = null
   pickupFilter.value = ''
+  pickupCombinedSearch.value = ''
+  citySearch.value = ''
   courierAddress.value = ''
   addressInput.value = ''
   deliveryPrice.value = 0
@@ -1247,16 +1267,18 @@ function onDeliveryTypeChange() {
 }
 
 async function searchCityAndPickup() {
-  if (!citySearch.value || citySearch.value.length < 3) return
+  const { city, street } = parsedPickupSearch.value
+  if (!city || city.length < 3) return
+  citySearch.value = city
   
   loadingPickup.value = true
   pickupPoints.value = []
-  pickupFilter.value = ''
+  pickupFilter.value = street
   foundCityName.value = ''
   foundCityCode.value = ''
   
   try {
-    const res = await deliveryApi.post('/find-city', { name: citySearch.value })
+    const res = await deliveryApi.post('/find-city', { name: city })
     if (res.data && Array.isArray(res.data) && res.data.length > 0) {
       const city = res.data[0]
       foundCityName.value = city.city
@@ -1753,6 +1775,7 @@ onMounted(async () => {
   if (savedDelivery.city) {
     foundCityName.value = savedDelivery.city
     citySearch.value = savedDelivery.city
+    pickupCombinedSearch.value = savedDelivery.city
   }
   if (savedDelivery.cityCode) {
     foundCityCode.value = savedDelivery.cityCode
@@ -2761,11 +2784,18 @@ onUnmounted(() => {
 .pickup-search {
   display: flex;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.4rem;
 }
 
 .pickup-search .input {
   flex: 1;
+}
+
+.pickup-search-hint {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .pickup-filter {
