@@ -210,7 +210,9 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
       order.promoCode = order.promoCodeId ? (promoById.get(order.promoCodeId) || null) : null
     }
     
-    const maybeUnsynced = orders.filter(order => order.paymentId && order.paymentStatus !== 'PAID')
+    const maybeUnsynced = orders
+      .filter(order => order.paymentId && order.paymentStatus !== 'PAID')
+      .slice(0, 10)
     if (maybeUnsynced.length) {
       const syncResults = await Promise.allSettled(
         maybeUnsynced.map(async (order) => {

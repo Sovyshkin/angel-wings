@@ -2,6 +2,7 @@ import axios from 'axios'
 
 const TOCHKA_API_URL = 'https://enter.tochka.com/uapi/acquiring/v1.0'
 const TOCHKA_OPEN_BANKING_URL = 'https://enter.tochka.com/uapi/open-banking/v1.0'
+const TOCHKA_STATUS_TIMEOUT_MS = Number(process.env.TOCHKA_STATUS_TIMEOUT_MS || 5000)
 
 class TochkaService {
   pickFirstString(candidates = []) {
@@ -287,7 +288,8 @@ class TochkaService {
       const response = await axios.get(
         `${TOCHKA_API_URL}/payments/${paymentId}`,
         {
-          headers: this.getHeaders()
+          headers: this.getHeaders(),
+          timeout: TOCHKA_STATUS_TIMEOUT_MS
         }
       )
 
