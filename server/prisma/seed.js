@@ -4,10 +4,10 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 const categories = [
-  { name: 'Долголетие', slug: 'longevitiya', description: 'Пептиды для продления жизни и замедления старения' },
-  { name: 'Иммуномодуляторы', slug: 'immunomodulyatory', description: 'Пептиды для укрепления иммунной системы' },
-  { name: 'Нейропептиды', slug: 'neiropeptide', description: 'Пептиды для улучшения работы мозга' },
-  { name: 'Факторы роста', slug: 'growth', description: 'Пептиды для роста мышц и восстановления' }
+  { name: 'Долголетие', slug: 'longevitiya' },
+  { name: 'Иммуномодуляторы', slug: 'immunomodulyatory' },
+  { name: 'Нейропептиды', slug: 'neiropeptide' },
+  { name: 'Факторы роста', slug: 'growth' }
 ]
 
 const products = [

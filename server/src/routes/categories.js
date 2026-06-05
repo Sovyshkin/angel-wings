@@ -35,7 +35,6 @@ router.get('/', async (req, res, next) => {
       term_id: cat.id,
       name: cat.name,
       slug: cat.slug,
-      description: cat.description,
       image: cat.image || cat.products[0]?.image,
       active: cat.active,
       count: cat._count.products
@@ -75,7 +74,7 @@ router.get('/:slug', async (req, res, next) => {
 
 router.post('/', authenticate, requireAdmin, upload.single('image'), async (req, res, next) => {
   try {
-    const { name, description, parentId } = req.body
+    const { name, parentId } = req.body
 
     if (!String(name || '').trim()) {
       return res.status(400).json({ error: 'Укажите название категории' })
@@ -87,7 +86,6 @@ router.post('/', authenticate, requireAdmin, upload.single('image'), async (req,
       data: {
         name,
         slug,
-        description,
         image: req.file ? `/uploads/${req.file.filename}` : null,
         parentId: parentId ? parseInt(parentId) : null
       }
@@ -101,11 +99,12 @@ router.post('/', authenticate, requireAdmin, upload.single('image'), async (req,
 
 router.put('/:id', authenticate, requireAdmin, upload.single('image'), async (req, res, next) => {
   try {
-    const { name, description, parentId, active } = req.body
+    const { name, parentId, active } = req.body
     
-    const updateData = {
-      name,
-      description
+    const updateData = {}
+
+    if (name !== undefined) {
+      updateData.name = name
     }
     
     if (parentId !== undefined) {

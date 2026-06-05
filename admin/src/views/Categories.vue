@@ -66,7 +66,6 @@
           </div>
           <div class="category-card__body">
             <h3 class="category-card__name">{{ cat.name }}</h3>
-            <p v-if="cat.description" class="category-card__desc">{{ cat.description }}</p>
           </div>
           <div class="category-card__actions">
             <button @click="openModal(cat)" class="btn btn-secondary btn-sm">
@@ -100,11 +99,6 @@
           <div class="form-group">
             <label class="form-label">Название</label>
             <input type="text" v-model="form.name" required class="input" placeholder="Долголетие">
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Описание</label>
-            <textarea v-model="form.description" rows="3" class="input" placeholder="Описание категории..."></textarea>
           </div>
 
           <div class="toggle-group">
@@ -142,7 +136,7 @@ const editing = ref(null)
 const error = ref('')
 const loadingForm = ref(false)
 
-const form = ref({ name: '', description: '', active: true })
+const form = ref({ name: '', active: true })
 
 async function fetchCategories() {
   try {
@@ -158,10 +152,10 @@ async function fetchCategories() {
 function openModal(cat = null) {
   if (cat) {
     editing.value = cat.term_id
-    form.value = { name: cat.name, description: cat.description || '', active: cat.active }
+    form.value = { name: cat.name, active: cat.active }
   } else {
     editing.value = null
-    form.value = { name: '', description: '', active: true }
+    form.value = { name: '', active: true }
   }
   error.value = ''
   showModal.value = true
@@ -170,7 +164,7 @@ function openModal(cat = null) {
 function closeModal() {
   showModal.value = false
   editing.value = null
-  form.value = { name: '', description: '' }
+  form.value = { name: '', active: true }
 }
 
 async function handleSubmit() {
@@ -304,16 +298,6 @@ onMounted(fetchCategories)
   color: var(--text-muted);
   font-family: var(--font-mono);
   margin-bottom: 0.5rem;
-}
-
-.category-card__desc {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .category-card__actions {
