@@ -2,16 +2,11 @@ import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
+import { generateUniqueSlug } from '../utils/slug.js'
 
 const router = Router()
 const prisma = new PrismaClient()
 const ACTIVE_ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED']
-const CYRILLIC_TO_LATIN = {
-  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z',
-  и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r',
-  с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch',
-  ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya'
-}
 
 function parseImagesField(images) {
   if (!images) return []
@@ -38,32 +33,12 @@ function getDosagePriceFromSpecs(specsRaw, dosage) {
   }
 }
 
-function slugifyTitle(title) {
-  const normalized = String(title || '')
-    .toLowerCase()
-    .trim()
-    .split('')
-    .map(char => CYRILLIC_TO_LATIN[char] ?? char)
-    .join('')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-')
-
-  return normalized || 'product'
-}
-
 async function generateUniqueProductSlug(title) {
-  const baseSlug = slugifyTitle(title)
-  let slug = baseSlug
-  let suffix = 2
-
-  // Ensure uniqueness for slug unique constraint in DB
-  while (await prisma.product.findUnique({ where: { slug } })) {
-    slug = `${baseSlug}-${suffix}`
-    suffix += 1
-  }
-
-  return slug
+  return generateUniqueSlug(
+    title,
+    slug => prisma.product.findUnique({ where: { slug } }),
+    'product'
+  )
 }
 
 router.get('/', async (req, res, next) => {

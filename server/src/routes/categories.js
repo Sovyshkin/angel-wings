@@ -2,9 +2,18 @@ import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
+import { generateUniqueSlug } from '../utils/slug.js'
 
 const router = Router()
 const prisma = new PrismaClient()
+
+async function generateUniqueCategorySlug(name) {
+  return generateUniqueSlug(
+    name,
+    slug => prisma.category.findUnique({ where: { slug } }),
+    'category'
+  )
+}
 
 router.get('/', async (req, res, next) => {
   try {
@@ -67,8 +76,12 @@ router.get('/:slug', async (req, res, next) => {
 router.post('/', authenticate, requireAdmin, upload.single('image'), async (req, res, next) => {
   try {
     const { name, description, parentId } = req.body
+
+    if (!String(name || '').trim()) {
+      return res.status(400).json({ error: 'Укажите название категории' })
+    }
     
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    const slug = await generateUniqueCategorySlug(name)
     
     const category = await prisma.category.create({
       data: {
