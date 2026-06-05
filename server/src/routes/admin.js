@@ -35,7 +35,7 @@ function parseImagesField(images) {
 router.get('/stats', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const [usersCount, productsCount, ordersCount, recentOrders, lowStock] = await Promise.all([
-      prisma.user.count(),
+      prisma.user.count({ where: { role: { not: 'DELETED' } } }),
       prisma.product.count(),
       prisma.order.count(),
       prisma.order.findMany({
@@ -74,9 +74,11 @@ router.get('/stats', authenticate, requireAdmin, async (req, res, next) => {
 router.get('/users', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { limit = 50, offset = 0 } = req.query
+    const where = { role: { not: 'DELETED' } }
     
     const [users, total] = await Promise.all([
       prisma.user.findMany({
+        where,
         select: {
           id: true,
           email: true,
@@ -90,7 +92,7 @@ router.get('/users', authenticate, requireAdmin, async (req, res, next) => {
         skip: parseInt(offset),
         orderBy: { createdAt: 'desc' }
       }),
-      prisma.user.count()
+      prisma.user.count({ where })
     ])
     
     res.json({ users, total })
@@ -149,11 +151,37 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
 
 router.delete('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    await prisma.user.delete({
-      where: { id: parseInt(req.params.id) }
+    const userId = parseInt(req.params.id)
+
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: 'Нельзя архивировать свою учётную запись' })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true }
+    })
+
+    if (!user || user.role === 'DELETED') {
+      return res.status(404).json({ error: 'Пользователь не найден' })
+    }
+
+    const archivedEmail = `archived-user-${userId}-${Date.now()}@angel-wings.local`
+    const archivedPassword = await bcrypt.hash(`archived-${userId}-${Date.now()}`, 10)
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: archivedEmail,
+        password: archivedPassword,
+        name: `Архивный пользователь #${userId}`,
+        role: 'DELETED',
+        phone: null,
+        address: null
+      }
     })
     
-    res.json({ message: 'User deleted' })
+    res.json({ message: 'Пользователь архивирован' })
   } catch (error) {
     next(error)
   }

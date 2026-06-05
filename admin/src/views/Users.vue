@@ -46,7 +46,7 @@
               </td>
               <td class="cell-orders">{{ user._count?.orders || 0 }}</td>
               <td>
-                <button @click="deleteUser(user.id)" class="action-btn danger" :disabled="user.id === currentUserId" title="Удалить">
+                <button @click="deleteUser(user.id)" class="action-btn danger" :disabled="user.id === currentUserId" title="Архивировать">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                   </svg>
@@ -215,12 +215,12 @@ async function handleSubmit() {
 }
 
 async function deleteUser(id) {
-  if (!confirm('Удалить пользователя?')) return
+  if (!confirm('Архивировать пользователя? Он исчезнет из админки, а email можно будет использовать заново. История заказов сохранится.')) return
   try {
     await axios.delete(`${API_URL}/users/${id}`)
     users.value = users.value.filter(u => u.id !== id)
   } catch (e) {
-    alert('Ошибка удаления')
+    alert(e.response?.data?.error || 'Не удалось архивировать пользователя')
   }
 }
 

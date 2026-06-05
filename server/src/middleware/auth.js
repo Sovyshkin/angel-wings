@@ -19,7 +19,7 @@ export const authenticate = async (req, res, next) => {
       select: { id: true, email: true, name: true, role: true, phone: true, createdAt: true }
     })
     
-    if (!user) {
+    if (!user || user.role === 'DELETED') {
       return res.status(401).json({ error: 'User not found' })
     }
     
