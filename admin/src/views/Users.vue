@@ -215,7 +215,7 @@ async function handleSubmit() {
 }
 
 async function deleteUser(id) {
-  if (!confirm('Архивировать пользователя? Он исчезнет из админки, а email можно будет использовать заново. История заказов сохранится.')) return
+  if (!confirm('Удалить пользователя?')) return
   try {
     await axios.delete(`${API_URL}/users/${id}`)
     users.value = users.value.filter(u => u.id !== id)
