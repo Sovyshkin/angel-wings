@@ -5,11 +5,11 @@
       <svg class="cursor-goo__filter" width="0" height="0" focusable="false">
         <defs>
           <filter id="cursor-goo-filter">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
             <feColorMatrix
               in="blur"
               mode="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 28 -11"
               result="goo"
             />
             <feComposite in="SourceGraphic" in2="goo" operator="atop" />
@@ -288,7 +288,7 @@ const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
 const cursorRoot = ref(null)
 const cursorDotRefs = ref([])
-const cursorDots = Array.from({ length: 20 })
+const cursorDots = Array.from({ length: 14 })
 let cursorFrameId = 0
 let removeCursorMoveListener = null
 
@@ -330,7 +330,7 @@ onMounted(() => {
   const dots = cursorDots.map((_, index) => ({
     x: window.innerWidth / 2,
     y: window.innerHeight / 2,
-    scale: Math.max(0.2, 1 - index * 0.045)
+    scale: Math.max(0.58, 1 - index * 0.032)
   }))
   const mouse = {
     x: window.innerWidth / 2,
@@ -350,10 +350,23 @@ onMounted(() => {
 
     dots.forEach((dot, index) => {
       const element = cursorDotRefs.value[index]
-      const easing = index === 0 ? 0.55 : 0.35
+      const easing = index === 0 ? 0.86 : 0.72
+      const maxSegmentDistance = 5
 
       dot.x += (x - dot.x) * easing
       dot.y += (y - dot.y) * easing
+
+      if (index > 0) {
+        const dx = dot.x - x
+        const dy = dot.y - y
+        const distance = Math.hypot(dx, dy)
+
+        if (distance > maxSegmentDistance) {
+          const ratio = maxSegmentDistance / distance
+          dot.x = x + dx * ratio
+          dot.y = y + dy * ratio
+        }
+      }
 
       if (element) {
         element.style.transform = `translate3d(${dot.x}px, ${dot.y}px, 0) translate(-50%, -50%) scale(${dot.scale})`

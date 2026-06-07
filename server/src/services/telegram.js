@@ -57,16 +57,76 @@ function buildCourierOrderMessage(order) {
 }
 
 export async function notifyCourierOrderToTelegram(order) {
+  const relayUrl = (process.env.TELEGRAM_RELAY_URL || '').trim().replace(/\/+$/, '')
+  const relaySecret = (process.env.TELEGRAM_RELAY_SECRET || '').trim()
   const token = (process.env.TELEGRAM_BOT_TOKEN || '').trim()
   const chatId = (process.env.TELEGRAM_ORDERS_CHAT_ID || '').trim()
   const threadId = (process.env.TELEGRAM_ORDERS_THREAD_ID || '').trim()
 
   console.log('[TELEGRAM] notifyCourierOrderToTelegram start', JSON.stringify({
     orderId: order?.id || null,
+    hasRelayUrl: Boolean(relayUrl),
+    hasRelaySecret: Boolean(relaySecret),
     hasToken: Boolean(token),
     chatId: chatId || null,
     hasThreadId: Boolean(threadId)
   }))
+
+  if (relayUrl) {
+    if (!relaySecret) {
+      throw new Error('[TELEGRAM] TELEGRAM_RELAY_SECRET is required when TELEGRAM_RELAY_URL is set')
+    }
+
+    const relayPayload = {
+      orderId: order?.id || null,
+      text: buildCourierOrderMessage(order),
+      parseMode: 'HTML',
+      disableWebPagePreview: true
+    }
+
+    if (threadId) {
+      relayPayload.threadId = Number(threadId) || threadId
+    }
+
+    console.log('[TELEGRAM] relay request', JSON.stringify({
+      orderId: order?.id || null,
+      relayUrl,
+      hasThreadId: Boolean(relayPayload.threadId),
+      textLength: relayPayload.text?.length || 0
+    }))
+
+    let response
+    try {
+      response = await axios.post(`${relayUrl}/telegram/orders`, relayPayload, {
+        timeout: Number(process.env.TELEGRAM_RELAY_TIMEOUT_MS || 30000),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${relaySecret}`
+        },
+        validateStatus: () => true
+      })
+    } catch (error) {
+      console.error('[TELEGRAM] relay network error', JSON.stringify({
+        orderId: order?.id || null,
+        message: error?.message || null,
+        code: error?.cause?.code || error?.code || null
+      }))
+      throw error
+    }
+
+    console.log('[TELEGRAM] relay response', JSON.stringify({
+      orderId: order?.id || null,
+      httpStatus: response?.status || null,
+      ok: response?.data?.ok,
+      error: response?.data?.error || null
+    }))
+
+    if (Number(response?.status || 0) >= 400 || response?.data?.ok === false) {
+      throw new Error(`[TELEGRAM] relay failed: ${JSON.stringify(response?.data || {})}`)
+    }
+
+    return { ok: true, relay: true }
+  }
 
   if (!token || !chatId) {
     console.warn('[TELEGRAM] Skip courier notification: TELEGRAM_BOT_TOKEN or TELEGRAM_ORDERS_CHAT_ID is not set')
