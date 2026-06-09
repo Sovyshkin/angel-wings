@@ -1,6 +1,7 @@
 import express from 'express'
 import { PrismaClient } from '@prisma/client'
 import cdek from '../services/cdek.js'
+import yandexGeocoder from '../services/yandexGeocoder.js'
 import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
 
 const router = express.Router()
@@ -137,6 +138,31 @@ router.get('/city/:code', async (req, res) => {
   } catch (error) {
     console.error('[CDEK] Get city info error:', error)
     res.status(400).json(error.data || { error: error.message })
+  }
+})
+
+// POST /api/delivery/validate-courier-address
+// Проверить адрес курьерской доставки по Москве через Яндекс Геокодер
+router.post('/validate-courier-address', async (req, res) => {
+  try {
+    const { address } = req.body
+
+    if (!String(address || '').trim()) {
+      return res.status(400).json({
+        valid: false,
+        error: 'Укажите адрес доставки'
+      })
+    }
+
+    const result = await yandexGeocoder.validateMoscowCourierAddress(address)
+    const status = result.valid ? 200 : 400
+    res.status(status).json(result)
+  } catch (error) {
+    console.error('[YANDEX] Validate courier address error:', error)
+    res.status(500).json({
+      valid: false,
+      error: 'Не удалось проверить адрес. Попробуйте ещё раз.'
+    })
   }
 })
 

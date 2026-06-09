@@ -4,6 +4,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 import cdek from '../services/cdek.js'
 import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
 import { notifyCourierOrderToTelegram } from '../services/telegram.js'
+import yandexGeocoder from '../services/yandexGeocoder.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 
 const router = Router()
@@ -429,6 +430,7 @@ router.post('/', authenticate, async (req, res, next) => {
       normalizedDeliveryType === 'courier'
     const normalizedPaymentMethod = String(paymentMethod || 'online').trim().toLowerCase()
     const isCashOnDelivery = normalizedPaymentMethod === 'cash_on_delivery'
+    let validatedCourierAddress = null
 
     if (isCashOnDelivery && !isInternalMoscowCourier) {
       return res.status(400).json({
@@ -441,6 +443,16 @@ router.post('/', authenticate, async (req, res, next) => {
       if (!courierAddress) {
         return res.status(400).json({ error: 'Для курьерской доставки по Москве укажите адрес' })
       }
+
+      const addressValidation = await yandexGeocoder.validateMoscowCourierAddress(courierAddress)
+      if (!addressValidation.valid) {
+        return res.status(400).json({
+          error: addressValidation.message || 'Адрес курьерской доставки не прошёл проверку',
+          code: addressValidation.code || 'INVALID_COURIER_ADDRESS'
+        })
+      }
+
+      validatedCourierAddress = addressValidation.normalizedAddress || courierAddress
     }
 
     const productIds = items.map(item => item.productId)
@@ -627,7 +639,7 @@ router.post('/', authenticate, async (req, res, next) => {
           customerName,
           customerEmail,
           customerPhone,
-          shippingAddress: shippingAddress || delivery?.address || null,
+          shippingAddress: validatedCourierAddress || shippingAddress || delivery?.address || null,
           notes,
           total: finalOrderTotal,
           paymentStatus: finalOrderTotal <= 0 ? 'PAID' : (isCashOnDelivery ? 'CASH_ON_DELIVERY' : 'PENDING'),
@@ -641,7 +653,7 @@ router.post('/', authenticate, async (req, res, next) => {
           deliveryPrice: deliveryPrice,
           deliveryCity: delivery?.city || (isInternalMoscowCourier ? 'Москва' : null),
           deliveryPickupPoint: isInternalMoscowCourier ? null : delivery?.pickup_point,
-          deliveryPickupName: isInternalMoscowCourier ? (delivery?.address || shippingAddress || null) : delivery?.pickup_point_name,
+          deliveryPickupName: isInternalMoscowCourier ? (validatedCourierAddress || delivery?.address || shippingAddress || null) : delivery?.pickup_point_name,
           items: {
             create: orderItems
           }

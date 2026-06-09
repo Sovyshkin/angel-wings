@@ -510,19 +510,21 @@
                   ref="courierAddressInputRef"
                   v-model="addressInput" 
                   class="input"
-                  :class="{ 'input--error': showValidationErrors && isCourierAddressMissing }"
+                  :class="{ 'input--error': (showValidationErrors && isCourierAddressMissing) || Boolean(courierAddressError) }"
                   rows="3" 
-                  placeholder="Улица, дом, квартира..."
+                  placeholder="Например: Москва, Тверская улица, 7, кв. 15"
                 ></textarea>
+                <p v-if="courierAddressError" class="field-error">{{ courierAddressError }}</p>
+                <p v-else-if="courierAddressHint" class="field-hint">{{ courierAddressHint }}</p>
               </div>
               
               <button 
                 class="btn btn-primary" 
                 style="width: 100%; margin-top: 1rem;"
                 @click="selectCourierDelivery"
-                :disabled="!addressInput"
+                :disabled="!addressInput || validatingCourierAddress"
               >
-                Подтвердить адрес
+                {{ validatingCourierAddress ? 'Проверяем адрес...' : 'Подтвердить адрес' }}
               </button>
             </div>
 
@@ -847,6 +849,9 @@ const pickupFilter = ref('')
 const selectedPickupPoint = ref(null)
 const courierAddress = ref('')
 const addressInput = ref('')
+const courierAddressError = ref('')
+const courierAddressHint = ref('')
+const validatingCourierAddress = ref(false)
 const loadingPickup = ref(false)
 const loadingDelivery = ref(false)
 const deliveryPrice = ref(0)
@@ -971,7 +976,7 @@ const parsedPickupSearch = computed(() => {
 
 const isDeliverySelected = computed(() => {
   if (deliveryType.value === 'pvz') return Boolean(selectedPickupPoint.value)
-  if (deliveryType.value === 'courier') return Boolean(courierAddress.value)
+  if (deliveryType.value === 'courier') return Boolean(courierAddress.value) && !courierAddressError.value
   return deliveryType.value === 'self_pickup'
 })
 
@@ -1280,6 +1285,8 @@ function changeDelivery() {
   citySearch.value = ''
   courierAddress.value = ''
   addressInput.value = ''
+  courierAddressError.value = ''
+  courierAddressHint.value = ''
   deliveryPrice.value = 0
   deliveryInfo.value = {}
   cartStore.setDeliveryPrice(0)
@@ -1370,13 +1377,51 @@ async function onPickupSelect() {
   }
 }
 
-function selectCourierDelivery() {
+async function validateCourierAddress(address) {
+  const normalizedAddress = String(address || '').trim()
+  if (!normalizedAddress) {
+    courierAddressError.value = 'Укажите адрес доставки'
+    return null
+  }
+
+  courierAddressError.value = ''
+  courierAddressHint.value = ''
+  validatingCourierAddress.value = true
+
+  try {
+    const { data } = await deliveryApi.post('/validate-courier-address', {
+      address: normalizedAddress
+    })
+
+    if (!data?.valid) {
+      courierAddressError.value = data?.message || data?.error || 'Адрес не прошёл проверку'
+      return null
+    }
+
+    return data
+  } catch (error) {
+    courierAddressError.value =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      'Не удалось проверить адрес через Яндекс. Попробуйте ещё раз.'
+    return null
+  } finally {
+    validatingCourierAddress.value = false
+  }
+}
+
+async function selectCourierDelivery() {
   const normalizedAddress = String(addressInput.value || '').trim()
   if (!normalizedAddress) return
 
+  const validation = await validateCourierAddress(normalizedAddress)
+  if (!validation) return
+
   foundCityName.value = INTERNAL_COURIER_CITY
   foundCityCode.value = INTERNAL_COURIER_CITY_CODE
-  courierAddress.value = normalizedAddress
+  courierAddress.value = validation.normalizedAddress || normalizedAddress
+  addressInput.value = courierAddress.value
+  courierAddressHint.value = 'Адрес проверен через Яндекс'
   deliveryPrice.value = INTERNAL_COURIER_PRICE
   deliveryInfo.value = {
     period_min: 1,
@@ -1514,6 +1559,10 @@ function focusAndScrollToField(elementRef) {
 }
 
 function scrollToFirstInvalidField() {
+  if (courierAddressError.value && courierAddressInputRef.value) {
+    focusAndScrollToField(courierAddressInputRef)
+    return
+  }
   if (isNameMissing.value) {
     focusAndScrollToField(nameInputRef)
     return
@@ -1613,6 +1662,19 @@ async function placeOrder() {
         orderComplete.value = false
       }, 10000)
       return
+    }
+
+    if (deliveryType.value === 'courier') {
+      const validation = await validateCourierAddress(courierAddress.value || addressInput.value)
+      if (!validation) {
+        validationErrors.value = [courierAddressError.value || 'Проверьте адрес курьерской доставки']
+        scrollToFirstInvalidField()
+        ordering.value = false
+        return
+      }
+
+      courierAddress.value = validation.normalizedAddress || courierAddress.value
+      addressInput.value = courierAddress.value
     }
 
     if (promoCodeNormalized.value) {
@@ -1861,6 +1923,13 @@ watch(
 watch(deliveryType, (nextType) => {
   if (nextType !== 'courier') {
     paymentMethod.value = 'online'
+  }
+})
+
+watch(addressInput, (nextAddress) => {
+  if (String(nextAddress || '').trim() !== String(courierAddress.value || '').trim()) {
+    courierAddressError.value = ''
+    courierAddressHint.value = ''
   }
 })
 
@@ -2845,6 +2914,21 @@ onUnmounted(() => {
   font-size: 0.85rem;
   color: var(--text-muted);
   margin-bottom: 0.75rem;
+}
+
+.field-error,
+.field-hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.field-error {
+  color: #ef4444;
+}
+
+.field-hint {
+  color: #22c55e;
 }
 
 .pickup-list {
