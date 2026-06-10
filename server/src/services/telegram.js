@@ -26,7 +26,36 @@ function formatDateTime(value) {
   })
 }
 
-function buildCourierOrderMessage(order) {
+function getDeliveryLabel(order) {
+  const tariffName = String(order?.deliveryTariffName || '').trim()
+  const pickupName = String(order?.deliveryPickupName || '').trim()
+  const city = String(order?.deliveryCity || '').trim()
+  const deliveryPrice = Number(order?.deliveryPrice || 0)
+
+  if (/курьер/i.test(tariffName) || /курьер/i.test(pickupName) || deliveryPrice === 690) {
+    return 'Курьер по Москве'
+  }
+  if (/самовывоз/i.test(tariffName) || /самовывоз/i.test(pickupName)) {
+    return 'Самовывоз'
+  }
+  if (order?.cdekOrderUuid || /cdek/i.test(tariffName)) {
+    return 'Доставка СДЭК'
+  }
+  if (tariffName) return tariffName
+  if (pickupName) return pickupName
+  if (city) return `Доставка: ${city}`
+  return 'Доставка не указана'
+}
+
+function getPaymentLabel(order) {
+  const paymentStatus = String(order?.paymentStatus || '').trim().toUpperCase()
+  if (paymentStatus === 'PAID') return 'Оплачен'
+  if (paymentStatus === 'CASH_ON_DELIVERY') return 'Наличными при получении'
+  if (paymentStatus === 'FAILED') return 'Не оплачен'
+  return paymentStatus || 'Не оплачен'
+}
+
+function buildOrderMessage(order) {
   const items = Array.isArray(order?.items) ? order.items : []
   const lines = []
   for (const item of items) {
@@ -38,12 +67,13 @@ function buildCourierOrderMessage(order) {
   }
 
   return [
-    '<b>Новый заказ: внутренний курьер (Москва)</b>',
+    '<b>Новый заказ</b>',
     '',
     `<b>Заказ:</b> #${order.id}`,
     `<b>Дата:</b> ${escapeHtml(formatDateTime(order.createdAt))}`,
     `<b>Сумма:</b> ${escapeHtml(formatMoney(order.total))}`,
-    `<b>Доставка:</b> Курьер по Москве`,
+    `<b>Оплата:</b> ${escapeHtml(getPaymentLabel(order))}`,
+    `<b>Доставка:</b> ${escapeHtml(getDeliveryLabel(order))}`,
     `<b>Адрес:</b> ${escapeHtml(order.shippingAddress || order.deliveryPickupName || order.deliveryCity || '—')}`,
     '',
     '<b>Клиент:</b>',
@@ -87,7 +117,7 @@ export async function notifyCourierOrderToTelegram(order) {
 
     const relayPayload = {
       orderId: order?.id || null,
-      text: buildCourierOrderMessage(order),
+      text: buildOrderMessage(order),
       parseMode: 'HTML',
       disableWebPagePreview: true
     }
@@ -148,7 +178,7 @@ export async function notifyCourierOrderToTelegram(order) {
 
   const payload = {
     chat_id: chatId,
-    text: buildCourierOrderMessage(order),
+    text: buildOrderMessage(order),
     parse_mode: 'HTML',
     disable_web_page_preview: true
   }
@@ -202,9 +232,11 @@ export async function notifyCourierOrderToTelegram(order) {
     throw new Error(`[TELEGRAM] sendMessage failed: ${JSON.stringify(data)}`)
   }
 
-  console.log('[TELEGRAM] courier notification sent', JSON.stringify({
+  console.log('[TELEGRAM] order notification sent', JSON.stringify({
     orderId: order?.id || null,
     messageId: data?.result?.message_id || null
   }))
   return { ok: true }
 }
+
+export const notifyOrderToTelegram = notifyCourierOrderToTelegram

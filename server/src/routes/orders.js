@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import cdek from '../services/cdek.js'
 import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
-import { notifyCourierOrderToTelegram } from '../services/telegram.js'
+import { notifyOrderToTelegram } from '../services/telegram.js'
 import yandexGeocoder from '../services/yandexGeocoder.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 
@@ -715,21 +715,15 @@ router.post('/', authenticate, async (req, res, next) => {
       return createdOrder
     })
 
-    if (isInternalMoscowCourier) {
-      console.log('[TELEGRAM] Courier delivery detected, preparing notification', JSON.stringify({
-        orderId: order.id,
-        deliveryType: normalizedDeliveryType,
-        hasAddress: Boolean(order.shippingAddress || order.deliveryPickupName)
-      }))
-      notifyCourierOrderToTelegram(order).catch((error) => {
-        console.error('[TELEGRAM] Courier order notification error:', error?.message || error, error?.stack || '')
-      })
-    } else {
-      console.log('[TELEGRAM] Skip courier notification: non-courier delivery', JSON.stringify({
-        orderId: order.id,
-        deliveryType: normalizedDeliveryType || null
-      }))
-    }
+    console.log('[TELEGRAM] Order detected, preparing notification', JSON.stringify({
+      orderId: order.id,
+      deliveryType: normalizedDeliveryType || null,
+      paymentMethod: isCashOnDelivery ? 'cash_on_delivery' : 'online',
+      hasAddress: Boolean(order.shippingAddress || order.deliveryPickupName)
+    }))
+    notifyOrderToTelegram(order).catch((error) => {
+      console.error('[TELEGRAM] Order notification error:', error?.message || error, error?.stack || '')
+    })
 
     res.status(201).json({
       order,
