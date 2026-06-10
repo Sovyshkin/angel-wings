@@ -13,6 +13,29 @@ function getOrderAmountWithoutDelivery(order) {
   return Math.max(0, total - deliveryPrice)
 }
 
+function parsePaymentDetails(details) {
+  if (!details) return null
+  try {
+    return JSON.parse(details)
+  } catch {
+    return null
+  }
+}
+
+function normalizePayoutDetails(details = {}) {
+  return {
+    recipientName: String(details.recipientName || '').trim(),
+    bankName: String(details.bankName || '').trim(),
+    accountNumber: String(details.accountNumber || '').trim(),
+    bik: String(details.bik || '').trim(),
+    correspondentAccount: String(details.correspondentAccount || '').trim(),
+    inn: String(details.inn || '').trim(),
+    cardNumber: String(details.cardNumber || '').trim(),
+    phone: String(details.phone || '').trim(),
+    comment: String(details.comment || '').trim()
+  }
+}
+
 router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next) => {
   try {
     const partner = await prisma.partner.findUnique({
@@ -69,6 +92,7 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
         totalPaidOut: balanceData.totalPaidOut,
         pendingPayouts: balanceData.pendingPayouts,
         spentOnOrders: balanceData.totalSpentOnOrders,
+        availableBalance: balanceData.availableBalance,
         availableForOrders: balanceData.availableBalance,
         pendingAmount: balanceData.availableBalance
       }
@@ -257,7 +281,137 @@ router.get('/cabinet/payments', authenticate, requirePartner, async (req, res, n
       orderBy: { createdAt: 'desc' }
     })
 
-    res.json({ payments })
+    res.json({
+      payments: payments.map(payment => ({
+        ...payment,
+        details: parsePaymentDetails(payment.details)
+      }))
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/cabinet/payout-requests', authenticate, requirePartner, async (req, res, next) => {
+  try {
+    const partner = await prisma.partner.findUnique({
+      where: { userId: req.user.id }
+    })
+
+    if (!partner || !partner.isActive) {
+      return res.status(404).json({ error: 'Партнёр не найден или отключён' })
+    }
+
+    const amount = Math.floor(Number(req.body?.amount || 0))
+    const details = normalizePayoutDetails(req.body?.details || {})
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Укажите сумму вывода' })
+    }
+
+    if (amount < 500) {
+      return res.status(400).json({ error: 'Минимальная сумма вывода: 500 ₽' })
+    }
+
+    if (!details.recipientName) {
+      return res.status(400).json({ error: 'Укажите ФИО получателя' })
+    }
+
+    const hasBankDetails = details.bankName && details.accountNumber && details.bik
+    const hasCardOrPhone = details.cardNumber || details.phone
+    if (!hasBankDetails && !hasCardOrPhone) {
+      return res.status(400).json({ error: 'Укажите реквизиты: расчётный счёт и БИК, карту или телефон для перевода' })
+    }
+
+    const balance = await calculatePartnerBalance(prisma, partner.id)
+    if (amount > balance.availableBalance) {
+      return res.status(400).json({ error: 'Недостаточно доступного баланса для вывода' })
+    }
+
+    const payment = await prisma.partnerPayment.create({
+      data: {
+        partnerId: partner.id,
+        amount,
+        type: 'PAYOUT',
+        status: 'PAYOUT_REQUESTED',
+        details: JSON.stringify(details),
+        comment: details.comment || null
+      }
+    })
+
+    res.status(201).json({
+      payment: {
+        ...payment,
+        details
+      },
+      balance: await calculatePartnerBalance(prisma, partner.id)
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/cabinet/transactions', authenticate, requirePartner, async (req, res, next) => {
+  try {
+    const partner = await prisma.partner.findUnique({
+      where: { userId: req.user.id }
+    })
+
+    if (!partner) {
+      return res.status(404).json({ error: 'Партнёр не найден' })
+    }
+
+    const [commissions, payments] = await Promise.all([
+      prisma.partnerCommission.findMany({
+        where: { partnerId: partner.id },
+        include: {
+          order: { select: { id: true, customerName: true, total: true, deliveryPrice: true } }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100
+      }),
+      prisma.partnerPayment.findMany({
+        where: { partnerId: partner.id },
+        orderBy: { createdAt: 'desc' },
+        take: 100
+      })
+    ])
+
+    const transactions = [
+      ...commissions.map(commission => ({
+        id: `commission-${commission.id}`,
+        sourceId: commission.id,
+        type: 'COMMISSION',
+        direction: 'INCOME',
+        status: 'COMPLETED',
+        amount: commission.amount,
+        title: `Комиссия по заказу #${commission.orderId}`,
+        description: commission.order?.customerName || null,
+        createdAt: commission.createdAt,
+        processedAt: commission.createdAt,
+        order: commission.order
+      })),
+      ...payments.map(payment => ({
+        id: `payment-${payment.id}`,
+        sourceId: payment.id,
+        type: payment.type || 'PAYOUT',
+        direction: payment.status === 'PAYOUT_REJECTED' ? 'NEUTRAL' : 'OUTCOME',
+        status: payment.status,
+        amount: payment.amount,
+        title: payment.type === 'ORDER_SPEND' || payment.status === 'SPENT_ON_ORDER'
+          ? 'Списание на покупку'
+          : 'Заявка на вывод',
+        description: payment.comment || null,
+        details: parsePaymentDetails(payment.details),
+        createdAt: payment.createdAt,
+        processedAt: payment.processedAt || payment.paidAt
+      }))
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+    res.json({
+      transactions,
+      balance: await calculatePartnerBalance(prisma, partner.id)
+    })
   } catch (error) {
     next(error)
   }

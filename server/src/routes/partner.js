@@ -3,9 +3,19 @@ import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import bcrypt from 'bcryptjs'
 import { v4 as uuidv4 } from 'uuid'
+import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 
 const router = Router()
 const prisma = new PrismaClient()
+
+function parsePaymentDetails(details) {
+  if (!details) return null
+  try {
+    return JSON.parse(details)
+  } catch {
+    return null
+  }
+}
 
 // Resource routes - placed before /:id to avoid conflicts
 router.get('/promo-codes', authenticate, requireAdmin, async (req, res, next) => {
@@ -258,7 +268,7 @@ router.get('/payments', authenticate, requireAdmin, async (req, res, next) => {
       prisma.partnerPayment.findMany({
         where,
         include: {
-          partner: { select: { id: true, user: { select: { name: true } } } }
+          partner: { select: { id: true, user: { select: { name: true, email: true, phone: true } } } }
         },
         take: parseInt(limit),
         skip: parseInt(offset),
@@ -267,7 +277,13 @@ router.get('/payments', authenticate, requireAdmin, async (req, res, next) => {
       prisma.partnerPayment.count({ where })
     ])
 
-    res.json({ payments, total })
+    res.json({
+      payments: payments.map(payment => ({
+        ...payment,
+        details: parsePaymentDetails(payment.details)
+      })),
+      total
+    })
   } catch (error) {
     next(error)
   }
@@ -275,13 +291,16 @@ router.get('/payments', authenticate, requireAdmin, async (req, res, next) => {
 
 router.post('/payments', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { partnerId, amount, status = 'PENDING' } = req.body
+    const { partnerId, amount, status = 'PAYOUT_REQUESTED', type = 'PAYOUT', details, comment } = req.body
 
     const payment = await prisma.partnerPayment.create({
       data: {
         partnerId,
         amount,
-        status
+        status,
+        type,
+        details: details ? JSON.stringify(details) : null,
+        comment: comment || null
       }
     })
 
@@ -293,19 +312,61 @@ router.post('/payments', authenticate, requireAdmin, async (req, res, next) => {
 
 router.put('/payments/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { status } = req.body
+    const { status, comment } = req.body
+    const id = parseInt(req.params.id)
 
-    const data = { status }
-    if (status === 'PAID') {
+    const existing = await prisma.partnerPayment.findUnique({
+      where: { id },
+      include: { partner: true }
+    })
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Заявка не найдена' })
+    }
+
+    if (!['PAYOUT_APPROVED', 'PAYOUT_REJECTED', 'PAYOUT_REQUESTED'].includes(status)) {
+      return res.status(400).json({ error: 'Некорректный статус заявки' })
+    }
+
+    if (existing.status !== 'PAYOUT_REQUESTED' && status !== existing.status) {
+      return res.status(400).json({ error: 'Можно обрабатывать только активные заявки' })
+    }
+
+    if (status === 'PAYOUT_APPROVED') {
+      const balance = await calculatePartnerBalance(prisma, existing.partnerId)
+      const frozenByThisRequest = existing.status === 'PAYOUT_REQUESTED' ? Number(existing.amount || 0) : 0
+      if (Number(existing.amount || 0) > balance.availableBalance + frozenByThisRequest) {
+        return res.status(400).json({ error: 'Недостаточно баланса для одобрения заявки' })
+      }
+    }
+
+    const data = {
+      status,
+      comment: comment !== undefined ? String(comment || '').trim() || null : existing.comment
+    }
+
+    if (status === 'PAYOUT_APPROVED') {
       data.paidAt = new Date()
+      data.processedAt = new Date()
+      data.processedBy = req.user.id
+    }
+
+    if (status === 'PAYOUT_REJECTED') {
+      data.processedAt = new Date()
+      data.processedBy = req.user.id
     }
 
     const payment = await prisma.partnerPayment.update({
-      where: { id: parseInt(req.params.id) },
+      where: { id },
       data
     })
 
-    res.json({ payment })
+    res.json({
+      payment: {
+        ...payment,
+        details: parsePaymentDetails(payment.details)
+      }
+    })
   } catch (error) {
     next(error)
   }

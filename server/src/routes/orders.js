@@ -625,6 +625,7 @@ router.post('/', authenticate, async (req, res, next) => {
           data: {
             partnerId: userPartner.id,
             amount: partnerBonusUsed,
+            type: 'ORDER_SPEND',
             status: 'SPENT_ON_ORDER',
             paidAt: new Date()
           }

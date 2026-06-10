@@ -70,6 +70,82 @@
       </div>
 
       <div class="dashboard-grid section-space">
+        <div class="card payout-request-card">
+          <div class="card-header">
+            <h3 class="card-title">Вывод средств</h3>
+          </div>
+          <div class="card-body">
+            <div class="balance-panel">
+              <div>
+                <span>Доступно</span>
+                <strong>{{ formatCurrency(stats.availableBalance || stats.availableForOrders || 0) }}</strong>
+              </div>
+              <div>
+                <span>Заморожено в заявках</span>
+                <strong>{{ formatCurrency(stats.pendingPayouts || 0) }}</strong>
+              </div>
+            </div>
+
+            <form class="payout-form" @submit.prevent="createPayoutRequest">
+              <div class="form-row">
+                <label>
+                  <span>Сумма вывода</span>
+                  <input v-model="payoutForm.amount" type="number" min="500" step="1" class="input" placeholder="Например, 5000">
+                </label>
+                <label>
+                  <span>ФИО получателя</span>
+                  <input v-model="payoutForm.recipientName" class="input" placeholder="Иванов Иван Иванович">
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  <span>Банк</span>
+                  <input v-model="payoutForm.bankName" class="input" placeholder="Название банка">
+                </label>
+                <label>
+                  <span>БИК</span>
+                  <input v-model="payoutForm.bik" class="input" placeholder="044525225">
+                </label>
+              </div>
+              <label>
+                <span>Расчётный счёт</span>
+                <input v-model="payoutForm.accountNumber" class="input" placeholder="Можно указать счёт или ниже карту/телефон">
+              </label>
+              <div class="form-row">
+                <label>
+                  <span>Корреспондентский счёт</span>
+                  <input v-model="payoutForm.correspondentAccount" class="input" placeholder="3010...">
+                </label>
+                <label>
+                  <span>ИНН получателя</span>
+                  <input v-model="payoutForm.inn" class="input" placeholder="ИНН, если нужен для выплаты">
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  <span>Карта</span>
+                  <input v-model="payoutForm.cardNumber" class="input" placeholder="Номер карты, если удобнее">
+                </label>
+                <label>
+                  <span>Телефон для перевода</span>
+                  <input v-model="payoutForm.phone" class="input" placeholder="+7...">
+                </label>
+              </div>
+              <label>
+                <span>Комментарий</span>
+                <textarea v-model="payoutForm.comment" class="input" rows="3" placeholder="Любые уточнения по выплате"></textarea>
+              </label>
+
+              <p v-if="payoutError" class="form-message form-message--error">{{ payoutError }}</p>
+              <p v-if="payoutSuccess" class="form-message form-message--success">{{ payoutSuccess }}</p>
+
+              <button class="btn btn-primary action-btn" :disabled="creatingPayout">
+                {{ creatingPayout ? 'Отправляем...' : 'Создать заявку на вывод' }}
+              </button>
+            </form>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">Мои промокоды</h3>
@@ -108,6 +184,32 @@
               Скачать отчёт (CSV)
             </button>
           </div>
+        </div>
+      </div>
+
+      <div class="card section-space">
+        <div class="card-header">
+          <h3 class="card-title">Транзакции баланса</h3>
+        </div>
+        <div class="card-body">
+          <div v-if="transactions.length === 0" class="empty-state">Пока нет транзакций</div>
+          <template v-else>
+            <div class="transactions-list">
+              <article v-for="transaction in transactions" :key="transaction.id" class="transaction-row">
+                <div :class="['transaction-icon', transaction.direction === 'INCOME' ? 'income' : transaction.direction === 'OUTCOME' ? 'outcome' : 'neutral']">
+                  {{ transaction.direction === 'INCOME' ? '+' : transaction.direction === 'OUTCOME' ? '−' : '!' }}
+                </div>
+                <div class="transaction-main">
+                  <strong>{{ transaction.title }}</strong>
+                  <span>{{ transactionStatusLabel(transaction.status) }} · {{ formatDate(transaction.createdAt) }}</span>
+                  <small v-if="transaction.description">{{ transaction.description }}</small>
+                </div>
+                <div :class="['transaction-amount', transaction.direction === 'INCOME' ? 'income' : transaction.direction === 'OUTCOME' ? 'outcome' : 'neutral']">
+                  {{ transaction.direction === 'INCOME' ? '+' : transaction.direction === 'OUTCOME' ? '-' : '' }}{{ formatCurrency(transaction.amount) }}
+                </div>
+              </article>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -287,10 +389,26 @@ const stats = ref({})
 const promoCodes = ref([])
 const partnerUsers = ref([])
 const commissions = ref([])
+const transactions = ref([])
 const dailyStats = ref([])
 const usersLoading = ref(false)
 const filterStartDate = ref('')
 const filterEndDate = ref('')
+const creatingPayout = ref(false)
+const payoutError = ref('')
+const payoutSuccess = ref('')
+const payoutForm = ref({
+  amount: '',
+  recipientName: '',
+  bankName: '',
+  accountNumber: '',
+  bik: '',
+  correspondentAccount: '',
+  inn: '',
+  cardNumber: '',
+  phone: '',
+  comment: ''
+})
 
 function isPartnerAccessError(error) {
   const status = error?.response?.status
@@ -336,9 +454,69 @@ async function fetchCommissions() {
   commissions.value = data.commissions || []
 }
 
+async function fetchTransactions() {
+  const { data } = await axios.get(`${API_URL}/cabinet/transactions`)
+  transactions.value = data.transactions || []
+  if (data.balance) {
+    stats.value = {
+      ...stats.value,
+      totalPaidOut: data.balance.totalPaidOut,
+      pendingPayouts: data.balance.pendingPayouts,
+      spentOnOrders: data.balance.totalSpentOnOrders,
+      availableBalance: data.balance.availableBalance,
+      availableForOrders: data.balance.availableBalance,
+      pendingAmount: data.balance.availableBalance
+    }
+  }
+}
+
 async function fetchDailyStats() {
   const { data } = await axios.get(`${API_URL}/cabinet/daily-stats`, { params: { days: 30 } })
   dailyStats.value = data.dailyStats || []
+}
+
+async function createPayoutRequest() {
+  payoutError.value = ''
+  payoutSuccess.value = ''
+  creatingPayout.value = true
+
+  try {
+    const { data } = await axios.post(`${API_URL}/cabinet/payout-requests`, {
+      amount: payoutForm.value.amount,
+      details: {
+        recipientName: payoutForm.value.recipientName,
+        bankName: payoutForm.value.bankName,
+        accountNumber: payoutForm.value.accountNumber,
+        bik: payoutForm.value.bik,
+        correspondentAccount: payoutForm.value.correspondentAccount,
+        inn: payoutForm.value.inn,
+        cardNumber: payoutForm.value.cardNumber,
+        phone: payoutForm.value.phone,
+        comment: payoutForm.value.comment
+      }
+    })
+
+    if (data.balance) {
+      stats.value = {
+        ...stats.value,
+        totalPaidOut: data.balance.totalPaidOut,
+        pendingPayouts: data.balance.pendingPayouts,
+        spentOnOrders: data.balance.totalSpentOnOrders,
+        availableBalance: data.balance.availableBalance,
+        availableForOrders: data.balance.availableBalance,
+        pendingAmount: data.balance.availableBalance
+      }
+    }
+
+    payoutForm.value.amount = ''
+    payoutForm.value.comment = ''
+    payoutSuccess.value = 'Заявка создана. Сумма заморожена до обработки администратором.'
+    await fetchTransactions()
+  } catch (error) {
+    payoutError.value = error.response?.data?.error || 'Не удалось создать заявку на вывод'
+  } finally {
+    creatingPayout.value = false
+  }
 }
 
 function exportReport() {
@@ -373,6 +551,17 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('ru-RU')
 }
 
+function transactionStatusLabel(status) {
+  const labels = {
+    COMPLETED: 'Зачислено',
+    PAYOUT_REQUESTED: 'Заявка на проверке',
+    PAYOUT_APPROVED: 'Выплачено',
+    PAYOUT_REJECTED: 'Отклонено',
+    SPENT_ON_ORDER: 'Списано на заказ'
+  }
+  return labels[status] || status
+}
+
 function formatChartDate(dateStr) {
   const date = new Date(dateStr)
   return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
@@ -385,6 +574,7 @@ onMounted(async () => {
       fetchPromoCodes(),
       fetchUsers(),
       fetchCommissions(),
+      fetchTransactions(),
       fetchDailyStats()
     ])
     accessDenied.value = false
@@ -575,6 +765,137 @@ onMounted(async () => {
 .action-btn {
   width: 100%;
   justify-content: center;
+}
+
+.payout-request-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.payout-request-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent), #22c55e);
+}
+
+.balance-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.balance-panel > div {
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+}
+
+.balance-panel span,
+.payout-form label span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  margin-bottom: 0.35rem;
+}
+
+.balance-panel strong {
+  font-size: 1.1rem;
+}
+
+.payout-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.form-message {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.form-message--error {
+  color: #ef4444;
+}
+
+.form-message--success {
+  color: #22c55e;
+}
+
+.transactions-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.transaction-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+}
+
+.transaction-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-weight: 900;
+}
+
+.transaction-icon.income,
+.transaction-amount.income {
+  color: #22c55e;
+}
+
+.transaction-icon.outcome,
+.transaction-amount.outcome {
+  color: #ef4444;
+}
+
+.transaction-icon.neutral,
+.transaction-amount.neutral {
+  color: #f59e0b;
+}
+
+.transaction-icon.income {
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.transaction-icon.outcome {
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.transaction-icon.neutral {
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.transaction-main {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.transaction-main span,
+.transaction-main small {
+  color: var(--text-secondary);
+}
+
+.transaction-amount {
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .chart-container {
@@ -820,6 +1141,20 @@ onMounted(async () => {
   .date-filter {
     width: 100%;
     grid-template-columns: 1fr;
+  }
+
+  .balance-panel,
+  .form-row,
+  .transaction-row {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-row {
+    align-items: flex-start;
+  }
+
+  .transaction-amount {
+    font-size: 1.1rem;
   }
 
   .desktop-only {

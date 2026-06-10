@@ -186,8 +186,13 @@ model PartnerPayment {
   partner     Partner  @relation(fields: [partnerId], references: [id])
   amount      Float
   status      String   @default("PENDING")
+  type        String   @default("PAYOUT")
+  details     String?
+  comment     String?
+  processedBy Int?
   createdAt   DateTime @default(now())
   paidAt      DateTime?
+  processedAt DateTime?
 
   @@map("partner_payments")
 }

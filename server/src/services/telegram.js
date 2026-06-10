@@ -1,4 +1,5 @@
 import https from 'node:https'
+import crypto from 'node:crypto'
 import axios from 'axios'
 
 function escapeHtml(value) {
@@ -56,6 +57,13 @@ function buildCourierOrderMessage(order) {
   ].join('\n')
 }
 
+function createRelaySignature(secret, timestamp, body) {
+  return crypto
+    .createHmac('sha256', secret)
+    .update(`${timestamp}.${body}`)
+    .digest('hex')
+}
+
 export async function notifyCourierOrderToTelegram(order) {
   const relayUrl = (process.env.TELEGRAM_RELAY_URL || '').trim().replace(/\/+$/, '')
   const relaySecret = (process.env.TELEGRAM_RELAY_SECRET || '').trim()
@@ -88,6 +96,10 @@ export async function notifyCourierOrderToTelegram(order) {
       relayPayload.threadId = Number(threadId) || threadId
     }
 
+    const relayBody = JSON.stringify(relayPayload)
+    const relayTimestamp = String(Date.now())
+    const relaySignature = createRelaySignature(relaySecret, relayTimestamp, relayBody)
+
     console.log('[TELEGRAM] relay request', JSON.stringify({
       orderId: order?.id || null,
       relayUrl,
@@ -97,11 +109,12 @@ export async function notifyCourierOrderToTelegram(order) {
 
     let response
     try {
-      response = await axios.post(`${relayUrl}/telegram/orders`, relayPayload, {
+      response = await axios.post(`${relayUrl}/telegram/orders`, relayBody, {
         timeout: Number(process.env.TELEGRAM_RELAY_TIMEOUT_MS || 30000),
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${relaySecret}`
+          'X-AngelWings-Timestamp': relayTimestamp,
+          'X-AngelWings-Signature': relaySignature
         },
         validateStatus: () => true
       })

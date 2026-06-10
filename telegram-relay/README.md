@@ -17,12 +17,13 @@
 PORT=3010
 NODE_ENV=production
 TELEGRAM_RELAY_SECRET="очень-длинный-случайный-секрет"
+TELEGRAM_RELAY_SIGNATURE_TOLERANCE_MS="300000"
 TELEGRAM_BOT_TOKEN="токен_бота"
 TELEGRAM_ORDERS_CHAT_ID="-1004244476310"
 TELEGRAM_ORDERS_THREAD_ID=""
 ```
 
-`TELEGRAM_RELAY_SECRET` должен совпадать с секретом на основном backend.
+`TELEGRAM_RELAY_SECRET` должен совпадать с секретом на основном backend. Он используется не как обычный пароль, а как HMAC-секрет для подписи тела запроса.
 
 ## Переменные окружения основного backend
 
@@ -88,15 +89,22 @@ curl https://telegram-relay.example.com/health
 Тестовая отправка:
 
 ```bash
+BODY='{"orderId":999,"text":"<b>Тест Angel Wings relay</b>","parseMode":"HTML"}'
+TS="$(date +%s000)"
+SECRET="ВАШ_TELEGRAM_RELAY_SECRET"
+SIGNATURE="$(printf '%s.%s' "$TS" "$BODY" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print $2}')"
+
 curl -X POST "https://telegram-relay.example.com/telegram/orders" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer ВАШ_TELEGRAM_RELAY_SECRET" \
-  -d '{"orderId":999,"text":"<b>Тест Angel Wings relay</b>","parseMode":"HTML"}'
+  -H "X-AngelWings-Timestamp: $TS" \
+  -H "X-AngelWings-Signature: $SIGNATURE" \
+  -d "$BODY"
 ```
 
 ## Безопасность
 
 - Relay не имеет доступа к базе данных магазина.
 - Telegram bot token хранится только на немецком сервере.
-- Endpoint отправки защищён `Authorization: Bearer TELEGRAM_RELAY_SECRET`.
+- Endpoint отправки защищён HMAC-SHA256 подписью `timestamp.body`.
+- Старые или повторно отправленные запросы отклоняются по `TELEGRAM_RELAY_SIGNATURE_TOLERANCE_MS`.
 - Сервис слушает только `127.0.0.1`, наружу его отдаёт nginx.

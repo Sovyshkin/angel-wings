@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import https from 'node:https'
+import crypto from 'node:crypto'
 import express from 'express'
 import axios from 'axios'
 
@@ -7,7 +8,12 @@ const app = express()
 const port = Number(process.env.PORT || 3010)
 
 app.disable('x-powered-by')
-app.use(express.json({ limit: '100kb' }))
+app.use(express.json({
+  limit: '100kb',
+  verify: (req, res, buffer) => {
+    req.rawBody = buffer.toString('utf8')
+  }
+}))
 
 const telegramAgent = new https.Agent({
   family: 4,
@@ -31,19 +37,42 @@ function getRequiredEnv(name) {
 
 function requireRelayAuth(req, res, next) {
   const expectedSecret = String(process.env.TELEGRAM_RELAY_SECRET || '').trim()
+  const toleranceMs = Number(process.env.TELEGRAM_RELAY_SIGNATURE_TOLERANCE_MS || 300000)
 
   if (!expectedSecret || expectedSecret.length < 24) {
     console.error('[RELAY] TELEGRAM_RELAY_SECRET is missing or too short')
     return res.status(500).json({ ok: false, error: 'Relay secret is not configured' })
   }
 
-  const authHeader = String(req.headers.authorization || '')
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
+  const timestampHeader = String(req.headers['x-angelwings-timestamp'] || '')
+  const signatureHeader = String(req.headers['x-angelwings-signature'] || '').trim().toLowerCase()
+  const timestamp = Number(timestampHeader)
 
-  if (token !== expectedSecret) {
+  if (!Number.isFinite(timestamp) || Math.abs(Date.now() - timestamp) > toleranceMs) {
     console.warn('[RELAY] Unauthorized request', JSON.stringify({
       ip: req.ip,
-      received: maskSecret(token)
+      reason: 'stale_or_missing_timestamp',
+      timestamp: timestampHeader
+    }))
+    return res.status(401).json({ ok: false, error: 'Unauthorized' })
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', expectedSecret)
+    .update(`${timestampHeader}.${req.rawBody || ''}`)
+    .digest('hex')
+
+  const received = Buffer.from(signatureHeader, 'hex')
+  const expected = Buffer.from(expectedSignature, 'hex')
+  const signatureIsValid =
+    received.length === expected.length &&
+    crypto.timingSafeEqual(received, expected)
+
+  if (!signatureIsValid) {
+    console.warn('[RELAY] Unauthorized request', JSON.stringify({
+      ip: req.ip,
+      reason: 'invalid_signature',
+      received: maskSecret(signatureHeader)
     }))
     return res.status(401).json({ ok: false, error: 'Unauthorized' })
   }

@@ -23,14 +23,14 @@ export async function calculatePartnerBalance(prismaLike, partnerId) {
     prismaLike.partnerPayment.aggregate({
       where: {
         partnerId: safePartnerId,
-        status: 'PAID'
+        status: { in: ['PAID', 'PAYOUT_APPROVED'] }
       },
       _sum: { amount: true }
     }),
     prismaLike.partnerPayment.aggregate({
       where: {
         partnerId: safePartnerId,
-        status: 'PENDING'
+        status: { in: ['PENDING', 'PAYOUT_REQUESTED'] }
       },
       _sum: { amount: true }
     }),
