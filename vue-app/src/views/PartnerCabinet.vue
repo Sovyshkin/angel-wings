@@ -86,63 +86,74 @@
               </div>
             </div>
 
-            <form class="payout-form" @submit.prevent="createPayoutRequest">
-              <div class="form-row">
-                <label>
-                  <span>Сумма вывода</span>
-                  <input v-model="payoutForm.amount" type="number" min="500" step="1" class="input" placeholder="Например, 5000">
-                </label>
-                <label>
-                  <span>ФИО получателя</span>
-                  <input v-model="payoutForm.recipientName" class="input" placeholder="Иванов Иван Иванович">
-                </label>
-              </div>
-              <div class="form-row">
-                <label>
-                  <span>Банк</span>
-                  <input v-model="payoutForm.bankName" class="input" placeholder="Название банка">
-                </label>
-                <label>
-                  <span>БИК</span>
-                  <input v-model="payoutForm.bik" class="input" placeholder="044525225">
-                </label>
-              </div>
-              <label>
-                <span>Расчётный счёт</span>
-                <input v-model="payoutForm.accountNumber" class="input" placeholder="Можно указать счёт или ниже карту/телефон">
-              </label>
-              <div class="form-row">
-                <label>
-                  <span>Корреспондентский счёт</span>
-                  <input v-model="payoutForm.correspondentAccount" class="input" placeholder="3010...">
-                </label>
-                <label>
-                  <span>ИНН получателя</span>
-                  <input v-model="payoutForm.inn" class="input" placeholder="ИНН, если нужен для выплаты">
-                </label>
-              </div>
-              <div class="form-row">
-                <label>
-                  <span>Карта</span>
-                  <input v-model="payoutForm.cardNumber" class="input" placeholder="Номер карты, если удобнее">
-                </label>
-                <label>
-                  <span>Телефон для перевода</span>
-                  <input v-model="payoutForm.phone" class="input" placeholder="+7...">
-                </label>
-              </div>
-              <label>
-                <span>Комментарий</span>
-                <textarea v-model="payoutForm.comment" class="input" rows="3" placeholder="Любые уточнения по выплате"></textarea>
-              </label>
+            <button
+              type="button"
+              class="btn btn-ghost payout-toggle-btn"
+              :aria-expanded="isPayoutFormOpen"
+              @click="isPayoutFormOpen = !isPayoutFormOpen"
+            >
+              {{ isPayoutFormOpen ? 'Скрыть форму заявки' : 'Показать форму заявки на вывод' }}
+            </button>
 
-              <p v-if="payoutError" class="form-message form-message--error">{{ payoutError }}</p>
-              <p v-if="payoutSuccess" class="form-message form-message--success">{{ payoutSuccess }}</p>
+            <Transition name="payout-collapse">
+              <form v-show="isPayoutFormOpen" class="payout-form" @submit.prevent="createPayoutRequest">
+                <div class="form-row">
+                  <label>
+                    <span>Сумма вывода</span>
+                    <input v-model="payoutForm.amount" type="number" min="500" step="1" class="input" placeholder="Например, 5000">
+                  </label>
+                  <label>
+                    <span>ФИО получателя</span>
+                    <input v-model="payoutForm.recipientName" class="input" placeholder="Иванов Иван Иванович">
+                  </label>
+                </div>
+                <div class="form-row">
+                  <label>
+                    <span>Банк</span>
+                    <input v-model="payoutForm.bankName" class="input" placeholder="Название банка">
+                  </label>
+                  <label>
+                    <span>БИК</span>
+                    <input v-model="payoutForm.bik" class="input" placeholder="044525225">
+                  </label>
+                </div>
+                <label>
+                  <span>Расчётный счёт</span>
+                  <input v-model="payoutForm.accountNumber" class="input" placeholder="Можно указать счёт или ниже карту/телефон">
+                </label>
+                <div class="form-row">
+                  <label>
+                    <span>Корреспондентский счёт</span>
+                    <input v-model="payoutForm.correspondentAccount" class="input" placeholder="3010...">
+                  </label>
+                  <label>
+                    <span>ИНН получателя</span>
+                    <input v-model="payoutForm.inn" class="input" placeholder="ИНН, если нужен для выплаты">
+                  </label>
+                </div>
+                <div class="form-row">
+                  <label>
+                    <span>Карта</span>
+                    <input v-model="payoutForm.cardNumber" class="input" placeholder="Номер карты, если удобнее">
+                  </label>
+                  <label>
+                    <span>Телефон для перевода</span>
+                    <input v-model="payoutForm.phone" class="input" placeholder="+7...">
+                  </label>
+                </div>
+                <label>
+                  <span>Комментарий</span>
+                  <textarea v-model="payoutForm.comment" class="input" rows="3" placeholder="Любые уточнения по выплате"></textarea>
+                </label>
 
-              <button class="btn btn-primary action-btn" :disabled="creatingPayout">
-                {{ creatingPayout ? 'Отправляем...' : 'Создать заявку на вывод' }}
-              </button>
-            </form>
+                <p v-if="payoutError" class="form-message form-message--error">{{ payoutError }}</p>
+                <p v-if="payoutSuccess" class="form-message form-message--success">{{ payoutSuccess }}</p>
+
+                <button class="btn btn-primary action-btn" :disabled="creatingPayout">
+                  {{ creatingPayout ? 'Отправляем...' : 'Создать заявку на вывод' }}
+                </button>
+              </form>
+            </Transition>
           </div>
         </div>
 
@@ -397,6 +408,7 @@ const filterEndDate = ref('')
 const creatingPayout = ref(false)
 const payoutError = ref('')
 const payoutSuccess = ref('')
+const isPayoutFormOpen = ref(false)
 const payoutForm = ref({
   amount: '',
   recipientName: '',
@@ -780,6 +792,12 @@ onMounted(async () => {
   background: linear-gradient(90deg, var(--accent), #22c55e);
 }
 
+.payout-toggle-btn {
+  width: 100%;
+  margin-bottom: 1rem;
+  justify-content: center;
+}
+
 .balance-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -809,6 +827,7 @@ onMounted(async () => {
 .payout-form {
   display: grid;
   gap: 0.8rem;
+  overflow: hidden;
 }
 
 .form-row {
@@ -829,6 +848,29 @@ onMounted(async () => {
 
 .form-message--success {
   color: #22c55e;
+}
+
+.payout-collapse-enter-active,
+.payout-collapse-leave-active {
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease,
+    max-height 0.24s ease;
+  overflow: hidden;
+}
+
+.payout-collapse-enter-from,
+.payout-collapse-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+  max-height: 0;
+}
+
+.payout-collapse-enter-to,
+.payout-collapse-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 1400px;
 }
 
 .transactions-list {

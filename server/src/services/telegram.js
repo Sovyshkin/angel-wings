@@ -49,10 +49,11 @@ function getDeliveryLabel(order) {
 
 function getPaymentLabel(order) {
   const paymentStatus = String(order?.paymentStatus || '').trim().toUpperCase()
-  if (paymentStatus === 'PAID') return 'Оплачен'
-  if (paymentStatus === 'CASH_ON_DELIVERY') return 'Наличными при получении'
-  if (paymentStatus === 'FAILED') return 'Не оплачен'
-  return paymentStatus || 'Не оплачен'
+  if (paymentStatus === 'PAID') return '✅ Оплачен'
+  if (paymentStatus === 'CASH_ON_DELIVERY') return '💵 Наличными при получении'
+  if (paymentStatus === 'FAILED') return '❌ Не оплачен'
+  if (paymentStatus === 'PENDING') return '⏳ Ожидает оплаты'
+  return paymentStatus ? `⏳ ${paymentStatus}` : '⏳ Ожидает оплаты'
 }
 
 function buildOrderMessage(order) {
@@ -72,7 +73,7 @@ function buildOrderMessage(order) {
     `<b>Заказ:</b> #${order.id}`,
     `<b>Дата:</b> ${escapeHtml(formatDateTime(order.createdAt))}`,
     `<b>Сумма:</b> ${escapeHtml(formatMoney(order.total))}`,
-    `<b>Оплата:</b> ${escapeHtml(getPaymentLabel(order))}`,
+    `<b>Статус оплаты:</b> ${escapeHtml(getPaymentLabel(order))}`,
     `<b>Доставка:</b> ${escapeHtml(getDeliveryLabel(order))}`,
     `<b>Адрес:</b> ${escapeHtml(order.shippingAddress || order.deliveryPickupName || order.deliveryCity || '—')}`,
     '',
