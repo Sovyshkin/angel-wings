@@ -99,7 +99,7 @@ router.post('/', authenticate, requireAdmin, upload.single('image'), async (req,
 
 router.put('/:id', authenticate, requireAdmin, upload.single('image'), async (req, res, next) => {
   try {
-    const { name, parentId, active } = req.body
+    const { name, parentId, active, clearImage } = req.body
     
     const updateData = {}
 
@@ -117,6 +117,8 @@ router.put('/:id', authenticate, requireAdmin, upload.single('image'), async (re
     
     if (req.file) {
       updateData.image = `/uploads/${req.file.filename}`
+    } else if (String(clearImage || '').toLowerCase() === '1' || String(clearImage || '').toLowerCase() === 'true') {
+      updateData.image = null
     }
     
     const category = await prisma.category.update({

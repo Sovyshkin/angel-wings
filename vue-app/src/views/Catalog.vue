@@ -51,7 +51,15 @@
                 :class="{ active: selectedCategory === cat.slug }"
                 @click="selectCategory(cat.slug)"
               >
-                <span class="filter-icon" v-html="getCategoryIcon(cat.slug)"></span>
+                <span class="filter-icon">
+                  <img
+                    v-if="cat.image && !brokenCategoryIcons.has(cat.term_id)"
+                    :src="cat.image"
+                    :alt="cat.name"
+                    @error="handleCategoryIconError(cat.term_id)"
+                  >
+                  <span v-else v-html="getCategoryIcon(cat.slug)"></span>
+                </span>
                 {{ cat.name }}
                 <span class="filter-count">{{ getCategoryCount(cat.slug) }}</span>
               </button>
@@ -209,6 +217,7 @@ const priceMin = ref(null)
 const priceMax = ref(null)
 const loading = ref(false)
 const mobileFiltersOpen = ref(false)
+const brokenCategoryIcons = ref(new Set())
 
 const products = computed(() => productStore.products)
 const categories = computed(() => productStore.categories)
@@ -266,14 +275,19 @@ function closeMobileFilters() {
   mobileFiltersOpen.value = false
 }
 
+function handleCategoryIconError(categoryId) {
+  brokenCategoryIcons.value = new Set([...brokenCategoryIcons.value, categoryId])
+}
+
 function getCategoryIcon(slug) {
   const icons = {
     'longevitiya': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z"/></svg>`,
     'immunomodulyatory': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
     'neiropeptide': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>`,
-    'growth': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`
+    'growth': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
+    default: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`
   }
-  return icons[slug] || ''
+  return icons[slug] || icons.default
 }
 
 function getCategoryName(category) {
@@ -473,11 +487,19 @@ watch(() => route.query.category, (newCat) => {
   border-radius: 8px;
   font-size: 0.875rem;
   transition: all 0.3s ease;
+  overflow: hidden;
 }
 
 .filter-item.active .filter-icon {
   background: var(--accent);
   color: var(--bg-primary);
+}
+
+.filter-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .filter-count {

@@ -23,6 +23,7 @@
           <thead>
             <tr>
               <th>ID</th>
+              <th>Иконка</th>
               <th>Название</th>
               <th>Товаров</th>
               <th>Статус</th>
@@ -32,6 +33,19 @@
           <tbody>
             <tr v-for="cat in categories" :key="cat.term_id">
               <td class="cell-id">{{ cat.term_id }}</td>
+              <td class="cell-icon">
+                <div class="category-icon-thumb">
+                  <img v-if="cat.image && !brokenCategoryThumbs.has(cat.term_id)" :src="cat.image" :alt="cat.name" @error="handleCategoryThumbError(cat.term_id)">
+                  <span v-else class="category-icon-thumb__empty">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="7" height="7"/>
+                      <rect x="14" y="3" width="7" height="7"/>
+                      <rect x="14" y="14" width="7" height="7"/>
+                      <rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                  </span>
+                </div>
+              </td>
               <td class="cell-name">{{ cat.name }}</td>
               <td class="cell-count">{{ cat.count }}</td>
               <td>
@@ -59,6 +73,17 @@
       <div class="categories-cards">
         <div v-for="cat in categories" :key="cat.term_id" class="category-card card">
           <div class="category-card__header">
+            <div class="category-card__icon">
+              <img v-if="cat.image && !brokenCategoryThumbs.has(cat.term_id)" :src="cat.image" :alt="cat.name" @error="handleCategoryThumbError(cat.term_id)">
+              <span v-else class="category-card__icon-placeholder">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+              </span>
+            </div>
             <span :class="['badge', cat.active ? 'badge-success' : 'badge-danger']">
               {{ cat.active ? 'Активна' : 'Скрыта' }}
             </span>
@@ -66,6 +91,7 @@
           </div>
           <div class="category-card__body">
             <h3 class="category-card__name">{{ cat.name }}</h3>
+            <p class="category-card__slug">{{ cat.slug }}</p>
           </div>
           <div class="category-card__actions">
             <button @click="openModal(cat)" class="btn btn-secondary btn-sm">
@@ -99,6 +125,31 @@
           <div class="form-group">
             <label class="form-label">Название</label>
             <input type="text" v-model="form.name" required class="input" placeholder="Долголетие">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Иконка категории</label>
+            <div class="file-input-wrapper">
+              <input type="file" @change="handleCategoryImageChange" accept="image/*" class="file-input">
+              <div class="file-input-trigger">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span>{{ editing ? 'Заменить иконку' : 'Выбрать иконку' }}</span>
+              </div>
+            </div>
+            <p class="field-hint">Изображение будет использоваться как иконка категории на сайте.</p>
+            <div v-if="categoryImagePreview" class="category-image-preview">
+              <img :src="categoryImagePreview" alt="Иконка категории">
+              <button type="button" class="remove-image" @click="clearCategoryImage" title="Убрать иконку">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <div v-if="categoryImageRemoved && editing" class="image-removed-note">
+              Иконка будет удалена после сохранения.
+            </div>
           </div>
 
           <div class="toggle-group">
@@ -135,6 +186,10 @@ const showModal = ref(false)
 const editing = ref(null)
 const error = ref('')
 const loadingForm = ref(false)
+const categoryImageFile = ref(null)
+const categoryImagePreview = ref('')
+const categoryImageRemoved = ref(false)
+const brokenCategoryThumbs = ref(new Set())
 
 const form = ref({ name: '', active: true })
 
@@ -150,13 +205,19 @@ async function fetchCategories() {
 }
 
 function openModal(cat = null) {
+  revokeCategoryPreview()
   if (cat) {
     editing.value = cat.term_id
     form.value = { name: cat.name, active: cat.active }
+    categoryImagePreview.value = cat.image || ''
+    categoryImageRemoved.value = false
   } else {
     editing.value = null
     form.value = { name: '', active: true }
+    categoryImagePreview.value = ''
+    categoryImageRemoved.value = false
   }
+  categoryImageFile.value = null
   error.value = ''
   showModal.value = true
 }
@@ -165,6 +226,35 @@ function closeModal() {
   showModal.value = false
   editing.value = null
   form.value = { name: '', active: true }
+  categoryImageFile.value = null
+  categoryImagePreview.value = ''
+  categoryImageRemoved.value = false
+  revokeCategoryPreview()
+}
+
+function revokeCategoryPreview() {
+  if (categoryImagePreview.value && categoryImagePreview.value.startsWith('blob:')) {
+    URL.revokeObjectURL(categoryImagePreview.value)
+  }
+}
+
+function handleCategoryImageChange(event) {
+  const file = event.target.files?.[0] || null
+  revokeCategoryPreview()
+  categoryImageFile.value = file
+  categoryImageRemoved.value = false
+  categoryImagePreview.value = file ? URL.createObjectURL(file) : ''
+}
+
+function clearCategoryImage() {
+  revokeCategoryPreview()
+  categoryImageFile.value = null
+  categoryImagePreview.value = ''
+  categoryImageRemoved.value = true
+}
+
+function handleCategoryThumbError(categoryId) {
+  brokenCategoryThumbs.value = new Set([...brokenCategoryThumbs.value, categoryId])
 }
 
 async function handleSubmit() {
@@ -172,10 +262,23 @@ async function handleSubmit() {
   loadingForm.value = true
   
   try {
+    const formData = new FormData()
+    formData.append('name', form.value.name)
+    formData.append('active', String(!!form.value.active))
+
     if (editing.value) {
-      await axios.put(`${API_URL}/categories/${editing.value}`, form.value)
+      if (categoryImageFile.value) {
+        formData.append('image', categoryImageFile.value)
+      }
+      if (categoryImageRemoved.value) {
+        formData.append('clearImage', '1')
+      }
+      await axios.put(`${API_URL}/categories/${editing.value}`, formData)
     } else {
-      await axios.post(`${API_URL}/categories`, form.value)
+      if (categoryImageFile.value) {
+        formData.append('image', categoryImageFile.value)
+      }
+      await axios.post(`${API_URL}/categories`, formData)
     }
     closeModal()
     fetchCategories()
@@ -262,6 +365,55 @@ onMounted(fetchCategories)
   font-family: var(--font-body);
 }
 
+.cell-icon {
+  width: 88px;
+}
+
+.category-icon-thumb,
+.category-card__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+}
+
+.category-icon-thumb img,
+.category-card__icon img,
+.category-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.category-icon-thumb__empty,
+.category-card__icon-placeholder {
+  color: var(--text-muted);
+  display: grid;
+  place-items: center;
+}
+
+.category-image-preview {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 20px;
+  overflow: hidden;
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.image-removed-note {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
 .categories-cards {
   display: none;
 }
@@ -272,10 +424,19 @@ onMounted(fetchCategories)
 
 .category-card__header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   padding: 1rem;
   background: var(--bg-secondary);
+  gap: 0.75rem;
+}
+
+.category-card__icon {
+  flex-shrink: 0;
+}
+
+.category-card__count {
+  margin-left: auto;
 }
 
 .category-card__count {
