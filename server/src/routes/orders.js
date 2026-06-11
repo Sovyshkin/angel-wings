@@ -11,6 +11,15 @@ const router = Router()
 const prisma = new PrismaClient()
 const VALID_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
 const ADDABLE_ORDER_STATUSES = ['PENDING', 'PROCESSING']
+const ORDER_INCLUDE = {
+  items: {
+    include: {
+      product: {
+        select: { title: true, image: true }
+      }
+    }
+  }
+}
 
 function getDosagePriceFromSpecs(product, selectedDosage) {
   if (!selectedDosage || !product?.specs) return null
@@ -417,8 +426,36 @@ router.post('/', authenticate, async (req, res, next) => {
       promoCode,
       delivery,
       paymentMethod,
-      partnerBonusAmount
+      partnerBonusAmount,
+      clientRequestId
     } = req.body
+
+    const normalizedClientRequestId = String(clientRequestId || '').trim()
+    if (normalizedClientRequestId) {
+      const existingOrder = await prisma.order.findUnique({
+        where: { clientRequestId: normalizedClientRequestId },
+        include: ORDER_INCLUDE
+      })
+
+      if (existingOrder) {
+        const isOwner = !existingOrder.userId || existingOrder.userId === req.user.id || req.user.role === 'ADMIN'
+        if (!isOwner) {
+          return res.status(403).json({ error: 'Доступ запрещён' })
+        }
+
+        console.log('[ORDER] Duplicate checkout request detected, returning existing order', JSON.stringify({
+          orderId: existingOrder.id,
+          clientRequestId: normalizedClientRequestId
+        }))
+
+        return res.status(200).json({
+          order: existingOrder,
+          meta: {
+            duplicate: true
+          }
+        })
+      }
+    }
 
     if (!items || items.length === 0) {
       return res.status(400).json({ error: 'Корзина пуста' })
@@ -659,15 +696,7 @@ router.post('/', authenticate, async (req, res, next) => {
             create: orderItems
           }
         },
-        include: {
-          items: {
-            include: {
-              product: {
-                select: { title: true, image: true }
-              }
-            }
-          }
-        }
+        include: ORDER_INCLUDE
       })
 
       if (partnerId && actualUserId) {

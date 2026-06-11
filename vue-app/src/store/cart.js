@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const useCartStore = defineStore('cart', () => {
+  const CHECKOUT_REQUEST_KEY = 'peptidi_checkout_request_guard'
   const items = ref(JSON.parse(localStorage.getItem('peptidi_cart') || '[]'))
   const lastAddedId = ref(null)
   
@@ -78,6 +79,11 @@ export const useCartStore = defineStore('cart', () => {
     deliveryMethods.value = []
     save()
     saveDelivery()
+    try {
+      sessionStorage.removeItem(CHECKOUT_REQUEST_KEY)
+    } catch {
+      // noop
+    }
   }
   
   function save() {

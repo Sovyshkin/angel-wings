@@ -813,6 +813,7 @@ const SELF_PICKUP_CITY = 'Москва'
 const SELF_PICKUP_ADDRESS = 'г. Москва, Чкаловский бульвар, 6'
 const SELF_PICKUP_PRICE = 0
 const SELF_PICKUP_AVAILABLE = false
+const CHECKOUT_REQUEST_KEY = 'peptidi_checkout_request_guard'
 
 const customer = ref({ name: '', phone: '', email: '', comment: '' })
 const consents = ref({
@@ -1467,6 +1468,52 @@ function selectSelfPickup() {
   })
 }
 
+function clearCheckoutRequestGuard() {
+  try {
+    sessionStorage.removeItem(CHECKOUT_REQUEST_KEY)
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function getOrCreateCheckoutRequestId(signature) {
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(CHECKOUT_REQUEST_KEY) || 'null')
+    if (stored && stored.signature === signature && stored.requestId) {
+      return stored.requestId
+    }
+  } catch {
+    // ignore broken storage payload
+  }
+
+  const requestId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `req_${Date.now()}_${Math.random().toString(16).slice(2)}`
+
+  try {
+    sessionStorage.setItem(CHECKOUT_REQUEST_KEY, JSON.stringify({ signature, requestId }))
+  } catch {
+    // ignore storage errors
+  }
+
+  return requestId
+}
+
+function buildCheckoutSignature(orderData) {
+  return JSON.stringify({
+    items: orderData.items,
+    customerName: orderData.customerName,
+    customerEmail: orderData.customerEmail,
+    customerPhone: orderData.customerPhone,
+    shippingAddress: orderData.shippingAddress,
+    notes: orderData.notes,
+    paymentMethod: orderData.paymentMethod,
+    delivery: orderData.delivery,
+    promoCode: orderData.promoCode || '',
+    partnerBonusAmount: orderData.partnerBonusAmount || 0
+  })
+}
+
 const totalWithDelivery = computed(() => {
   return cartStore.total + deliveryPrice.value
 })
@@ -1657,6 +1704,7 @@ async function placeOrder() {
         })
 
         if (paymentResponse.data.success && paymentResponse.data.paymentUrl) {
+          clearCheckoutRequestGuard()
           cartStore.clear()
           clearOrderAdditionContext()
           window.location.href = paymentResponse.data.paymentUrl
@@ -1664,6 +1712,7 @@ async function placeOrder() {
         }
       }
 
+      clearCheckoutRequestGuard()
       cartStore.clear()
       clearOrderAdditionContext()
       completedOrderAddition.value = true
@@ -1761,6 +1810,9 @@ async function placeOrder() {
     if (authStore.isAuthenticated && authStore.user?.id) {
       orderData.userId = authStore.user.id
     }
+
+    const checkoutSignature = buildCheckoutSignature(orderData)
+    orderData.clientRequestId = getOrCreateCheckoutRequestId(checkoutSignature)
     
     const { data } = await axios.post('/api/orders', orderData)
     lastOrderId.value = data.order?.id
@@ -1813,6 +1865,7 @@ async function placeOrder() {
     }
     
     if (deliveryType.value === 'courier' && paymentMethod.value === 'cash_on_delivery') {
+      clearCheckoutRequestGuard()
       cartStore.clear()
       orderComplete.value = true
       setTimeout(() => {
@@ -1822,6 +1875,7 @@ async function placeOrder() {
     }
 
     if (createdOrderTotal <= 0) {
+      clearCheckoutRequestGuard()
       cartStore.clear()
       orderComplete.value = true
       setTimeout(() => {
@@ -1840,6 +1894,7 @@ async function placeOrder() {
 
       if (paymentResponse.data.success && paymentResponse.data.paymentUrl) {
         // Redirect to Tochka payment page
+        clearCheckoutRequestGuard()
         window.location.href = paymentResponse.data.paymentUrl
         return // Don't clear cart - user will return from payment
       }
@@ -1852,6 +1907,7 @@ async function placeOrder() {
     }
     
     // If we get here without redirect, something unexpected happened
+    clearCheckoutRequestGuard()
     cartStore.clear()
     orderComplete.value = true
     setTimeout(() => {

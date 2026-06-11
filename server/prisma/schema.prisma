@@ -69,6 +69,7 @@ model Product {
 
 model Order {
   id              Int      @id @default(autoincrement())
+  clientRequestId String?  @unique
   userId          Int?
   user            User?    @relation(fields: [userId], references: [id])
   partnerId       Int?
