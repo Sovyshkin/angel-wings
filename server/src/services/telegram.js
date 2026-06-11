@@ -53,7 +53,7 @@ function getPaymentLabel(order) {
   if (paymentStatus === 'CASH_ON_DELIVERY') return '💵 Наличными при получении'
   if (paymentStatus === 'FAILED') return '❌ Не оплачен'
   if (paymentStatus === 'PENDING') return '⏳ Ожидает оплаты'
-  return paymentStatus ? `⏳ ${paymentStatus}` : '⏳ Ожидает оплаты'
+  return '⏳ Ожидает оплаты'
 }
 
 function buildOrderMessage(order) {

@@ -403,12 +403,13 @@
 
               <label
                 class="delivery-type-option"
-                :class="{ selected: deliveryType === 'self_pickup' }"
+                :class="{ selected: deliveryType === 'self_pickup' && SELF_PICKUP_AVAILABLE, 'delivery-type-option--disabled': !SELF_PICKUP_AVAILABLE }"
               >
                 <input
                   type="radio"
                   value="self_pickup"
                   v-model="deliveryType"
+                  :disabled="!SELF_PICKUP_AVAILABLE"
                   @change="onDeliveryTypeChange"
                 >
                 <div class="option-icon">
@@ -420,11 +421,15 @@
                   </svg>
                 </div>
                 <div class="option-content">
-                  <strong>Самовывоз</strong>
+                  <strong>
+                    Самовывоз
+                    <span v-if="!SELF_PICKUP_AVAILABLE" class="option-unavailable-badge">Временно недоступен</span>
+                  </strong>
                   <span>Москва, Чкаловский бульвар, 6</span>
                 </div>
                 <div class="option-meta">
-                  <span class="option-price option-price--free">Бесплатно</span>
+                  <span v-if="SELF_PICKUP_AVAILABLE" class="option-price option-price--free">Бесплатно</span>
+                  <span v-else class="option-unavailable-dot" aria-hidden="true"></span>
                   <span class="option-check"></span>
                 </div>
               </label>
@@ -545,7 +550,7 @@
             </div>
 
             <!-- Selected Self Pickup -->
-            <div v-if="!loadingDelivery && deliveryType === 'self_pickup'" class="selected-pickup">
+            <div v-if="!loadingDelivery && SELF_PICKUP_AVAILABLE && deliveryType === 'self_pickup'" class="selected-pickup">
               <div class="pickup-point selected">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
@@ -587,7 +592,6 @@
                   class="input"
                   :class="{ 'input--error': showValidationErrors && isPhoneMissing }"
                   placeholder="+7 (999) 999-99-99"
-                  :disabled="authStore.isAuthenticated"
                   required
                 >
               </div>
@@ -808,6 +812,7 @@ const INTERNAL_COURIER_PRICE = 690
 const SELF_PICKUP_CITY = 'Москва'
 const SELF_PICKUP_ADDRESS = 'г. Москва, Чкаловский бульвар, 6'
 const SELF_PICKUP_PRICE = 0
+const SELF_PICKUP_AVAILABLE = false
 
 const customer = ref({ name: '', phone: '', email: '', comment: '' })
 const consents = ref({
@@ -977,7 +982,7 @@ const parsedPickupSearch = computed(() => {
 const isDeliverySelected = computed(() => {
   if (deliveryType.value === 'pvz') return Boolean(selectedPickupPoint.value)
   if (deliveryType.value === 'courier') return Boolean(courierAddress.value) && !courierAddressError.value
-  return deliveryType.value === 'self_pickup'
+  return deliveryType.value === 'self_pickup' && SELF_PICKUP_AVAILABLE
 })
 
 const deliverySummaryLabel = computed(() => {
@@ -1297,6 +1302,9 @@ function onDeliveryTypeChange() {
   if (!ENABLE_PVZ && deliveryType.value === 'pvz') {
     deliveryType.value = 'courier'
   }
+  if (!SELF_PICKUP_AVAILABLE && deliveryType.value === 'self_pickup') {
+    deliveryType.value = ENABLE_PVZ ? 'pvz' : 'courier'
+  }
   changeDelivery()
   if (deliveryType.value === 'self_pickup') {
     selectSelfPickup()
@@ -1439,6 +1447,8 @@ async function selectCourierDelivery() {
 }
 
 function selectSelfPickup() {
+  if (!SELF_PICKUP_AVAILABLE) return
+
   foundCityName.value = SELF_PICKUP_CITY
   foundCityCode.value = ''
   deliveryPrice.value = SELF_PICKUP_PRICE
@@ -1862,7 +1872,13 @@ onMounted(async () => {
 
   const savedDelivery = cartStore.delivery || {}
   if (savedDelivery.type) {
-    deliveryType.value = !ENABLE_PVZ && savedDelivery.type === 'pvz' ? 'courier' : savedDelivery.type
+    if (savedDelivery.type === 'self_pickup' && !SELF_PICKUP_AVAILABLE) {
+      deliveryType.value = ENABLE_PVZ ? 'pvz' : 'courier'
+      cartStore.setDeliveryPrice(0)
+      cartStore.setDelivery({})
+    } else {
+      deliveryType.value = !ENABLE_PVZ && savedDelivery.type === 'pvz' ? 'courier' : savedDelivery.type
+    }
   }
   if (savedDelivery.city) {
     foundCityName.value = savedDelivery.city
@@ -1881,7 +1897,7 @@ onMounted(async () => {
     foundCityName.value = INTERNAL_COURIER_CITY
     foundCityCode.value = INTERNAL_COURIER_CITY_CODE
   }
-  if (savedDelivery.type === 'self_pickup') {
+  if (savedDelivery.type === 'self_pickup' && SELF_PICKUP_AVAILABLE) {
     foundCityName.value = SELF_PICKUP_CITY
     foundCityCode.value = ''
     deliveryPrice.value = SELF_PICKUP_PRICE
@@ -2668,6 +2684,37 @@ onUnmounted(() => {
   background: linear-gradient(135deg, var(--accent-dim), rgba(166, 185, 248, 0.04));
 }
 
+.delivery-type-option--disabled {
+  cursor: not-allowed;
+  position: relative;
+  overflow: hidden;
+  opacity: 0.78;
+  border-color: rgba(245, 158, 11, 0.38);
+  background:
+    radial-gradient(circle at 100% 0, rgba(245, 158, 11, 0.16), transparent 36%),
+    linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(166, 185, 248, 0.03)),
+    var(--bg-card);
+}
+
+.delivery-type-option--disabled::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 9px,
+    rgba(245, 158, 11, 0.055) 9px,
+    rgba(245, 158, 11, 0.055) 10px
+  );
+}
+
+.delivery-type-option--disabled:hover {
+  border-color: rgba(245, 158, 11, 0.46);
+  transform: none;
+}
+
 .delivery-type-option input {
   display: none;
 }
@@ -2700,6 +2747,10 @@ onUnmounted(() => {
 }
 
 .option-content strong {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
   font-size: 0.875rem;
   line-height: 1.2;
 }
@@ -2726,6 +2777,29 @@ onUnmounted(() => {
 
 .option-price--free {
   color: var(--accent);
+}
+
+.option-unavailable-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid rgba(245, 158, 11, 0.34);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.option-unavailable-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.14);
 }
 
 .option-check {
