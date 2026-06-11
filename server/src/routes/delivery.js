@@ -7,6 +7,24 @@ import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStat
 const router = express.Router()
 const prisma = new PrismaClient()
 
+function normalizeRussianPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '')
+
+  if (digits.length === 11 && digits.startsWith('8')) {
+    return `+7${digits.slice(1)}`
+  }
+
+  if (digits.length === 11 && digits.startsWith('7')) {
+    return `+${digits}`
+  }
+
+  if (digits.length === 10 && digits.startsWith('9')) {
+    return `+7${digits}`
+  }
+
+  return null
+}
+
 // ==================== КАЛЬКУЛЯТОР ====================
 
 // POST /api/delivery/calculate-by-tariff
@@ -192,12 +210,19 @@ router.post('/orders', async (req, res) => {
       })
     }
 
+    const normalizedRecipientPhone = normalizeRussianPhone(recipient_phone)
+    if (!normalizedRecipientPhone) {
+      return res.status(400).json({
+        error: 'Укажите корректный телефон получателя в формате +7 999 999-99-99'
+      })
+    }
+
     const result = await cdek.createOrder({
       number,
       tariff_code,
       comment,
       recipient_name,
-      recipient_phone,
+      recipient_phone: normalizedRecipientPhone,
       recipient_email,
       delivery_point,
       to_location,

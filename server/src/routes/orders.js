@@ -36,6 +36,24 @@ function getDosagePriceFromSpecs(product, selectedDosage) {
   }
 }
 
+function normalizeRussianPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '')
+
+  if (digits.length === 11 && digits.startsWith('8')) {
+    return `+7${digits.slice(1)}`
+  }
+
+  if (digits.length === 11 && digits.startsWith('7')) {
+    return `+${digits}`
+  }
+
+  if (digits.length === 10 && digits.startsWith('9')) {
+    return `+7${digits}`
+  }
+
+  return null
+}
+
 async function applyPromoCode(code, userId) {
   const promoCode = await prisma.promoCode.findUnique({
     where: { code: code.toUpperCase() }
@@ -461,6 +479,11 @@ router.post('/', authenticate, async (req, res, next) => {
       return res.status(400).json({ error: 'Корзина пуста' })
     }
 
+    const normalizedCustomerPhone = normalizeRussianPhone(customerPhone)
+    if (!normalizedCustomerPhone) {
+      return res.status(400).json({ error: 'Укажите корректный номер телефона в формате +7 999 999-99-99' })
+    }
+
     const normalizedDeliveryType = String(delivery?.type || '').trim()
     const isInternalMoscowCourier =
       normalizedDeliveryType === 'courier_internal_moscow' ||
@@ -676,7 +699,7 @@ router.post('/', authenticate, async (req, res, next) => {
         data: {
           customerName,
           customerEmail,
-          customerPhone,
+          customerPhone: normalizedCustomerPhone,
           shippingAddress: validatedCourierAddress || shippingAddress || delivery?.address || null,
           notes,
           total: finalOrderTotal,

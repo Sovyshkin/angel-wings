@@ -38,7 +38,7 @@
           </div>
           <h3>Что-то пошло не так</h3>
           <p>{{ orderError }}</p>
-          <div class="error-order-id">Заказ #{{ lastOrderId }}</div>
+          <div v-if="lastOrderId" class="error-order-id">Заказ #{{ lastOrderId }}</div>
           <div class="error-actions">
             <button class="btn btn-secondary" @click="orderError = null">Закрыть</button>
             <button class="btn btn-primary" @click="retryOrder">Попробовать снова</button>
@@ -590,10 +590,13 @@
                   v-model="customer.phone"
                   type="tel"
                   class="input"
-                  :class="{ 'input--error': showValidationErrors && isPhoneMissing }"
-                  placeholder="+7 (999) 999-99-99"
+                  :class="{ 'input--error': showValidationErrors && (isPhoneMissing || isPhoneInvalid) }"
+                  placeholder="+7 995 901-64-88"
                   required
                 >
+                <p v-if="showValidationErrors && isPhoneInvalid" class="field-error">
+                  Укажите телефон в формате +7 999 999-99-99
+                </p>
               </div>
               <div class="form-group">
                 <label>Email <span class="required-mark">*</span></label>
@@ -815,6 +818,24 @@ const SELF_PICKUP_PRICE = 0
 const SELF_PICKUP_AVAILABLE = false
 const CHECKOUT_REQUEST_KEY = 'peptidi_checkout_request_guard'
 
+function normalizeRussianPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '')
+
+  if (digits.length === 11 && digits.startsWith('8')) {
+    return `+7${digits.slice(1)}`
+  }
+
+  if (digits.length === 11 && digits.startsWith('7')) {
+    return `+${digits}`
+  }
+
+  if (digits.length === 10 && digits.startsWith('9')) {
+    return `+7${digits}`
+  }
+
+  return null
+}
+
 const customer = ref({ name: '', phone: '', email: '', comment: '' })
 const consents = ref({
   rememberContacts: true,
@@ -879,6 +900,10 @@ const courierAddressInputRef = ref(null)
 
 const isNameMissing = computed(() => !String(customer.value.name || '').trim())
 const isPhoneMissing = computed(() => !String(customer.value.phone || '').trim())
+const normalizedCustomerPhone = computed(() => normalizeRussianPhone(customer.value.phone))
+const isPhoneInvalid = computed(() => {
+  return !isPhoneMissing.value && !normalizedCustomerPhone.value
+})
 const isEmailMissing = computed(() => !String(customer.value.email || '').trim())
 const isCourierAddressMissing = computed(() => {
   return deliveryType.value === 'courier' && !String(courierAddress.value || '').trim()
@@ -1542,7 +1567,7 @@ const isFormValid = computed(() => {
     return Boolean(additionOrder.value?.id) && cartStore.items.length > 0
   }
 
-  const hasContact = customer.value.name && customer.value.phone && customer.value.email
+  const hasContact = customer.value.name && normalizedCustomerPhone.value && customer.value.email
   const hasDelivery = ENABLE_CDEK
     ? (deliveryType.value === 'pvz' ? selectedPickupPoint.value : (deliveryType.value === 'courier' ? courierAddress.value : true))
     : true
@@ -1572,6 +1597,8 @@ function getValidationErrors() {
   }
   if (!String(customer.value.phone || '').trim()) {
     errors.push('Укажите телефон')
+  } else if (!normalizeRussianPhone(customer.value.phone)) {
+    errors.push('Укажите телефон в формате +7 999 999-99-99')
   }
   if (!String(customer.value.email || '').trim()) {
     errors.push('Укажите email')
@@ -1624,7 +1651,7 @@ function scrollToFirstInvalidField() {
     focusAndScrollToField(nameInputRef)
     return
   }
-  if (isPhoneMissing.value) {
+  if (isPhoneMissing.value || isPhoneInvalid.value) {
     focusAndScrollToField(phoneInputRef)
     return
   }
@@ -1679,6 +1706,14 @@ async function placeOrder() {
     showLoginModal.value = true
     return
   }
+
+  const orderPhone = normalizedCustomerPhone.value
+  if (!orderPhone) {
+    validationErrors.value = ['Укажите телефон в формате +7 999 999-99-99']
+    scrollToFirstInvalidField()
+    return
+  }
+  customer.value.phone = orderPhone
   
   ordering.value = true
   try {
@@ -1748,7 +1783,7 @@ async function placeOrder() {
     if (consents.value.rememberContacts) {
       localStorage.setItem('peptidi_guest_contacts', JSON.stringify({
         name: customer.value.name,
-        phone: customer.value.phone,
+        phone: orderPhone,
         email: customer.value.email
       }))
     } else {
@@ -1789,7 +1824,7 @@ async function placeOrder() {
       })),
       customerName: customer.value.name,
       customerEmail: customer.value.email,
-      customerPhone: customer.value.phone,
+      customerPhone: orderPhone,
       shippingAddress: deliveryType.value === 'courier'
         ? courierAddress.value
         : (deliveryType.value === 'self_pickup' ? SELF_PICKUP_ADDRESS : (selectedPickupPoint.value?.address || null)),
@@ -1834,7 +1869,7 @@ async function placeOrder() {
           number: `order-${lastOrderId.value}`,
           tariff_code: deliveryData.tariff_code,
           recipient_name: customer.value.name,
-          recipient_phone: customer.value.phone,
+          recipient_phone: orderPhone,
           recipient_email: customer.value.email,
           packages: [{
             weight: safeWeight,
