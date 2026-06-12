@@ -65,8 +65,8 @@
             </div>
             <div class="user-card__info">
               <h3 class="user-card__name">{{ user.name }}</h3>
-              <span :class="['user-card__role', user.role === 'ADMIN' ? 'admin' : '']">
-                {{ user.role === 'ADMIN' ? 'Админ' : 'Пользователь' }}
+              <span :class="['user-card__role', user.role === 'ADMIN' ? 'admin' : '', user.role === 'PARTNER' ? 'partner' : '']">
+                {{ getRoleLabel(user.role) }}
               </span>
             </div>
           </div>
@@ -181,12 +181,24 @@ async function fetchUsers() {
 
 async function updateRole(id, role) {
   try {
-    await axios.put(`${API_URL}/users/${id}`, { role })
-    const user = users.value.find(u => u.id === id)
-    if (user) user.role = role
+    const { data } = await axios.put(`${API_URL}/users/${id}`, { role })
+    const index = users.value.findIndex(u => u.id === id)
+    if (index !== -1 && data.user) {
+      users.value[index] = {
+        ...users.value[index],
+        ...data.user
+      }
+    }
   } catch (e) {
-    alert('Ошибка обновления роли')
+    alert(e.response?.data?.error || 'Ошибка обновления роли')
+    fetchUsers()
   }
+}
+
+function getRoleLabel(role) {
+  if (role === 'ADMIN') return 'Админ'
+  if (role === 'PARTNER') return 'Партнёр'
+  return 'Пользователь'
 }
 
 function openModal() {
@@ -385,6 +397,11 @@ onMounted(fetchUsers)
 
 .user-card__role.admin {
   color: var(--accent);
+  font-weight: 600;
+}
+
+.user-card__role.partner {
+  color: #22c55e;
   font-weight: 600;
 }
 

@@ -4,9 +4,44 @@ import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
 import tochkaService from '../services/tochka.js'
+import { v4 as uuidv4 } from 'uuid'
 
 const router = Router()
 const prisma = new PrismaClient()
+const ALLOWED_USER_ROLES = ['USER', 'ADMIN', 'PARTNER']
+
+async function generatePartnerReferralCode(tx = prisma) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const code = uuidv4().replace(/-/g, '').slice(0, 8).toUpperCase()
+    const existing = await tx.partner.findUnique({ where: { referralCode: code } })
+    if (!existing) return code
+  }
+
+  return `P${Date.now().toString(36).toUpperCase()}`
+}
+
+async function ensurePartnerForUser(tx, userId) {
+  const existingPartner = await tx.partner.findUnique({ where: { userId } })
+
+  if (existingPartner) {
+    if (!existingPartner.isActive) {
+      return tx.partner.update({
+        where: { id: existingPartner.id },
+        data: { isActive: true }
+      })
+    }
+    return existingPartner
+  }
+
+  return tx.partner.create({
+    data: {
+      userId,
+      percentage: 5,
+      referralCode: await generatePartnerReferralCode(tx),
+      isActive: true
+    }
+  })
+}
 
 function normalizePaymentStatus(status) {
   const raw = String(status || '').trim().toUpperCase()
@@ -104,9 +139,14 @@ router.get('/users', authenticate, requireAdmin, async (req, res, next) => {
 router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { email, password, name, role = 'USER', phone } = req.body
+    const normalizedRole = String(role || 'USER').toUpperCase()
 
     if (typeof password !== 'string' || password.length < 6) {
       return res.status(400).json({ error: 'Пароль должен содержать минимум 6 символов' })
+    }
+
+    if (!ALLOWED_USER_ROLES.includes(normalizedRole)) {
+      return res.status(400).json({ error: 'Некорректная роль пользователя' })
     }
     
     const existing = await prisma.user.findUnique({ where: { email } })
@@ -116,16 +156,24 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
     
     const hashedPassword = await bcrypt.hash(password, 10)
     
-    const user = await prisma.user.create({
-      data: { email, password: hashedPassword, name, role, phone },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        phone: true,
-        createdAt: true
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: { email, password: hashedPassword, name, role: normalizedRole, phone },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+          createdAt: true
+        }
+      })
+
+      if (normalizedRole === 'PARTNER') {
+        await ensurePartnerForUser(tx, createdUser.id)
       }
+
+      return createdUser
     })
     
     res.status(201).json({ user })
@@ -137,10 +185,42 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
 router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { name, role, phone } = req.body
+    const userId = parseInt(req.params.id)
+    const normalizedRole = role !== undefined ? String(role).toUpperCase() : undefined
+
+    if (normalizedRole !== undefined && !ALLOWED_USER_ROLES.includes(normalizedRole)) {
+      return res.status(400).json({ error: 'Некорректная роль пользователя' })
+    }
     
-    const user = await prisma.user.update({
-      where: { id: parseInt(req.params.id) },
-      data: { name, role, phone }
+    const user = await prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          name,
+          role: normalizedRole,
+          phone
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+          createdAt: true,
+          _count: { select: { orders: true } }
+        }
+      })
+
+      if (normalizedRole === 'PARTNER') {
+        await ensurePartnerForUser(tx, userId)
+      } else if (normalizedRole && normalizedRole !== 'PARTNER') {
+        await tx.partner.updateMany({
+          where: { userId },
+          data: { isActive: false }
+        })
+      }
+
+      return updatedUser
     })
     
     res.json({ user })

@@ -11,6 +11,7 @@ const router = Router()
 const prisma = new PrismaClient()
 const VALID_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
 const ADDABLE_ORDER_STATUSES = ['PENDING', 'PROCESSING']
+let clientRequestIdPersistenceAvailable = true
 const ORDER_INCLUDE = {
   items: {
     include: {
@@ -112,6 +113,15 @@ function createClientError(message, status = 400) {
   const error = new Error(message)
   error.status = status
   return error
+}
+
+function isClientRequestIdSchemaError(error) {
+  const message = String(error?.message || '')
+  return (
+    error?.name === 'PrismaClientValidationError' && message.includes('clientRequestId')
+  ) || (
+    error?.code === 'P2022' && message.includes('clientRequestId')
+  )
 }
 
 function normalizePaymentStatusValue(status) {
@@ -449,11 +459,22 @@ router.post('/', authenticate, async (req, res, next) => {
     } = req.body
 
     const normalizedClientRequestId = String(clientRequestId || '').trim()
-    if (normalizedClientRequestId) {
-      const existingOrder = await prisma.order.findUnique({
-        where: { clientRequestId: normalizedClientRequestId },
-        include: ORDER_INCLUDE
-      })
+    if (normalizedClientRequestId && clientRequestIdPersistenceAvailable) {
+      let existingOrder = null
+
+      try {
+        existingOrder = await prisma.order.findUnique({
+          where: { clientRequestId: normalizedClientRequestId },
+          include: ORDER_INCLUDE
+        })
+      } catch (error) {
+        if (!isClientRequestIdSchemaError(error)) {
+          throw error
+        }
+
+        clientRequestIdPersistenceAvailable = false
+        console.warn('[ORDER] clientRequestId is not available in Prisma/DB schema. Run prisma generate and prisma db push to enable duplicate checkout protection.')
+      }
 
       if (existingOrder) {
         const isOwner = !existingOrder.userId || existingOrder.userId === req.user.id || req.user.role === 'ADMIN'
@@ -694,33 +715,53 @@ router.post('/', authenticate, async (req, res, next) => {
 
       const totalDiscountAmount = promoDiscountAmount + partnerBonusUsed
       const finalOrderTotal = Math.max(0, orderTotal - totalDiscountAmount)
+      const orderCreateData = {
+        customerName,
+        customerEmail,
+        customerPhone: normalizedCustomerPhone,
+        shippingAddress: validatedCourierAddress || shippingAddress || delivery?.address || null,
+        notes,
+        total: finalOrderTotal,
+        paymentStatus: finalOrderTotal <= 0 ? 'PAID' : (isCashOnDelivery ? 'CASH_ON_DELIVERY' : 'PENDING'),
+        userId: actualUserId,
+        promoCodeId,
+        discountAmount: totalDiscountAmount,
+        partnerId,
+        clientRequestId: normalizedClientRequestId && clientRequestIdPersistenceAvailable
+          ? normalizedClientRequestId
+          : undefined,
+        // Delivery info
+        deliveryTariffCode: isInternalMoscowCourier ? null : delivery?.tariff_code,
+        deliveryTariffName: delivery?.tariff_name || (isInternalMoscowCourier ? 'Курьер по Москве (внутренняя доставка)' : null),
+        deliveryPrice: deliveryPrice,
+        deliveryCity: delivery?.city || (isInternalMoscowCourier ? 'Москва' : null),
+        deliveryPickupPoint: isInternalMoscowCourier ? null : delivery?.pickup_point,
+        deliveryPickupName: isInternalMoscowCourier ? (validatedCourierAddress || delivery?.address || shippingAddress || null) : delivery?.pickup_point_name,
+        items: {
+          create: orderItems
+        }
+      }
 
-      const createdOrder = await tx.order.create({
-        data: {
-          customerName,
-          customerEmail,
-          customerPhone: normalizedCustomerPhone,
-          shippingAddress: validatedCourierAddress || shippingAddress || delivery?.address || null,
-          notes,
-          total: finalOrderTotal,
-          paymentStatus: finalOrderTotal <= 0 ? 'PAID' : (isCashOnDelivery ? 'CASH_ON_DELIVERY' : 'PENDING'),
-          userId: actualUserId,
-          promoCodeId,
-          discountAmount: totalDiscountAmount,
-          partnerId,
-          // Delivery info
-          deliveryTariffCode: isInternalMoscowCourier ? null : delivery?.tariff_code,
-          deliveryTariffName: delivery?.tariff_name || (isInternalMoscowCourier ? 'Курьер по Москве (внутренняя доставка)' : null),
-          deliveryPrice: deliveryPrice,
-          deliveryCity: delivery?.city || (isInternalMoscowCourier ? 'Москва' : null),
-          deliveryPickupPoint: isInternalMoscowCourier ? null : delivery?.pickup_point,
-          deliveryPickupName: isInternalMoscowCourier ? (validatedCourierAddress || delivery?.address || shippingAddress || null) : delivery?.pickup_point_name,
-          items: {
-            create: orderItems
-          }
-        },
-        include: ORDER_INCLUDE
-      })
+      let createdOrder
+      try {
+        createdOrder = await tx.order.create({
+          data: orderCreateData,
+          include: ORDER_INCLUDE
+        })
+      } catch (error) {
+        if (!isClientRequestIdSchemaError(error) || !orderCreateData.clientRequestId) {
+          throw error
+        }
+
+        clientRequestIdPersistenceAvailable = false
+        delete orderCreateData.clientRequestId
+        console.warn('[ORDER] clientRequestId column is missing during order creation. Retrying without duplicate checkout key.')
+
+        createdOrder = await tx.order.create({
+          data: orderCreateData,
+          include: ORDER_INCLUDE
+        })
+      }
 
       if (partnerId && actualUserId) {
         const existingBindingInTx = await tx.partnerUser.findUnique({

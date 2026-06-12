@@ -1846,9 +1846,6 @@ async function placeOrder() {
       orderData.userId = authStore.user.id
     }
 
-    const checkoutSignature = buildCheckoutSignature(orderData)
-    orderData.clientRequestId = getOrCreateCheckoutRequestId(checkoutSignature)
-    
     const { data } = await axios.post('/api/orders', orderData)
     lastOrderId.value = data.order?.id
     const createdOrderTotal = Number(data?.order?.total ?? totalAfterPartnerBonus.value)

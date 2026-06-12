@@ -208,12 +208,14 @@ function logout() {
 
 .header-container {
   max-width: 1400px;
+  width: 100%;
   margin: 0 auto;
   padding: 0 1.5rem;
   height: 64px;
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: clamp(0.75rem, 1.5vw, 2rem);
+  min-width: 0;
 }
 
 .header-logo {
@@ -232,7 +234,15 @@ function logout() {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.admin-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-item {
@@ -245,6 +255,8 @@ function logout() {
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
   transition: var(--transition);
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .nav-item:hover {
@@ -260,8 +272,10 @@ function logout() {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: clamp(0.5rem, 1vw, 1rem);
   margin-left: auto;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .theme-toggle {
@@ -285,18 +299,24 @@ function logout() {
 .user-menu {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .user-name {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-secondary);
+  max-width: clamp(90px, 10vw, 180px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .btn-sm {
   padding: 0.5rem 1rem;
   font-size: 0.8125rem;
+  flex-shrink: 0;
 }
 
 .admin-main {
