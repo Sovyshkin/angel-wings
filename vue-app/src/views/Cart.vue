@@ -3455,8 +3455,7 @@ onUnmounted(() => {
 
   .col-qty,
   .col-price,
-  .col-total,
-  .col-remove {
+  .col-total {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -3489,7 +3488,16 @@ onUnmounted(() => {
   }
 
   .col-remove {
-    justify-content: flex-end;
+    justify-self: end;
+  }
+
+  .item-remove.col-remove {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    padding: 0;
+    display: inline-flex;
+    justify-content: center;
   }
 
   .cart-actions {

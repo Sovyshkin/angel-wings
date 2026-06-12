@@ -495,8 +495,14 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  align-self: flex-start;
+  width: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
   font-size: 0.875rem;
   color: var(--text-secondary);
+  cursor: pointer;
   transition: var(--transition);
 }
 

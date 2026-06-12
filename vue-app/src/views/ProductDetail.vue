@@ -87,7 +87,15 @@
           
           <div class="product-description">
             <h3>Описание</h3>
-            <p>{{ product.description }}</p>
+            <p>{{ visibleDescription }}</p>
+            <button
+              v-if="canToggleDescription"
+              type="button"
+              class="description-toggle"
+              @click="descriptionExpanded = !descriptionExpanded"
+            >
+              {{ descriptionExpanded ? 'Скрыть' : 'Показать полностью' }}
+            </button>
           </div>
           
           <div class="product-country" v-if="product.country">
@@ -113,9 +121,9 @@
           
           <div class="product-actions">
             <div class="quantity-selector">
-              <button @click="decreaseQty" :disabled="quantity <= 1">−</button>
-              <span>{{ quantity }}</span>
-              <button @click="quantity++">+</button>
+              <button @click="decreaseQty" :disabled="displayedQuantity <= 1">−</button>
+              <span>{{ displayedQuantity }}</span>
+              <button @click="increaseQty" :disabled="displayedQuantity >= currentStock">+</button>
             </div>
             <button
               class="btn btn-primary btn-add-cart"
@@ -189,6 +197,7 @@ const loading = ref(true)
 const justAdded = ref(false)
 const selectedDosageIndex = ref(0)
 const activeImageIndex = ref(0)
+const descriptionExpanded = ref(false)
 
 const product = computed(() => {
   return productStore.products.find(p => p.id == route.params.id) || null
@@ -205,6 +214,33 @@ const productImages = computed(() => {
 const activeImageUrl = computed(() => {
   if (!productImages.value.length) return null
   return productImages.value[activeImageIndex.value] || productImages.value[0]
+})
+
+const fullDescription = computed(() => String(product.value?.description || '').trim())
+
+const firstDescriptionSentence = computed(() => {
+  const text = fullDescription.value
+  if (!text) return ''
+
+  const match = text.match(/^.*?[.!?…](?:\s|$)/u)
+  if (match?.[0]?.trim()) {
+    return match[0].trim()
+  }
+
+  const firstLine = text.split(/\n+/).find(Boolean)
+  return firstLine ? firstLine.trim() : text
+})
+
+const canToggleDescription = computed(() => {
+  return fullDescription.value.length > firstDescriptionSentence.value.length
+})
+
+const visibleDescription = computed(() => {
+  if (!canToggleDescription.value || descriptionExpanded.value) {
+    return fullDescription.value
+  }
+
+  return firstDescriptionSentence.value
 })
 
 const visibleSpecs = computed(() => {
@@ -272,6 +308,10 @@ const currentVariantCartQty = computed(() => {
 
 const isCurrentVariantInCart = computed(() => currentVariantCartQty.value > 0)
 
+const displayedQuantity = computed(() => {
+  return isCurrentVariantInCart.value ? currentVariantCartQty.value : quantity.value
+})
+
 const productCardComparePrice = computed(() => {
   const old = normalizePrice(product.value?.comparePrice)
   const current = normalizePrice(product.value?.price)
@@ -322,7 +362,25 @@ function getCategoryName(category) {
 }
 
 function decreaseQty() {
+  if (isCurrentVariantInCart.value) {
+    cartStore.updateQuantity(product.value.id, currentVariantCartQty.value - 1, currentSelectedDosage.value)
+    quantity.value = Math.max(1, currentVariantCartQty.value - 1)
+    return
+  }
+
   if (quantity.value > 1) quantity.value--
+}
+
+function increaseQty() {
+  const nextQuantity = Math.min(currentStock.value, displayedQuantity.value + 1)
+
+  if (isCurrentVariantInCart.value) {
+    cartStore.updateQuantity(product.value.id, nextQuantity, currentSelectedDosage.value)
+    quantity.value = nextQuantity
+    return
+  }
+
+  quantity.value = nextQuantity
 }
 
 function addToCart() {
@@ -396,6 +454,15 @@ function handleImageError(e) {
 
 watch(productImages, () => {
   activeImageIndex.value = 0
+})
+
+watch(() => route.params.id, () => {
+  descriptionExpanded.value = false
+  quantity.value = 1
+})
+
+watch(selectedDosageIndex, () => {
+  quantity.value = 1
 })
 
 onMounted(async () => {
@@ -737,6 +804,24 @@ onMounted(async () => {
   word-break: break-word;
 }
 
+.description-toggle {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.85rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.description-toggle:hover {
+  color: var(--text-primary);
+}
+
 .product-attributes {
   margin-bottom: 2rem;
   padding: 1.5rem;
@@ -1004,6 +1089,10 @@ onMounted(async () => {
   .product-description p {
     font-size: 0.875rem;
     line-height: 1.6;
+  }
+
+  .description-toggle {
+    font-size: 0.875rem;
   }
 
   .product-specs {
