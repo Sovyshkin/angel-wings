@@ -536,20 +536,26 @@ onMounted(fetchCategories)
 }
 
 .cell-actions {
-  display: flex;
-  gap: 0.5rem;
+  width: 128px;
+  white-space: nowrap;
+  text-align: right;
 }
 
 .action-btn {
   width: 36px;
   height: 36px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   background: var(--bg-secondary);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   transition: var(--transition);
+  vertical-align: middle;
+}
+
+.cell-actions .action-btn + .action-btn {
+  margin-left: 0.5rem;
 }
 
 .action-btn:hover {

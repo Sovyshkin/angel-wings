@@ -727,14 +727,19 @@ function getProductWord(count) {
 }
 
 .hero__stats {
-  display: flex;
-  gap: 4rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1.25rem, 4vw, 4rem);
+  max-width: 620px;
   animation: slideUp 0.8s ease-out 0.4s both;
 }
 
 .stat {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 0;
 }
 
 .stat-value {
@@ -751,6 +756,7 @@ function getProductWord(count) {
   margin-top: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
+  white-space: nowrap;
 }
 
 .features {
@@ -1782,12 +1788,18 @@ function getProductWord(count) {
   }
 
   .hero__stats {
-    flex-wrap: wrap;
-    gap: 1.5rem;
+    width: 100%;
+    max-width: none;
+    gap: 0.75rem;
   }
 
   .stat-value {
-    font-size: 2rem;
+    font-size: clamp(1.85rem, 8vw, 2.25rem);
+  }
+
+  .stat-label {
+    font-size: clamp(0.65rem, 2.8vw, 0.78rem);
+    letter-spacing: 0.08em;
   }
 
   .hero__actions {
