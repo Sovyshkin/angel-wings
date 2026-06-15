@@ -279,6 +279,10 @@
               <span class="detail-value">{{ selectedOrder.customerPhone }}</span>
             </div>
             <div class="detail-row">
+              <span class="detail-label">Дата заказа</span>
+              <span class="detail-value">{{ formatDate(selectedOrder.createdAt) }} МСК</span>
+            </div>
+            <div class="detail-row">
               <span class="detail-label">Оплата</span>
               <div class="payment-control">
                 <span :class="['payment-badge', getPaymentBadge(selectedOrder.paymentStatus)]">
@@ -658,7 +662,18 @@ function formatPrice(val) {
 }
 
 function formatDate(date) {
-  return new Date(date).toLocaleDateString('ru-RU')
+  if (!date) return '—'
+  const parsed = new Date(date)
+  if (Number.isNaN(parsed.getTime())) return '—'
+
+  return parsed.toLocaleString('ru-RU', {
+    timeZone: 'Europe/Moscow',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 function getStatusBadge(status) {

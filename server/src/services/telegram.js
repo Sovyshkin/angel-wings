@@ -95,6 +95,91 @@ function createRelaySignature(secret, timestamp, body) {
     .digest('hex')
 }
 
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function getPositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId }) {
+  const maxAttempts = getPositiveInt(process.env.TELEGRAM_RELAY_RETRY_ATTEMPTS, 4)
+  const baseDelayMs = getPositiveInt(process.env.TELEGRAM_RELAY_RETRY_DELAY_MS, 2500)
+  const timeoutMs = getPositiveInt(process.env.TELEGRAM_RELAY_TIMEOUT_MS, 30000)
+  const relayBody = JSON.stringify(relayPayload)
+  let lastError = null
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const relayTimestamp = String(Date.now())
+    const relaySignature = createRelaySignature(relaySecret, relayTimestamp, relayBody)
+
+    console.log('[TELEGRAM] relay request attempt', JSON.stringify({
+      orderId,
+      attempt,
+      maxAttempts,
+      relayUrl,
+      hasThreadId: Boolean(relayPayload.threadId),
+      textLength: relayPayload.text?.length || 0
+    }))
+
+    try {
+      const response = await axios.post(`${relayUrl}/telegram/orders`, relayBody, {
+        timeout: timeoutMs,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AngelWings-Timestamp': relayTimestamp,
+          'X-AngelWings-Signature': relaySignature
+        },
+        validateStatus: () => true
+      })
+
+      console.log('[TELEGRAM] relay response', JSON.stringify({
+        orderId,
+        attempt,
+        httpStatus: response?.status || null,
+        ok: response?.data?.ok,
+        error: response?.data?.error || null
+      }))
+
+      if (Number(response?.status || 0) < 400 && response?.data?.ok !== false) {
+        return response
+      }
+
+      lastError = new Error(`[TELEGRAM] relay failed: ${JSON.stringify(response?.data || {})}`)
+
+      // 4xx usually means bad secret/body/configuration; retrying won't help.
+      if (Number(response?.status || 0) >= 400 && Number(response?.status || 0) < 500) {
+        throw lastError
+      }
+    } catch (error) {
+      lastError = error
+      console.error('[TELEGRAM] relay attempt failed', JSON.stringify({
+        orderId,
+        attempt,
+        maxAttempts,
+        message: error?.message || null,
+        code: error?.cause?.code || error?.code || null
+      }))
+
+      if (attempt >= maxAttempts) {
+        break
+      }
+    }
+
+    const delayMs = baseDelayMs * attempt
+    console.warn('[TELEGRAM] relay retry scheduled', JSON.stringify({
+      orderId,
+      nextAttempt: attempt + 1,
+      delayMs
+    }))
+    await wait(delayMs)
+  }
+
+  throw lastError || new Error('[TELEGRAM] relay failed without response')
+}
+
 export async function notifyCourierOrderToTelegram(order) {
   const relayUrl = (process.env.TELEGRAM_RELAY_URL || '').trim().replace(/\/+$/, '')
   const relaySecret = (process.env.TELEGRAM_RELAY_SECRET || '').trim()
@@ -127,10 +212,6 @@ export async function notifyCourierOrderToTelegram(order) {
       relayPayload.threadId = Number(threadId) || threadId
     }
 
-    const relayBody = JSON.stringify(relayPayload)
-    const relayTimestamp = String(Date.now())
-    const relaySignature = createRelaySignature(relaySecret, relayTimestamp, relayBody)
-
     console.log('[TELEGRAM] relay request', JSON.stringify({
       orderId: order?.id || null,
       relayUrl,
@@ -138,36 +219,12 @@ export async function notifyCourierOrderToTelegram(order) {
       textLength: relayPayload.text?.length || 0
     }))
 
-    let response
-    try {
-      response = await axios.post(`${relayUrl}/telegram/orders`, relayBody, {
-        timeout: Number(process.env.TELEGRAM_RELAY_TIMEOUT_MS || 30000),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-AngelWings-Timestamp': relayTimestamp,
-          'X-AngelWings-Signature': relaySignature
-        },
-        validateStatus: () => true
-      })
-    } catch (error) {
-      console.error('[TELEGRAM] relay network error', JSON.stringify({
-        orderId: order?.id || null,
-        message: error?.message || null,
-        code: error?.cause?.code || error?.code || null
-      }))
-      throw error
-    }
-
-    console.log('[TELEGRAM] relay response', JSON.stringify({
-      orderId: order?.id || null,
-      httpStatus: response?.status || null,
-      ok: response?.data?.ok,
-      error: response?.data?.error || null
-    }))
-
-    if (Number(response?.status || 0) >= 400 || response?.data?.ok === false) {
-      throw new Error(`[TELEGRAM] relay failed: ${JSON.stringify(response?.data || {})}`)
-    }
+    const response = await postRelayWithRetry({
+      relayUrl,
+      relaySecret,
+      relayPayload,
+      orderId: order?.id || null
+    })
 
     return { ok: true, relay: true }
   }
