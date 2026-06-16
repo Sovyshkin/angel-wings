@@ -297,6 +297,10 @@
                 </button>
               </div>
             </div>
+            <div v-if="selectedOrder.status === 'CANCELLED'" class="detail-row">
+              <span class="detail-label">Причина отмены</span>
+              <span class="detail-value cancel-reason-value">{{ getCancelReasonLabel(selectedOrder.cancelReason) }}</span>
+            </div>
             <div class="detail-row">
               <span class="detail-label">Промокод</span>
               <div class="promo-meta promo-meta--right">
@@ -448,7 +452,7 @@
         <div class="modal-footer">
           <div class="modal-status-select">
             <label class="form-label">Изменить статус:</label>
-            <select :value="selectedOrder.status" @change="updateStatus(selectedOrder.id, $event.target.value); selectedOrder.status = $event.target.value" class="status-select-full">
+            <select :value="selectedOrder.status" @change="updateStatus(selectedOrder.id, $event.target.value)" class="status-select-full">
               <option value="PENDING">Ожидает</option>
               <option value="PROCESSING">В обработке</option>
               <option value="SHIPPED">Отправлен</option>
@@ -484,6 +488,13 @@ const selectedOrder = ref(null)
 const creatingCdek = ref(false)
 const syncingCdek = ref(false)
 const cdekStatus = ref(null)
+const cancelReasonOptions = [
+  { value: 'high_price', label: 'Высокая цена' },
+  { value: 'long_delivery', label: 'Долгая доставка' },
+  { value: 'scheme_mismatch', label: 'Не подошел по схеме приема' },
+  { value: 'changed_mind', label: 'Передумал принимать пептиды' },
+  { value: 'other', label: 'Другое' }
+]
 
 const stats = computed(() => ({
   pending: orders.value.filter(o => o.status === 'PENDING').length,
@@ -507,12 +518,42 @@ async function fetchOrders() {
 
 async function updateStatus(id, status) {
   try {
-    await axios.put(`${API_URL}/orders/${id}/status`, { status })
+    let cancelReason = null
+    if (status === 'CANCELLED') {
+      cancelReason = promptCancelReason()
+      if (!cancelReason) {
+        await fetchOrders()
+        return
+      }
+    }
+
+    await axios.put(`${API_URL}/orders/${id}/status`, { status, cancelReason })
     const order = orders.value.find(o => o.id === id)
-    if (order) order.status = status
+    if (order) {
+      order.status = status
+      order.cancelReason = status === 'CANCELLED' ? cancelReason : null
+    }
+    if (selectedOrder.value?.id === id) {
+      selectedOrder.value.status = status
+      selectedOrder.value.cancelReason = status === 'CANCELLED' ? cancelReason : null
+    }
   } catch (e) {
     alert('Ошибка обновления статуса')
   }
+}
+
+function promptCancelReason() {
+  const message = [
+    'Укажите причину отмены заказа:',
+    ...cancelReasonOptions.map((item, index) => `${index + 1}. ${item.label}`)
+  ].join('\n')
+  const answer = window.prompt(message, '1')
+  if (answer === null) return null
+  const normalized = String(answer).trim().toLowerCase()
+  const byIndex = cancelReasonOptions[Number.parseInt(normalized, 10) - 1]
+  if (byIndex) return byIndex.value
+  const byValue = cancelReasonOptions.find(item => item.value === normalized || item.label.toLowerCase() === normalized)
+  return byValue?.value || 'other'
 }
 
 async function deleteOrder(order) {
@@ -724,6 +765,11 @@ function getPaymentLabel(status) {
     return 'Не оплачен'
   }
   return 'Ожидает оплату'
+}
+
+function getCancelReasonLabel(reason) {
+  const option = cancelReasonOptions.find(item => item.value === reason)
+  return option?.label || 'Причина не указана'
 }
 
 function isOrderPaid(status) {
@@ -1256,6 +1302,16 @@ onMounted(fetchOrders)
 
 .detail-value.full-width {
   width: 100%;
+}
+
+.cancel-reason-value {
+  display: inline-flex;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  color: #ef4444;
+  background: #ef444422;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 /* CDEK Info */

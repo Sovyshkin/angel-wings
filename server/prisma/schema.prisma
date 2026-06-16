@@ -76,6 +76,7 @@ model Order {
   user            User?    @relation(fields: [userId], references: [id])
   partnerId       Int?
   status          String   @default("PENDING")
+  cancelReason    String?
   paymentStatus   String?  @default("PENDING")
   paymentId       String?
   total           Float
@@ -130,6 +131,19 @@ model ProductAnalyticsEvent {
   @@index([productId, event, createdAt])
   @@index([sessionId, createdAt])
   @@map("product_analytics_events")
+}
+
+model MarketingEvent {
+  id          Int      @id @default(autoincrement())
+  title       String
+  type        String   @default("campaign")
+  description String?
+  eventDate   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([eventDate])
+  @@map("marketing_events")
 }
 
 model Partner {

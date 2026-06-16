@@ -359,11 +359,22 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
 
 router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { status } = req.body
+    const { status, cancelReason } = req.body
+    const normalizedStatus = String(status || '').trim().toUpperCase()
+    const allowedStatuses = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+
+    if (!allowedStatuses.includes(normalizedStatus)) {
+      return res.status(400).json({ error: 'Некорректный статус заказа' })
+    }
 
     const order = await prisma.order.update({
       where: { id: parseInt(req.params.id) },
-      data: { status }
+      data: {
+        status: normalizedStatus,
+        cancelReason: normalizedStatus === 'CANCELLED'
+          ? (String(cancelReason || 'other').trim() || 'other')
+          : null
+      }
     })
 
     res.json({ order })
