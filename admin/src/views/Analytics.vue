@@ -23,7 +23,21 @@
     </div>
 
     <template v-else>
-      <div class="summary-grid">
+      <nav class="analytics-tabs" aria-label="Разделы аналитики">
+        <button
+          v-for="tab in analyticsTabs"
+          :key="tab.key"
+          type="button"
+          :class="['analytics-tab', { active: activeTab === tab.key }]"
+          @click="activeTab = tab.key"
+        >
+          <span>{{ tab.label }}</span>
+          <small>{{ tab.hint }}</small>
+        </button>
+      </nav>
+
+      <section v-if="activeTab === 'products'" class="product-analytics">
+        <div class="summary-grid">
         <article class="summary-card summary-card--accent">
           <span class="summary-label">LTV препаратов</span>
           <strong>{{ formatCurrency(summary.ltv) }}</strong>
@@ -120,8 +134,9 @@
           Ничего не найдено по текущим фильтрам.
         </div>
       </div>
+      </section>
 
-      <section class="stock-analytics">
+      <section v-if="activeTab === 'stock'" class="stock-analytics">
         <div class="section-heading">
           <div>
             <span class="section-kicker">Склад и остатки</span>
@@ -238,7 +253,7 @@
         </article>
       </section>
 
-      <section class="cancellation-analytics">
+      <section v-if="activeTab === 'cancellations'" class="cancellation-analytics">
         <div class="section-heading">
           <div>
             <span class="section-kicker">Отказы и возвраты</span>
@@ -301,7 +316,7 @@
         </article>
       </section>
 
-      <section class="trend-analytics">
+      <section v-if="activeTab === 'trends'" class="trend-analytics">
         <div class="section-heading">
           <div>
             <span class="section-kicker">Тренды и сезонность</span>
@@ -436,7 +451,7 @@
         </article>
       </section>
 
-      <section class="customer-analytics">
+      <section v-if="activeTab === 'customers'" class="customer-analytics">
         <div class="section-heading">
           <div>
             <span class="section-kicker">Клиентская аналитика</span>
@@ -596,9 +611,17 @@ const marketingForm = ref({
 const savingMarketingEvent = ref(false)
 const priceDrafts = ref({})
 const savingPriceId = ref(null)
+const activeTab = ref('products')
 const days = ref(30)
 const search = ref('')
 const onlySignals = ref(false)
+const analyticsTabs = [
+  { key: 'products', label: 'Препараты', hint: 'Velocity и LTV' },
+  { key: 'stock', label: 'Склад', hint: 'ABC/XYZ и остатки' },
+  { key: 'cancellations', label: 'Отказы', hint: 'Причины отмен' },
+  { key: 'trends', label: 'Тренды', hint: 'Сезонность' },
+  { key: 'customers', label: 'Клиенты', hint: 'Retention' }
+]
 const periodOptions = [
   { label: '7 дней', value: 7 },
   { label: '30 дней', value: 30 },
@@ -797,6 +820,63 @@ onMounted(fetchAnalytics)
 .period-btn.active {
   background: var(--accent);
   color: #0b0b10;
+}
+
+.analytics-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(159, 181, 255, 0.12), transparent 34%),
+    var(--bg-card);
+}
+
+.analytics-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 70px;
+  padding: 0.9rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  color: var(--text-secondary);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.analytics-tab span {
+  color: var(--text-primary);
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.analytics-tab small {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.analytics-tab:hover {
+  border-color: rgba(159, 181, 255, 0.28);
+  background: rgba(159, 181, 255, 0.08);
+}
+
+.analytics-tab.active {
+  border-color: rgba(159, 181, 255, 0.5);
+  background:
+    linear-gradient(135deg, rgba(159, 181, 255, 0.26), rgba(159, 181, 255, 0.08)),
+    var(--bg-secondary);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.14);
+}
+
+.product-analytics {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .summary-grid {
@@ -2016,6 +2096,10 @@ onMounted(fetchAnalytics)
 }
 
 @media (max-width: 1180px) {
+  .analytics-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .summary-grid,
   .stock-summary-grid,
   .trend-summary-grid,
@@ -2080,6 +2164,15 @@ onMounted(fetchAnalytics)
 
   .period-btn {
     flex: 1;
+  }
+
+  .analytics-tabs {
+    grid-template-columns: 1fr;
+    border-radius: 22px;
+  }
+
+  .analytics-tab {
+    min-height: auto;
   }
 
   .summary-grid,
