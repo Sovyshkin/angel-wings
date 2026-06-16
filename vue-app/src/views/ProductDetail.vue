@@ -187,6 +187,7 @@ import { useRoute } from 'vue-router'
 import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
 import Loader from '../components/Loader.vue'
+import { trackProductEvent } from '../api/analytics'
 
 const route = useRoute()
 const productStore = useProductStore()
@@ -376,6 +377,7 @@ function increaseQty() {
 
   if (isCurrentVariantInCart.value) {
     cartStore.updateQuantity(product.value.id, nextQuantity, currentSelectedDosage.value)
+    trackProductEvent(product.value.id, 'add_to_cart', { source: 'product_detail_quantity', quantity: 1 })
     quantity.value = nextQuantity
     return
   }
@@ -393,6 +395,7 @@ function addToCart() {
         selectedDosage
       })
     }
+    trackProductEvent(product.value.id, 'add_to_cart', { source: 'product_detail', quantity: quantity.value })
     justAdded.value = true
     setTimeout(() => { justAdded.value = false }, 2000)
   }
@@ -464,6 +467,12 @@ watch(() => route.params.id, () => {
 watch(selectedDosageIndex, () => {
   quantity.value = 1
 })
+
+watch(() => product.value?.id, (productId) => {
+  if (productId) {
+    trackProductEvent(productId, 'view', { source: 'product_detail' })
+  }
+}, { immediate: true })
 
 onMounted(async () => {
   loading.value = true

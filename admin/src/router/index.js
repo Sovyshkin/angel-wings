@@ -21,6 +21,7 @@ const routes = [
       { path: 'products', name: 'AdminProducts', component: () => import('../views/Products.vue') },
       { path: 'products/new', name: 'NewProduct', component: () => import('../views/ProductForm.vue') },
       { path: 'products/:id/edit', name: 'EditProduct', component: () => import('../views/ProductForm.vue') },
+      { path: 'analytics', name: 'AdminAnalytics', component: () => import('../views/Analytics.vue') },
       { path: 'categories', name: 'AdminCategories', component: () => import('../views/Categories.vue') },
       { path: 'orders', name: 'AdminOrders', component: () => import('../views/Orders.vue') },
       { path: 'users', name: 'AdminUsers', component: () => import('../views/Users.vue') },

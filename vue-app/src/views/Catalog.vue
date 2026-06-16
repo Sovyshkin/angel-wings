@@ -206,6 +206,7 @@ import { useRoute } from 'vue-router'
 import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
 import Loader from '../components/Loader.vue'
+import { trackProductEvent } from '../api/analytics'
 
 const route = useRoute()
 const productStore = useProductStore()
@@ -333,6 +334,7 @@ function increaseCatalogQty(product) {
     ...product,
     selectedDosage: null
   })
+  trackProductEvent(product.id, 'add_to_cart', { source: 'catalog', quantity: 1 })
 }
 
 function decreaseCatalogQty(product) {

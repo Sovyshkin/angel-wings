@@ -20,6 +20,7 @@ model User {
   orders    Order[]
   partner   Partner?
   partnerUser PartnerUser?
+  productAnalyticsEvents ProductAnalyticsEvent[]
 
   @@map("users")
 }
@@ -61,6 +62,7 @@ model Product {
   active      Boolean   @default(true)
   categories  Category[] @relation("ProductCategories")
   orderItems  OrderItem[]
+  analyticsEvents ProductAnalyticsEvent[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -111,6 +113,23 @@ model OrderItem {
   price     Float
 
   @@map("order_items")
+}
+
+model ProductAnalyticsEvent {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id])
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  event     String
+  sessionId String?
+  source    String?
+  quantity  Int?
+  createdAt DateTime @default(now())
+
+  @@index([productId, event, createdAt])
+  @@index([sessionId, createdAt])
+  @@map("product_analytics_events")
 }
 
 model Partner {

@@ -413,6 +413,7 @@
 import { computed, onMounted } from 'vue'
 import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
+import { trackProductEvent } from '../api/analytics'
 
 const productStore = useProductStore()
 const cartStore = useCartStore()
@@ -502,6 +503,7 @@ function increaseFeaturedQty(product) {
     ...product,
     selectedDosage: null
   })
+  trackProductEvent(product.id, 'add_to_cart', { source: 'home_featured', quantity: 1 })
 }
 
 function decreaseFeaturedQty(product) {

@@ -12,6 +12,7 @@ import adminRoutes from './routes/admin.js'
 import partnerRoutes from './routes/partner.js'
 import partnerCabinetRoutes from './routes/partnerCabinet.js'
 import deliveryRoutes from './routes/delivery.js'
+import analyticsRoutes from './routes/analytics.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { uploadDir } from './utils/fileUpload.js'
 
@@ -38,6 +39,8 @@ app.use('/api/products', productRoutes)
 app.use('/api/categories', categoryRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/payment', paymentRoutes)
+app.use('/api/analytics', analyticsRoutes)
+app.use('/api/admin/analytics', analyticsRoutes)
 app.use('/api/admin/partners', partnerRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/partner', partnerCabinetRoutes)
