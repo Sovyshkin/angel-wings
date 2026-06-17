@@ -79,11 +79,14 @@ const [products, total] = await Promise.all([
       prisma.product.count({ where })
     ])
 
-    const parsedProducts = products.map(p => ({
-      ...p,
-      specs: p.specs ? JSON.parse(p.specs) : {},
-      images: parseImagesField(p.images)
-    }))
+    const parsedProducts = products.map(p => {
+      const { costPrice, ...publicProduct } = p
+      return {
+        ...publicProduct,
+        specs: p.specs ? JSON.parse(p.specs) : {},
+        images: parseImagesField(p.images)
+      }
+    })
 
     res.json({ products: parsedProducts, total })
   } catch (error) {
@@ -106,8 +109,9 @@ router.get('/:slug', async (req, res, next) => {
       return res.status(404).json({ error: 'Товар не найден' })
     }
     
+    const { costPrice, ...publicProduct } = product
     const parsedProduct = {
-      ...product,
+      ...publicProduct,
       specs: product.specs ? JSON.parse(product.specs) : {},
       images: parseImagesField(product.images)
     }
@@ -123,7 +127,7 @@ router.post('/', authenticate, requireAdmin, upload.fields([
   { name: 'images', maxCount: 12 }
 ]), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, sku, stock, weight, specs, categories, featured, active, purity, volume, country } = req.body
+    const { title, description, price, comparePrice, costPrice, sku, stock, weight, specs, categories, featured, active, purity, volume, country } = req.body
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const galleryImages = galleryFiles.map(file => `/uploads/${file.filename}`)
@@ -143,6 +147,7 @@ router.post('/', authenticate, requireAdmin, upload.fields([
         description,
         price: parseFloat(price),
         comparePrice: comparePrice ? parseFloat(comparePrice) : null,
+        costPrice: Math.max(0, parseFloat(costPrice) || 0),
         sku,
         stock: parseInt(stock) || 0,
         weight: parsedWeight,
@@ -171,7 +176,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
   { name: 'images', maxCount: 12 }
 ]), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, sku, stock, weight, specs, categories, featured, active, purity, volume, country, existingImages } = req.body
+    const { title, description, price, comparePrice, costPrice, sku, stock, weight, specs, categories, featured, active, purity, volume, country, existingImages } = req.body
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const persistedImages = parseImagesField(existingImages)
@@ -188,6 +193,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
       description,
       price: parseFloat(price),
       comparePrice: comparePrice ? parseFloat(comparePrice) : null,
+      costPrice: Math.max(0, parseFloat(costPrice) || 0),
       sku,
       stock: parseInt(stock) || 0,
       weight: parsedWeight,

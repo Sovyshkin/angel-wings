@@ -5,6 +5,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
 import tochkaService from '../services/tochka.js'
 import { v4 as uuidv4 } from 'uuid'
+import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -141,9 +142,10 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
     const { email, password, name, role = 'USER', phone } = req.body
     const normalizedRole = String(role || 'USER').toUpperCase()
 
-    if (typeof password !== 'string' || password.length < 6) {
-      return res.status(400).json({ error: 'Пароль должен содержать минимум 6 символов' })
-    }
+    const passwordError = normalizedRole === 'ADMIN'
+      ? validatePasswordPolicy(password, { email, name })
+      : validateBasicPassword(password)
+    if (passwordError) return res.status(400).json({ error: passwordError })
 
     if (!ALLOWED_USER_ROLES.includes(normalizedRole)) {
       return res.status(400).json({ error: 'Некорректная роль пользователя' })
@@ -184,7 +186,7 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
 
 router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { name, role, phone } = req.body
+    const { name, role, phone, password } = req.body
     const userId = parseInt(req.params.id)
     const normalizedRole = role !== undefined ? String(role).toUpperCase() : undefined
 
@@ -192,13 +194,28 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'Некорректная роль пользователя' })
     }
     
+    const passwordUpdate = {}
+    if (normalizedRole === 'ADMIN') {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true }
+      })
+      const passwordError = validatePasswordPolicy(password, {
+        email: currentUser?.email,
+        name: name || currentUser?.name
+      })
+      if (passwordError) return res.status(400).json({ error: passwordError })
+      passwordUpdate.password = await bcrypt.hash(password, 10)
+    }
+
     const user = await prisma.$transaction(async (tx) => {
       const updatedUser = await tx.user.update({
         where: { id: userId },
         data: {
           name,
           role: normalizedRole,
-          phone
+          phone,
+          ...passwordUpdate
         },
         select: {
           id: true,

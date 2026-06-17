@@ -49,6 +49,7 @@ model Product {
   description String
   price       Float
   comparePrice Float?
+  costPrice   Float     @default(0)
   sku         String?   @unique
   stock       Int       @default(0)
   weight      Int       @default(0) // Вес в граммах
@@ -80,6 +81,14 @@ model Order {
   paymentStatus   String?  @default("PENDING")
   paymentId       String?
   total           Float
+  partnerBonusAmount Float? @default(0)
+  acquiringFee    Float?
+  deliveryCost    Float?
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  utmContent      String?
+  utmTerm         String?
   items           OrderItem[]
   customerName    String
   customerEmail   String
@@ -137,6 +146,10 @@ model MarketingEvent {
   id          Int      @id @default(autoincrement())
   title       String
   type        String   @default("campaign")
+  channel     String?
+  cost        Float    @default(0)
+  utmSource   String?
+  utmCampaign String?
   description String?
   eventDate   DateTime
   createdAt   DateTime @default(now())

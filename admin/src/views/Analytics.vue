@@ -36,6 +36,114 @@
         </button>
       </nav>
 
+      <section v-if="activeTab === 'actions'" class="action-analytics">
+        <div class="morning-hero">
+          <div class="morning-hero__content">
+            <span class="section-kicker">Главный экран утра</span>
+            <h2>Что требует внимания сегодня</h2>
+            <p>Сводка продаж, складских рисков и клиентов, которым пора сделать следующий шаг.</p>
+          </div>
+          <div class="morning-sales-card" :class="morningDashboard.revenueDelta >= 0 ? 'positive' : 'negative'">
+            <span>Вчера</span>
+            <strong>{{ formatCurrency(morningDashboard.yesterday?.revenue) }}</strong>
+            <small>
+              {{ morningDashboard.revenueDelta >= 0 ? '+' : '' }}{{ morningDashboard.revenueDelta || 0 }}%
+              к позавчера · {{ formatCurrency(morningDashboard.lastMonthSameDay?.revenue) }} в аналогичный день прошлого месяца
+            </small>
+          </div>
+        </div>
+
+        <div class="morning-grid">
+          <article class="morning-panel morning-panel--top">
+            <div class="insight-head">
+              <div>
+                <h3>Топ-5 пептидов по выручке</h3>
+                <p>Что сейчас реально двигает кассу</p>
+              </div>
+            </div>
+            <div class="morning-list">
+              <div v-for="item in morningDashboard.topProducts" :key="item.productId" class="morning-row">
+                <div>
+                  <strong>{{ item.title }}</strong>
+                  <span>{{ item.units }} уп. · остаток {{ item.stock }} шт.</span>
+                </div>
+                <b>{{ formatCurrency(item.revenue) }}</b>
+              </div>
+              <div v-if="!morningDashboard.topProducts?.length" class="empty-mini">Продаж за период пока нет.</div>
+            </div>
+          </article>
+
+          <article class="morning-panel morning-panel--danger">
+            <div class="insight-head">
+              <div>
+                <h3>Критические остатки</h3>
+                <p>Позиции, где осталось меньше 20 упаковок</p>
+              </div>
+              <span class="pill danger">{{ morningDashboard.criticalStock?.length || 0 }}</span>
+            </div>
+            <div class="morning-list">
+              <div v-for="item in morningDashboard.criticalStock" :key="item.productId" class="morning-row">
+                <div>
+                  <strong>{{ item.title }}</strong>
+                  <span>{{ item.units14 }} уп. за 14 дней</span>
+                </div>
+                <b>{{ item.stock }} шт.</b>
+              </div>
+              <div v-if="!morningDashboard.criticalStock?.length" class="empty-mini">Критических остатков нет.</div>
+            </div>
+          </article>
+
+          <article class="morning-panel morning-panel--repeat">
+            <div class="insight-head">
+              <div>
+                <h3>Высокая вероятность повтора</h3>
+                <p>Купили курс недавно, давно не возвращались или имели высокий чек</p>
+              </div>
+              <span class="pill warning">{{ morningDashboard.repeatCandidates?.length || 0 }}</span>
+            </div>
+            <div class="repeat-candidate-list">
+              <div v-for="client in morningDashboard.repeatCandidates?.slice(0, 6)" :key="client.customerKey" class="repeat-candidate">
+                <div>
+                  <strong>{{ client.name }}</strong>
+                  <span>{{ client.product?.title }} · {{ client.daysSinceLastOrder }} дней без заказа</span>
+                </div>
+                <em>{{ client.probability }}%</em>
+              </div>
+              <div v-if="!morningDashboard.repeatCandidates?.length" class="empty-mini">Повторных кандидатов пока нет.</div>
+            </div>
+          </article>
+        </div>
+
+        <article class="action-generator-card">
+          <div class="insight-head">
+            <div>
+              <h3>Генератор действий</h3>
+              <p>Каждый сигнал заканчивается конкретной кнопкой: закупка, персональная скидка, отзыв или гипотеза курса.</p>
+            </div>
+            <span class="pill">{{ actionRecommendations.length }}</span>
+          </div>
+
+          <div v-if="actionFeedback" class="action-feedback">
+            <strong>{{ actionFeedback.message }}</strong>
+            <pre v-if="actionFeedback.draft">{{ actionFeedback.draft }}</pre>
+          </div>
+
+          <div class="action-list">
+            <div v-for="action in actionRecommendations" :key="action.id" class="action-card" :class="`action-card--${action.priority}`">
+              <div class="action-priority">{{ getActionPriorityLabel(action.priority) }}</div>
+              <div class="action-card__body">
+                <strong>{{ action.title }}</strong>
+                <p>{{ action.description }}</p>
+              </div>
+              <button type="button" @click="runAnalyticsAction(action)" :disabled="runningActionId === action.id">
+                {{ runningActionId === action.id ? 'Выполняю...' : action.buttonLabel }}
+              </button>
+            </div>
+            <div v-if="!actionRecommendations.length" class="empty-mini">Пока нет срочных действий. Можно спокойно допить кофе.</div>
+          </div>
+        </article>
+      </section>
+
       <section v-if="activeTab === 'products'" class="product-analytics">
         <div class="summary-grid">
         <article class="summary-card summary-card--accent">
@@ -428,6 +536,8 @@
               <option value="promo">Акция</option>
               <option value="content">Контент</option>
             </select>
+            <input v-model="marketingForm.channel" type="text" placeholder="Канал: Telegram, VK, блогер">
+            <input v-model.number="marketingForm.cost" type="number" min="0" step="1" placeholder="Затраты, ₽">
             <input v-model="marketingForm.eventDate" type="date">
             <button type="submit" :disabled="savingMarketingEvent">
               {{ savingMarketingEvent ? 'Добавляю...' : 'Добавить событие' }}
@@ -438,8 +548,8 @@
             <div v-for="event in marketingEvents" :key="event.id" class="marketing-row">
               <div>
                 <strong>{{ event.title }}</strong>
-                <span>{{ getMarketingTypeLabel(event.type) }} · {{ formatShortDate(event.eventDate) }}</span>
-                <small>В день события: {{ formatCurrency(event.revenue) }} · {{ event.orders }} заказов</small>
+                <span>{{ getMarketingTypeLabel(event.type) }} · {{ event.channel || 'канал не указан' }} · {{ formatShortDate(event.eventDate) }}</span>
+                <small>Затраты: {{ formatCurrency(event.cost) }} · в день события: {{ formatCurrency(event.revenue) }} · {{ event.orders }} заказов</small>
               </div>
               <div class="marketing-impact">
                 <b :class="event.uplift >= 0 ? 'positive' : 'negative'">{{ event.uplift >= 0 ? '+' : '' }}{{ event.uplift }}%</b>
@@ -447,6 +557,115 @@
               </div>
             </div>
             <div v-if="!marketingEvents.length" class="empty-mini">Пока нет добавленных маркетинговых событий.</div>
+          </div>
+        </article>
+      </section>
+
+      <section v-if="activeTab === 'margin'" class="margin-analytics">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">Маржинальность</span>
+            <h2>Прозрачная прибыль по заказам, каналам и препаратам</h2>
+          </div>
+          <p>Чистая прибыль считается как выручка минус себестоимость, эквайринг, доставка продавца, партнерские бонусы и комиссии.</p>
+        </div>
+
+        <div class="margin-summary-grid">
+          <article class="margin-summary-card margin-summary-card--profit">
+            <span>Чистая прибыль</span>
+            <strong>{{ formatCurrency(marginSummary.netProfit) }}</strong>
+            <small>{{ marginSummary.marginRate }}% маржинальность</small>
+          </article>
+          <article class="margin-summary-card">
+            <span>Выручка</span>
+            <strong>{{ formatCurrency(marginSummary.revenue) }}</strong>
+            <small>{{ formatNumber(marginSummary.orders) }} успешных заказов</small>
+          </article>
+          <article class="margin-summary-card">
+            <span>Себестоимость</span>
+            <strong>{{ formatCurrency(marginSummary.productCost) }}</strong>
+            <small>По полю себестоимости в карточках товаров</small>
+          </article>
+          <article class="margin-summary-card">
+            <span>Эквайринг и бонусы</span>
+            <strong>{{ formatCurrency((marginSummary.acquiringFees || 0) + (marginSummary.bonuses || 0)) }}</strong>
+            <small>{{ formatCurrency(marginSummary.acquiringFees) }} эквайринг · {{ formatCurrency(marginSummary.bonuses) }} бонусы</small>
+          </article>
+        </div>
+
+        <div class="margin-grid">
+          <article class="margin-panel margin-panel--wide">
+            <div class="insight-head">
+              <div>
+                <h3>ROMI по каналам</h3>
+                <p>Если в заказ передалась UTM-метка, канал связывается с рекламными затратами из событий.</p>
+              </div>
+              <span class="pill">{{ marginChannels.length }}</span>
+            </div>
+            <div class="margin-table">
+              <div class="margin-table-head">
+                <span>Канал</span>
+                <span>Прибыль</span>
+                <span>Затраты</span>
+                <span>ROMI</span>
+                <span>CAC</span>
+              </div>
+              <div v-for="channel in marginChannels" :key="channel.channel" class="margin-table-row">
+                <strong>{{ channel.channel }}</strong>
+                <span>{{ formatCurrency(channel.netProfit) }}</span>
+                <span>{{ formatCurrency(channel.adSpend) }}</span>
+                <b :class="getRomiClass(channel.romi)">{{ channel.romi === null ? '—' : `${channel.romi}x` }}</b>
+                <span>{{ channel.cac === null ? '—' : formatCurrency(channel.cac) }}</span>
+              </div>
+              <div v-if="!marginChannels.length" class="empty-mini">Каналов пока нет. Добавьте UTM и маркетинговые события.</div>
+            </div>
+          </article>
+
+          <article class="margin-panel">
+            <div class="insight-head">
+              <div>
+                <h3>CAC по препаратам</h3>
+                <p>Рекламные затраты распределяются пропорционально выручке препарата.</p>
+              </div>
+            </div>
+            <div class="compact-list">
+              <div v-for="product in marginProducts.slice(0, 8)" :key="product.productId" class="compact-row">
+                <div>
+                  <strong>{{ product.title }}</strong>
+                  <span>{{ product.units }} уп. · маржа {{ product.grossMargin }}%</span>
+                </div>
+                <small>{{ product.cac === null ? 'CAC —' : formatCurrency(product.cac) }}</small>
+              </div>
+              <div v-if="!marginProducts.length" class="empty-mini">Нет данных по препаратам за период.</div>
+            </div>
+          </article>
+        </div>
+
+        <article class="margin-orders-card">
+          <div class="insight-head">
+            <div>
+              <h3>Чистая прибыль по заказам</h3>
+              <p>Последние 100 успешных заказов с полной расшифровкой затрат.</p>
+            </div>
+            <span class="pill">{{ marginOrders.length }}</span>
+          </div>
+          <div class="margin-order-list">
+            <div v-for="order in marginOrders" :key="order.id" class="margin-order-row">
+              <div class="margin-order-main">
+                <strong>Заказ #{{ order.id }} · {{ order.customerName }}</strong>
+                <span>{{ formatShortDate(order.createdAt) }} · {{ order.channel }} · {{ order.deliveryName || 'доставка не указана' }}</span>
+                <small>{{ order.items.map(item => `${item.title} × ${item.quantity}`).join(', ') }}</small>
+              </div>
+              <div class="margin-breakdown">
+                <span>Выручка <b>{{ formatCurrency(order.revenue) }}</b></span>
+                <span>Себестоимость <b>-{{ formatCurrency(order.productCost) }}</b></span>
+                <span>Эквайринг <b>-{{ formatCurrency(order.acquiringFee) }}</b></span>
+                <span>Доставка <b>-{{ formatCurrency(order.deliveryCost) }}</b></span>
+                <span>Бонусы <b>-{{ formatCurrency(order.bonuses) }}</b></span>
+                <strong :class="order.netProfit >= 0 ? 'positive' : 'negative'">{{ formatCurrency(order.netProfit) }}</strong>
+              </div>
+            </div>
+            <div v-if="!marginOrders.length" class="empty-mini">За выбранный период успешных заказов нет.</div>
           </div>
         </article>
       </section>
@@ -606,21 +825,42 @@ const marketingEvents = ref([])
 const marketingForm = ref({
   title: '',
   type: 'campaign',
+  channel: '',
+  cost: 0,
   eventDate: new Date().toISOString().slice(0, 10)
 })
 const savingMarketingEvent = ref(false)
+const marginSummary = ref({ revenue: 0, netProfit: 0, productCost: 0, acquiringFees: 0, deliveryCost: 0, bonuses: 0, orders: 0, adSpend: 0, marginRate: 0, avgProfitPerOrder: 0 })
+const marginChannels = ref([])
+const marginProducts = ref([])
+const marginOrders = ref([])
+const marginAssumptions = ref({ acquiringFeePercent: 2.7, sellerPaysDelivery: false })
+const morningDashboard = ref({
+  yesterday: { revenue: 0, orders: 0 },
+  dayBefore: { revenue: 0, orders: 0 },
+  lastMonthSameDay: { revenue: 0, orders: 0 },
+  revenueDelta: 0,
+  topProducts: [],
+  criticalStock: [],
+  repeatCandidates: []
+})
+const actionRecommendations = ref([])
+const runningActionId = ref(null)
+const actionFeedback = ref(null)
 const priceDrafts = ref({})
 const savingPriceId = ref(null)
-const activeTab = ref('products')
+const activeTab = ref('actions')
 const days = ref(30)
 const search = ref('')
 const onlySignals = ref(false)
 const analyticsTabs = [
+  { key: 'actions', label: 'Действия', hint: 'Главный экран утра' },
   { key: 'products', label: 'Препараты', hint: 'Velocity и LTV' },
   { key: 'stock', label: 'Склад', hint: 'ABC/XYZ и остатки' },
   { key: 'cancellations', label: 'Отказы', hint: 'Причины отмен' },
   { key: 'trends', label: 'Тренды', hint: 'Сезонность' },
-  { key: 'customers', label: 'Клиенты', hint: 'Retention' }
+  { key: 'customers', label: 'Клиенты', hint: 'Retention' },
+  { key: 'margin', label: 'Маржа', hint: 'ROMI и CAC' }
 ]
 const periodOptions = [
   { label: '7 дней', value: 7 },
@@ -686,6 +926,21 @@ function getMarketingTypeLabel(type) {
   return labels[type] || 'Событие'
 }
 
+function getRomiClass(value) {
+  if (value === null || value === undefined) return ''
+  return Number(value) >= 1 ? 'positive' : 'negative'
+}
+
+function getActionPriorityLabel(priority) {
+  const labels = {
+    critical: 'Критично',
+    high: 'Важно',
+    medium: 'Идея',
+    low: 'Низкий'
+  }
+  return labels[priority] || 'Действие'
+}
+
 async function fetchCustomerAnalytics() {
   const { data } = await axios.get('/api/admin/analytics/customers')
   customerSummary.value = data.summary || customerSummary.value
@@ -719,6 +974,21 @@ async function fetchTrendAnalytics() {
   marketingEvents.value = data.marketingEvents || []
 }
 
+async function fetchMarginAnalytics() {
+  const { data } = await axios.get('/api/admin/analytics/margin', { params: { days: days.value } })
+  marginSummary.value = data.summary || marginSummary.value
+  marginChannels.value = data.channels || []
+  marginProducts.value = data.products || []
+  marginOrders.value = data.orders || []
+  marginAssumptions.value = data.assumptions || marginAssumptions.value
+}
+
+async function fetchActionAnalytics() {
+  const { data } = await axios.get('/api/admin/analytics/actions')
+  morningDashboard.value = data.morning || morningDashboard.value
+  actionRecommendations.value = data.actions || []
+}
+
 async function fetchAnalytics() {
   loading.value = true
   try {
@@ -727,12 +997,35 @@ async function fetchAnalytics() {
       fetchCustomerAnalytics(),
       fetchStockAnalytics(),
       fetchCancellationAnalytics(),
-      fetchTrendAnalytics()
+      fetchTrendAnalytics(),
+      fetchMarginAnalytics(),
+      fetchActionAnalytics()
     ])
     products.value = data.products || []
     summary.value = data.summary || { ltv: 0, orders: 0, units: 0, reorderSignals: 0 }
   } finally {
     loading.value = false
+  }
+}
+
+async function runAnalyticsAction(action) {
+  if (!action?.type) return
+  runningActionId.value = action.id
+  actionFeedback.value = null
+  try {
+    const { data } = await axios.post(`/api/admin/analytics/actions/${action.type}`, {
+      payload: action.payload || {}
+    })
+    actionFeedback.value = data
+    if (action.type === 'personal_discount') {
+      await fetchActionAnalytics()
+    }
+  } catch (error) {
+    actionFeedback.value = {
+      message: error.response?.data?.error || 'Не удалось выполнить действие'
+    }
+  } finally {
+    runningActionId.value = null
   }
 }
 
@@ -749,8 +1042,11 @@ async function createMarketingEvent() {
     await axios.post('/api/admin/analytics/marketing-events', marketingForm.value)
     marketingForm.value.title = ''
     marketingForm.value.type = 'campaign'
+    marketingForm.value.channel = ''
+    marketingForm.value.cost = 0
     marketingForm.value.eventDate = new Date().toISOString().slice(0, 10)
     await fetchTrendAnalytics()
+    await fetchMarginAnalytics()
   } finally {
     savingMarketingEvent.value = false
   }
@@ -760,6 +1056,7 @@ async function deleteMarketingEvent(id) {
   if (!id) return
   await axios.delete(`/api/admin/analytics/marketing-events/${id}`)
   await fetchTrendAnalytics()
+  await fetchMarginAnalytics()
 }
 
 async function applyDeadStockPrice(item) {
@@ -824,7 +1121,7 @@ onMounted(fetchAnalytics)
 
 .analytics-tabs {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0.75rem;
   padding: 0.65rem;
   border: 1px solid var(--border);
@@ -877,6 +1174,217 @@ onMounted(fetchAnalytics)
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.action-analytics {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.morning-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+  gap: 1rem;
+  padding: 1.35rem;
+  border: 1px solid rgba(159, 181, 255, 0.28);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(159, 181, 255, 0.2), transparent 34%),
+    radial-gradient(circle at 84% 20%, rgba(34, 197, 94, 0.12), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent),
+    var(--bg-card);
+  overflow: hidden;
+}
+
+.morning-hero__content h2 {
+  margin: 0.35rem 0 0.45rem;
+  color: var(--text-primary);
+  font-size: clamp(1.55rem, 4vw, 3rem);
+  line-height: 1.05;
+}
+
+.morning-hero__content p {
+  max-width: 620px;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.morning-sales-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 180px;
+  padding: 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.morning-sales-card.positive {
+  border-color: rgba(34, 197, 94, 0.36);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(255, 255, 255, 0.035));
+}
+
+.morning-sales-card.negative {
+  border-color: rgba(239, 68, 68, 0.36);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(255, 255, 255, 0.035));
+}
+
+.morning-sales-card span,
+.action-priority {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.morning-sales-card strong {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--text-primary);
+  font-size: clamp(1.8rem, 4vw, 2.7rem);
+}
+
+.morning-sales-card small {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.morning-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.05fr;
+  gap: 1rem;
+}
+
+.morning-panel,
+.action-generator-card {
+  padding: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent),
+    var(--bg-card);
+}
+
+.morning-panel--danger {
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.morning-list,
+.repeat-candidate-list,
+.action-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.morning-row,
+.repeat-candidate,
+.action-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg-secondary);
+}
+
+.morning-row,
+.repeat-candidate {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.85rem;
+}
+
+.morning-row strong,
+.repeat-candidate strong,
+.action-card strong {
+  display: block;
+  color: var(--text-primary);
+}
+
+.morning-row span,
+.repeat-candidate span,
+.action-card p {
+  display: block;
+  margin-top: 0.22rem;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.morning-row b {
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.repeat-candidate em {
+  flex-shrink: 0;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.action-feedback {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(34, 197, 94, 0.32);
+  border-radius: 18px;
+  color: var(--text-primary);
+  background: rgba(34, 197, 94, 0.09);
+}
+
+.action-feedback pre {
+  margin: 0.75rem 0 0;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+  font: inherit;
+  line-height: 1.45;
+}
+
+.action-card {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.9rem;
+}
+
+.action-card--critical {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), var(--bg-secondary));
+}
+
+.action-card--high {
+  border-color: rgba(245, 158, 11, 0.38);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), var(--bg-secondary));
+}
+
+.action-card--medium {
+  border-color: rgba(159, 181, 255, 0.26);
+}
+
+.action-card button {
+  border: 0;
+  border-radius: 14px;
+  padding: 0.78rem 1rem;
+  color: #0b0b10;
+  background: var(--accent);
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.action-card button:disabled {
+  opacity: 0.65;
+  cursor: wait;
 }
 
 .summary-grid {
@@ -1722,7 +2230,7 @@ onMounted(fetchAnalytics)
 
 .marketing-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 150px 150px auto;
+  grid-template-columns: minmax(220px, 1fr) 140px minmax(150px, 0.75fr) 130px 150px auto;
   gap: 0.65rem;
   margin-bottom: 1rem;
 }
@@ -1764,6 +2272,184 @@ onMounted(fetchAnalytics)
   display: flex;
   align-items: center;
   gap: 0.55rem;
+}
+
+.margin-analytics {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.margin-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.margin-summary-card {
+  padding: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 90% 12%, rgba(34, 197, 94, 0.12), transparent 36%),
+    var(--bg-card);
+}
+
+.margin-summary-card--profit {
+  border-color: rgba(34, 197, 94, 0.42);
+  background:
+    radial-gradient(circle at 82% 12%, rgba(34, 197, 94, 0.18), transparent 34%),
+    linear-gradient(135deg, rgba(159, 181, 255, 0.1), transparent),
+    var(--bg-card);
+}
+
+.margin-summary-card span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.margin-summary-card strong {
+  display: block;
+  margin-top: 0.55rem;
+  color: var(--text-primary);
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+}
+
+.margin-summary-card small {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.margin-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 0.9fr;
+  gap: 1rem;
+}
+
+.margin-panel,
+.margin-orders-card {
+  padding: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent),
+    var(--bg-card);
+}
+
+.margin-table {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.margin-table-head,
+.margin-table-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) repeat(4, minmax(90px, auto));
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.margin-table-head {
+  padding: 0 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.margin-table-row,
+.margin-order-row {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg-secondary);
+}
+
+.margin-table-row {
+  padding: 0.85rem;
+}
+
+.margin-table-row strong,
+.margin-table-row b {
+  color: var(--text-primary);
+}
+
+.margin-table-row span {
+  color: var(--text-secondary);
+}
+
+.margin-table-row b.positive,
+.margin-table-row b.negative,
+.margin-breakdown strong.positive,
+.margin-breakdown strong.negative {
+  display: inline-flex;
+  justify-content: center;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  font-weight: 900;
+}
+
+.margin-table-row b.positive,
+.margin-breakdown strong.positive {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.margin-table-row b.negative,
+.margin-breakdown strong.negative {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.margin-order-list {
+  display: grid;
+  gap: 0.65rem;
+  max-height: 680px;
+  overflow: auto;
+}
+
+.margin-order-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
+  gap: 1rem;
+  padding: 0.9rem;
+}
+
+.margin-order-main strong {
+  display: block;
+  color: var(--text-primary);
+}
+
+.margin-order-main span,
+.margin-order-main small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.margin-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.margin-breakdown span {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.margin-breakdown b {
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .marketing-impact button {
@@ -2103,7 +2789,8 @@ onMounted(fetchAnalytics)
   .summary-grid,
   .stock-summary-grid,
   .trend-summary-grid,
-  .customer-summary-grid {
+  .customer-summary-grid,
+  .margin-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2132,12 +2819,23 @@ onMounted(fetchAnalytics)
     grid-template-columns: 1fr;
   }
 
+  .morning-hero,
+  .morning-grid,
+  .action-card {
+    grid-template-columns: 1fr;
+  }
+
+  .margin-grid,
+  .margin-order-row {
+    grid-template-columns: 1fr;
+  }
+
   .trend-panel--wide {
     grid-row: auto;
   }
 
   .marketing-form {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .reason-grid {
@@ -2176,9 +2874,13 @@ onMounted(fetchAnalytics)
   }
 
   .summary-grid,
+  .morning-hero,
+  .morning-grid,
+  .action-card,
   .stock-summary-grid,
   .trend-summary-grid,
   .customer-summary-grid,
+  .margin-summary-grid,
   .cancellation-hero,
   .reason-grid,
   .product-row,
@@ -2188,9 +2890,16 @@ onMounted(fetchAnalytics)
   .month-compare-row,
   .marketing-form,
   .marketing-row,
+  .margin-table-head,
+  .margin-table-row,
+  .margin-breakdown,
   .client-row,
   .retention-row {
     grid-template-columns: 1fr;
+  }
+
+  .margin-table-head {
+    display: none;
   }
 
   .client-money,

@@ -817,6 +817,43 @@ const SELF_PICKUP_ADDRESS = 'г. Москва, Чкаловский бульва
 const SELF_PICKUP_PRICE = 0
 const SELF_PICKUP_AVAILABLE = false
 const CHECKOUT_REQUEST_KEY = 'peptidi_checkout_request_guard'
+const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
+const ATTRIBUTION_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
+
+function captureAttributionFromUrl() {
+  if (typeof window === 'undefined') return
+  const params = new URLSearchParams(window.location.search)
+  const attribution = {}
+
+  ATTRIBUTION_KEYS.forEach(key => {
+    const value = params.get(key)
+    if (value) attribution[key] = value.slice(0, 160)
+  })
+
+  if (!Object.keys(attribution).length) return
+
+  try {
+    localStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify({
+      ...attribution,
+      capturedAt: new Date().toISOString()
+    }))
+  } catch {
+    // UTM-метки не должны ломать оформление заказа.
+  }
+}
+
+function getStoredAttribution() {
+  if (typeof window === 'undefined') return {}
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ATTRIBUTION_STORAGE_KEY) || '{}')
+    return ATTRIBUTION_KEYS.reduce((result, key) => {
+      if (parsed?.[key]) result[key] = parsed[key]
+      return result
+    }, {})
+  } catch {
+    return {}
+  }
+}
 
 function normalizeRussianPhone(value) {
   const digits = String(value || '').replace(/\D/g, '')
@@ -1535,7 +1572,8 @@ function buildCheckoutSignature(orderData) {
     paymentMethod: orderData.paymentMethod,
     delivery: orderData.delivery,
     promoCode: orderData.promoCode || '',
-    partnerBonusAmount: orderData.partnerBonusAmount || 0
+    partnerBonusAmount: orderData.partnerBonusAmount || 0,
+    attribution: orderData.attribution || {}
   })
 }
 
@@ -1830,7 +1868,8 @@ async function placeOrder() {
         : (deliveryType.value === 'self_pickup' ? SELF_PICKUP_ADDRESS : (selectedPickupPoint.value?.address || null)),
       notes: customer.value.comment,
       paymentMethod: deliveryType.value === 'courier' ? paymentMethod.value : 'online',
-      delivery: deliveryData
+      delivery: deliveryData,
+      attribution: getStoredAttribution()
     }
 
     if (partnerBonusToUse.value > 0) {
@@ -1953,6 +1992,7 @@ async function placeOrder() {
 }
 
 onMounted(async () => {
+  captureAttributionFromUrl()
   await productStore.fetchCategories()
   prefillFromProfile()
   await fetchPartnerBalance()

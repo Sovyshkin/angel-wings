@@ -130,7 +130,10 @@
 
           <div class="form-group">
             <label class="form-label">Пароль</label>
-            <input type="password" v-model="form.password" required minlength="6" class="input" placeholder="Минимум 6 символов">
+            <input type="password" v-model="form.password" required :minlength="form.role === 'ADMIN' ? 12 : 6" class="input" :placeholder="form.role === 'ADMIN' ? '12+ символов, Aa, цифра и спецсимвол' : 'Минимум 6 символов'">
+            <small v-if="form.role === 'ADMIN'" class="password-hint">
+              Для админа нужен надежный пароль: минимум 12 символов, заглавная и строчная буква, цифра и спецсимвол.
+            </small>
           </div>
 
           <div class="form-group">
@@ -142,7 +145,7 @@
 
           <div class="modal-actions">
             <button type="button" @click="closeModal" class="btn btn-secondary">Отмена</button>
-            <button type="submit" class="btn btn-primary" :disabled="loading">Создать</button>
+            <button type="submit" class="btn btn-primary" :disabled="loadingForm">Создать</button>
           </div>
         </form>
       </div>
@@ -180,8 +183,19 @@ async function fetchUsers() {
 }
 
 async function updateRole(id, role) {
+  const payload = { role }
+
+  if (role === 'ADMIN') {
+    const password = prompt('Задайте новый надежный пароль для администратора: минимум 12 символов, заглавная и строчная буква, цифра и спецсимвол.')
+    if (!password) {
+      fetchUsers()
+      return
+    }
+    payload.password = password
+  }
+
   try {
-    const { data } = await axios.put(`${API_URL}/users/${id}`, { role })
+    const { data } = await axios.put(`${API_URL}/users/${id}`, payload)
     const index = users.value.findIndex(u => u.id === id)
     if (index !== -1 && data.user) {
       users.value[index] = {
@@ -557,6 +571,12 @@ onMounted(fetchUsers)
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-secondary);
+}
+
+.password-hint {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .modal-actions {

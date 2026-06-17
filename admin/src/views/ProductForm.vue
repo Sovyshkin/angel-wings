@@ -36,6 +36,10 @@
         
         <div class="form-row">
           <div class="form-group">
+            <label class="form-label">Себестоимость</label>
+            <input type="number" v-model.number="form.costPrice" min="0" class="input" placeholder="Например 1800">
+          </div>
+          <div class="form-group">
             <label class="form-label">Старая цена</label>
             <input type="number" v-model.number="form.comparePrice" min="0" class="input" placeholder="5000">
           </div>
@@ -257,6 +261,7 @@ const form = ref({
   title: '',
   sku: '',
   price: 0,
+  costPrice: 0,
   comparePrice: null,
   stock: 0,
   weight: 0,
@@ -305,6 +310,7 @@ async function fetchProduct() {
     title: p.title,
     sku: p.sku || '',
     price: parseFloat(p.price),
+    costPrice: parseFloat(p.costPrice || 0),
     comparePrice: p.comparePrice ? parseFloat(p.comparePrice) : null,
     stock: p.stock,
     weight: p.weight || 0,
@@ -440,6 +446,7 @@ async function handleSubmit() {
     formData.append('title', form.value.title)
     formData.append('description', form.value.description)
     formData.append('price', form.value.price)
+    formData.append('costPrice', form.value.costPrice || 0)
     if (form.value.comparePrice) formData.append('comparePrice', form.value.comparePrice)
     if (form.value.sku) formData.append('sku', form.value.sku)
     formData.append('stock', form.value.stock)

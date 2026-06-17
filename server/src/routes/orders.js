@@ -455,7 +455,9 @@ router.post('/', authenticate, async (req, res, next) => {
       delivery,
       paymentMethod,
       partnerBonusAmount,
-      clientRequestId
+      clientRequestId,
+      attribution,
+      utm
     } = req.body
 
     const normalizedClientRequestId = String(clientRequestId || '').trim()
@@ -506,6 +508,23 @@ router.post('/', authenticate, async (req, res, next) => {
     }
 
     const normalizedDeliveryType = String(delivery?.type || '').trim()
+    const rawAttribution = attribution && typeof attribution === 'object'
+      ? attribution
+      : (utm && typeof utm === 'object' ? utm : {})
+    const normalizeAttributionField = (...keys) => {
+      for (const key of keys) {
+        const value = String(rawAttribution?.[key] || '').trim()
+        if (value) return value.slice(0, 160)
+      }
+      return null
+    }
+    const orderAttribution = {
+      utmSource: normalizeAttributionField('utm_source', 'utmSource', 'source'),
+      utmMedium: normalizeAttributionField('utm_medium', 'utmMedium', 'medium'),
+      utmCampaign: normalizeAttributionField('utm_campaign', 'utmCampaign', 'campaign'),
+      utmContent: normalizeAttributionField('utm_content', 'utmContent', 'content'),
+      utmTerm: normalizeAttributionField('utm_term', 'utmTerm', 'term')
+    }
     const isInternalMoscowCourier =
       normalizedDeliveryType === 'courier_internal_moscow' ||
       normalizedDeliveryType === 'courier'
@@ -726,7 +745,9 @@ router.post('/', authenticate, async (req, res, next) => {
         userId: actualUserId,
         promoCodeId,
         discountAmount: totalDiscountAmount,
+        partnerBonusAmount: partnerBonusUsed,
         partnerId,
+        ...orderAttribution,
         clientRequestId: normalizedClientRequestId && clientRequestIdPersistenceAvailable
           ? normalizedClientRequestId
           : undefined,

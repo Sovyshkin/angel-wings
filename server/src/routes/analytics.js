@@ -124,6 +124,110 @@ function emptyMoneyMetric(key, label = key) {
   return { key, label, revenue: 0, orders: 0, units: 0 }
 }
 
+function getAcquiringFee(order) {
+  if (Number.isFinite(Number(order?.acquiringFee))) {
+    return Math.max(0, Number(order.acquiringFee))
+  }
+
+  const paymentStatus = normalizeOrderStatus(order?.paymentStatus)
+  if (!SUCCESS_PAYMENT_STATUSES.has(paymentStatus) || paymentStatus === 'CASH_ON_DELIVERY') {
+    return 0
+  }
+
+  const percent = Math.max(0, Number.parseFloat(process.env.ACQUIRING_FEE_PERCENT || '2.7') || 0)
+  const fixed = Math.max(0, Number.parseFloat(process.env.ACQUIRING_FEE_FIXED || '0') || 0)
+  return toMoney((Number(order?.total || 0) * percent) / 100 + fixed)
+}
+
+function getSellerDeliveryCost(order) {
+  if (Number.isFinite(Number(order?.deliveryCost))) {
+    return Math.max(0, Number(order.deliveryCost))
+  }
+
+  const sellerPaysDelivery = String(process.env.ANALYTICS_SELLER_PAYS_DELIVERY || '').toLowerCase() === 'true'
+  return sellerPaysDelivery ? Math.max(0, Number(order?.deliveryPrice || 0)) : 0
+}
+
+function getAttributionChannel(order) {
+  return String(order?.utmSource || order?.utmCampaign || 'Прямые / без UTM').trim() || 'Прямые / без UTM'
+}
+
+function calculateOrderMargin(order) {
+  const productCost = (order.items || []).reduce((sum, item) => {
+    const unitCost = Math.max(0, Number(item.product?.costPrice || 0))
+    return sum + unitCost * Math.max(0, Number(item.quantity || 0))
+  }, 0)
+  const acquiringFee = getAcquiringFee(order)
+  const deliveryCost = getSellerDeliveryCost(order)
+  const partnerBonus = Math.max(0, Number(order.partnerBonusAmount || 0))
+  const partnerCommission = Math.max(0, Number(order.commission?.amount || 0))
+  const bonuses = partnerBonus + partnerCommission
+  const revenue = Math.max(0, Number(order.total || 0))
+  const netProfit = revenue - productCost - acquiringFee - deliveryCost - bonuses
+
+  return {
+    revenue: toMoney(revenue),
+    productCost: toMoney(productCost),
+    acquiringFee: toMoney(acquiringFee),
+    deliveryCost: toMoney(deliveryCost),
+    bonuses: toMoney(bonuses),
+    partnerBonus: toMoney(partnerBonus),
+    partnerCommission: toMoney(partnerCommission),
+    netProfit: toMoney(netProfit),
+    marginRate: revenue > 0 ? toMoney((netProfit / revenue) * 100) : 0
+  }
+}
+
+function startOfDayOffset(daysOffset = 0) {
+  const date = new Date()
+  date.setHours(0, 0, 0, 0)
+  date.setDate(date.getDate() + daysOffset)
+  return date
+}
+
+function addDays(date, days) {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+function addDaysToNow(days) {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  return date
+}
+
+function getActionPriorityScore(action) {
+  const priorityWeight = { critical: 4, high: 3, medium: 2, low: 1 }
+  return priorityWeight[action.priority] || 0
+}
+
+function buildActionId(type, payload = {}) {
+  const parts = [type, payload.productId, payload.customerKey, payload.orderId]
+    .filter(value => value !== undefined && value !== null && value !== '')
+  return parts.join(':')
+}
+
+function buildSupplierOrderText(action) {
+  const payload = action.payload || {}
+  return [
+    `Заявка поставщику: ${action.title}`,
+    `Текущий остаток: ${payload.currentStock || 0} шт.`,
+    `Продажи за 14 дней: ${payload.units14 || 0} шт.`,
+    `Сезонный коэффициент: ${payload.seasonalityFactor || 1}`,
+    `Рекомендуемый заказ: ${payload.suggestedQuantity || 0} шт.`
+  ].join('\n')
+}
+
+function buildReviewRequestText(action) {
+  const payload = action.payload || {}
+  return [
+    `Здравствуйте! Поделитесь, пожалуйста, отзывом о препарате ${payload.productTitle || ''}.`,
+    'Ваш опыт поможет нам точнее подбирать продукты и улучшать описания курсов.',
+    'Спасибо, команда Angel Wings.'
+  ].join('\n')
+}
+
 router.post('/product-event', async (req, res, next) => {
   try {
     const productId = Number.parseInt(req.body?.productId, 10)
@@ -793,6 +897,10 @@ router.get('/trends', authenticate, requireAdmin, async (req, res, next) => {
         id: event.id,
         title: event.title,
         type: event.type,
+        channel: event.channel,
+        cost: toMoney(event.cost),
+        utmSource: event.utmSource,
+        utmCampaign: event.utmCampaign,
         description: event.description,
         eventDate: event.eventDate,
         revenue: toMoney(eventDay.revenue),
@@ -825,6 +933,10 @@ router.post('/marketing-events', authenticate, requireAdmin, async (req, res, ne
   try {
     const title = String(req.body?.title || '').trim()
     const type = String(req.body?.type || 'campaign').trim() || 'campaign'
+    const channel = String(req.body?.channel || '').trim().slice(0, 120) || null
+    const utmSource = String(req.body?.utmSource || req.body?.utm_source || '').trim().slice(0, 160) || null
+    const utmCampaign = String(req.body?.utmCampaign || req.body?.utm_campaign || '').trim().slice(0, 160) || null
+    const cost = Math.max(0, Number.parseFloat(req.body?.cost) || 0)
     const description = String(req.body?.description || '').trim() || null
     const eventDate = parseDate(req.body?.eventDate)
 
@@ -837,7 +949,7 @@ router.post('/marketing-events', authenticate, requireAdmin, async (req, res, ne
     }
 
     const event = await prisma.marketingEvent.create({
-      data: { title, type, description, eventDate }
+      data: { title, type, channel, cost, utmSource, utmCampaign, description, eventDate }
     })
 
     res.status(201).json({ event })
@@ -898,6 +1010,568 @@ router.patch('/products/:id/price', authenticate, requireAdmin, async (req, res,
     })
 
     res.json({ product })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const days = Math.max(7, Math.min(365, Number.parseInt(req.query.days, 10) || 30))
+    const periodStart = startOfDaysAgo(days)
+
+    const [orders, marketingEvents] = await Promise.all([
+      prisma.order.findMany({
+        where: {
+          status: { not: 'CANCELLED' },
+          paymentStatus: { in: [...SUCCESS_PAYMENT_STATUSES] },
+          createdAt: { gte: periodStart }
+        },
+        include: {
+          commission: { select: { amount: true, percentage: true } },
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  title: true,
+                  sku: true,
+                  costPrice: true,
+                  categories: { select: { id: true, name: true, slug: true } }
+                }
+              }
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.marketingEvent.findMany({
+        where: { eventDate: { gte: periodStart } },
+        orderBy: { eventDate: 'desc' }
+      })
+    ])
+
+    const summary = {
+      revenue: 0,
+      netProfit: 0,
+      productCost: 0,
+      acquiringFees: 0,
+      deliveryCost: 0,
+      bonuses: 0,
+      orders: orders.length,
+      adSpend: 0
+    }
+    const channelMap = new Map()
+    const productMap = new Map()
+
+    const spendByChannel = new Map()
+    for (const event of marketingEvents) {
+      const channel = String(event.channel || event.utmSource || event.utmCampaign || 'Без канала').trim()
+      const spend = Math.max(0, Number(event.cost || 0))
+      spendByChannel.set(channel, (spendByChannel.get(channel) || 0) + spend)
+      summary.adSpend += spend
+    }
+
+    const orderRows = orders.map(order => {
+      const margin = calculateOrderMargin(order)
+      const channel = getAttributionChannel(order)
+      const channelMetric = channelMap.get(channel) || {
+        channel,
+        revenue: 0,
+        netProfit: 0,
+        orders: 0,
+        customers: new Set(),
+        adSpend: 0
+      }
+
+      channelMetric.revenue += margin.revenue
+      channelMetric.netProfit += margin.netProfit
+      channelMetric.orders += 1
+      channelMetric.customers.add(getCustomerKey(order))
+      channelMap.set(channel, channelMetric)
+
+      summary.revenue += margin.revenue
+      summary.netProfit += margin.netProfit
+      summary.productCost += margin.productCost
+      summary.acquiringFees += margin.acquiringFee
+      summary.deliveryCost += margin.deliveryCost
+      summary.bonuses += margin.bonuses
+
+      for (const item of order.items || []) {
+        const productId = item.productId
+        const quantity = Math.max(0, Number(item.quantity || 0))
+        const itemRevenue = getOrderItemRevenue(item)
+        const itemCost = Math.max(0, Number(item.product?.costPrice || 0)) * quantity
+        const metric = productMap.get(productId) || {
+          productId,
+          title: item.product?.title || `Товар #${productId}`,
+          sku: item.product?.sku || null,
+          revenue: 0,
+          productCost: 0,
+          grossProfit: 0,
+          units: 0,
+          orders: new Set(),
+          customers: new Set()
+        }
+        metric.revenue += itemRevenue
+        metric.productCost += itemCost
+        metric.grossProfit += itemRevenue - itemCost
+        metric.units += quantity
+        metric.orders.add(order.id)
+        metric.customers.add(getCustomerKey(order))
+        productMap.set(productId, metric)
+      }
+
+      return {
+        id: order.id,
+        createdAt: order.createdAt,
+        customerName: order.customerName,
+        paymentStatus: order.paymentStatus,
+        deliveryName: order.deliveryTariffName,
+        channel,
+        utm: {
+          source: order.utmSource,
+          medium: order.utmMedium,
+          campaign: order.utmCampaign
+        },
+        items: (order.items || []).map(item => ({
+          productId: item.productId,
+          title: item.product?.title || `Товар #${item.productId}`,
+          quantity: item.quantity,
+          revenue: toMoney(getOrderItemRevenue(item)),
+          cost: toMoney(Math.max(0, Number(item.product?.costPrice || 0)) * Math.max(0, Number(item.quantity || 0)))
+        })),
+        ...margin
+      }
+    })
+
+    for (const [channel, spend] of spendByChannel.entries()) {
+      const metric = channelMap.get(channel) || {
+        channel,
+        revenue: 0,
+        netProfit: 0,
+        orders: 0,
+        customers: new Set(),
+        adSpend: 0
+      }
+      metric.adSpend = spend
+      channelMap.set(channel, metric)
+    }
+
+    const channels = [...channelMap.values()]
+      .map(metric => ({
+        channel: metric.channel,
+        revenue: toMoney(metric.revenue),
+        netProfit: toMoney(metric.netProfit),
+        orders: metric.orders,
+        customers: metric.customers.size,
+        adSpend: toMoney(metric.adSpend),
+        romi: metric.adSpend > 0 ? toMoney(metric.netProfit / metric.adSpend) : null,
+        cac: metric.customers.size > 0 ? toMoney(metric.adSpend / metric.customers.size) : null
+      }))
+      .sort((a, b) => b.netProfit - a.netProfit)
+
+    const totalProductRevenue = [...productMap.values()].reduce((sum, product) => sum + product.revenue, 0)
+    const products = [...productMap.values()]
+      .map(product => {
+        const allocatedSpend = totalProductRevenue > 0 ? summary.adSpend * (product.revenue / totalProductRevenue) : 0
+        const customers = product.customers.size
+        return {
+          productId: product.productId,
+          title: product.title,
+          sku: product.sku,
+          revenue: toMoney(product.revenue),
+          productCost: toMoney(product.productCost),
+          grossProfit: toMoney(product.grossProfit),
+          grossMargin: product.revenue > 0 ? toMoney((product.grossProfit / product.revenue) * 100) : 0,
+          units: product.units,
+          orders: product.orders.size,
+          customers,
+          allocatedAdSpend: toMoney(allocatedSpend),
+          cac: customers > 0 ? toMoney(allocatedSpend / customers) : null
+        }
+      })
+      .sort((a, b) => b.grossProfit - a.grossProfit)
+
+    res.json({
+      summary: {
+        ...Object.fromEntries(Object.entries(summary).map(([key, value]) => [key, key === 'orders' ? value : toMoney(value)])),
+        marginRate: summary.revenue > 0 ? toMoney((summary.netProfit / summary.revenue) * 100) : 0,
+        avgProfitPerOrder: orders.length ? toMoney(summary.netProfit / orders.length) : 0
+      },
+      channels,
+      products,
+      orders: orderRows.slice(0, 100),
+      assumptions: {
+        acquiringFeePercent: Math.max(0, Number.parseFloat(process.env.ACQUIRING_FEE_PERCENT || '2.7') || 0),
+        sellerPaysDelivery: String(process.env.ANALYTICS_SELLER_PAYS_DELIVERY || '').toLowerCase() === 'true'
+      }
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const yesterdayStart = startOfDayOffset(-1)
+    const todayStart = startOfDayOffset(0)
+    const dayBeforeStart = startOfDayOffset(-2)
+    const lastMonthSameDayStart = new Date(yesterdayStart)
+    lastMonthSameDayStart.setMonth(lastMonthSameDayStart.getMonth() - 1)
+    const lastMonthSameDayEnd = addDays(lastMonthSameDayStart, 1)
+    const twoWeeksAgo = startOfDaysAgo(14)
+    const sixtyDaysAgo = startOfDaysAgo(60)
+    const ninetyDaysAgo = startOfDaysAgo(90)
+
+    const [orders, products, events] = await Promise.all([
+      prisma.order.findMany({
+        where: {
+          status: { not: 'CANCELLED' },
+          paymentStatus: { in: [...SUCCESS_PAYMENT_STATUSES] },
+          createdAt: { gte: ninetyDaysAgo }
+        },
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } },
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  title: true,
+                  sku: true,
+                  stock: true,
+                  price: true,
+                  categories: { select: { id: true, name: true, slug: true } }
+                }
+              }
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.product.findMany({
+        where: { active: true },
+        include: { categories: { select: { id: true, name: true, slug: true } } },
+        orderBy: { stock: 'asc' }
+      }),
+      prisma.productAnalyticsEvent.findMany({
+        where: { createdAt: { gte: ninetyDaysAgo } },
+        select: { productId: true, event: true, userId: true, sessionId: true, createdAt: true }
+      })
+    ])
+
+    const getDayRevenue = (from, to) => {
+      const dayOrders = orders.filter(order => {
+        const createdAt = new Date(order.createdAt)
+        return createdAt >= from && createdAt < to
+      })
+      return {
+        revenue: toMoney(dayOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)),
+        orders: dayOrders.length
+      }
+    }
+
+    const yesterday = getDayRevenue(yesterdayStart, todayStart)
+    const dayBefore = getDayRevenue(dayBeforeStart, yesterdayStart)
+    const lastMonthSameDay = getDayRevenue(lastMonthSameDayStart, lastMonthSameDayEnd)
+    const revenueDelta = dayBefore.revenue > 0
+      ? toMoney(((yesterday.revenue - dayBefore.revenue) / dayBefore.revenue) * 100)
+      : (yesterday.revenue > 0 ? 100 : 0)
+
+    const productMetrics = new Map(products.map(product => [product.id, {
+      productId: product.id,
+      title: product.title,
+      sku: product.sku,
+      stock: product.stock,
+      price: product.price,
+      categories: product.categories,
+      revenue: 0,
+      units: 0,
+      units14: 0,
+      orders: new Set(),
+      comboPartners: new Map(),
+      buyers: new Set(),
+      reviewSignals: 0
+    }]))
+    const customerMap = new Map()
+
+    for (const order of orders) {
+      const customerKey = getCustomerKey(order)
+      if (!customerMap.has(customerKey)) {
+        customerMap.set(customerKey, {
+          customerKey,
+          userId: order.userId,
+          name: getCustomerLabel(order),
+          email: order.customerEmail || order.user?.email || null,
+          phone: order.customerPhone || order.user?.phone || null,
+          orders: [],
+          totalRevenue: 0,
+          lastOrderAt: order.createdAt,
+          products: new Map()
+        })
+      }
+
+      const customer = customerMap.get(customerKey)
+      customer.orders.push(order)
+      customer.totalRevenue += Number(order.total || 0)
+      if (new Date(order.createdAt) > new Date(customer.lastOrderAt)) {
+        customer.lastOrderAt = order.createdAt
+      }
+
+      const orderProducts = (order.items || []).map(item => item.product).filter(Boolean)
+      for (const item of order.items || []) {
+        const metric = productMetrics.get(item.productId)
+        if (!metric) continue
+        const quantity = Number(item.quantity || 0)
+        const revenue = getOrderItemRevenue(item)
+        const orderDate = new Date(order.createdAt)
+
+        metric.revenue += revenue
+        metric.units += quantity
+        if (orderDate >= twoWeeksAgo) metric.units14 += quantity
+        metric.orders.add(order.id)
+        metric.buyers.add(customerKey)
+
+        const customerProduct = customer.products.get(item.productId) || {
+          productId: item.productId,
+          title: item.product?.title || `Товар #${item.productId}`,
+          units: 0,
+          revenue: 0,
+          lastPurchaseAt: order.createdAt
+        }
+        customerProduct.units += quantity
+        customerProduct.revenue += revenue
+        if (orderDate > new Date(customerProduct.lastPurchaseAt)) {
+          customerProduct.lastPurchaseAt = order.createdAt
+        }
+        customer.products.set(item.productId, customerProduct)
+
+        for (const partner of orderProducts) {
+          if (!partner || partner.id === item.productId) continue
+          const combo = metric.comboPartners.get(partner.id) || { productId: partner.id, title: partner.title, count: 0 }
+          combo.count += 1
+          metric.comboPartners.set(partner.id, combo)
+        }
+      }
+    }
+
+    for (const event of events) {
+      if (event.event !== 'review_request') continue
+      const metric = productMetrics.get(event.productId)
+      if (metric) metric.reviewSignals += 1
+    }
+
+    const topProducts = [...productMetrics.values()]
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5)
+      .map(product => ({
+        productId: product.productId,
+        title: product.title,
+        revenue: toMoney(product.revenue),
+        units: product.units,
+        stock: product.stock
+      }))
+
+    const criticalStock = [...productMetrics.values()]
+      .filter(product => product.stock < 20)
+      .sort((a, b) => a.stock - b.stock || b.units14 - a.units14)
+      .slice(0, 10)
+      .map(product => ({
+        productId: product.productId,
+        title: product.title,
+        stock: product.stock,
+        units14: product.units14,
+        daysLeft: product.units14 > 0 ? Math.max(1, Math.floor(product.stock / (product.units14 / 14))) : null
+      }))
+
+    const actions = []
+    for (const product of productMetrics.values()) {
+      const dailyVelocity = product.units14 / 14
+      const seasonalityFactor = product.categories?.some(category => /иммун|стресс|мозг/i.test(category.name)) ? 1.2 : 1
+      const suggestedQuantity = Math.max(0, Math.ceil((dailyVelocity * 14 * seasonalityFactor) + 20 - product.stock))
+
+      if (product.stock < 20 || (dailyVelocity > 0 && product.stock / dailyVelocity <= 14)) {
+        actions.push({
+          id: buildActionId('supplier_order', { productId: product.productId }),
+          type: 'supplier_order',
+          priority: product.stock < 10 ? 'critical' : 'high',
+          title: `Закупить ${product.title}`,
+          description: `Остаток ${product.stock} шт., продажи за 14 дней: ${product.units14} шт. Рекомендуемый заказ: ${suggestedQuantity} шт.`,
+          buttonLabel: 'Сформировать заказ поставщику',
+          payload: {
+            productId: product.productId,
+            productTitle: product.title,
+            currentStock: product.stock,
+            units14: product.units14,
+            seasonalityFactor,
+            suggestedQuantity
+          }
+        })
+      }
+
+      const topCombo = [...product.comboPartners.values()].sort((a, b) => b.count - a.count)[0]
+      if (topCombo && topCombo.count >= 2) {
+        actions.push({
+          id: buildActionId('course_combo', { productId: product.productId, orderId: topCombo.productId }),
+          type: 'course_combo',
+          priority: 'medium',
+          title: `Проверить схему ${product.title} + ${topCombo.title}`,
+          description: `Набор встречался ${topCombo.count} раз. Можно добавить блок “следующий шаг курса” и отслеживать докупку капсул.`,
+          buttonLabel: 'Сформировать гипотезу курса',
+          payload: {
+            productId: product.productId,
+            productTitle: product.title,
+            comboProductId: topCombo.productId,
+            comboProductTitle: topCombo.title,
+            count: topCombo.count
+          }
+        })
+      }
+
+      const reviewRate = product.buyers.size > 0 ? (product.reviewSignals / product.buyers.size) * 100 : 0
+      if (product.buyers.size >= 3 && reviewRate < 15) {
+        actions.push({
+          id: buildActionId('review_request', { productId: product.productId }),
+          type: 'review_request',
+          priority: 'medium',
+          title: `Запросить отзывы по ${product.title}`,
+          description: `Купили ${product.buyers.size} клиентов, сигналов отзывов мало. Запустите запрос через 10 дней после получения.`,
+          buttonLabel: 'Подготовить запрос отзыва',
+          payload: {
+            productId: product.productId,
+            productTitle: product.title,
+            buyers: product.buyers.size,
+            reviewRate: toMoney(reviewRate)
+          }
+        })
+      }
+    }
+
+    const repeatCandidates = [...customerMap.values()]
+      .map(customer => {
+        const lastOrder = customer.orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0]
+        const daysSinceLastOrder = daysBetween(customer.lastOrderAt)
+        const bestProduct = [...customer.products.values()].sort((a, b) => b.revenue - a.revenue)[0]
+        const probability = Math.min(98, Math.round(
+          35 +
+          (daysSinceLastOrder >= 14 && daysSinceLastOrder <= 60 ? 25 : 0) +
+          Math.min(25, customer.totalRevenue / 4000) +
+          Math.min(13, customer.orders.length * 3)
+        ))
+        return {
+          customerKey: customer.customerKey,
+          userId: customer.userId,
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+          lastOrderAt: customer.lastOrderAt,
+          daysSinceLastOrder,
+          totalRevenue: toMoney(customer.totalRevenue),
+          ordersCount: customer.orders.length,
+          probability,
+          product: bestProduct,
+          lastOrderId: lastOrder?.id || null
+        }
+      })
+      .filter(candidate => candidate.product && candidate.daysSinceLastOrder >= 14)
+      .sort((a, b) => b.probability - a.probability)
+      .slice(0, 12)
+
+    for (const candidate of repeatCandidates.slice(0, 5)) {
+      actions.push({
+        id: buildActionId('personal_discount', { customerKey: candidate.customerKey, productId: candidate.product.productId }),
+        type: 'personal_discount',
+        priority: candidate.probability >= 75 ? 'high' : 'medium',
+        title: `Вернуть ${candidate.name}`,
+        description: `${candidate.daysSinceLastOrder} дней без заказа. Раньше брал(а) ${candidate.product.title}. Вероятность повтора: ${candidate.probability}%.`,
+        buttonLabel: 'Создать скидку 15%',
+        payload: {
+          customerKey: candidate.customerKey,
+          userId: candidate.userId,
+          customerName: candidate.name,
+          customerEmail: candidate.email,
+          productId: candidate.product.productId,
+          productTitle: candidate.product.title,
+          discountValue: 15
+        }
+      })
+    }
+
+    const sortedActions = actions
+      .sort((a, b) => getActionPriorityScore(b) - getActionPriorityScore(a))
+      .slice(0, 16)
+
+    res.json({
+      morning: {
+        yesterday,
+        dayBefore,
+        lastMonthSameDay,
+        revenueDelta,
+        topProducts,
+        criticalStock,
+        repeatCandidates
+      },
+      actions: sortedActions
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/actions/:type', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const actionType = String(req.params.type || '').trim()
+    const payload = req.body?.payload && typeof req.body.payload === 'object' ? req.body.payload : {}
+
+    if (actionType === 'personal_discount') {
+      const discountValue = Math.max(1, Math.min(80, Number(payload.discountValue || 15) || 15))
+      const code = `RETURN${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`
+      const promoCode = await prisma.promoCode.create({
+        data: {
+          code,
+          discountType: 'percentage',
+          discountValue,
+          usageType: 'single',
+          maxActivations: 1,
+          isFirstPurchase: false,
+          isActive: true,
+          endDate: addDaysToNow(14)
+        }
+      })
+
+      return res.status(201).json({
+        ok: true,
+        message: `Создан одноразовый промокод ${promoCode.code} на ${discountValue}% сроком на 14 дней.`,
+        promoCode
+      })
+    }
+
+    if (actionType === 'supplier_order') {
+      return res.json({
+        ok: true,
+        message: 'Черновик заявки поставщику сформирован.',
+        draft: buildSupplierOrderText({ payload, title: payload.productTitle || 'препарат' })
+      })
+    }
+
+    if (actionType === 'review_request') {
+      return res.json({
+        ok: true,
+        message: 'Текст запроса отзыва подготовлен.',
+        draft: buildReviewRequestText({ payload })
+      })
+    }
+
+    if (actionType === 'course_combo') {
+      return res.json({
+        ok: true,
+        message: 'Гипотеза курса подготовлена.',
+        draft: `Проверить связку: ${payload.productTitle || 'Пептид A'} + ${payload.comboProductTitle || 'Пептид B'}. Добавить в карточки блок “следующий шаг курса” и отслеживать докупку через 21/30/45 дней.`
+      })
+    }
+
+    res.status(400).json({ error: 'Неизвестное действие' })
   } catch (error) {
     next(error)
   }

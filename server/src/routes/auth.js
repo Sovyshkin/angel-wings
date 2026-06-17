@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
 import { authenticate } from '../middleware/auth.js'
+import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -11,9 +12,8 @@ router.post('/register', async (req, res, next) => {
   try {
     const { email, password, name, phone } = req.body
 
-    if (typeof password !== 'string' || password.length < 6) {
-      return res.status(400).json({ error: 'Пароль должен содержать минимум 6 символов' })
-    }
+    const passwordError = validateBasicPassword(password)
+    if (passwordError) return res.status(400).json({ error: passwordError })
     
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
@@ -118,11 +118,12 @@ router.put('/password', authenticate, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body
 
-    if (typeof newPassword !== 'string' || newPassword.length < 6) {
-      return res.status(400).json({ error: 'Пароль должен содержать минимум 6 символов' })
-    }
-    
     const user = await prisma.user.findUnique({ where: { id: req.user.id } })
+
+    const passwordError = user?.role === 'ADMIN'
+      ? validatePasswordPolicy(newPassword, user)
+      : validateBasicPassword(newPassword)
+    if (passwordError) return res.status(400).json({ error: passwordError })
     
     const isValid = await bcrypt.compare(currentPassword, user.password)
     if (!isValid) {
