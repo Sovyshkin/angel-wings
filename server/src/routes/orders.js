@@ -9,7 +9,7 @@ import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 
 const router = Router()
 const prisma = new PrismaClient()
-const VALID_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+const VALID_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'RETURNED', 'CANCELLED']
 const ADDABLE_ORDER_STATUSES = ['PENDING', 'PROCESSING']
 let clientRequestIdPersistenceAvailable = true
 const ORDER_INCLUDE = {

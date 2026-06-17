@@ -136,6 +136,7 @@ function getStatusBadge(status) {
     PROCESSING: 'badge-info',
     SHIPPED: 'badge-info',
     DELIVERED: 'badge-success',
+    RETURNED: 'badge-danger',
     CANCELLED: 'badge-danger'
   }
   return badges[status] || 'badge-info'
@@ -147,6 +148,7 @@ function getStatusLabel(status) {
     PROCESSING: 'В обработке',
     SHIPPED: 'Отправлен',
     DELIVERED: 'Доставлен',
+    RETURNED: 'Возврат',
     CANCELLED: 'Отменён'
   }
   return labels[status] || status

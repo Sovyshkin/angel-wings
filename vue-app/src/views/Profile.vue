@@ -342,6 +342,7 @@ async function resolvePartnerTabAvailability() {
 function mapOrderStatus(status) {
   const normalized = String(status || '').toUpperCase()
   if (normalized === 'DELIVERED') return { css: 'completed', text: 'Доставлен' }
+  if (normalized === 'RETURNED') return { css: 'cancelled', text: 'Возврат' }
   if (normalized === 'CANCELLED') return { css: 'cancelled', text: 'Отменён' }
   if (normalized === 'SHIPPED') return { css: 'pending', text: 'В доставке' }
   if (normalized === 'PROCESSING') return { css: 'pending', text: 'Собирается' }

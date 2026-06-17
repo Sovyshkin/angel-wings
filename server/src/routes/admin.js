@@ -378,7 +378,7 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
   try {
     const { status, cancelReason } = req.body
     const normalizedStatus = String(status || '').trim().toUpperCase()
-    const allowedStatuses = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+    const allowedStatuses = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'RETURNED', 'CANCELLED']
 
     if (!allowedStatuses.includes(normalizedStatus)) {
       return res.status(400).json({ error: 'Некорректный статус заказа' })

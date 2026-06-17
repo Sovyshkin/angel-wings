@@ -12,6 +12,7 @@
           <option value="PROCESSING">В обработке</option>
           <option value="SHIPPED">Отправлен</option>
           <option value="DELIVERED">Доставлен</option>
+          <option value="RETURNED">Возврат</option>
           <option value="CANCELLED">Отменён</option>
         </select>
       </div>
@@ -119,6 +120,7 @@
                   <option value="PROCESSING">В обработке</option>
                   <option value="SHIPPED">Отправлен</option>
                   <option value="DELIVERED">Доставлен</option>
+                  <option value="RETURNED">Возврат</option>
                   <option value="CANCELLED">Отменён</option>
                 </select>
               </td>
@@ -228,6 +230,7 @@
               <option value="PROCESSING">В обработке</option>
               <option value="SHIPPED">Отправлен</option>
               <option value="DELIVERED">Доставлен</option>
+              <option value="RETURNED">Возврат</option>
               <option value="CANCELLED">Отменён</option>
             </select>
             <div class="order-card__actions">
@@ -457,6 +460,7 @@
               <option value="PROCESSING">В обработке</option>
               <option value="SHIPPED">Отправлен</option>
               <option value="DELIVERED">Доставлен</option>
+              <option value="RETURNED">Возврат</option>
               <option value="CANCELLED">Отменён</option>
             </select>
           </div>
@@ -723,6 +727,7 @@ function getStatusBadge(status) {
     PROCESSING: 'badge-info',
     SHIPPED: 'badge-info',
     DELIVERED: 'badge-success',
+    RETURNED: 'badge-danger',
     CANCELLED: 'badge-danger'
   }
   return badges[status] || 'badge-info'
@@ -734,6 +739,7 @@ function getStatusLabel(status) {
     PROCESSING: 'В обработке',
     SHIPPED: 'Отправлен',
     DELIVERED: 'Доставлен',
+    RETURNED: 'Возврат',
     CANCELLED: 'Отменён'
   }
   return labels[status] || status

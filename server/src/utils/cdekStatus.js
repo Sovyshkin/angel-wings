@@ -42,12 +42,19 @@ export function mapCdekStatusToLocal(cdekStatusCode) {
   const code = String(cdekStatusCode || '').toUpperCase()
   if (!code) return null
 
-  if (code.includes('DELIVERED')) return 'DELIVERED'
+  if (
+    code.includes('RETURN') ||
+    code.includes('NOT_DELIVERED') ||
+    code.includes('НЕ ВРУЧЕН') ||
+    code.includes('ВОЗВРАТ')
+  ) {
+    return 'RETURNED'
+  }
+
+  if (code === 'DELIVERED' || code.includes('ORDER_DELIVERED')) return 'DELIVERED'
 
   if (
-    code.includes('NOT_DELIVERED') ||
     code.includes('CANCEL') ||
-    code.includes('RETURN') ||
     code.includes('INVALID') ||
     code.includes('REMOVED')
   ) {
@@ -74,4 +81,3 @@ export function mapCdekStatusToLocal(cdekStatusCode) {
 
   return null
 }
-
