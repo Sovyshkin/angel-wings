@@ -197,15 +197,6 @@ router.get('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
                   select: { id: true, title: true, image: true, price: true }
                 }
               }
-            },
-            promoCode: {
-              include: {
-                partner: {
-                  include: {
-                    user: { select: { id: true, name: true, email: true } }
-                  }
-                }
-              }
             }
           },
           orderBy: { createdAt: 'desc' }
@@ -217,8 +208,27 @@ router.get('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
       return res.status(404).json({ error: 'Пользователь не найден' })
     }
 
+    const promoCodeIds = [...new Set(user.orders.map(order => order.promoCodeId).filter(Boolean))]
+    const promoCodes = promoCodeIds.length
+      ? await prisma.promoCode.findMany({
+          where: { id: { in: promoCodeIds } },
+          include: {
+            partner: {
+              include: {
+                user: { select: { id: true, name: true, email: true } }
+              }
+            }
+          }
+        })
+      : []
+    const promoCodeMap = new Map(promoCodes.map(promoCode => [promoCode.id, promoCode]))
+    const orders = user.orders.map(order => ({
+      ...order,
+      promoCode: order.promoCodeId ? promoCodeMap.get(order.promoCodeId) || null : null
+    }))
+
     const paidStatuses = new Set(['PAID', 'CASH_ON_DELIVERY'])
-    const successfulOrders = user.orders.filter(order =>
+    const successfulOrders = orders.filter(order =>
       !['CANCELLED', 'RETURNED'].includes(order.status) && paidStatuses.has(String(order.paymentStatus || '').toUpperCase())
     )
     const totalSpent = successfulOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
@@ -239,17 +249,17 @@ router.get('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
     }
 
     const stats = {
-      totalOrders: user.orders.length,
+      totalOrders: orders.length,
       successfulOrders: successfulOrders.length,
-      cancelledOrders: user.orders.filter(order => order.status === 'CANCELLED').length,
-      returnedOrders: user.orders.filter(order => order.status === 'RETURNED').length,
+      cancelledOrders: orders.filter(order => order.status === 'CANCELLED').length,
+      returnedOrders: orders.filter(order => order.status === 'RETURNED').length,
       totalSpent,
       avgOrderValue: successfulOrders.length ? totalSpent / successfulOrders.length : 0,
-      lastOrderAt: user.orders[0]?.createdAt || null,
+      lastOrderAt: orders[0]?.createdAt || null,
       favoriteProducts: [...products.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5)
     }
 
-    res.json({ user, stats })
+    res.json({ user: { ...user, orders }, stats })
   } catch (error) {
     next(error)
   }
