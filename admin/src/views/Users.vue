@@ -18,6 +18,23 @@
     </div>
 
     <div v-else>
+      <div class="users-search card">
+        <div class="search-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input
+            v-model="search"
+            type="search"
+            placeholder="Умный поиск: имя, email, телефон или ID пользователя"
+          >
+        </div>
+        <div class="search-meta">
+          <strong>{{ total }}</strong>
+          <span>{{ search ? 'найдено по запросу' : 'пользователей в базе' }}</span>
+        </div>
+      </div>
+
       <div class="users-table-wrapper card">
         <table class="data-table">
           <thead>
@@ -32,21 +49,26 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="user in users" :key="user.id">
+            <tr v-for="user in users" :key="user.id" class="user-row" @click="openUserDetail(user.id)">
               <td class="cell-id">{{ user.id }}</td>
               <td class="cell-name">{{ user.name }}</td>
               <td class="cell-email">{{ user.email }}</td>
               <td class="cell-phone">{{ user.phone || '—' }}</td>
               <td>
-                <select :value="user.role" @change="updateRole(user.id, $event.target.value)" class="role-select" :disabled="user.id === currentUserId">
+                <select :value="user.role" @click.stop @change="updateRole(user.id, $event.target.value)" class="role-select" :disabled="user.id === currentUserId">
                   <option value="USER">Пользователь</option>
                   <option value="ADMIN">Админ</option>
                   <option value="PARTNER">Партнёр</option>
                 </select>
               </td>
               <td class="cell-orders">{{ user._count?.orders || 0 }}</td>
-              <td>
-                <button @click="deleteUser(user.id)" class="action-btn danger" :disabled="user.id === currentUserId" title="Архивировать">
+              <td class="row-actions">
+                <button @click.stop="openUserDetail(user.id)" class="action-btn" title="Открыть карточку">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+                <button @click.stop="deleteUser(user.id)" class="action-btn danger" :disabled="user.id === currentUserId" title="Архивировать">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                   </svg>
@@ -91,6 +113,7 @@
             </div>
           </div>
           <div class="user-card__actions">
+            <button @click="openUserDetail(user.id)" class="btn btn-secondary btn-sm user-detail-btn">Карточка</button>
             <select :value="user.role" @change="updateRole(user.id, $event.target.value)" class="role-select-full" :disabled="user.id === currentUserId">
               <option value="USER">Пользователь</option>
               <option value="ADMIN">Админ</option>
@@ -154,32 +177,52 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import axios from 'axios'
 
 const authStore = useAuthStore()
+const router = useRouter()
 const API_URL = '/api/admin'
 
 const users = ref([])
+const total = ref(0)
 const loading = ref(true)
 const showModal = ref(false)
 const error = ref('')
 const loadingForm = ref(false)
 
 const form = ref({ name: '', email: '', password: '', phone: '', role: 'USER' })
+const search = ref('')
+let searchTimer = null
 
 const currentUserId = computed(() => authStore.user?.id)
 
 async function fetchUsers() {
   try {
-    const { data } = await axios.get(API_URL + '/users')
+    const { data } = await axios.get(API_URL + '/users', {
+      params: {
+        q: search.value.trim(),
+        limit: 100
+      }
+    })
     users.value = data.users
+    total.value = data.total || 0
   } catch (e) {
     console.error(e)
   } finally {
     loading.value = false
   }
+}
+
+function scheduleSearch() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(fetchUsers, 250)
+}
+
+function openUserDetail(id) {
+  router.push(`/users/${id}`)
 }
 
 async function updateRole(id, role) {
@@ -251,6 +294,8 @@ async function deleteUser(id) {
 }
 
 onMounted(fetchUsers)
+
+watch(search, scheduleSearch)
 </script>
 
 <style scoped>
@@ -260,6 +305,63 @@ onMounted(fetchUsers)
   align-items: flex-start;
   gap: 1rem;
   margin-bottom: 2rem;
+}
+
+.users-search {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+}
+
+.search-box svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.search-box input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.search-box input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-meta {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 160px;
+  text-align: right;
+}
+
+.search-meta strong {
+  color: var(--accent);
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.search-meta span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
 }
 
 .users-table-wrapper {
@@ -294,6 +396,10 @@ onMounted(fetchUsers)
 
 .data-table tr:hover td {
   background: var(--bg-hover);
+}
+
+.user-row {
+  cursor: pointer;
 }
 
 .cell-id {
@@ -332,6 +438,12 @@ onMounted(fetchUsers)
 
 .cell-orders {
   font-family: var(--font-body);
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
 }
 
 .action-btn {
@@ -446,6 +558,10 @@ onMounted(fetchUsers)
   gap: 0.5rem;
   padding: 1rem;
   padding-top: 0;
+}
+
+.user-detail-btn {
+  white-space: nowrap;
 }
 
 .role-select-full {
@@ -598,6 +714,16 @@ onMounted(fetchUsers)
   .page-header {
     flex-direction: column;
     gap: 1rem;
+  }
+
+  .users-search {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-meta {
+    min-width: 0;
+    text-align: left;
   }
 
   .page-header .btn {

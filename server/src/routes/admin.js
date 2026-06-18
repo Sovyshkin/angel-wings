@@ -109,8 +109,21 @@ router.get('/stats', authenticate, requireAdmin, async (req, res, next) => {
 
 router.get('/users', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { limit = 50, offset = 0 } = req.query
+    const { limit = 50, offset = 0, q = '' } = req.query
+    const search = String(q || '').trim()
     const where = { role: { not: 'DELETED' } }
+
+    if (search) {
+      const numericId = Number.parseInt(search, 10)
+      const digitsSearch = search.replace(/\D/g, '')
+      where.OR = [
+        ...(Number.isFinite(numericId) ? [{ id: numericId }] : []),
+        { email: { contains: search } },
+        { name: { contains: search } },
+        ...(digitsSearch ? [{ phone: { contains: digitsSearch } }] : []),
+        { phone: { contains: search } }
+      ]
+    }
     
     const [users, total] = await Promise.all([
       prisma.user.findMany({
@@ -132,6 +145,111 @@ router.get('/users', authenticate, requireAdmin, async (req, res, next) => {
     ])
     
     res.json({ users, total })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const userId = Number.parseInt(req.params.id, 10)
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'Некорректный ID пользователя' })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        phone: true,
+        address: true,
+        createdAt: true,
+        partner: {
+          select: {
+            id: true,
+            percentage: true,
+            isActive: true,
+            promoCodes: {
+              select: { id: true, code: true, discountType: true, discountValue: true, isActive: true }
+            }
+          }
+        },
+        partnerUser: {
+          select: {
+            boundAt: true,
+            partner: {
+              select: {
+                id: true,
+                percentage: true,
+                user: { select: { name: true, email: true } }
+              }
+            }
+          }
+        },
+        orders: {
+          include: {
+            items: {
+              include: {
+                product: {
+                  select: { id: true, title: true, image: true, price: true }
+                }
+              }
+            },
+            promoCode: {
+              include: {
+                partner: {
+                  include: {
+                    user: { select: { id: true, name: true, email: true } }
+                  }
+                }
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    })
+
+    if (!user || user.role === 'DELETED') {
+      return res.status(404).json({ error: 'Пользователь не найден' })
+    }
+
+    const paidStatuses = new Set(['PAID', 'CASH_ON_DELIVERY'])
+    const successfulOrders = user.orders.filter(order =>
+      !['CANCELLED', 'RETURNED'].includes(order.status) && paidStatuses.has(String(order.paymentStatus || '').toUpperCase())
+    )
+    const totalSpent = successfulOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
+    const products = new Map()
+
+    for (const order of successfulOrders) {
+      for (const item of order.items || []) {
+        const current = products.get(item.productId) || {
+          productId: item.productId,
+          title: item.product?.title || `Товар #${item.productId}`,
+          units: 0,
+          revenue: 0
+        }
+        current.units += Number(item.quantity || 0)
+        current.revenue += Number(item.price || 0) * Number(item.quantity || 0)
+        products.set(item.productId, current)
+      }
+    }
+
+    const stats = {
+      totalOrders: user.orders.length,
+      successfulOrders: successfulOrders.length,
+      cancelledOrders: user.orders.filter(order => order.status === 'CANCELLED').length,
+      returnedOrders: user.orders.filter(order => order.status === 'RETURNED').length,
+      totalSpent,
+      avgOrderValue: successfulOrders.length ? totalSpent / successfulOrders.length : 0,
+      lastOrderAt: user.orders[0]?.createdAt || null,
+      favoriteProducts: [...products.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5)
+    }
+
+    res.json({ user, stats })
   } catch (error) {
     next(error)
   }
