@@ -55,24 +55,64 @@ function normalizeRussianPhone(value) {
   return null
 }
 
-async function applyPromoCode(code, userId) {
-  const promoCode = await prisma.promoCode.findUnique({
-    where: { code: code.toUpperCase() }
+function normalizePromoCodeValue(code) {
+  return String(code || '').trim().toUpperCase()
+}
+
+async function findPromoCodeByCode(code) {
+  const rawCode = String(code || '').trim()
+  const normalizedCode = normalizePromoCodeValue(rawCode)
+
+  if (!normalizedCode) return null
+
+  const candidateCodes = [...new Set([
+    rawCode,
+    normalizedCode,
+    rawCode.toLowerCase()
+  ].filter(Boolean))]
+
+  const directMatch = await prisma.promoCode.findFirst({
+    where: {
+      OR: candidateCodes.map(candidate => ({ code: candidate }))
+    }
   })
 
+  if (directMatch) return directMatch
+
+  // Legacy safety: older promo codes could be saved with mixed case or stray spaces.
+  const allPromoCodes = await prisma.promoCode.findMany()
+  return allPromoCodes.find(promoCode => normalizePromoCodeValue(promoCode.code) === normalizedCode) || null
+}
+
+function logPromoCheck(reason, details = {}) {
+  console.log('[PROMO] validate', JSON.stringify({ reason, ...details }))
+}
+
+async function applyPromoCode(code, userId) {
+  const normalizedCode = normalizePromoCodeValue(code)
+  const promoCode = await findPromoCodeByCode(code)
+
   if (!promoCode || !promoCode.isActive) {
+    logPromoCheck(!promoCode ? 'not_found' : 'inactive', {
+      requestedCode: normalizedCode,
+      userId: userId || null,
+      promoCodeId: promoCode?.id || null
+    })
     return { error: 'Промокод не найден или неактивен' }
   }
 
   if (promoCode.startDate && new Date() < promoCode.startDate) {
+    logPromoCheck('not_started', { requestedCode: normalizedCode, promoCodeId: promoCode.id, startDate: promoCode.startDate })
     return { error: 'Промокод ещё не активен' }
   }
 
   if (promoCode.endDate && new Date() > promoCode.endDate) {
+    logPromoCheck('expired', { requestedCode: normalizedCode, promoCodeId: promoCode.id, endDate: promoCode.endDate })
     return { error: 'Срок действия промокода истёк' }
   }
 
   if (promoCode.usageType === 'single' && promoCode.activationCount >= 1) {
+    logPromoCheck('single_limit_reached', { requestedCode: normalizedCode, promoCodeId: promoCode.id, activationCount: promoCode.activationCount })
     return { error: 'Промокод достиг лимита использований' }
   }
 
@@ -82,15 +122,29 @@ async function applyPromoCode(code, userId) {
     Number(promoCode.maxActivations) > 0 &&
     promoCode.activationCount >= promoCode.maxActivations
   ) {
+    logPromoCheck('multi_limit_reached', {
+      requestedCode: normalizedCode,
+      promoCodeId: promoCode.id,
+      activationCount: promoCode.activationCount,
+      maxActivations: promoCode.maxActivations
+    })
     return { error: 'Промокод достиг лимита использований' }
   }
 
   if (promoCode.isFirstPurchase) {
     const hasExistingOrders = await prisma.order.count({ where: { userId } }) > 0
     if (hasExistingOrders) {
+      logPromoCheck('first_purchase_only_rejected', { requestedCode: normalizedCode, promoCodeId: promoCode.id, userId: userId || null })
       return { error: 'Этот промокод только для первого заказа' }
     }
   }
+
+  logPromoCheck('accepted', {
+    requestedCode: normalizedCode,
+    storedCode: promoCode.code,
+    promoCodeId: promoCode.id,
+    userId: userId || null
+  })
 
   if (promoCode.minOrderAmount) {
     return { minOrderAmount: promoCode.minOrderAmount, code: promoCode }
@@ -396,6 +450,12 @@ router.post('/promo/validate', authenticate, async (req, res, next) => {
     const appliedPromoCode = promoResult.code || promoResult.promoCode
     const minOrderAmount = promoResult.minOrderAmount || appliedPromoCode?.minOrderAmount || 0
     if (minOrderAmount > 0 && amount < minOrderAmount) {
+      logPromoCheck('min_order_amount_rejected', {
+        requestedCode: code,
+        promoCodeId: appliedPromoCode?.id || null,
+        amount,
+        minOrderAmount
+      })
       return res.status(400).json({
         error: `Минимальная сумма заказа для этого промокода: ${minOrderAmount}`
       })
@@ -636,6 +696,11 @@ router.post('/', authenticate, async (req, res, next) => {
 
       if (promoResult.minOrderAmount) {
         if (itemsSubtotal < promoResult.minOrderAmount) {
+          logPromoCheck('min_order_amount_rejected_on_order', {
+            requestedCode: String(promoCode || '').trim().toUpperCase(),
+            amount: itemsSubtotal,
+            minOrderAmount: promoResult.minOrderAmount
+          })
           return res.status(400).json({
             error: `Минимальная сумма заказа для этого промокода: ${promoResult.minOrderAmount}`
           })

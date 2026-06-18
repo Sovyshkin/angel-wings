@@ -8,6 +8,10 @@ import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 const router = Router()
 const prisma = new PrismaClient()
 
+function normalizePromoCodeValue(code) {
+  return String(code || '').trim().toUpperCase()
+}
+
 function parsePaymentDetails(details) {
   if (!details) return null
   try {
@@ -58,7 +62,20 @@ router.post('/promo-codes', authenticate, requireAdmin, async (req, res, next) =
       partnerId
     } = req.body
 
-    const existing = await prisma.promoCode.findUnique({ where: { code } })
+    const normalizedCode = normalizePromoCodeValue(code)
+    if (!normalizedCode) {
+      return res.status(400).json({ error: 'Укажите промокод' })
+    }
+
+    const existing = await prisma.promoCode.findFirst({
+      where: {
+        OR: [
+          { code: normalizedCode },
+          { code: String(code || '').trim() },
+          { code: String(code || '').trim().toLowerCase() }
+        ]
+      }
+    })
     if (existing) {
       return res.status(400).json({ error: 'Промокод уже существует' })
     }
@@ -69,7 +86,7 @@ router.post('/promo-codes', authenticate, requireAdmin, async (req, res, next) =
 
     const promoCode = await prisma.promoCode.create({
       data: {
-        code: code.toUpperCase(),
+        code: normalizedCode,
         discountType,
         discountValue,
         usageType,
