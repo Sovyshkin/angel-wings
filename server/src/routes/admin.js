@@ -414,9 +414,37 @@ router.delete('/users/:id', authenticate, requireAdmin, async (req, res, next) =
 
 router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { status, limit = 50, offset = 0 } = req.query
-    
+    const { status, limit = 50, offset = 0, q = '' } = req.query
+    const search = String(q || '').trim()
     const where = status ? { status } : {}
+
+    if (search) {
+      const numericId = Number.parseInt(search.replace(/^#/, ''), 10)
+      const digitsSearch = search.replace(/\D/g, '')
+      const promoCodes = await prisma.promoCode.findMany({
+        where: { code: { contains: search.toUpperCase() } },
+        select: { id: true }
+      })
+      const promoCodeIds = promoCodes.map(promoCode => promoCode.id)
+
+      where.OR = [
+        ...(Number.isFinite(numericId) ? [{ id: numericId }] : []),
+        { customerName: { contains: search } },
+        { customerEmail: { contains: search } },
+        { customerPhone: { contains: search } },
+        ...(digitsSearch ? [{ customerPhone: { contains: digitsSearch } }] : []),
+        { shippingAddress: { contains: search } },
+        { deliveryTariffName: { contains: search } },
+        { deliveryCity: { contains: search } },
+        { deliveryPickupPoint: { contains: search } },
+        { deliveryPickupName: { contains: search } },
+        { paymentStatus: { contains: search.toUpperCase() } },
+        { status: { contains: search.toUpperCase() } },
+        { paymentId: { contains: search } },
+        { cdekOrderUuid: { contains: search } },
+        ...(promoCodeIds.length ? [{ promoCodeId: { in: promoCodeIds } }] : [])
+      ]
+    }
     
     const [orders, total] = await Promise.all([
       prisma.order.findMany({

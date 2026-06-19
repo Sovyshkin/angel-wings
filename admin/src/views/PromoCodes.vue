@@ -14,6 +14,13 @@
     </div>
 
     <div class="filters-bar card" style="margin-bottom: 1.5rem; padding: 1rem;">
+      <AdminSearchPanel
+        v-model="search"
+        :total="filteredPromoCodes.length"
+        placeholder="Поиск по коду, партнёру, типу скидки, статусу или лимиту"
+        total-label="промокодов"
+        found-label="промокодов найдено"
+      />
       <div class="filter-group">
         <label class="form-label">Партнёр</label>
         <select v-model="filterPartnerId" @change="fetchPromoCodes" class="input">
@@ -47,7 +54,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="pc in promoCodes" :key="pc.id">
+            <tr v-for="pc in filteredPromoCodes" :key="pc.id">
               <td><code class="code-tag">{{ pc.code }}</code></td>
               <td>
                 <span :class="['badge', pc.discountType === 'percentage' ? 'badge-primary' : 'badge-secondary']">
@@ -105,7 +112,7 @@
       </div>
 
       <div class="promo-cards">
-        <div v-for="pc in promoCodes" :key="`mobile-promo-${pc.id}`" class="promo-mobile-card card">
+        <div v-for="pc in filteredPromoCodes" :key="`mobile-promo-${pc.id}`" class="promo-mobile-card card">
           <div class="promo-mobile-card__header">
             <code class="code-tag">{{ pc.code }}</code>
             <label class="toggle">
@@ -222,8 +229,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import axios from 'axios'
+import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 
 const API_URL = '/api/admin/partners'
 const PROMO_CODES_URL = '/api/admin/partners/promo-codes'
@@ -237,6 +245,7 @@ const editingId = ref(null)
 const error = ref('')
 const loadingForm = ref(false)
 const filterPartnerId = ref(null)
+const search = ref('')
 
 const form = ref({
   code: '',
@@ -249,6 +258,34 @@ const form = ref({
   minOrderAmount: null,
   isFirstPurchase: false,
   partnerId: null
+})
+
+const filteredPromoCodes = computed(() => {
+  const query = search.value.trim().toLowerCase()
+  if (!query) return promoCodes.value
+
+  return promoCodes.value.filter((promoCode) => {
+    const discountType = promoCode.discountType === 'percentage' ? 'процент percentage' : 'фиксированная сумма fixed'
+    const usageType = promoCode.usageType === 'single' ? 'однократный single' : 'многоразовый multi'
+    const status = promoCode.isActive ? 'активен active' : 'отключён inactive'
+    const firstPurchase = promoCode.isFirstPurchase ? 'первая покупка first purchase' : ''
+    const haystack = [
+      promoCode.id,
+      promoCode.code,
+      promoCode.discountValue,
+      promoCode.activationCount,
+      promoCode.maxActivations,
+      promoCode.minOrderAmount,
+      promoCode.partner?.id,
+      promoCode.partner?.user?.name,
+      discountType,
+      usageType,
+      status,
+      firstPurchase
+    ].join(' ').toLowerCase()
+
+    return haystack.includes(query)
+  })
 })
 
 async function fetchPromoCodes() {
@@ -380,7 +417,16 @@ onMounted(() => {
 .filters-bar {
   display: flex;
   gap: 1rem;
-  align-items: flex-end;
+  align-items: stretch;
+}
+
+.filters-bar .admin-search-panel {
+  flex: 1;
+  margin-bottom: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .filter-group {

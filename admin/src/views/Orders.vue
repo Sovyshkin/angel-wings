@@ -18,6 +18,14 @@
       </div>
     </div>
 
+    <AdminSearchPanel
+      v-model="search"
+      :total="orders.length"
+      placeholder="Поиск по заказу, клиенту, телефону, email, адресу, ПВЗ, СДЭК или промокоду"
+      total-label="заказов"
+      found-label="заказов найдено"
+    />
+
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
     </div>
@@ -479,15 +487,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import deliveryApi from '../api/delivery'
+import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 
 const API_URL = '/api/admin'
 
 const orders = ref([])
 const loading = ref(true)
 const filterStatus = ref('')
+const search = ref('')
 const selectedOrder = ref(null)
 const creatingCdek = ref(false)
 const syncingCdek = ref(false)
@@ -507,10 +517,15 @@ const stats = computed(() => ({
   delivered: orders.value.filter(o => o.status === 'DELIVERED').length
 }))
 
+let searchTimer = null
+
 async function fetchOrders() {
   loading.value = true
   try {
-    const params = filterStatus.value ? { status: filterStatus.value } : {}
+    const params = {
+      ...(filterStatus.value ? { status: filterStatus.value } : {}),
+      ...(search.value.trim() ? { q: search.value.trim() } : {})
+    }
     const { data } = await axios.get(`${API_URL}/orders`, { params })
     orders.value = data.orders
   } catch (e) {
@@ -518,6 +533,11 @@ async function fetchOrders() {
   } finally {
     loading.value = false
   }
+}
+
+function scheduleOrdersSearch() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(fetchOrders, 250)
 }
 
 async function updateStatus(id, status) {
@@ -784,6 +804,8 @@ function isOrderPaid(status) {
 }
 
 onMounted(fetchOrders)
+
+watch(search, scheduleOrdersSearch)
 </script>
 
 <style scoped>

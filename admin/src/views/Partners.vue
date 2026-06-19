@@ -32,6 +32,14 @@
       </div>
     </div>
 
+    <AdminSearchPanel
+      v-model="search"
+      :total="filteredPartners.length"
+      placeholder="Поиск по имени, email, ID, проценту, статусу или сумме комиссии"
+      total-label="партнёров"
+      found-label="партнёров найдено"
+    />
+
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
     </div>
@@ -53,7 +61,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="partner in partners" :key="partner.id" class="clickable-row" @click="goToPartner(partner.id)">
+            <tr v-for="partner in filteredPartners" :key="partner.id" class="clickable-row" @click="goToPartner(partner.id)">
               <td class="cell-id">{{ partner.id }}</td>
               <td class="cell-name">{{ partner.user.name }}</td>
               <td class="cell-email">{{ partner.user.email }}</td>
@@ -86,7 +94,7 @@
       </div>
 
       <div class="partners-cards">
-        <div v-for="partner in partners" :key="`mobile-partner-${partner.id}`" class="partner-card card">
+        <div v-for="partner in filteredPartners" :key="`mobile-partner-${partner.id}`" class="partner-card card">
           <button class="partner-card__link" @click="goToPartner(partner.id)">
             <div class="partner-card__name">{{ partner.user.name }}</div>
             <div class="partner-card__email">{{ partner.user.email }}</div>
@@ -177,9 +185,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 
 const router = useRouter()
 const API_URL = '/api/admin/partners'
@@ -191,8 +200,31 @@ const loading = ref(true)
 const showModal = ref(false)
 const error = ref('')
 const loadingForm = ref(false)
+const search = ref('')
 
 const form = ref({ name: '', email: '', password: '', phone: '', percentage: 5 })
+
+const filteredPartners = computed(() => {
+  const query = search.value.trim().toLowerCase()
+  if (!query) return partners.value
+
+  return partners.value.filter((partner) => {
+    const status = partner.isActive ? 'активен active' : 'отключён inactive'
+    const haystack = [
+      partner.id,
+      partner.user?.id,
+      partner.user?.name,
+      partner.user?.email,
+      partner.percentage,
+      partner.usersCount,
+      partner.ordersCount,
+      partner.totalCommission,
+      status
+    ].join(' ').toLowerCase()
+
+    return haystack.includes(query)
+  })
+})
 
 async function fetchPartners() {
   try {

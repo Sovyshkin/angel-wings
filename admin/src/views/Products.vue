@@ -20,6 +20,14 @@
     <div v-else-if="error" class="error-message">{{ error }}</div>
 
     <div v-else>
+      <AdminSearchPanel
+        v-model="search"
+        :total="filteredProducts.length"
+        placeholder="Поиск по названию, ID, категории, цене, остатку или статусу"
+        total-label="товаров в каталоге"
+        found-label="товаров найдено"
+      />
+
       <div class="products-table-wrapper card">
         <table class="data-table">
           <thead>
@@ -34,7 +42,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="product in products" :key="product.id">
+            <tr v-for="product in filteredProducts" :key="product.id">
               <td class="cell-id">{{ product.id }}</td>
               <td>
                 <div class="product-cell">
@@ -72,7 +80,7 @@
       </div>
 
       <div class="products-cards">
-        <div v-for="product in products" :key="product.id" class="product-card card">
+        <div v-for="product in filteredProducts" :key="product.id" class="product-card card">
           <div class="product-card__header">
             <img v-if="product.image" :src="product.image" :alt="product.title" class="product-card__img">
             <div v-else class="product-card__img-placeholder">
@@ -109,7 +117,7 @@
         </div>
       </div>
 
-      <div v-if="products.length === 0" class="empty-state">
+      <div v-if="filteredProducts.length === 0" class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
         </svg>
@@ -121,14 +129,36 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import axios from 'axios'
+import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 
 const API_URL = '/api/admin/products'
 
 const products = ref([])
 const loading = ref(true)
 const error = ref('')
+const search = ref('')
+
+const filteredProducts = computed(() => {
+  const query = search.value.trim().toLowerCase()
+  if (!query) return products.value
+
+  return products.value.filter((product) => {
+    const status = product.active ? 'активен active видим' : 'скрыт inactive hidden'
+    const haystack = [
+      product.id,
+      product.title,
+      product.slug,
+      product.price,
+      product.stock,
+      status,
+      ...(product.categories || []).map(category => category.name)
+    ].join(' ').toLowerCase()
+
+    return haystack.includes(query)
+  })
+})
 
 async function fetchProducts() {
   try {

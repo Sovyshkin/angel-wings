@@ -18,6 +18,14 @@
     </div>
 
     <div v-else>
+      <AdminSearchPanel
+        v-model="search"
+        :total="filteredCategories.length"
+        placeholder="Поиск по названию, ID, slug, статусу или количеству товаров"
+        total-label="категорий"
+        found-label="категорий найдено"
+      />
+
       <div class="categories-table-wrapper card">
         <table class="data-table">
           <thead>
@@ -31,7 +39,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="cat in categories" :key="cat.term_id">
+            <tr v-for="cat in filteredCategories" :key="cat.term_id">
               <td class="cell-id">{{ cat.term_id }}</td>
               <td class="cell-icon">
                 <div class="category-icon-thumb">
@@ -71,7 +79,7 @@
       </div>
 
       <div class="categories-cards">
-        <div v-for="cat in categories" :key="cat.term_id" class="category-card card">
+        <div v-for="cat in filteredCategories" :key="cat.term_id" class="category-card card">
           <div class="category-card__header">
             <div class="category-card__icon">
               <img v-if="cat.image && !brokenCategoryThumbs.has(cat.term_id)" :src="cat.image" :alt="cat.name" @error="handleCategoryThumbError(cat.term_id)">
@@ -175,8 +183,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import axios from 'axios'
+import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 
 const API_URL = '/api'
 
@@ -190,8 +199,28 @@ const categoryImageFile = ref(null)
 const categoryImagePreview = ref('')
 const categoryImageRemoved = ref(false)
 const brokenCategoryThumbs = ref(new Set())
+const search = ref('')
 
 const form = ref({ name: '', active: true })
+
+const filteredCategories = computed(() => {
+  const query = search.value.trim().toLowerCase()
+  if (!query) return categories.value
+
+  return categories.value.filter((category) => {
+    const status = category.active ? 'активна active видима' : 'скрыта inactive hidden'
+    const haystack = [
+      category.term_id,
+      category.id,
+      category.name,
+      category.slug,
+      category.count,
+      status
+    ].join(' ').toLowerCase()
+
+    return haystack.includes(query)
+  })
+})
 
 async function fetchCategories() {
   try {
