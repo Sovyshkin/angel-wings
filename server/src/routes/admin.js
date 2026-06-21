@@ -6,6 +6,7 @@ import { upload } from '../utils/fileUpload.js'
 import tochkaService from '../services/tochka.js'
 import { v4 as uuidv4 } from 'uuid'
 import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
+import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -506,6 +507,7 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
             where: { id: order.id },
             data: { paymentStatus: normalized }
           })
+          await syncPartnerCommissionForOrder(prisma, order.id)
           return { id: order.id, paymentStatus: normalized }
         })
       )
@@ -575,6 +577,8 @@ router.put('/orders/:id/payment-status', authenticate, requireAdmin, async (req,
       where: { id: orderId },
       data: { paymentStatus: normalizedStatus }
     })
+
+    await syncPartnerCommissionForOrder(prisma, order.id)
 
     res.json({ order })
   } catch (error) {

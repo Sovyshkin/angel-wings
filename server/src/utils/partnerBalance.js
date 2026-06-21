@@ -17,7 +17,10 @@ export async function calculatePartnerBalance(prismaLike, partnerId) {
     spentOnOrdersAgg
   ] = await Promise.all([
     prismaLike.partnerCommission.aggregate({
-      where: { partnerId: safePartnerId },
+      where: {
+        partnerId: safePartnerId,
+        order: { paymentStatus: 'PAID' }
+      },
       _sum: { amount: true }
     }),
     prismaLike.partnerPayment.aggregate({

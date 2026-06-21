@@ -62,7 +62,10 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
         }
       }),
       prisma.partnerCommission.aggregate({
-        where: { partnerId: partner.id },
+        where: {
+          partnerId: partner.id,
+          order: { paymentStatus: 'PAID' }
+        },
         _sum: { amount: true },
         _count: true
       }),
@@ -72,7 +75,10 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
     const referredUserIds = referralsData.map(r => r.userId)
     const ordersData = referredUserIds.length > 0
       ? await prisma.order.findMany({
-          where: { userId: { in: referredUserIds } },
+          where: {
+            userId: { in: referredUserIds },
+            paymentStatus: 'PAID'
+          },
           select: { total: true, status: true, deliveryPrice: true }
         })
       : []
@@ -168,7 +174,10 @@ router.get('/cabinet/users', authenticate, requirePartner, async (req, res, next
       return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
-    const where = { partnerId: partner.id }
+    const where = {
+      partnerId: partner.id,
+      order: { paymentStatus: 'PAID' }
+    }
     if (startDate || endDate) {
       where.boundAt = {}
       if (startDate) where.boundAt.gte = new Date(startDate)
@@ -363,7 +372,10 @@ router.get('/cabinet/transactions', authenticate, requirePartner, async (req, re
 
     const [commissions, payments] = await Promise.all([
       prisma.partnerCommission.findMany({
-        where: { partnerId: partner.id },
+        where: {
+          partnerId: partner.id,
+          order: { paymentStatus: 'PAID' }
+        },
         include: {
           order: { select: { id: true, customerName: true, total: true, deliveryPrice: true } }
         },
@@ -447,7 +459,8 @@ router.get('/cabinet/daily-stats', authenticate, requirePartner, async (req, res
       where: {
         userId: { in: userIds },
         createdAt: { gte: startDate },
-        status: { not: 'CANCELLED' }
+        status: { not: 'CANCELLED' },
+        paymentStatus: 'PAID'
       },
       select: {
         createdAt: true,
@@ -459,7 +472,8 @@ router.get('/cabinet/daily-stats', authenticate, requirePartner, async (req, res
     const commissions = await prisma.partnerCommission.findMany({
       where: {
         partnerId: partner.id,
-        createdAt: { gte: startDate }
+        createdAt: { gte: startDate },
+        order: { paymentStatus: 'PAID' }
       },
       select: {
         createdAt: true,

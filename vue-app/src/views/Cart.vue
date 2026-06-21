@@ -818,7 +818,7 @@ const SELF_PICKUP_PRICE = 0
 const SELF_PICKUP_AVAILABLE = false
 const CHECKOUT_REQUEST_KEY = 'peptidi_checkout_request_guard'
 const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
-const ATTRIBUTION_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
+const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
 
 function captureAttributionFromUrl() {
   if (typeof window === 'undefined') return

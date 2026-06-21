@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import tochkaService from '../services/tochka.js'
 import { authenticate } from '../middleware/auth.js'
+import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -261,10 +262,17 @@ router.get('/status/:paymentId', async (req, res, next) => {
     
     if (result.success) {
       const paymentStatus = normalizePaymentStatus(result.status)
-      await prisma.order.updateMany({
+      const updateResult = await prisma.order.updateMany({
         where: { paymentId: String(paymentId) },
         data: { paymentStatus }
       })
+      if (updateResult.count > 0) {
+        const updatedOrders = await prisma.order.findMany({
+          where: { paymentId: String(paymentId) },
+          select: { id: true }
+        })
+        await Promise.all(updatedOrders.map(order => syncPartnerCommissionForOrder(prisma, order.id)))
+      }
       res.json({ success: true, status: result.status, paymentStatus })
     } else {
       res.status(500).json({ error: result.error })
@@ -318,6 +326,7 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
       where: { id: order.id },
       data: { paymentStatus }
     })
+    await syncPartnerCommissionForOrder(prisma, order.id)
 
     res.json({
       success: true,
@@ -372,6 +381,7 @@ router.post('/webhook', async (req, res, next) => {
     }
 
     if (updatedOrder) {
+      await syncPartnerCommissionForOrder(prisma, updatedOrder.id)
       console.log(`[PAYMENT] Webhook updated order ${updatedOrder.id} paymentStatus=${normalized}`)
     } else {
       console.warn('[PAYMENT] Webhook did not match any order', { paymentLinkId, paymentId, normalized })

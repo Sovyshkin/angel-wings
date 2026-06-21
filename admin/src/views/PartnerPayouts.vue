@@ -7,8 +7,9 @@
       </div>
       <select v-model="statusFilter" class="input filter-select" @change="fetchPayouts">
         <option value="">Все статусы</option>
-        <option value="PAYOUT_REQUESTED">Активные</option>
-        <option value="PAYOUT_APPROVED">Одобренные</option>
+        <option value="ACTIVE">Активные</option>
+        <option value="COMPLETED">Завершённые</option>
+        <option value="PAYOUT_APPROVED">Выплаченные</option>
         <option value="PAYOUT_REJECTED">Отклонённые</option>
       </select>
     </div>
@@ -18,10 +19,26 @@
     </div>
 
     <div v-else-if="payouts.length === 0" class="empty-card card">
-      Заявок пока нет
+      <strong>Заявок пока нет</strong>
+      <span>{{ emptyText }}</span>
     </div>
 
     <template v-else>
+      <div class="payout-summary">
+        <article class="summary-chip">
+          <span>Активные</span>
+          <strong>{{ activePayoutsCount }}</strong>
+        </article>
+        <article class="summary-chip">
+          <span>Завершённые</span>
+          <strong>{{ completedPayoutsCount }}</strong>
+        </article>
+        <article class="summary-chip">
+          <span>Всего заявок</span>
+          <strong>{{ payouts.length }}</strong>
+        </article>
+      </div>
+
       <div class="table-wrapper card desktop-only">
         <table class="data-table">
           <thead>
@@ -97,7 +114,7 @@
         <div class="modal-actions">
           <button class="btn btn-secondary" @click="closeModal">Закрыть</button>
           <button
-            v-if="selectedPayout.status === 'PAYOUT_REQUESTED'"
+            v-if="isPayoutActive(selectedPayout)"
             class="btn btn-danger"
             :disabled="processing"
             @click="updatePayoutStatus('PAYOUT_REJECTED')"
@@ -105,7 +122,7 @@
             Отклонить
           </button>
           <button
-            v-if="selectedPayout.status === 'PAYOUT_REQUESTED'"
+            v-if="isPayoutActive(selectedPayout)"
             class="btn btn-primary"
             :disabled="processing"
             @click="updatePayoutStatus('PAYOUT_APPROVED')"
@@ -119,7 +136,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import axios from 'axios'
 
 const API_URL = '/api/admin/partners'
@@ -128,14 +145,33 @@ const payouts = ref([])
 const loading = ref(true)
 const processing = ref(false)
 const error = ref('')
-const statusFilter = ref('PAYOUT_REQUESTED')
+const statusFilter = ref('')
 const selectedPayout = ref(null)
 const adminComment = ref('')
 
+const activeStatuses = new Set(['PENDING', 'PAYOUT_REQUESTED'])
+const completedStatuses = new Set(['PAYOUT_APPROVED', 'PAYOUT_REJECTED', 'PAID'])
+
+const activePayoutsCount = computed(() =>
+  payouts.value.filter(payout => activeStatuses.has(String(payout.status || '').toUpperCase())).length
+)
+const completedPayoutsCount = computed(() =>
+  payouts.value.filter(payout => completedStatuses.has(String(payout.status || '').toUpperCase())).length
+)
+const emptyText = computed(() => {
+  if (statusFilter.value === 'ACTIVE') return 'Нет активных заявок на вывод.'
+  if (statusFilter.value === 'COMPLETED') return 'Нет завершённых заявок.'
+  if (statusFilter.value === 'PAYOUT_APPROVED') return 'Нет выплаченных заявок.'
+  if (statusFilter.value === 'PAYOUT_REJECTED') return 'Нет отклонённых заявок.'
+  return 'Когда партнёр отправит заявку на вывод, она появится здесь.'
+})
+
 function statusLabel(status) {
   const labels = {
+    PENDING: 'На проверке',
     PAYOUT_REQUESTED: 'На проверке',
     PAYOUT_APPROVED: 'Выплачено',
+    PAID: 'Выплачено',
     PAYOUT_REJECTED: 'Отклонено',
     SPENT_ON_ORDER: 'Списано на заказ'
   }
@@ -143,7 +179,7 @@ function statusLabel(status) {
 }
 
 function statusClass(status) {
-  if (status === 'PAYOUT_APPROVED') return 'status-success'
+  if (status === 'PAYOUT_APPROVED' || status === 'PAID') return 'status-success'
   if (status === 'PAYOUT_REJECTED') return 'status-danger'
   return 'status-warning'
 }
@@ -184,10 +220,11 @@ async function fetchPayouts() {
   try {
     const params = {
       limit: 100,
+      type: 'PAYOUT',
       ...(statusFilter.value ? { status: statusFilter.value } : {})
     }
     const { data } = await axios.get(`${API_URL}/payments`, { params })
-    payouts.value = (data.payments || []).filter(payment => (payment.type || 'PAYOUT') === 'PAYOUT')
+    payouts.value = data.payments || []
   } finally {
     loading.value = false
   }
@@ -203,6 +240,10 @@ function closeModal() {
   selectedPayout.value = null
   adminComment.value = ''
   error.value = ''
+}
+
+function isPayoutActive(payout) {
+  return activeStatuses.has(String(payout?.status || '').toUpperCase())
 }
 
 async function updatePayoutStatus(status) {
@@ -245,8 +286,48 @@ onMounted(fetchPayouts)
 }
 
 .empty-card {
+  display: grid;
+  gap: 0.35rem;
   padding: 1.5rem;
   color: var(--text-secondary);
+}
+
+.empty-card strong {
+  color: var(--text-primary);
+  font-size: 1.1rem;
+}
+
+.payout-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.summary-chip {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background:
+    radial-gradient(circle at 90% 15%, rgba(159, 181, 255, 0.16), transparent 38%),
+    var(--bg-card);
+}
+
+.summary-chip span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.summary-chip strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--text-primary);
+  font-size: 1.6rem;
+  font-weight: 900;
 }
 
 .table-wrapper {
@@ -453,6 +534,10 @@ onMounted(fetchPayouts)
 
   .filter-select {
     max-width: none;
+  }
+
+  .payout-summary {
+    grid-template-columns: 1fr;
   }
 
   .desktop-only {

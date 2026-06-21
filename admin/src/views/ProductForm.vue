@@ -51,6 +51,11 @@
             <label class="form-label">Вес (г) *</label>
             <input type="number" v-model.number="form.weight" required min="1" class="input" placeholder="500">
           </div>
+          <div class="form-group">
+            <label class="form-label">Цикл повтора (дней)</label>
+            <input type="number" v-model.number="form.repeatCycleDays" min="1" class="input" placeholder="Например 30">
+            <small class="field-hint">Через сколько дней после покупки напоминать о повторном заказе. Если пусто, будет 30 дней.</small>
+          </div>
         </div>
         
         <div class="form-group">
@@ -265,6 +270,7 @@ const form = ref({
   comparePrice: null,
   stock: 0,
   weight: 0,
+  repeatCycleDays: null,
   categoryId: '',
   description: '',
   specs: {},
@@ -314,6 +320,7 @@ async function fetchProduct() {
     comparePrice: p.comparePrice ? parseFloat(p.comparePrice) : null,
     stock: p.stock,
     weight: p.weight || 0,
+    repeatCycleDays: p.repeatCycleDays || null,
     categoryId: p.categories?.[0]?.id || '',
     description: p.description,
     specs: p.specs || {},
@@ -451,6 +458,7 @@ async function handleSubmit() {
     if (form.value.sku) formData.append('sku', form.value.sku)
     formData.append('stock', form.value.stock)
     formData.append('weight', form.value.weight)
+    if (form.value.repeatCycleDays) formData.append('repeatCycleDays', form.value.repeatCycleDays)
     formData.append('specs', specsToJson())
     formData.append('featured', form.value.featured)
     formData.append('active', form.value.active)
@@ -562,6 +570,14 @@ onMounted(() => {
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 0.5rem;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .form-row {

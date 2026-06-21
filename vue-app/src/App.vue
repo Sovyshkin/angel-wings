@@ -289,6 +289,8 @@ const mobileMenuOpen = ref(false)
 const cursorRoot = ref(null)
 const cursorDotRefs = ref([])
 const cursorDots = Array.from({ length: 14 })
+const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
+const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
 let cursorFrameId = 0
 let removeCursorMoveListener = null
 
@@ -315,7 +317,30 @@ function setCursorDotRef(el, index) {
   }
 }
 
+function captureAttributionFromUrl() {
+  const params = new URLSearchParams(window.location.search)
+  const attribution = {}
+
+  ATTRIBUTION_KEYS.forEach((key) => {
+    const value = params.get(key)
+    if (value) attribution[key] = value.slice(0, 160)
+  })
+
+  if (!Object.keys(attribution).length) return
+
+  try {
+    localStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify({
+      ...attribution,
+      capturedAt: new Date().toISOString()
+    }))
+  } catch {
+    // UTM-метки не должны ломать работу сайта.
+  }
+}
+
 onMounted(() => {
+  captureAttributionFromUrl()
+
   const canUseCustomCursor =
     window.matchMedia('(pointer: fine)').matches &&
     !window.matchMedia('(prefers-reduced-motion: reduce)').matches

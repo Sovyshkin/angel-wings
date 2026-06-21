@@ -105,7 +105,7 @@
               <div v-for="client in morningDashboard.repeatCandidates?.slice(0, 6)" :key="client.customerKey" class="repeat-candidate">
                 <div>
                   <strong>{{ client.name }}</strong>
-                  <span>{{ client.product?.title }} · {{ client.daysSinceLastOrder }} дней без заказа</span>
+                  <span>{{ client.product?.title }} · {{ client.daysSinceLastOrder }} дней без заказа · цикл {{ client.repeatCycleDays }} дней</span>
                 </div>
                 <em>{{ client.probability }}%</em>
               </div>
@@ -524,7 +524,7 @@
           <div class="insight-head">
             <div>
               <h3>Влияние рекламы и рассылок</h3>
-              <p>Добавьте дату активности, и отчет покажет продажи в этот день относительно среднего за 7 дней до нее.</p>
+              <p>Для каждого события создаётся отдельная зашифрованная ссылка. Продажи считаются только по заказам, пришедшим по ней.</p>
             </div>
           </div>
 
@@ -549,7 +549,13 @@
               <div>
                 <strong>{{ event.title }}</strong>
                 <span>{{ getMarketingTypeLabel(event.type) }} · {{ event.channel || 'канал не указан' }} · {{ formatShortDate(event.eventDate) }}</span>
-                <small>Затраты: {{ formatCurrency(event.cost) }} · в день события: {{ formatCurrency(event.revenue) }} · {{ event.orders }} заказов</small>
+                <small>Затраты: {{ formatCurrency(event.cost) }} · по ссылке: {{ formatCurrency(event.revenue) }} · {{ event.orders }} заказов</small>
+                <div v-if="event.link" class="marketing-link">
+                  <code>{{ event.link }}</code>
+                  <button type="button" @click="copyMarketingLink(event)">
+                    {{ copiedMarketingEventId === event.id ? 'Скопировано' : 'Копировать ссылку' }}
+                  </button>
+                </div>
               </div>
               <div class="marketing-impact">
                 <b :class="event.uplift >= 0 ? 'positive' : 'negative'">{{ event.uplift >= 0 ? '+' : '' }}{{ event.uplift }}%</b>
@@ -698,7 +704,7 @@
           <article class="customer-summary-card" :class="{ warning: customerSummary.repeatDue > 0 }">
             <span>Пора повторить курс</span>
             <strong>{{ formatNumber(customerSummary.repeatDue) }}</strong>
-            <small>21/30/45 дней после последней покупки</small>
+            <small>По индивидуальному циклу товара</small>
           </article>
         </div>
 
@@ -754,7 +760,7 @@
             <div class="insight-head">
               <div>
                 <h3>Кому пора повторить</h3>
-                <p>Автоматический список под курс 21/30/45 дней</p>
+                <p>Автоматический список по циклу из карточки товара</p>
               </div>
               <span class="pill warning">{{ repeatDue.length }}</span>
             </div>
@@ -822,6 +828,7 @@ const monthComparison = ref([])
 const forecast = ref([])
 const seasonalHighlights = ref([])
 const marketingEvents = ref([])
+const copiedMarketingEventId = ref(null)
 const marketingForm = ref({
   title: '',
   type: 'campaign',
@@ -1050,6 +1057,28 @@ async function createMarketingEvent() {
   } finally {
     savingMarketingEvent.value = false
   }
+}
+
+async function copyMarketingLink(event) {
+  if (!event?.link) return
+
+  try {
+    await navigator.clipboard.writeText(event.link)
+  } catch {
+    const input = document.createElement('input')
+    input.value = event.link
+    document.body.appendChild(input)
+    input.select()
+    document.execCommand('copy')
+    document.body.removeChild(input)
+  }
+
+  copiedMarketingEventId.value = event.id
+  window.setTimeout(() => {
+    if (copiedMarketingEventId.value === event.id) {
+      copiedMarketingEventId.value = null
+    }
+  }, 1800)
 }
 
 async function deleteMarketingEvent(id) {
@@ -2151,6 +2180,40 @@ onMounted(fetchAnalytics)
   font-size: 0.82rem;
 }
 
+.marketing-link {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: 100%;
+  margin-top: 0.65rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(159, 181, 255, 0.18);
+  border-radius: 14px;
+  background: rgba(159, 181, 255, 0.075);
+}
+
+.marketing-link code {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marketing-link button {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 12px;
+  padding: 0.48rem 0.7rem;
+  color: #0b0b10;
+  background: var(--accent);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
 .month-bars {
   display: grid;
   gap: 0.35rem;
@@ -2575,6 +2638,7 @@ onMounted(fetchAnalytics)
 
 .insight-card--wide {
   grid-row: span 2;
+  align-self: start;
 }
 
 .insight-head {
@@ -2911,6 +2975,16 @@ onMounted(fetchAnalytics)
 
   .marketing-impact {
     justify-content: space-between;
+  }
+
+  .marketing-link {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .marketing-link code {
+    white-space: normal;
+    word-break: break-all;
   }
 
   .discount-form {

@@ -1,11 +1,13 @@
 import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
+import { encryptMarketingPayload } from '../utils/marketingToken.js'
 
 const router = Router()
 const prisma = new PrismaClient()
 const TRACKABLE_EVENTS = new Set(['view', 'add_to_cart'])
 const SUCCESS_PAYMENT_STATUSES = new Set(['PAID', 'CASH_ON_DELIVERY'])
+const DEFAULT_REPEAT_CYCLE_DAYS = 30
 const CANCEL_REASON_META = {
   high_price: {
     label: 'Высокая цена',
@@ -69,6 +71,43 @@ function getMonthName(monthIndex) {
 
 function toMoney(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
+}
+
+function normalizeRepeatCycleDays(value) {
+  const days = Number.parseInt(value, 10)
+  return Number.isFinite(days) && days > 0 ? days : DEFAULT_REPEAT_CYCLE_DAYS
+}
+
+function slugifyMarketingValue(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, 'e')
+    .replace(/[^a-z0-9а-я]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'event'
+}
+
+function buildMarketingCampaign({ title, channel }) {
+  const base = slugifyMarketingValue(`${channel || 'marketing'}-${title}`)
+  const suffix = Date.now().toString(36)
+  return `aw-${base}-${suffix}`.slice(0, 160)
+}
+
+function getMarketingSiteBaseUrl() {
+  return (process.env.CLIENT_URL || process.env.TOCHKA_REDIRECT_BASE_URL || 'https://angel-wings.ru').replace(/\/$/, '')
+}
+
+function buildMarketingLink(event) {
+  const baseUrl = getMarketingSiteBaseUrl()
+  const url = new URL(baseUrl)
+  url.searchParams.set('aw_m', encryptMarketingPayload({
+    utm_source: event.utmSource || event.channel || 'angel_wings',
+    utm_medium: event.type || 'campaign',
+    utm_campaign: event.utmCampaign,
+    utm_content: `event_${event.id}`
+  }))
+  return url.toString()
 }
 
 function getOrderItemRevenue(item) {
@@ -882,8 +921,6 @@ router.get('/trends', authenticate, requireAdmin, async (req, res, next) => {
       .slice(0, 12)
 
     const eventImpacts = marketingEvents.map(event => {
-      const dayKey = getDayKey(event.eventDate)
-      const eventDay = dayMap.get(dayKey) || emptyMoneyMetric(dayKey)
       const eventDate = new Date(event.eventDate)
       const previousDays = [1, 2, 3, 4, 5, 6, 7].map(offset => {
         const date = new Date(eventDate)
@@ -891,7 +928,16 @@ router.get('/trends', authenticate, requireAdmin, async (req, res, next) => {
         return dayMap.get(getDayKey(date)) || emptyMoneyMetric(getDayKey(date))
       })
       const avgBefore = previousDays.reduce((sum, item) => sum + item.revenue, 0) / previousDays.length
-      const uplift = avgBefore > 0 ? ((eventDay.revenue - avgBefore) / avgBefore) * 100 : (eventDay.revenue > 0 ? 100 : 0)
+      const attributedOrders = event.utmCampaign
+        ? orders.filter(order =>
+            String(order.utmCampaign || '').trim().toLowerCase() === String(event.utmCampaign || '').trim().toLowerCase()
+          )
+        : []
+      const attributedRevenue = attributedOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
+      const attributedUnits = attributedOrders.reduce((sum, order) => {
+        return sum + (order.items || []).reduce((itemSum, item) => itemSum + Number(item.quantity || 0), 0)
+      }, 0)
+      const uplift = avgBefore > 0 ? ((attributedRevenue - avgBefore) / avgBefore) * 100 : (attributedRevenue > 0 ? 100 : 0)
 
       return {
         id: event.id,
@@ -903,9 +949,10 @@ router.get('/trends', authenticate, requireAdmin, async (req, res, next) => {
         utmCampaign: event.utmCampaign,
         description: event.description,
         eventDate: event.eventDate,
-        revenue: toMoney(eventDay.revenue),
-        orders: eventDay.orders,
-        units: eventDay.units,
+        link: event.utmCampaign ? buildMarketingLink(event) : null,
+        revenue: toMoney(attributedRevenue),
+        orders: attributedOrders.length,
+        units: attributedUnits,
         avgRevenueBefore: toMoney(avgBefore),
         uplift: toMoney(uplift)
       }
@@ -934,8 +981,9 @@ router.post('/marketing-events', authenticate, requireAdmin, async (req, res, ne
     const title = String(req.body?.title || '').trim()
     const type = String(req.body?.type || 'campaign').trim() || 'campaign'
     const channel = String(req.body?.channel || '').trim().slice(0, 120) || null
-    const utmSource = String(req.body?.utmSource || req.body?.utm_source || '').trim().slice(0, 160) || null
-    const utmCampaign = String(req.body?.utmCampaign || req.body?.utm_campaign || '').trim().slice(0, 160) || null
+    const utmSource = String(req.body?.utmSource || req.body?.utm_source || channel || 'angel_wings').trim().slice(0, 160) || 'angel_wings'
+    const requestedCampaign = String(req.body?.utmCampaign || req.body?.utm_campaign || '').trim().slice(0, 160)
+    const utmCampaign = requestedCampaign || buildMarketingCampaign({ title, channel })
     const cost = Math.max(0, Number.parseFloat(req.body?.cost) || 0)
     const description = String(req.body?.description || '').trim() || null
     const eventDate = parseDate(req.body?.eventDate)
@@ -952,7 +1000,7 @@ router.post('/marketing-events', authenticate, requireAdmin, async (req, res, ne
       data: { title, type, channel, cost, utmSource, utmCampaign, description, eventDate }
     })
 
-    res.status(201).json({ event })
+    res.status(201).json({ event: { ...event, link: buildMarketingLink(event) } })
   } catch (error) {
     next(error)
   }
@@ -1242,6 +1290,7 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
                   sku: true,
                   stock: true,
                   price: true,
+                  repeatCycleDays: true,
                   categories: { select: { id: true, name: true, slug: true } }
                 }
               }
@@ -1285,6 +1334,7 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
       sku: product.sku,
       stock: product.stock,
       price: product.price,
+      repeatCycleDays: normalizeRepeatCycleDays(product.repeatCycleDays),
       categories: product.categories,
       revenue: 0,
       units: 0,
@@ -1338,6 +1388,7 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
           title: item.product?.title || `Товар #${item.productId}`,
           units: 0,
           revenue: 0,
+          repeatCycleDays: normalizeRepeatCycleDays(item.product?.repeatCycleDays),
           lastPurchaseAt: order.createdAt
         }
         customerProduct.units += quantity
@@ -1453,9 +1504,10 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
         const lastOrder = customer.orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0]
         const daysSinceLastOrder = daysBetween(customer.lastOrderAt)
         const bestProduct = [...customer.products.values()].sort((a, b) => b.revenue - a.revenue)[0]
+        const repeatCycleDays = normalizeRepeatCycleDays(bestProduct?.repeatCycleDays)
         const probability = Math.min(98, Math.round(
           35 +
-          (daysSinceLastOrder >= 14 && daysSinceLastOrder <= 60 ? 25 : 0) +
+          (daysSinceLastOrder >= Math.max(7, repeatCycleDays - 7) && daysSinceLastOrder <= repeatCycleDays + 30 ? 25 : 0) +
           Math.min(25, customer.totalRevenue / 4000) +
           Math.min(13, customer.orders.length * 3)
         ))
@@ -1470,11 +1522,12 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
           totalRevenue: toMoney(customer.totalRevenue),
           ordersCount: customer.orders.length,
           probability,
+          repeatCycleDays,
           product: bestProduct,
           lastOrderId: lastOrder?.id || null
         }
       })
-      .filter(candidate => candidate.product && candidate.daysSinceLastOrder >= 14)
+      .filter(candidate => candidate.product && candidate.daysSinceLastOrder >= Math.max(7, candidate.repeatCycleDays - 7))
       .sort((a, b) => b.probability - a.probability)
       .slice(0, 12)
 
@@ -1484,7 +1537,7 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
         type: 'personal_discount',
         priority: candidate.probability >= 75 ? 'high' : 'medium',
         title: `Вернуть ${candidate.name}`,
-        description: `${candidate.daysSinceLastOrder} дней без заказа. Раньше брал(а) ${candidate.product.title}. Вероятность повтора: ${candidate.probability}%.`,
+        description: `${candidate.daysSinceLastOrder} дней без заказа. Раньше брал(а) ${candidate.product.title}. Цикл: ${candidate.repeatCycleDays} дней. Вероятность повтора: ${candidate.probability}%.`,
         buttonLabel: 'Создать скидку 15%',
         payload: {
           customerKey: candidate.customerKey,
@@ -1567,7 +1620,7 @@ router.post('/actions/:type', authenticate, requireAdmin, async (req, res, next)
       return res.json({
         ok: true,
         message: 'Гипотеза курса подготовлена.',
-        draft: `Проверить связку: ${payload.productTitle || 'Пептид A'} + ${payload.comboProductTitle || 'Пептид B'}. Добавить в карточки блок “следующий шаг курса” и отслеживать докупку через 21/30/45 дней.`
+        draft: `Проверить связку: ${payload.productTitle || 'Пептид A'} + ${payload.comboProductTitle || 'Пептид B'}. Добавить в карточки блок “следующий шаг курса” и отслеживать докупку по индивидуальному циклу товара.`
       })
     }
 
@@ -1580,7 +1633,6 @@ router.post('/actions/:type', authenticate, requireAdmin, async (req, res, next)
 router.get('/customers', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const now = new Date()
-    const repeatDays = [21, 30, 45]
 
     const orders = await prisma.order.findMany({
       where: {
@@ -1591,7 +1643,7 @@ router.get('/customers', authenticate, requireAdmin, async (req, res, next) => {
         user: { select: { id: true, name: true, email: true, phone: true } },
         items: {
           include: {
-            product: { select: { id: true, title: true, sku: true } }
+            product: { select: { id: true, title: true, sku: true, repeatCycleDays: true } }
           }
         }
       },
@@ -1666,6 +1718,7 @@ router.get('/customers', authenticate, requireAdmin, async (req, res, next) => {
           phone: customer.phone,
           productId,
           title,
+          repeatCycleDays: normalizeRepeatCycleDays(item.product?.repeatCycleDays),
           lastPurchaseAt: order.createdAt,
           units: productMetric.units
         })
@@ -1721,8 +1774,8 @@ router.get('/customers', authenticate, requireAdmin, async (req, res, next) => {
     const repeatDue = [...lastProductPurchases.values()]
       .map(purchase => {
         const daysSinceLastPurchase = daysBetween(purchase.lastPurchaseAt, now)
-        const dueInDays = [...repeatDays].reverse().find(days => daysSinceLastPurchase >= days)
-        if (!dueInDays) return null
+        const repeatCycleDays = normalizeRepeatCycleDays(purchase.repeatCycleDays)
+        if (daysSinceLastPurchase < repeatCycleDays) return null
 
         return {
           customerKey: purchase.customerKey,
@@ -1733,8 +1786,8 @@ router.get('/customers', authenticate, requireAdmin, async (req, res, next) => {
           productTitle: purchase.title,
           lastPurchaseAt: purchase.lastPurchaseAt,
           daysSinceLastPurchase,
-          repeatCycleDays: dueInDays,
-          overdueDays: daysSinceLastPurchase - dueInDays
+          repeatCycleDays,
+          overdueDays: daysSinceLastPurchase - repeatCycleDays
         }
       })
       .filter(Boolean)

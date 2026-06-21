@@ -6,6 +6,8 @@ import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStat
 import { notifyOrderToTelegram } from '../services/telegram.js'
 import yandexGeocoder from '../services/yandexGeocoder.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
+import { decryptMarketingPayload } from '../utils/marketingToken.js'
+import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -409,29 +411,6 @@ async function bindUserToPartner(userId, partnerId, promoCodeId = null, source =
   return { bound: true }
 }
 
-async function calculateCommission(orderId, partnerId, userId, orderTotal) {
-  const partner = await prisma.partner.findUnique({
-    where: { id: partnerId }
-  })
-
-  if (!partner || !partner.isActive) {
-    return null
-  }
-
-  const percentage = partner.percentage || 5.0
-  const amount = orderTotal * (percentage / 100)
-
-  return prisma.partnerCommission.create({
-    data: {
-      partnerId,
-      orderId,
-      userId,
-      amount,
-      percentage
-    }
-  })
-}
-
 // Создание заказа - требуется авторизация
 router.post('/promo/validate', authenticate, async (req, res, next) => {
   try {
@@ -571,9 +550,14 @@ router.post('/', authenticate, async (req, res, next) => {
     const rawAttribution = attribution && typeof attribution === 'object'
       ? attribution
       : (utm && typeof utm === 'object' ? utm : {})
+    const marketingToken = rawAttribution.aw_m || rawAttribution.awM || rawAttribution.marketingToken || rawAttribution.marketing_token
+    const decryptedAttribution = marketingToken ? decryptMarketingPayload(marketingToken) : null
+    const attributionWithToken = decryptedAttribution && typeof decryptedAttribution === 'object'
+      ? { ...decryptedAttribution, ...rawAttribution }
+      : rawAttribution
     const normalizeAttributionField = (...keys) => {
       for (const key of keys) {
-        const value = String(rawAttribution?.[key] || '').trim()
+        const value = String(attributionWithToken?.[key] || '').trim()
         if (value) return value.slice(0, 160)
       }
       return null
@@ -867,32 +851,10 @@ router.post('/', authenticate, async (req, res, next) => {
         }
       }
 
-      if (partnerId) {
-        const partner = await tx.partner.findUnique({
-          where: { id: partnerId }
-        })
-
-        if (partner && partner.isActive) {
-          // Commission base: final order total after discounts, excluding delivery.
-          const percentage = Number(partner.percentage) > 0 ? Number(partner.percentage) : 5.0
-          const deliveryPart = Math.max(0, Number(deliveryPrice || 0))
-          const commissionBase = Math.max(0, Number(createdOrder.total || 0) - deliveryPart)
-          const commissionAmount = commissionBase * (percentage / 100)
-
-          await tx.partnerCommission.create({
-            data: {
-              partnerId,
-              orderId: createdOrder.id,
-              userId: actualUserId,
-              amount: commissionAmount,
-              percentage
-            }
-          })
-        }
-      }
-
       return createdOrder
     })
+
+    await syncPartnerCommissionForOrder(prisma, order.id)
 
     console.log('[TELEGRAM] Order detected, preparing notification', JSON.stringify({
       orderId: order.id,
@@ -1075,25 +1037,10 @@ router.post('/:id/add-items', authenticate, async (req, res, next) => {
         }
       })
 
-      if (order.partnerId) {
-        const existingCommission = await tx.partnerCommission.findUnique({
-          where: { orderId: order.id }
-        })
-
-        if (existingCommission) {
-          const deliveryPart = Math.max(0, Number(order.deliveryPrice || 0))
-          const commissionBase = Math.max(0, Number(order.total || 0) - deliveryPart)
-          const nextCommissionAmount = commissionBase * (Number(existingCommission.percentage || 0) / 100)
-
-          await tx.partnerCommission.update({
-            where: { orderId: order.id },
-            data: { amount: nextCommissionAmount }
-          })
-        }
-      }
-
       return order
     })
+
+    await syncPartnerCommissionForOrder(prisma, updatedOrder.id)
 
     res.json({
       success: true,

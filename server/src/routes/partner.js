@@ -245,7 +245,7 @@ router.get('/commissions', authenticate, requireAdmin, async (req, res, next) =>
   try {
     const { limit = 50, offset = 0, partnerId, startDate, endDate } = req.query
 
-    const where = {}
+    const where = { order: { paymentStatus: 'PAID' } }
     if (partnerId) where.partnerId = parseInt(partnerId)
     if (startDate || endDate) {
       where.createdAt = {}
@@ -258,7 +258,7 @@ router.get('/commissions', authenticate, requireAdmin, async (req, res, next) =>
         where,
         include: {
           partner: { select: { id: true, user: { select: { name: true } } } },
-          order: { select: { id: true, total: true, createdAt: true, user: { select: { email: true, name: true } } } }
+          order: { select: { id: true, total: true, paymentStatus: true, createdAt: true, user: { select: { email: true, name: true } } } }
         },
         take: parseInt(limit),
         skip: parseInt(offset),
@@ -275,11 +275,21 @@ router.get('/commissions', authenticate, requireAdmin, async (req, res, next) =>
 
 router.get('/payments', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { limit = 50, offset = 0, partnerId, status } = req.query
+    const { limit = 50, offset = 0, partnerId, status, type } = req.query
 
     const where = {}
     if (partnerId) where.partnerId = parseInt(partnerId)
-    if (status) where.status = status
+    if (type) where.type = String(type)
+    if (status) {
+      const normalizedStatus = String(status).trim().toUpperCase()
+      if (normalizedStatus === 'ACTIVE') {
+        where.status = { in: ['PENDING', 'PAYOUT_REQUESTED'] }
+      } else if (normalizedStatus === 'COMPLETED') {
+        where.status = { in: ['PAYOUT_APPROVED', 'PAYOUT_REJECTED', 'PAID'] }
+      } else if (normalizedStatus !== 'ALL') {
+        where.status = normalizedStatus
+      }
+    }
 
     const [payments, total] = await Promise.all([
       prisma.partnerPayment.findMany({
@@ -396,6 +406,7 @@ router.get('/stats/partner', authenticate, requireAdmin, async (req, res, next) 
       prisma.promoCode.count(),
       prisma.partnerUser.count(),
       prisma.partnerCommission.aggregate({
+        where: { order: { paymentStatus: 'PAID' } },
         _sum: { amount: true }
       })
     ])
@@ -423,7 +434,10 @@ router.get('/', authenticate, requireAdmin, async (req, res, next) => {
         include: {
           user: { select: { id: true, email: true, name: true, createdAt: true } },
           _count: { select: { partnerUsers: true, commissions: true } },
-          commissions: { select: { amount: true } }
+          commissions: {
+            where: { order: { paymentStatus: 'PAID' } },
+            select: { amount: true }
+          }
         },
         take: parseInt(limit),
         skip: parseInt(offset),
@@ -441,7 +455,7 @@ router.get('/', authenticate, requireAdmin, async (req, res, next) => {
         isActive: p.isActive,
         createdAt: p.createdAt,
         usersCount: p._count.partnerUsers,
-        ordersCount: p._count.commissions,
+        ordersCount: p.commissions.length,
         totalCommission
       }
     })
@@ -529,6 +543,7 @@ router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
           orderBy: { boundAt: 'desc' }
         },
         commissions: {
+          where: { order: { paymentStatus: 'PAID' } },
           orderBy: { createdAt: 'desc' },
           take: 50
         },
@@ -544,7 +559,8 @@ router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
 
     const recentOrders = await prisma.order.findMany({
       where: {
-        commission: { partnerId: parseInt(req.params.id) }
+        commission: { partnerId: parseInt(req.params.id) },
+        paymentStatus: 'PAID'
       },
       include: {
         items: { include: { product: { select: { title: true } } } },
