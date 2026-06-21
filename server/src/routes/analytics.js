@@ -114,6 +114,21 @@ function getOrderItemRevenue(item) {
   return Number(item.price || 0) * Number(item.quantity || 0)
 }
 
+function getOrderItemsSubtotal(order) {
+  return (order?.items || []).reduce((sum, item) => sum + getOrderItemRevenue(item), 0)
+}
+
+function getOrderItemNetRevenue(item, order = item?.order) {
+  const grossRevenue = getOrderItemRevenue(item)
+  const subtotal = getOrderItemsSubtotal(order)
+  if (grossRevenue <= 0 || subtotal <= 0) return toMoney(grossRevenue)
+
+  // Скидка применяется только к товарам, доставка в распределении не участвует.
+  const productDiscount = Math.min(subtotal, Math.max(0, Number(order?.discountAmount || 0)))
+  const discountShare = productDiscount * (grossRevenue / subtotal)
+  return toMoney(Math.max(0, grossRevenue - discountShare))
+}
+
 function normalizeOrderStatus(status) {
   return String(status || '').trim().toUpperCase()
 }
@@ -333,6 +348,7 @@ router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
             select: {
               id: true,
               total: true,
+              discountAmount: true,
               status: true,
               paymentStatus: true,
               createdAt: true,
@@ -399,7 +415,7 @@ router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
       const isCancelled = orderStatus === 'CANCELLED'
       const isSuccessful = !isCancelled && SUCCESS_PAYMENT_STATUSES.has(paymentStatus)
       const quantity = Number(item.quantity || 0)
-      const revenue = getOrderItemRevenue(item)
+      const revenue = getOrderItemNetRevenue(item, item.order)
       const orderKey = `${item.orderId}:${productId}`
 
       metric.orderedUnits += quantity
@@ -541,7 +557,14 @@ router.get('/stock', authenticate, requireAdmin, async (req, res, next) => {
         }
       },
       include: {
-        order: { select: { id: true, createdAt: true } },
+        order: {
+          select: {
+            id: true,
+            createdAt: true,
+            discountAmount: true,
+            items: { select: { price: true, quantity: true } }
+          }
+        },
         product: { select: { id: true, title: true } }
       }
     })
@@ -567,7 +590,7 @@ router.get('/stock', authenticate, requireAdmin, async (req, res, next) => {
       if (!metric) continue
 
       const quantity = Number(item.quantity || 0)
-      const revenue = getOrderItemRevenue(item)
+      const revenue = getOrderItemNetRevenue(item, item.order)
       const soldAt = new Date(item.order?.createdAt || 0)
 
       metric.revenue += revenue
@@ -812,7 +835,7 @@ router.get('/trends', authenticate, requireAdmin, async (req, res, next) => {
 
       for (const item of order.items || []) {
         const quantity = Number(item.quantity || 0)
-        const revenue = getOrderItemRevenue(item)
+        const revenue = getOrderItemNetRevenue(item, order)
         monthly.units += quantity
         day.units += quantity
 
@@ -1148,7 +1171,7 @@ router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
       for (const item of order.items || []) {
         const productId = item.productId
         const quantity = Math.max(0, Number(item.quantity || 0))
-        const itemRevenue = getOrderItemRevenue(item)
+        const itemRevenue = getOrderItemNetRevenue(item, order)
         const itemCost = Math.max(0, Number(item.product?.costPrice || 0)) * quantity
         const metric = productMap.get(productId) || {
           productId,
@@ -1186,7 +1209,7 @@ router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
           productId: item.productId,
           title: item.product?.title || `Товар #${item.productId}`,
           quantity: item.quantity,
-          revenue: toMoney(getOrderItemRevenue(item)),
+          revenue: toMoney(getOrderItemNetRevenue(item, order)),
           cost: toMoney(Math.max(0, Number(item.product?.costPrice || 0)) * Math.max(0, Number(item.quantity || 0)))
         })),
         ...margin
@@ -1374,7 +1397,7 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
         const metric = productMetrics.get(item.productId)
         if (!metric) continue
         const quantity = Number(item.quantity || 0)
-        const revenue = getOrderItemRevenue(item)
+        const revenue = getOrderItemNetRevenue(item, order)
         const orderDate = new Date(order.createdAt)
 
         metric.revenue += revenue
@@ -1692,7 +1715,7 @@ router.get('/customers', authenticate, requireAdmin, async (req, res, next) => {
         }
 
         productMetric.units += Number(item.quantity || 0)
-        productMetric.revenue += getOrderItemRevenue(item)
+        productMetric.revenue += getOrderItemNetRevenue(item, order)
         productMetric.lastPurchaseAt = order.createdAt
         productMetric.purchases += 1
         customer.products.set(productId, productMetric)

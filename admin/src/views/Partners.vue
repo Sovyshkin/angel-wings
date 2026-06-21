@@ -56,6 +56,7 @@
               <th>Пользователей</th>
               <th>Заказов</th>
               <th>Комиссия</th>
+              <th>Баланс</th>
               <th>Статус</th>
               <th></th>
             </tr>
@@ -75,6 +76,10 @@
               <td class="cell-num">{{ partner.usersCount }}</td>
               <td class="cell-num">{{ partner.ordersCount }}</td>
               <td class="cell-amount">{{ formatCurrency(partner.totalCommission) }}</td>
+              <td class="cell-balance">
+                <strong>{{ formatCurrency(getAvailableBalance(partner)) }}</strong>
+                <span v-if="getPendingPayouts(partner) > 0">Заморожено: {{ formatCurrency(getPendingPayouts(partner)) }}</span>
+              </td>
               <td>
                 <label class="toggle">
                   <input type="checkbox" :checked="partner.isActive" @change="toggleActive(partner.id, $event.target.checked)">
@@ -104,6 +109,8 @@
             <div><span>Пользователи:</span><strong>{{ partner.usersCount }}</strong></div>
             <div><span>Заказы:</span><strong>{{ partner.ordersCount }}</strong></div>
             <div><span>Комиссия:</span><strong>{{ formatCurrency(partner.totalCommission) }}</strong></div>
+            <div><span>Баланс:</span><strong>{{ formatCurrency(getAvailableBalance(partner)) }}</strong></div>
+            <div v-if="getPendingPayouts(partner) > 0"><span>Заморожено:</span><strong>{{ formatCurrency(getPendingPayouts(partner)) }}</strong></div>
           </div>
 
           <div class="partner-card__controls">
@@ -219,6 +226,8 @@ const filteredPartners = computed(() => {
       partner.usersCount,
       partner.ordersCount,
       partner.totalCommission,
+      partner.availableBalance,
+      partner.balance?.pendingPayouts,
       status
     ].join(' ').toLowerCase()
 
@@ -302,6 +311,14 @@ async function handleSubmit() {
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(value)
+}
+
+function getAvailableBalance(partner) {
+  return Number(partner?.availableBalance ?? partner?.balance?.availableBalance ?? 0)
+}
+
+function getPendingPayouts(partner) {
+  return Number(partner?.balance?.pendingPayouts || 0)
 }
 
 function goToPartner(id) {
@@ -405,6 +422,22 @@ onMounted(() => {
 .cell-amount {
   font-weight: 600;
   color: var(--accent);
+}
+
+.cell-balance {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.cell-balance strong {
+  color: #22c55e;
+  font-weight: 800;
+}
+
+.cell-balance span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 
 .code-tag {

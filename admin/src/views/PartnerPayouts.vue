@@ -97,6 +97,31 @@
           <button class="modal-close" @click="closeModal">×</button>
         </div>
 
+        <div class="balance-panel">
+          <div class="balance-panel__main">
+            <span>Доступный баланс партнёра</span>
+            <strong>{{ formatCurrency(getPartnerBalance(selectedPayout).availableBalance) }}</strong>
+          </div>
+          <div class="balance-panel__grid">
+            <div>
+              <span>Заявка</span>
+              <strong>{{ formatCurrency(selectedPayout.amount) }}</strong>
+            </div>
+            <div>
+              <span>Заморожено</span>
+              <strong>{{ formatCurrency(getPartnerBalance(selectedPayout).pendingPayouts) }}</strong>
+            </div>
+            <div>
+              <span>Выплачено</span>
+              <strong>{{ formatCurrency(getPartnerBalance(selectedPayout).totalPaidOut) }}</strong>
+            </div>
+            <div>
+              <span>Всего заработано</span>
+              <strong>{{ formatCurrency(getPartnerBalance(selectedPayout).totalEarned) }}</strong>
+            </div>
+          </div>
+        </div>
+
         <div class="details-grid">
           <div v-for="item in detailsRows(selectedPayout.details)" :key="item.label" class="detail-row">
             <span>{{ item.label }}</span>
@@ -256,6 +281,16 @@ function closeModal() {
 
 function isPayoutActive(payout) {
   return activeStatuses.has(String(payout?.status || '').toUpperCase())
+}
+
+function getPartnerBalance(payout) {
+  return payout?.partner?.balance || {
+    totalEarned: 0,
+    totalPaidOut: 0,
+    pendingPayouts: 0,
+    totalSpentOnOrders: 0,
+    availableBalance: 0
+  }
 }
 
 async function updatePayoutStatus(status) {
@@ -488,6 +523,59 @@ onMounted(fetchPayouts)
   font-size: 1.5rem;
 }
 
+.balance-panel {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(159, 181, 255, 0.22);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 86% 12%, rgba(34, 197, 94, 0.14), transparent 34%),
+    linear-gradient(135deg, rgba(159, 181, 255, 0.1), rgba(255, 255, 255, 0.025));
+}
+
+.balance-panel__main {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.balance-panel span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.balance-panel__main strong {
+  color: #22c55e;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  font-weight: 950;
+}
+
+.balance-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.balance-panel__grid div {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.balance-panel__grid strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
 .details-grid {
   display: grid;
   gap: 0.65rem;
@@ -564,6 +652,15 @@ onMounted(fetchPayouts)
   .detail-row {
     grid-template-columns: 1fr;
     gap: 0.35rem;
+  }
+
+  .balance-panel__main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .balance-panel__grid {
+    grid-template-columns: 1fr;
   }
 
   .modal-actions .btn {

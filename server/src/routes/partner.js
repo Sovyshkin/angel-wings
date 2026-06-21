@@ -303,11 +303,22 @@ router.get('/payments', authenticate, requireAdmin, async (req, res, next) => {
       }),
       prisma.partnerPayment.count({ where })
     ])
+    const balances = new Map()
+    const partnerIds = [...new Set(payments.map(payment => payment.partnerId).filter(Boolean))]
+    await Promise.all(partnerIds.map(async (id) => {
+      balances.set(id, await calculatePartnerBalance(prisma, id))
+    }))
 
     res.json({
       payments: payments.map(payment => ({
         ...payment,
-        details: parsePaymentDetails(payment.details)
+        details: parsePaymentDetails(payment.details),
+        partner: payment.partner
+          ? {
+              ...payment.partner,
+              balance: balances.get(payment.partnerId) || null
+            }
+          : payment.partner
       })),
       total
     })
@@ -446,8 +457,20 @@ router.get('/', authenticate, requireAdmin, async (req, res, next) => {
       prisma.partner.count()
     ])
 
+    const balances = new Map()
+    await Promise.all(partners.map(async (partner) => {
+      balances.set(partner.id, await calculatePartnerBalance(prisma, partner.id))
+    }))
+
     const partnersWithStats = partners.map(p => {
       const totalCommission = p.commissions.reduce((sum, c) => sum + c.amount, 0)
+      const balance = balances.get(p.id) || {
+        totalEarned: totalCommission,
+        totalPaidOut: 0,
+        pendingPayouts: 0,
+        totalSpentOnOrders: 0,
+        availableBalance: totalCommission
+      }
       return {
         id: p.id,
         user: p.user,
@@ -456,7 +479,9 @@ router.get('/', authenticate, requireAdmin, async (req, res, next) => {
         createdAt: p.createdAt,
         usersCount: p._count.partnerUsers,
         ordersCount: p.commissions.length,
-        totalCommission
+        totalCommission,
+        balance,
+        availableBalance: balance.availableBalance
       }
     })
 
