@@ -151,6 +151,7 @@ const adminComment = ref('')
 
 const activeStatuses = new Set(['PENDING', 'PAYOUT_REQUESTED'])
 const completedStatuses = new Set(['PAYOUT_APPROVED', 'PAYOUT_REJECTED', 'PAID'])
+const payoutRequestStatuses = new Set(['PENDING', 'PAYOUT_REQUESTED', 'PAYOUT_APPROVED', 'PAYOUT_REJECTED', 'PAID'])
 
 const activePayoutsCount = computed(() =>
   payouts.value.filter(payout => activeStatuses.has(String(payout.status || '').toUpperCase())).length
@@ -193,26 +194,37 @@ function formatDate(value) {
   return new Date(value).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-function compactDetails(details = {}) {
-  if (details.cardNumber) return `Карта: ${details.cardNumber}`
-  if (details.phone) return `Телефон: ${details.phone}`
-  if (details.accountNumber) return `${details.bankName || 'Банк'} · ${details.accountNumber}`
+function normalizeDetails(details) {
+  return details && typeof details === 'object' ? details : {}
+}
+
+function compactDetails(details) {
+  const safeDetails = normalizeDetails(details)
+  if (safeDetails.cardNumber) return `Карта: ${safeDetails.cardNumber}`
+  if (safeDetails.phone) return `Телефон: ${safeDetails.phone}`
+  if (safeDetails.accountNumber) return `${safeDetails.bankName || 'Банк'} · ${safeDetails.accountNumber}`
   return 'Реквизиты не указаны'
 }
 
-function detailsRows(details = {}) {
+function detailsRows(details) {
+  const safeDetails = normalizeDetails(details)
   const rows = [
-    ['ФИО получателя', details.recipientName],
-    ['Банк', details.bankName],
-    ['Расчётный счёт', details.accountNumber],
-    ['БИК', details.bik],
-    ['Корр. счёт', details.correspondentAccount],
-    ['ИНН', details.inn],
-    ['Карта', details.cardNumber],
-    ['Телефон', details.phone],
-    ['Комментарий партнёра', details.comment]
+    ['ФИО получателя', safeDetails.recipientName],
+    ['Банк', safeDetails.bankName],
+    ['Расчётный счёт', safeDetails.accountNumber],
+    ['БИК', safeDetails.bik],
+    ['Корр. счёт', safeDetails.correspondentAccount],
+    ['ИНН', safeDetails.inn],
+    ['Карта', safeDetails.cardNumber],
+    ['Телефон', safeDetails.phone],
+    ['Комментарий партнёра', safeDetails.comment]
   ]
   return rows.filter(([, value]) => value).map(([label, value]) => ({ label, value }))
+}
+
+function isPayoutRequest(payment) {
+  return String(payment?.type || 'PAYOUT').toUpperCase() === 'PAYOUT' &&
+    payoutRequestStatuses.has(String(payment?.status || '').toUpperCase())
 }
 
 async function fetchPayouts() {
@@ -224,7 +236,7 @@ async function fetchPayouts() {
       ...(statusFilter.value ? { status: statusFilter.value } : {})
     }
     const { data } = await axios.get(`${API_URL}/payments`, { params })
-    payouts.value = data.payments || []
+    payouts.value = (data.payments || []).filter(isPayoutRequest)
   } finally {
     loading.value = false
   }
