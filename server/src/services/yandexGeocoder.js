@@ -20,6 +20,8 @@ const MKAD_APPROX_POLYGON = [
   { lat: 55.8370, lon: 37.3835 }
 ]
 const ACCEPTED_PRECISIONS = new Set(['exact', 'number'])
+const ADDRESS_EXTRA_DETAILS_RE =
+  /(?:^|[,\s;])((?:кв(?:артира)?\.?|ап(?:артаменты|\.)?|офис|пом(?:ещение)?\.?|подъезд|этаж|домофон)\s*(?:№|#|n|no|номер)?\s*[\p{L}\d/-]+(?:[\s,;/-].*)?)$/iu
 
 function toRadians(value) {
   return Number(value) * Math.PI / 180
@@ -85,9 +87,62 @@ function getFirstGeoObject(data) {
   return data?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject || null
 }
 
+function normalizeAddressExtraDetails(details) {
+  const cleanDetails = String(details || '').replace(/\s+/g, ' ').trim()
+  if (!cleanDetails) return ''
+
+  return cleanDetails
+    .replace(/^кв(?:артира)?\.?\s*/i, 'кв. ')
+    .replace(/^ап(?:артаменты|\.)?\s*/i, 'ап. ')
+    .replace(/^пом(?:ещение)?\.?\s*/i, 'пом. ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function splitCourierAddressDetails(address) {
+  const cleanAddress = String(address || '').replace(/\s+/g, ' ').trim()
+  const match = cleanAddress.match(ADDRESS_EXTRA_DETAILS_RE)
+
+  if (!match) {
+    return {
+      originalAddress: cleanAddress,
+      geocodeAddress: cleanAddress,
+      extraDetails: ''
+    }
+  }
+
+  const geocodeAddress = cleanAddress
+    .slice(0, match.index)
+    .replace(/[,\s;]+$/g, '')
+    .trim()
+  const extraDetails = normalizeAddressExtraDetails(match[1])
+
+  if (geocodeAddress.length < 6 || !extraDetails) {
+    return {
+      originalAddress: cleanAddress,
+      geocodeAddress: cleanAddress,
+      extraDetails: ''
+    }
+  }
+
+  return {
+    originalAddress: cleanAddress,
+    geocodeAddress,
+    extraDetails
+  }
+}
+
+function withCourierAddressDetails(address, extraDetails) {
+  const normalizedAddress = String(address || '').trim()
+  const normalizedDetails = normalizeAddressExtraDetails(extraDetails)
+  if (!normalizedAddress || !normalizedDetails) return normalizedAddress
+
+  return `${normalizedAddress}, ${normalizedDetails}`
+}
+
 export async function validateMoscowCourierAddress(address) {
   const apiKey = String(process.env.YANDEX_GEOCODER_API_KEY || '').trim()
-  const cleanAddress = String(address || '').trim()
+  const { originalAddress, geocodeAddress, extraDetails } = splitCourierAddressDetails(address)
 
   if (!apiKey) {
     return {
@@ -97,7 +152,7 @@ export async function validateMoscowCourierAddress(address) {
     }
   }
 
-  if (cleanAddress.length < 6) {
+  if (originalAddress.length < 6 || geocodeAddress.length < 6) {
     return {
       valid: false,
       code: 'ADDRESS_TOO_SHORT',
@@ -105,9 +160,9 @@ export async function validateMoscowCourierAddress(address) {
     }
   }
 
-  const query = /(^|[\s,])москва([\s,]|$)/i.test(cleanAddress)
-    ? cleanAddress
-    : `Москва, ${cleanAddress}`
+  const query = /(^|[\s,])москва([\s,]|$)/i.test(geocodeAddress)
+    ? geocodeAddress
+    : `Москва, ${geocodeAddress}`
 
   const response = await axios.get('https://geocode-maps.yandex.ru/v1/', {
     timeout: Number(process.env.YANDEX_GEOCODER_TIMEOUT_MS || 10000),
@@ -144,7 +199,10 @@ export async function validateMoscowCourierAddress(address) {
   const components = getAddressComponents(meta)
   const precision = String(meta.precision || '').toLowerCase()
   const kind = String(meta.kind || '').toLowerCase()
-  const normalizedAddress = meta?.Address?.formatted || geoObject?.name || cleanAddress
+  const normalizedAddress = withCourierAddressDetails(
+    meta?.Address?.formatted || geoObject?.name || geocodeAddress,
+    extraDetails
+  )
 
   if (!point) {
     return {
