@@ -7,6 +7,7 @@ import tochkaService from '../services/tochka.js'
 import { v4 as uuidv4 } from 'uuid'
 import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
+import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -67,6 +68,33 @@ function parseImagesField(images) {
   } catch {
     return []
   }
+}
+
+async function attachPartnerBonusInfoToOrders(orders) {
+  const ordersWithBonus = (orders || []).filter(order =>
+    Math.max(0, Number(order?.partnerBonusAmount || 0)) > 0 && order?.user?.partner?.id
+  )
+  if (!ordersWithBonus.length) return orders
+
+  const partnerIds = [...new Set(ordersWithBonus.map(order => order.user.partner.id))]
+  const balances = new Map()
+
+  await Promise.all(partnerIds.map(async (partnerId) => {
+    balances.set(partnerId, await calculatePartnerBalance(prisma, partnerId))
+  }))
+
+  for (const order of ordersWithBonus) {
+    const partner = order.user.partner
+    order.partnerBonusInfo = {
+      amount: Math.max(0, Number(order.partnerBonusAmount || 0)),
+      partnerId: partner.id,
+      partnerName: partner.user?.name || null,
+      partnerEmail: partner.user?.email || null,
+      balance: balances.get(partner.id) || null
+    }
+  }
+
+  return orders
 }
 
 router.get('/stats', authenticate, requireAdmin, async (req, res, next) => {
@@ -456,7 +484,23 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
               product: { select: { title: true, image: true } }
             }
           },
-          user: { select: { email: true, name: true } }
+          user: {
+            select: {
+              email: true,
+              name: true,
+              partner: {
+                select: {
+                  id: true,
+                  user: {
+                    select: {
+                      name: true,
+                      email: true
+                    }
+                  }
+                }
+              }
+            }
+          }
         },
         take: parseInt(limit),
         skip: parseInt(offset),
@@ -525,6 +569,8 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
         }
       }
     }
+
+    await attachPartnerBonusInfoToOrders(orders)
 
     res.json({ orders, total })
   } catch (error) {

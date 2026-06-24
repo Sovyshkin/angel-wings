@@ -137,6 +137,10 @@
                       <span>Доставка</span>
                       <strong>{{ formatCurrency(order.deliveryPrice || 0) }}</strong>
                     </div>
+                    <div v-if="getPartnerBonusAmount(order) > 0" class="order-metric order-metric--bonus">
+                      <span>Списано баллов</span>
+                      <strong>-{{ formatCurrency(getPartnerBonusAmount(order)) }}</strong>
+                    </div>
                   </div>
 
                   <div class="order-products">
@@ -182,6 +186,11 @@
                         <p v-if="order.deliveryTariffName">{{ order.deliveryTariffName }}</p>
                         <p>Стоимость доставки: {{ formatCurrency(order.deliveryPrice || 0) }}</p>
                         <p v-if="order.cdekOrderUuid">Трек-номер СДЭК: {{ order.cdekOrderUuid }}</p>
+                      </div>
+                      <div v-if="getPartnerBonusAmount(order) > 0">
+                        <h4>Партнёрский баланс</h4>
+                        <p>Списано: -{{ formatCurrency(getPartnerBonusAmount(order)) }}</p>
+                        <p>Доступный баланс: {{ formatCurrency(getPartnerAvailableBalance(order)) }}</p>
                       </div>
                     </div>
                     <div class="order-note" v-if="order.notes">
@@ -352,6 +361,14 @@ function mapOrderStatus(status) {
 
 function formatCurrency(value) {
   return `${Number(value || 0).toLocaleString('ru-RU')} ₽`
+}
+
+function getPartnerBonusAmount(order) {
+  return Math.max(0, Number(order?.partnerBonusInfo?.amount ?? order?.partnerBonusAmount ?? 0))
+}
+
+function getPartnerAvailableBalance(order) {
+  return Math.max(0, Number(order?.partnerBonusInfo?.balance?.availableBalance ?? 0))
 }
 
 function formatDateTime(dateStr) {
@@ -961,6 +978,15 @@ onMounted(async () => {
 .order-metric strong {
   font-size: 0.96rem;
   color: var(--text-primary);
+}
+
+.order-metric--bonus {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.order-metric--bonus strong {
+  color: #86efac;
 }
 
 .order-products {

@@ -854,6 +854,30 @@ router.post('/', authenticate, async (req, res, next) => {
       return createdOrder
     })
 
+    if (partnerBonusUsed > 0 && order.userId) {
+      const buyerPartner = await prisma.partner.findUnique({
+        where: { userId: order.userId },
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true
+            }
+          }
+        }
+      })
+
+      if (buyerPartner) {
+        order.partnerBonusInfo = {
+          amount: partnerBonusUsed,
+          partnerId: buyerPartner.id,
+          partnerName: buyerPartner.user?.name || null,
+          partnerEmail: buyerPartner.user?.email || null,
+          balance: await calculatePartnerBalance(prisma, buyerPartner.id)
+        }
+      }
+    }
+
     await syncPartnerCommissionForOrder(prisma, order.id)
 
     console.log('[TELEGRAM] Order detected, preparing notification', JSON.stringify({
@@ -929,12 +953,39 @@ router.get('/my', authenticate, async (req, res, next) => {
       }
     }
 
+    const buyerPartner = orders.some(order => Math.max(0, Number(order.partnerBonusAmount || 0)) > 0)
+      ? await prisma.partner.findUnique({
+          where: { userId: req.user.id },
+          include: {
+            user: {
+              select: {
+                name: true,
+                email: true
+              }
+            }
+          }
+        })
+      : null
+    const buyerPartnerBalance = buyerPartner
+      ? await calculatePartnerBalance(prisma, buyerPartner.id)
+      : null
+
     const responseOrders = orders.map((order) => {
       const meta = statusMetaByOrderId.get(order.id)
       const effectiveStatus = meta?.mappedLocalStatus || order.status
+      const partnerBonusAmount = Math.max(0, Number(order.partnerBonusAmount || 0))
       return {
         ...order,
         status: effectiveStatus,
+        partnerBonusInfo: partnerBonusAmount > 0 && buyerPartner
+          ? {
+              amount: partnerBonusAmount,
+              partnerId: buyerPartner.id,
+              partnerName: buyerPartner.user?.name || null,
+              partnerEmail: buyerPartner.user?.email || null,
+              balance: buyerPartnerBalance
+            }
+          : null,
         deliveryStatusSource: meta?.source || 'local',
         cdekStatusCode: meta?.cdekStatusCode || null,
         cdekStatusName: meta?.cdekStatusName || null,

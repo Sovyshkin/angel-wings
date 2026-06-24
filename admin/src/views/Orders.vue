@@ -328,6 +328,20 @@
                 </router-link>
               </div>
             </div>
+            <div v-if="getPartnerBonusAmount(selectedOrder) > 0" class="partner-bonus-card">
+              <div class="partner-bonus-card__icon">₽</div>
+              <div class="partner-bonus-card__content">
+                <span>Списано партнёрских баллов</span>
+                <strong>-{{ formatPrice(getPartnerBonusAmount(selectedOrder)) }}</strong>
+                <small v-if="selectedOrder.partnerBonusInfo?.partnerName || selectedOrder.partnerBonusInfo?.partnerEmail">
+                  {{ selectedOrder.partnerBonusInfo?.partnerName || selectedOrder.partnerBonusInfo?.partnerEmail }}
+                </small>
+              </div>
+              <div class="partner-bonus-card__balance">
+                <span>Баланс</span>
+                <strong>{{ formatPrice(getPartnerAvailableBalance(selectedOrder)) }}</strong>
+              </div>
+            </div>
           </div>
 
           <div class="detail-section" v-if="selectedOrder.deliveryTariffName">
@@ -447,6 +461,10 @@
             <div class="total-row" v-if="selectedOrder.discountAmount">
               <span>Скидка</span>
               <span class="discount">-{{ formatPrice(selectedOrder.discountAmount) }} ₽</span>
+            </div>
+            <div class="total-row total-row--bonus" v-if="getPartnerBonusAmount(selectedOrder) > 0">
+              <span>Из них списано баллов</span>
+              <span class="discount">-{{ formatPrice(getPartnerBonusAmount(selectedOrder)) }}</span>
             </div>
             <div class="total-row final">
               <span>Итого</span>
@@ -647,6 +665,14 @@ function getDeliveryType(order) {
 
 function isCdekDelivery(order) {
   return getDeliveryType(order) === 'cdek'
+}
+
+function getPartnerBonusAmount(order) {
+  return Math.max(0, Number(order?.partnerBonusInfo?.amount ?? order?.partnerBonusAmount ?? 0))
+}
+
+function getPartnerAvailableBalance(order) {
+  return Math.max(0, Number(order?.partnerBonusInfo?.balance?.availableBalance ?? 0))
 }
 
 function getDeliverySectionTitle(order) {
@@ -1342,6 +1368,59 @@ watch(search, scheduleOrdersSearch)
   font-weight: 700;
 }
 
+.partner-bonus-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.9rem;
+  align-items: center;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(163, 180, 255, 0.26);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(163, 180, 255, 0.18), transparent 32%),
+    rgba(163, 180, 255, 0.08);
+}
+
+.partner-bonus-card__icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: rgba(163, 180, 255, 0.18);
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.partner-bonus-card__content,
+.partner-bonus-card__balance {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.partner-bonus-card__content span,
+.partner-bonus-card__balance span,
+.partner-bonus-card__content small {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.partner-bonus-card__content strong {
+  color: #22c55e;
+  font-size: 1.05rem;
+}
+
+.partner-bonus-card__balance {
+  align-items: flex-end;
+}
+
+.partner-bonus-card__balance strong {
+  color: var(--text-primary);
+}
+
 /* CDEK Info */
 .cdek-info {
   display: flex;
@@ -1575,6 +1654,11 @@ watch(search, scheduleOrdersSearch)
   font-size: 1.125rem;
 }
 
+.total-row--bonus {
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
 .discount {
   color: #22c55e;
 }
@@ -1683,6 +1767,15 @@ watch(search, scheduleOrdersSearch)
     grid-column: 2;
     justify-self: end;
     margin-top: 0.35rem;
+  }
+
+  .partner-bonus-card {
+    grid-template-columns: auto 1fr;
+  }
+
+  .partner-bonus-card__balance {
+    grid-column: 2;
+    align-items: flex-start;
   }
 }
 </style>

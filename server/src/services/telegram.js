@@ -56,6 +56,27 @@ function getPaymentLabel(order) {
   return '⏳ Ожидает оплаты'
 }
 
+function getPartnerBonusLines(order) {
+  const bonusAmount = Math.max(0, Number(order?.partnerBonusAmount || order?.partnerBonusInfo?.amount || 0))
+  if (bonusAmount <= 0) return []
+
+  const balance = order?.partnerBonusInfo?.balance
+  const partnerName = order?.partnerBonusInfo?.partnerName || order?.partnerBonusInfo?.partnerEmail || ''
+  const availableBalance = Number(balance?.availableBalance)
+  const lines = [
+    `<b>Баллы партнёра:</b> списано ${escapeHtml(formatMoney(bonusAmount))}`
+  ]
+
+  if (partnerName) {
+    lines.push(`<b>Партнёр:</b> ${escapeHtml(partnerName)}`)
+  }
+  if (Number.isFinite(availableBalance)) {
+    lines.push(`<b>Баланс партнёра:</b> ${escapeHtml(formatMoney(availableBalance))}`)
+  }
+
+  return lines
+}
+
 function buildOrderMessage(order) {
   const items = Array.isArray(order?.items) ? order.items : []
   const lines = []
@@ -74,6 +95,7 @@ function buildOrderMessage(order) {
     `<b>Дата:</b> ${escapeHtml(formatDateTime(order.createdAt))}`,
     `<b>Сумма:</b> ${escapeHtml(formatMoney(order.total))}`,
     `<b>Статус оплаты:</b> ${escapeHtml(getPaymentLabel(order))}`,
+    ...getPartnerBonusLines(order),
     `<b>Доставка:</b> ${escapeHtml(getDeliveryLabel(order))}`,
     `<b>Адрес:</b> ${escapeHtml(order.shippingAddress || order.deliveryPickupName || order.deliveryCity || '—')}`,
     '',
