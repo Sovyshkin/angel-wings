@@ -41,6 +41,22 @@ async function generateUniqueProductSlug(title) {
   )
 }
 
+function stripInternalProductFields(product) {
+  const {
+    costPrice,
+    packageLength,
+    packageWidth,
+    packageHeight,
+    ...publicProduct
+  } = product
+  return publicProduct
+}
+
+function parsePackageDimension(value) {
+  const parsed = parseInt(value, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const { category, search, featured, limit = 100, offset = 0 } = req.query
@@ -80,7 +96,7 @@ const [products, total] = await Promise.all([
     ])
 
     const parsedProducts = products.map(p => {
-      const { costPrice, ...publicProduct } = p
+      const publicProduct = stripInternalProductFields(p)
       return {
         ...publicProduct,
         specs: p.specs ? JSON.parse(p.specs) : {},
@@ -109,7 +125,7 @@ router.get('/:slug', async (req, res, next) => {
       return res.status(404).json({ error: 'Товар не найден' })
     }
     
-    const { costPrice, ...publicProduct } = product
+    const publicProduct = stripInternalProductFields(product)
     const parsedProduct = {
       ...publicProduct,
       specs: product.specs ? JSON.parse(product.specs) : {},
@@ -127,7 +143,7 @@ router.post('/', authenticate, requireAdmin, upload.fields([
   { name: 'images', maxCount: 12 }
 ]), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, costPrice, sku, stock, weight, repeatCycleDays, specs, categories, featured, active, purity, volume, country } = req.body
+    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, active, purity, volume, country } = req.body
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const galleryImages = galleryFiles.map(file => `/uploads/${file.filename}`)
@@ -157,6 +173,9 @@ router.post('/', authenticate, requireAdmin, upload.fields([
         sku,
         stock: parseInt(stock) || 0,
         weight: parsedWeight,
+        packageLength: parsePackageDimension(packageLength),
+        packageWidth: parsePackageDimension(packageWidth),
+        packageHeight: parsePackageDimension(packageHeight),
         repeatCycleDays: parsedRepeatCycleDays,
         specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
         purity: purity || null,
@@ -183,7 +202,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
   { name: 'images', maxCount: 12 }
 ]), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, costPrice, sku, stock, weight, repeatCycleDays, specs, categories, featured, active, purity, volume, country, existingImages } = req.body
+    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, active, purity, volume, country, existingImages } = req.body
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const persistedImages = parseImagesField(existingImages)
@@ -210,6 +229,9 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
       sku,
       stock: parseInt(stock) || 0,
       weight: parsedWeight,
+      packageLength: parsePackageDimension(packageLength),
+      packageWidth: parsePackageDimension(packageWidth),
+      packageHeight: parsePackageDimension(packageHeight),
       repeatCycleDays: parsedRepeatCycleDays,
       specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
       purity: purity || null,

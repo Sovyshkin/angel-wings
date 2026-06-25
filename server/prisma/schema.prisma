@@ -53,6 +53,9 @@ model Product {
   sku         String?   @unique
   stock       Int       @default(0)
   weight      Int       @default(0) // Вес в граммах
+  packageLength Int     @default(0) // Длина упаковки в см
+  packageWidth  Int     @default(0) // Ширина упаковки в см
+  packageHeight Int     @default(0) // Высота упаковки в см
   repeatCycleDays Int?  // Через сколько дней клиенту пора повторить курс
   image       String?
   images      String    @default("[]")

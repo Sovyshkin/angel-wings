@@ -37,6 +37,7 @@
               <th>Категория</th>
               <th>Цена</th>
               <th>Stock</th>
+              <th>Упаковка</th>
               <th>Статус</th>
               <th></th>
             </tr>
@@ -55,6 +56,7 @@
               </td>
               <td class="cell-price">{{ formatPrice(product.price) }}</td>
               <td :class="['cell-stock', { low: product.stock <= 10 }]">{{ product.stock }}</td>
+              <td class="cell-package">{{ formatPackageSize(product) }}</td>
               <td>
                 <span :class="['badge', product.active ? 'badge-success' : 'badge-danger']">
                   {{ product.active ? 'Активен' : 'Скрыт' }}
@@ -99,6 +101,9 @@
             <div class="product-card__meta">
               <span class="product-card__price">{{ formatPrice(product.price) }}</span>
               <span :class="['product-card__stock', { low: product.stock <= 10 }]">{{ product.stock }} шт</span>
+            </div>
+            <div class="product-card__package">
+              Упаковка: {{ formatPackageSize(product) }}
             </div>
           </div>
           <div class="product-card__actions">
@@ -152,6 +157,7 @@ const filteredProducts = computed(() => {
       product.slug,
       product.price,
       product.stock,
+      formatPackageSize(product),
       status,
       ...(product.categories || []).map(category => category.name)
     ].join(' ').toLowerCase()
@@ -185,6 +191,14 @@ function formatPrice(val) {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(val)
 }
 
+function formatPackageSize(product) {
+  const length = Number(product?.packageLength || 0)
+  const width = Number(product?.packageWidth || 0)
+  const height = Number(product?.packageHeight || 0)
+  if (length <= 0 && width <= 0 && height <= 0) return '—'
+  return `${length || 0}×${width || 0}×${height || 0} см`
+}
+
 onMounted(fetchProducts)
 </script>
 
@@ -204,7 +218,7 @@ onMounted(fetchProducts)
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 700px;
+  min-width: 820px;
 }
 
 .data-table th,
@@ -271,6 +285,12 @@ onMounted(fetchProducts)
 .cell-stock.low {
   color: var(--danger);
   font-weight: 600;
+}
+
+.cell-package {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .badge {
@@ -378,6 +398,12 @@ onMounted(fetchProducts)
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.product-card__package {
+  margin-top: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
 }
 
 .product-card__price {

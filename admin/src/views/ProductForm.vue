@@ -51,6 +51,17 @@
             <label class="form-label">Вес (г) *</label>
             <input type="number" v-model.number="form.weight" required min="1" class="input" placeholder="500">
           </div>
+          <div class="form-group package-size-group">
+            <label class="form-label">Размер упаковки (см)</label>
+            <div class="package-size-inputs">
+              <input type="number" v-model.number="form.packageLength" min="0" class="input" placeholder="Длина">
+              <span>×</span>
+              <input type="number" v-model.number="form.packageWidth" min="0" class="input" placeholder="Ширина">
+              <span>×</span>
+              <input type="number" v-model.number="form.packageHeight" min="0" class="input" placeholder="Высота">
+            </div>
+            <small class="field-hint">Внутреннее поле для логистики, пользователям не показывается.</small>
+          </div>
           <div class="form-group">
             <label class="form-label">Цикл повтора (дней)</label>
             <input type="number" v-model.number="form.repeatCycleDays" min="1" class="input" placeholder="Например 30">
@@ -270,6 +281,9 @@ const form = ref({
   comparePrice: null,
   stock: 0,
   weight: 0,
+  packageLength: 0,
+  packageWidth: 0,
+  packageHeight: 0,
   repeatCycleDays: null,
   categoryId: '',
   description: '',
@@ -320,6 +334,9 @@ async function fetchProduct() {
     comparePrice: p.comparePrice ? parseFloat(p.comparePrice) : null,
     stock: p.stock,
     weight: p.weight || 0,
+    packageLength: p.packageLength || 0,
+    packageWidth: p.packageWidth || 0,
+    packageHeight: p.packageHeight || 0,
     repeatCycleDays: p.repeatCycleDays || null,
     categoryId: p.categories?.[0]?.id || '',
     description: p.description,
@@ -458,6 +475,9 @@ async function handleSubmit() {
     if (form.value.sku) formData.append('sku', form.value.sku)
     formData.append('stock', form.value.stock)
     formData.append('weight', form.value.weight)
+    formData.append('packageLength', form.value.packageLength || 0)
+    formData.append('packageWidth', form.value.packageWidth || 0)
+    formData.append('packageHeight', form.value.packageHeight || 0)
     if (form.value.repeatCycleDays) formData.append('repeatCycleDays', form.value.repeatCycleDays)
     formData.append('specs', specsToJson())
     formData.append('featured', form.value.featured)
@@ -584,6 +604,22 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
+}
+
+.package-size-group {
+  grid-column: span 2;
+}
+
+.package-size-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.package-size-inputs span {
+  color: var(--text-muted);
+  font-weight: 700;
 }
 
 .file-input-wrapper {
@@ -866,6 +902,18 @@ onMounted(() => {
 
   .form-group {
     margin-bottom: 1rem;
+  }
+
+  .package-size-group {
+    grid-column: auto;
+  }
+
+  .package-size-inputs {
+    grid-template-columns: 1fr;
+  }
+
+  .package-size-inputs span {
+    display: none;
   }
 
   .form-label {
