@@ -54,11 +54,20 @@
           <div class="form-group package-size-group">
             <label class="form-label">Размер упаковки (см)</label>
             <div class="package-size-inputs">
-              <input type="number" v-model.number="form.packageLength" min="0" class="input" placeholder="Длина">
+              <label class="package-size-field">
+                <span>Длина</span>
+                <input type="number" v-model.number="form.packageLength" min="0" class="input" placeholder="0">
+              </label>
               <span>×</span>
-              <input type="number" v-model.number="form.packageWidth" min="0" class="input" placeholder="Ширина">
+              <label class="package-size-field">
+                <span>Ширина</span>
+                <input type="number" v-model.number="form.packageWidth" min="0" class="input" placeholder="0">
+              </label>
               <span>×</span>
-              <input type="number" v-model.number="form.packageHeight" min="0" class="input" placeholder="Высота">
+              <label class="package-size-field">
+                <span>Высота</span>
+                <input type="number" v-model.number="form.packageHeight" min="0" class="input" placeholder="0">
+              </label>
             </div>
             <small class="field-hint">Внутреннее поле для логистики, пользователям не показывается.</small>
           </div>
@@ -622,6 +631,20 @@ onMounted(() => {
   font-weight: 700;
 }
 
+.package-size-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.package-size-field span {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .file-input-wrapper {
   position: relative;
 }
@@ -914,6 +937,10 @@ onMounted(() => {
 
   .package-size-inputs span {
     display: none;
+  }
+
+  .package-size-field span {
+    display: inline;
   }
 
   .form-label {
