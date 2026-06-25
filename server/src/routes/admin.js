@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
+import { sendCloudKassirIncomeReceiptOnPaidTransition } from '../utils/cloudKassirReceipt.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -552,6 +553,13 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
             data: { paymentStatus: normalized }
           })
           await syncPartnerCommissionForOrder(prisma, order.id)
+          await sendCloudKassirIncomeReceiptOnPaidTransition(
+            prisma,
+            order.id,
+            order.paymentStatus,
+            normalized,
+            'admin-orders-auto-sync'
+          )
           return { id: order.id, paymentStatus: normalized }
         })
       )
@@ -619,12 +627,24 @@ router.put('/orders/:id/payment-status', authenticate, requireAdmin, async (req,
       return res.status(400).json({ error: 'Некорректный статус оплаты' })
     }
 
+    const previousOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { paymentStatus: true }
+    })
+
     const order = await prisma.order.update({
       where: { id: orderId },
       data: { paymentStatus: normalizedStatus }
     })
 
     await syncPartnerCommissionForOrder(prisma, order.id)
+    await sendCloudKassirIncomeReceiptOnPaidTransition(
+      prisma,
+      order.id,
+      previousOrder?.paymentStatus,
+      normalizedStatus,
+      'admin-payment-status'
+    )
 
     res.json({ order })
   } catch (error) {
