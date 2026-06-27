@@ -158,6 +158,7 @@ class EmailService {
 
   async sendMail({ to, subject, text, html }) {
     const config = getSmtpConfig()
+    const relay = getRelayConfig()
 
     if (!this.isConfigured()) {
       const error = new Error('Отправка почты не настроена. Проверьте EMAIL_RELAY_URL/EMAIL_RELAY_SECRET или SMTP-параметры в .env')
@@ -176,28 +177,35 @@ class EmailService {
     console.log('[EMAIL] sendMail request', JSON.stringify({
       to,
       subject,
-      mode: getRelayConfig().url ? 'relay' : 'smtp',
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      requireTLS: config.requireTLS
+      mode: relay.url ? 'relay' : 'smtp',
+      target: relay.url || `${config.host}:${config.port}`,
+      secure: relay.url ? true : config.secure,
+      requireTLS: relay.url ? null : config.requireTLS
     }))
 
     let result
     try {
-      result = getRelayConfig().url
+      result = relay.url
         ? await this.sendViaRelay(message)
         : await this.getTransporter().sendMail(message)
     } catch (error) {
+      const nestedErrors = Array.isArray(error?.errors)
+        ? error.errors.map(item => ({
+            code: item?.code || null,
+            message: item?.message || null,
+            address: item?.address || null,
+            port: item?.port || null
+          }))
+        : []
       console.error('[EMAIL] sendMail failed', JSON.stringify({
         to,
-        mode: getRelayConfig().url ? 'relay' : 'smtp',
-        host: config.host,
-        port: config.port,
-        code: error?.code || null,
+        mode: relay.url ? 'relay' : 'smtp',
+        target: relay.url || `${config.host}:${config.port}`,
+        code: error?.code || error?.cause?.code || null,
         command: error?.command || null,
         responseCode: error?.responseCode || null,
-        message: error?.message || 'Unknown SMTP error'
+        message: error?.message || error?.cause?.message || 'Unknown delivery error',
+        nestedErrors
       }))
 
       const deliveryError = new Error(
