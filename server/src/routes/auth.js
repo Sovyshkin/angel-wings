@@ -18,7 +18,7 @@ async function createAndSendEmailCode(user, purpose = 'email_verification') {
   const code = generateEmailCode()
   const expiresAt = new Date(Date.now() + EMAIL_CODE_TTL_MINUTES * 60 * 1000)
 
-  await prisma.emailVerificationCode.create({
+  const verification = await prisma.emailVerificationCode.create({
     data: {
       userId: user.id,
       email: user.email,
@@ -28,11 +28,18 @@ async function createAndSendEmailCode(user, purpose = 'email_verification') {
     }
   })
 
-  await emailService.sendVerificationCode({
-    to: user.email,
-    name: user.name,
-    code
-  })
+  try {
+    await emailService.sendVerificationCode({
+      to: user.email,
+      name: user.name,
+      code
+    })
+  } catch (error) {
+    await prisma.emailVerificationCode.delete({
+      where: { id: verification.id }
+    }).catch(() => {})
+    throw error
+  }
 
   return expiresAt
 }

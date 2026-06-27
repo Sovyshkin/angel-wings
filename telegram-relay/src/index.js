@@ -3,13 +3,14 @@ import https from 'node:https'
 import crypto from 'node:crypto'
 import express from 'express'
 import axios from 'axios'
+import nodemailer from 'nodemailer'
 
 const app = express()
 const port = Number(process.env.PORT || 3010)
 
 app.disable('x-powered-by')
 app.use(express.json({
-  limit: '100kb',
+  limit: '300kb',
   verify: (req, res, buffer) => {
     req.rawBody = buffer.toString('utf8')
   }
@@ -36,11 +37,15 @@ function getRequiredEnv(name) {
 }
 
 function requireRelayAuth(req, res, next) {
-  const expectedSecret = String(process.env.TELEGRAM_RELAY_SECRET || '').trim()
+  const isEmailRequest = req.path === '/email/send'
+  const expectedSecret = String(isEmailRequest
+    ? (process.env.EMAIL_RELAY_SECRET || process.env.TELEGRAM_RELAY_SECRET || '')
+    : (process.env.TELEGRAM_RELAY_SECRET || '')
+  ).trim()
   const toleranceMs = Number(process.env.TELEGRAM_RELAY_SIGNATURE_TOLERANCE_MS || 300000)
 
   if (!expectedSecret || expectedSecret.length < 24) {
-    console.error('[RELAY] TELEGRAM_RELAY_SECRET is missing or too short')
+    console.error(`[RELAY] ${isEmailRequest ? 'EMAIL_RELAY_SECRET' : 'TELEGRAM_RELAY_SECRET'} is missing or too short`)
     return res.status(500).json({ ok: false, error: 'Relay secret is not configured' })
   }
 
@@ -80,12 +85,99 @@ function requireRelayAuth(req, res, next) {
   next()
 }
 
+let mailTransporter = null
+
+function getMailTransporter() {
+  if (mailTransporter) return mailTransporter
+
+  const host = getRequiredEnv('SMTP_HOST')
+  const port = Number(process.env.SMTP_PORT || 465)
+  const secure = String(process.env.SMTP_SECURE || 'true').toLowerCase() !== 'false'
+  const requireTLS = String(process.env.SMTP_REQUIRE_TLS ?? (port === 587 ? 'true' : 'false')).toLowerCase() === 'true'
+
+  mailTransporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    requireTLS,
+    family: 4,
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 8000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 8000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 15000),
+    auth: {
+      user: getRequiredEnv('SMTP_USER'),
+      pass: getRequiredEnv('SMTP_PASSWORD')
+    },
+    tls: {
+      servername: host,
+      rejectUnauthorized: true
+    },
+    disableFileAccess: true,
+    disableUrlAccess: true
+  })
+
+  return mailTransporter
+}
+
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
     service: 'angel-wings-telegram-relay',
-    telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_ORDERS_CHAT_ID)
+    telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_ORDERS_CHAT_ID),
+    emailConfigured: Boolean(
+      process.env.SMTP_HOST &&
+      process.env.SMTP_USER &&
+      process.env.SMTP_PASSWORD &&
+      (process.env.EMAIL_RELAY_SECRET || process.env.TELEGRAM_RELAY_SECRET)
+    )
   })
+})
+
+app.post('/email/send', requireRelayAuth, async (req, res) => {
+  const to = String(req.body?.to || '').trim()
+  const subject = String(req.body?.subject || '').trim()
+  const text = String(req.body?.text || '')
+  const html = String(req.body?.html || '')
+
+  if (!/^\S+@\S+\.\S+$/.test(to) || !subject || (!text && !html)) {
+    return res.status(400).json({ ok: false, error: 'Invalid email payload' })
+  }
+
+  try {
+    const from = getRequiredEnv('SMTP_FROM')
+    console.log('[RELAY] Email send request', JSON.stringify({ to, subject }))
+
+    const result = await getMailTransporter().sendMail({
+      from: `"Angel Wings" <${from}>`,
+      to,
+      subject,
+      text,
+      html: html || undefined
+    })
+
+    console.log('[RELAY] Email send success', JSON.stringify({
+      to,
+      messageId: result.messageId || null,
+      accepted: result.accepted || [],
+      rejected: result.rejected || []
+    }))
+
+    return res.json({
+      ok: true,
+      messageId: result.messageId || null,
+      accepted: result.accepted || [],
+      rejected: result.rejected || []
+    })
+  } catch (error) {
+    console.error('[RELAY] Email send failed', JSON.stringify({
+      to,
+      code: error?.code || null,
+      command: error?.command || null,
+      responseCode: error?.responseCode || null,
+      message: error?.message || null
+    }))
+    return res.status(503).json({ ok: false, error: 'Email delivery failed' })
+  }
 })
 
 app.post('/telegram/orders', requireRelayAuth, async (req, res) => {

@@ -1,17 +1,55 @@
 import nodemailer from 'nodemailer'
 import crypto from 'node:crypto'
+import axios from 'axios'
 
 const DEFAULT_FROM = 'info@angel-wings.ru'
+const DEFAULT_CONNECTION_TIMEOUT_MS = 8000
+const DEFAULT_GREETING_TIMEOUT_MS = 8000
+const DEFAULT_SOCKET_TIMEOUT_MS = 15000
 
 function getSmtpConfig() {
   const host = process.env.SMTP_HOST || 'mail.hosting.reg.ru'
   const port = Number(process.env.SMTP_PORT || 465)
   const secure = String(process.env.SMTP_SECURE || 'true').toLowerCase() !== 'false'
+  const requireTLS = String(process.env.SMTP_REQUIRE_TLS ?? (port === 587 ? 'true' : 'false')).toLowerCase() === 'true'
   const user = process.env.SMTP_USER || DEFAULT_FROM
   const pass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS
   const from = process.env.SMTP_FROM || user || DEFAULT_FROM
+  const connectionTimeout = Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || DEFAULT_CONNECTION_TIMEOUT_MS)
+  const greetingTimeout = Number(process.env.SMTP_GREETING_TIMEOUT_MS || DEFAULT_GREETING_TIMEOUT_MS)
+  const socketTimeout = Number(process.env.SMTP_SOCKET_TIMEOUT_MS || DEFAULT_SOCKET_TIMEOUT_MS)
 
-  return { host, port, secure, user, pass, from }
+  return {
+    host,
+    port,
+    secure,
+    requireTLS,
+    user,
+    pass,
+    from,
+    connectionTimeout,
+    greetingTimeout,
+    socketTimeout
+  }
+}
+
+function getRelayConfig() {
+  return {
+    url: String(process.env.EMAIL_RELAY_URL || '').trim().replace(/\/+$/, ''),
+    secret: String(
+      process.env.EMAIL_RELAY_SECRET ||
+      process.env.TELEGRAM_RELAY_SECRET ||
+      ''
+    ).trim(),
+    timeout: Number(process.env.EMAIL_RELAY_TIMEOUT_MS || 20000)
+  }
+}
+
+function createRelaySignature(secret, timestamp, body) {
+  return crypto
+    .createHmac('sha256', secret)
+    .update(`${timestamp}.${body}`)
+    .digest('hex')
 }
 
 function escapeHtml(value) {
@@ -34,13 +72,60 @@ class EmailService {
   }
 
   isConfigured() {
+    const relay = getRelayConfig()
+    if (relay.url) {
+      return Boolean(relay.secret)
+    }
+
     const config = getSmtpConfig()
     return Boolean(config.host && config.port && config.user && config.pass)
   }
 
+  async sendViaRelay(message) {
+    const relay = getRelayConfig()
+    if (!relay.url || !relay.secret) {
+      const error = new Error('EMAIL_RELAY_URL или EMAIL_RELAY_SECRET не настроены')
+      error.code = 'EMAIL_RELAY_NOT_CONFIGURED'
+      throw error
+    }
+
+    const payload = {
+      to: message.to,
+      subject: message.subject,
+      text: message.text || '',
+      html: message.html || ''
+    }
+    const body = JSON.stringify(payload)
+    const timestamp = String(Date.now())
+    const signature = createRelaySignature(relay.secret, timestamp, body)
+
+    const response = await axios.post(`${relay.url}/email/send`, body, {
+      timeout: relay.timeout,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-AngelWings-Timestamp': timestamp,
+        'X-AngelWings-Signature': signature
+      },
+      validateStatus: () => true
+    })
+
+    if (Number(response.status || 0) >= 400 || response.data?.ok === false) {
+      const error = new Error(response.data?.error || `Email relay returned HTTP ${response.status}`)
+      error.code = 'EMAIL_RELAY_REJECTED'
+      error.responseCode = response.status
+      throw error
+    }
+
+    return {
+      messageId: response.data?.messageId || null,
+      accepted: response.data?.accepted || [message.to],
+      rejected: response.data?.rejected || []
+    }
+  }
+
   getTransporter() {
     const config = getSmtpConfig()
-    const key = `${config.host}:${config.port}:${config.secure}:${config.user}`
+    const key = `${config.host}:${config.port}:${config.secure}:${config.requireTLS}:${config.user}`
 
     if (this.transporter && this.transporterKey === key) {
       return this.transporter
@@ -51,10 +136,21 @@ class EmailService {
       host: config.host,
       port: config.port,
       secure: config.secure,
+      requireTLS: config.requireTLS,
+      family: 4,
+      connectionTimeout: config.connectionTimeout,
+      greetingTimeout: config.greetingTimeout,
+      socketTimeout: config.socketTimeout,
       auth: {
         user: config.user,
         pass: config.pass
-      }
+      },
+      tls: {
+        servername: config.host,
+        rejectUnauthorized: true
+      },
+      disableFileAccess: true,
+      disableUrlAccess: true
     })
 
     return this.transporter
@@ -64,7 +160,7 @@ class EmailService {
     const config = getSmtpConfig()
 
     if (!this.isConfigured()) {
-      const error = new Error('SMTP не настроен. Укажите SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD и SMTP_FROM в .env')
+      const error = new Error('Отправка почты не настроена. Проверьте EMAIL_RELAY_URL/EMAIL_RELAY_SECRET или SMTP-параметры в .env')
       error.code = 'SMTP_NOT_CONFIGURED'
       throw error
     }
@@ -80,12 +176,39 @@ class EmailService {
     console.log('[EMAIL] sendMail request', JSON.stringify({
       to,
       subject,
+      mode: getRelayConfig().url ? 'relay' : 'smtp',
       host: config.host,
       port: config.port,
-      secure: config.secure
+      secure: config.secure,
+      requireTLS: config.requireTLS
     }))
 
-    const result = await this.getTransporter().sendMail(message)
+    let result
+    try {
+      result = getRelayConfig().url
+        ? await this.sendViaRelay(message)
+        : await this.getTransporter().sendMail(message)
+    } catch (error) {
+      console.error('[EMAIL] sendMail failed', JSON.stringify({
+        to,
+        mode: getRelayConfig().url ? 'relay' : 'smtp',
+        host: config.host,
+        port: config.port,
+        code: error?.code || null,
+        command: error?.command || null,
+        responseCode: error?.responseCode || null,
+        message: error?.message || 'Unknown SMTP error'
+      }))
+
+      const deliveryError = new Error(
+        'Не удалось отправить письмо. Почтовый сервис временно недоступен, попробуйте ещё раз через несколько минут.'
+      )
+      deliveryError.name = 'EmailDeliveryError'
+      deliveryError.code = 'EMAIL_DELIVERY_FAILED'
+      deliveryError.status = 503
+      deliveryError.cause = error
+      throw deliveryError
+    }
 
     console.log('[EMAIL] sendMail success', JSON.stringify({
       to,

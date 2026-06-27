@@ -42,6 +42,13 @@ function getPrismaErrorMessage(err) {
 export const errorHandler = (err, req, res, next) => {
   console.error(err.stack || err)
 
+  if (err.code === 'EMAIL_DELIVERY_FAILED' || err.name === 'EmailDeliveryError') {
+    return res.status(503).json({
+      error: 'Не удалось отправить письмо. Почтовый сервис временно недоступен, попробуйте ещё раз через несколько минут.',
+      code: 'EMAIL_DELIVERY_FAILED'
+    })
+  }
+
   const prismaMessage = getPrismaErrorMessage(err)
   if (prismaMessage) {
     return res.status(400).json({

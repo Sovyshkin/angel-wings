@@ -1,6 +1,6 @@
-# Angel Wings Telegram Relay
+# Angel Wings Telegram and Email Relay
 
-Отдельный маленький backend для сервера за пределами РФ. Основной сайт отправляет сюда защищённый запрос о новом заказе, а relay уже отправляет сообщение в Telegram Bot API.
+Отдельный маленький backend для сервера за пределами РФ. Основной сайт отправляет сюда защищённые запросы, а relay отправляет уведомления в Telegram и письма через SMTP.
 
 ## Схема работы
 
@@ -21,6 +21,15 @@ TELEGRAM_RELAY_SIGNATURE_TOLERANCE_MS="300000"
 TELEGRAM_BOT_TOKEN="токен_бота"
 TELEGRAM_ORDERS_CHAT_ID="-1004244476310"
 TELEGRAM_ORDERS_THREAD_ID=""
+
+EMAIL_RELAY_SECRET="отдельный-длинный-секрет-для-почты"
+SMTP_HOST="mail.hosting.reg.ru"
+SMTP_PORT="465"
+SMTP_SECURE="true"
+SMTP_REQUIRE_TLS="false"
+SMTP_USER="info@angel-wings.ru"
+SMTP_PASSWORD="пароль-почтового-ящика"
+SMTP_FROM="info@angel-wings.ru"
 ```
 
 `TELEGRAM_RELAY_SECRET` должен совпадать с секретом на основном backend. Он используется не как обычный пароль, а как HMAC-секрет для подписи тела запроса.
@@ -33,9 +42,13 @@ TELEGRAM_ORDERS_THREAD_ID=""
 TELEGRAM_RELAY_URL="https://telegram-relay.example.com"
 TELEGRAM_RELAY_SECRET="тот-же-самый-длинный-секрет"
 TELEGRAM_RELAY_TIMEOUT_MS="30000"
+
+EMAIL_RELAY_URL="https://tg.angel-wings.ru"
+EMAIL_RELAY_SECRET="тот-же-email-секрет-что-на-relay"
+EMAIL_RELAY_TIMEOUT_MS="20000"
 ```
 
-После этого `TELEGRAM_BOT_TOKEN` на основном сервере больше не нужен для отправки через relay.
+После этого `TELEGRAM_BOT_TOKEN` и SMTP-пароль на основном сервере не нужны: секреты внешних сервисов хранятся на немецком relay.
 
 ## Запуск на немецком сервере
 
@@ -106,5 +119,6 @@ curl -X POST "https://telegram-relay.example.com/telegram/orders" \
 - Relay не имеет доступа к базе данных магазина.
 - Telegram bot token хранится только на немецком сервере.
 - Endpoint отправки защищён HMAC-SHA256 подписью `timestamp.body`.
+- Для Telegram и почты можно использовать разные HMAC-секреты.
 - Старые или повторно отправленные запросы отклоняются по `TELEGRAM_RELAY_SIGNATURE_TOLERANCE_MS`.
 - Сервис слушает только `127.0.0.1`, наружу его отдаёт nginx.
