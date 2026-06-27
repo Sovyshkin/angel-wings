@@ -15,14 +15,50 @@ model User {
   role      String    @default("USER")
   phone     String?
   address   String?
+  emailVerified Boolean @default(true)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   orders    Order[]
   partner   Partner?
   partnerUser PartnerUser?
   productAnalyticsEvents ProductAnalyticsEvent[]
+  emailVerificationCodes EmailVerificationCode[]
 
   @@map("users")
+}
+
+model EmailVerificationCode {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  codeHash  String
+  purpose   String   @default("email_verification")
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose, expiresAt])
+  @@index([email, purpose, expiresAt])
+  @@map("email_verification_codes")
+}
+
+model EmailCampaign {
+  id          Int      @id @default(autoincrement())
+  subject     String
+  body        String
+  audience    String   @default("all")
+  status      String   @default("PENDING")
+  total        Int      @default(0)
+  sent         Int      @default(0)
+  failed       Int      @default(0)
+  errorLog     String?
+  createdById Int?
+  createdAt   DateTime @default(now())
+  sentAt      DateTime?
+
+  @@map("email_campaigns")
 }
 
 model Category {

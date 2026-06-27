@@ -24,6 +24,12 @@ export const useAuthStore = defineStore('auth', () => {
       axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
       return data
     } catch (e) {
+      if (e.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        const error = new Error(e.response.data.error || 'Email не подтверждён')
+        error.code = 'EMAIL_NOT_VERIFIED'
+        error.email = e.response.data.email || email
+        throw error
+      }
       const message = e.response?.data?.error || e.message || 'Ошибка авторизации'
       throw new Error(translateError(message))
     }
@@ -58,6 +64,9 @@ export const useAuthStore = defineStore('auth', () => {
   async function register(userData) {
     try {
       const { data } = await axios.post(`${API_URL}/auth/register`, userData)
+      if (data.requiresEmailVerification) {
+        return data
+      }
       user.value = data.user
       token.value = data.token
       localStorage.setItem('peptidi_user', JSON.stringify(data.user))
@@ -87,6 +96,21 @@ export const useAuthStore = defineStore('auth', () => {
     } else {
       localStorage.removeItem('peptidi_user')
     }
+  }
+
+  async function verifyEmail(email, code) {
+    const { data } = await axios.post(`${API_URL}/auth/verify-email`, { email, code })
+    user.value = data.user
+    token.value = data.token
+    localStorage.setItem('peptidi_user', JSON.stringify(data.user))
+    localStorage.setItem('peptidi_token', data.token)
+    axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
+    return data
+  }
+
+  async function resendVerification(email) {
+    const { data } = await axios.post(`${API_URL}/auth/resend-verification`, { email })
+    return data
   }
 
   function logout() {
@@ -120,6 +144,8 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     login,
     register,
+    verifyEmail,
+    resendVerification,
     setAuth,
     logout,
     updateUser,

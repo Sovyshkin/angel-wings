@@ -9,6 +9,7 @@ import { validateBasicPassword, validatePasswordPolicy } from '../utils/password
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { sendCloudKassirIncomeReceiptOnPaidTransition } from '../utils/cloudKassirReceipt.js'
+import emailService from '../services/email.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -437,6 +438,104 @@ router.delete('/users/:id', authenticate, requireAdmin, async (req, res, next) =
     })
     
     res.json({ message: 'Пользователь архивирован' })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/email-campaigns', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const campaigns = await prisma.emailCampaign.findMany({
+      take: Math.min(100, Number(req.query.limit) || 50),
+      orderBy: { createdAt: 'desc' }
+    })
+
+    res.json({ campaigns })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const subject = String(req.body.subject || '').trim()
+    const body = String(req.body.body || '').trim()
+    const audience = String(req.body.audience || 'all').trim()
+
+    if (!subject || subject.length < 3) {
+      return res.status(400).json({ error: 'Укажите тему письма' })
+    }
+
+    if (!body || body.length < 10) {
+      return res.status(400).json({ error: 'Текст письма должен быть не короче 10 символов' })
+    }
+
+    const userWhere = {
+      role: { not: 'DELETED' },
+      emailVerified: true
+    }
+
+    if (audience === 'partners') {
+      userWhere.role = 'PARTNER'
+    } else if (audience === 'clients') {
+      userWhere.role = 'USER'
+    }
+
+    const recipients = await prisma.user.findMany({
+      where: userWhere,
+      select: {
+        id: true,
+        email: true,
+        name: true
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    if (!recipients.length) {
+      return res.status(400).json({ error: 'Не найдено получателей для выбранной аудитории' })
+    }
+
+    const campaign = await prisma.emailCampaign.create({
+      data: {
+        subject,
+        body,
+        audience,
+        total: recipients.length,
+        status: 'SENDING',
+        createdById: req.user.id
+      }
+    })
+
+    let sent = 0
+    let failed = 0
+    const errors = []
+
+    for (const recipient of recipients) {
+      try {
+        await emailService.sendCampaignEmail({
+          to: recipient.email,
+          subject,
+          body: body.replace(/\{\{\s*name\s*\}\}/gi, recipient.name || 'клиент')
+        })
+        sent += 1
+      } catch (error) {
+        failed += 1
+        errors.push(`${recipient.email}: ${error.message || error}`)
+      }
+    }
+
+    const updatedCampaign = await prisma.emailCampaign.update({
+      where: { id: campaign.id },
+      data: {
+        sent,
+        failed,
+        status: failed > 0 ? (sent > 0 ? 'PARTIAL' : 'FAILED') : 'SENT',
+        errorLog: errors.length ? errors.slice(0, 30).join('\n') : null,
+        sentAt: new Date()
+      }
+    })
+
+    res.status(201).json({ campaign: updatedCampaign })
   } catch (error) {
     next(error)
   }
