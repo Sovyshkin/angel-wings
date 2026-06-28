@@ -37,7 +37,7 @@ class TochkaService {
       amount: Number(item.price),
       quantity: Number(item.quantity),
       paymentMethod: 'full_payment',
-      paymentObject: item.object === 4 ? 'service' : 'commodity',
+      paymentObject: item.object === 4 ? 'service' : 'goods',
       measure: 'шт.'
     }))
 
@@ -356,9 +356,9 @@ class TochkaService {
       return {
         success: false,
         error:
+          apiErrorsText ||
           error.response?.data?.message ||
           error.response?.data?.error ||
-          apiErrorsText ||
           error.response?.data?.Errors?.[0]?.message ||
           error.message ||
           'Ошибка создания платежа',
