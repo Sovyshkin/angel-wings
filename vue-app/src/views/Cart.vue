@@ -609,7 +609,6 @@
                   placeholder="example@mail.ru"
                   required
                 >
-                <p class="field-hint">Точка и CloudKassir отправят электронный чек на этот адрес.</p>
               </div>
             </div>
             <div class="form-group">
