@@ -599,7 +599,7 @@
                 </p>
               </div>
               <div class="form-group">
-                <label>Email <span class="required-mark">*</span></label>
+                <label>Email для чека <span class="required-mark">*</span></label>
                 <input
                   ref="emailInputRef"
                   v-model="customer.email"
@@ -607,9 +607,9 @@
                   class="input"
                   :class="{ 'input--error': showValidationErrors && isEmailMissing }"
                   placeholder="example@mail.ru"
-                  :disabled="authStore.isAuthenticated"
                   required
                 >
+                <p class="field-hint">Точка и CloudKassir отправят электронный чек на этот адрес.</p>
               </div>
             </div>
             <div class="form-group">

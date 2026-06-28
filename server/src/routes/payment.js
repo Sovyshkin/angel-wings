@@ -4,6 +4,7 @@ import tochkaService from '../services/tochka.js'
 import { authenticate } from '../middleware/auth.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import {
+  CLOUD_KASSIR_ORDER_INCLUDE,
   sendCloudKassirIncomeReceiptOnPaidTransition
 } from '../utils/cloudKassirReceipt.js'
 
@@ -113,7 +114,8 @@ async function createPaymentForOrder(order, description) {
     order.id,
     description || `Оплата заказа #${order.id}`,
     redirectUrl,
-    failRedirectUrl
+    failRedirectUrl,
+    order
   )
 
   if (!result.success || !result.paymentUrl) {
@@ -152,21 +154,35 @@ router.post('/create', async (req, res, next) => {
       return res.status(400).json({ error: 'Не указан ID заказа или сумма' })
     }
 
-    const { redirectUrl, failRedirectUrl } = getRedirectUrls(orderId)
+    const parsedOrderId = parseInt(orderId, 10)
+    if (!Number.isFinite(parsedOrderId)) {
+      return res.status(400).json({ error: 'Некорректный ID заказа' })
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: parsedOrderId },
+      include: CLOUD_KASSIR_ORDER_INCLUDE
+    })
+    if (!order) {
+      return res.status(404).json({ error: 'Заказ не найден' })
+    }
+
+    const { redirectUrl, failRedirectUrl } = getRedirectUrls(parsedOrderId)
 
     const result = await tochkaService.createPayment(
       amount,
-      orderId,
-      description || `Оплата заказа #${orderId}`,
+      parsedOrderId,
+      description || `Оплата заказа #${parsedOrderId}`,
       redirectUrl,
-      failRedirectUrl
+      failRedirectUrl,
+      order
     )
 
     if (result.success && result.paymentUrl) {
       const resolvedPaymentId = result.paymentId || extractUuidFromPaymentUrl(result.paymentUrl)
-      if (resolvedPaymentId && Number.isFinite(Number(orderId))) {
+      if (resolvedPaymentId) {
         await prisma.order.update({
-          where: { id: parseInt(orderId, 10) },
+          where: { id: parsedOrderId },
           data: {
             paymentId: String(resolvedPaymentId),
             paymentStatus: 'PENDING'
@@ -209,12 +225,7 @@ router.post('/create-for-order/:orderId', authenticate, async (req, res, next) =
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: {
-        id: true,
-        userId: true,
-        total: true,
-        paymentStatus: true
-      }
+      include: CLOUD_KASSIR_ORDER_INCLUDE
     })
 
     if (!order) {

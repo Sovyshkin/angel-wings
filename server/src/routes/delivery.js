@@ -3,9 +3,35 @@ import { PrismaClient } from '@prisma/client'
 import cdek from '../services/cdek.js'
 import yandexGeocoder from '../services/yandexGeocoder.js'
 import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
+import { authenticate, requireAdmin } from '../middleware/auth.js'
 
 const router = express.Router()
 const prisma = new PrismaClient()
+
+const CDEK_BOXES = [
+  { code: 'XS', length: 17, width: 12, height: 9, maxWeight: 500 },
+  { code: 'S', length: 21, width: 20, height: 11, maxWeight: 2000 },
+  { code: 'M', length: 33, width: 25, height: 15, maxWeight: 5000 }
+]
+
+async function getCdekBoxes() {
+  await prisma.$transaction(
+    CDEK_BOXES.map((box) => prisma.cdekBox.upsert({
+      where: { code: box.code },
+      update: {
+        length: box.length,
+        width: box.width,
+        height: box.height,
+        maxWeight: box.maxWeight
+      },
+      create: { ...box, price: 0 }
+    }))
+  )
+
+  return prisma.cdekBox.findMany({
+    where: { code: { in: CDEK_BOXES.map(box => box.code) } }
+  })
+}
 
 function normalizeRussianPhone(value) {
   const digits = String(value || '').replace(/\D/g, '')
@@ -89,6 +115,70 @@ router.get('/tariffs', async (req, res) => {
   } catch (error) {
     console.error('[CDEK] Get tariffs error:', error)
     res.status(400).json(error.data || { error: error.message })
+  }
+})
+
+// GET /api/delivery/boxes
+// Получить внутренние цены стандартных коробов СДЭК.
+router.get('/boxes', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const boxes = await getCdekBoxes()
+    const order = new Map(CDEK_BOXES.map((box, index) => [box.code, index]))
+    boxes.sort((a, b) => order.get(a.code) - order.get(b.code))
+    res.json(boxes)
+  } catch (error) {
+    next(error)
+  }
+})
+
+// PUT /api/delivery/boxes
+// Обновить цены коробов; размеры поддерживаются системным справочником.
+router.put('/boxes', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const submittedBoxes = Array.isArray(req.body?.boxes) ? req.body.boxes : []
+    const allowedCodes = new Set(CDEK_BOXES.map(box => box.code))
+
+    if (!submittedBoxes.length) {
+      return res.status(400).json({ error: 'Передайте цены коробок XS, S или M' })
+    }
+
+    const normalized = submittedBoxes.map((box) => ({
+      code: String(box?.code || '').trim().toUpperCase(),
+      price: Number(box?.price)
+    }))
+
+    const invalidBox = normalized.find(box => (
+      !allowedCodes.has(box.code) ||
+      !Number.isFinite(box.price) ||
+      box.price < 0 ||
+      box.price > 100000
+    ))
+
+    if (invalidBox) {
+      return res.status(400).json({
+        error: 'Стоимость коробки должна быть числом от 0 до 100 000 ₽'
+      })
+    }
+
+    const uniqueCodes = new Set(normalized.map(box => box.code))
+    if (uniqueCodes.size !== normalized.length) {
+      return res.status(400).json({ error: 'Одна коробка указана несколько раз' })
+    }
+
+    await getCdekBoxes()
+    await prisma.$transaction(
+      normalized.map(box => prisma.cdekBox.update({
+        where: { code: box.code },
+        data: { price: Math.round(box.price * 100) / 100 }
+      }))
+    )
+
+    const boxes = await getCdekBoxes()
+    const order = new Map(CDEK_BOXES.map((box, index) => [box.code, index]))
+    boxes.sort((a, b) => order.get(a.code) - order.get(b.code))
+    res.json({ message: 'Стоимость коробок сохранена', boxes })
+  } catch (error) {
+    next(error)
   }
 })
 

@@ -77,8 +77,10 @@
               <td class="cell-num">{{ partner.ordersCount }}</td>
               <td class="cell-amount">{{ formatCurrency(partner.totalCommission) }}</td>
               <td class="cell-balance">
-                <strong>{{ formatCurrency(getAvailableBalance(partner)) }}</strong>
-                <span v-if="getPendingPayouts(partner) > 0">Заморожено: {{ formatCurrency(getPendingPayouts(partner)) }}</span>
+                <div class="balance-stack">
+                  <strong>{{ formatCurrency(getAvailableBalance(partner)) }}</strong>
+                  <span v-if="getPendingPayouts(partner) > 0">Заморожено: {{ formatCurrency(getPendingPayouts(partner)) }}</span>
+                </div>
               </td>
               <td>
                 <label class="toggle">
@@ -425,16 +427,25 @@ onMounted(() => {
 }
 
 .cell-balance {
-  display: grid;
+  min-width: 150px;
+  vertical-align: middle;
+}
+
+.balance-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 0.25rem;
 }
 
-.cell-balance strong {
+.balance-stack strong {
   color: #22c55e;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.cell-balance span {
+.balance-stack span {
   color: var(--text-secondary);
   font-size: 0.78rem;
   white-space: nowrap;

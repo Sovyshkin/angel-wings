@@ -23,6 +23,7 @@
       <button class="tab" :class="{ active: activeTab === 'orders' }" @click="activeTab = 'orders'">Заказы</button>
       <button class="tab" :class="{ active: activeTab === 'pickup' }" @click="activeTab = 'pickup'">ПВЗ</button>
       <button class="tab" :class="{ active: activeTab === 'tariffs' }" @click="activeTab = 'tariffs'">Тарифы</button>
+      <button class="tab" :class="{ active: activeTab === 'boxes' }" @click="activeTab = 'boxes'">Коробки</button>
     </div>
 
     <!-- Balance Info -->
@@ -152,6 +153,75 @@
             </span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Tab Content: CDEK Boxes -->
+    <div v-show="activeTab === 'boxes'" class="tab-content boxes-section">
+      <div class="boxes-heading">
+        <div>
+          <span class="section-kicker">Упаковка СДЭК</span>
+          <h2>Стоимость стандартных коробов</h2>
+          <p>Размеры зафиксированы по справочнику СДЭК. Здесь можно менять внутреннюю стоимость упаковки.</p>
+        </div>
+        <button class="btn btn-primary boxes-save" :disabled="boxSaving || boxLoading" @click="saveBoxes">
+          <svg v-if="!boxSaving" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/>
+            <path d="M17 21v-8H7v8M7 3v5h8"/>
+          </svg>
+          {{ boxSaving ? 'Сохраняем...' : 'Сохранить цены' }}
+        </button>
+      </div>
+
+      <div v-if="boxLoading" class="loading">
+        <span class="spinner"></span> Загружаем коробки...
+      </div>
+
+      <div v-else class="boxes-grid">
+        <article v-for="(box, index) in boxes" :key="box.code" class="box-card" :class="`box-card--${box.code.toLowerCase()}`">
+          <div class="box-card__topline">
+            <span class="box-card__index">0{{ index + 1 }}</span>
+            <span class="box-card__weight">до {{ formatBoxWeight(box.maxWeight) }}</span>
+          </div>
+
+          <div class="box-visual" aria-hidden="true">
+            <div class="box-visual__lid"></div>
+            <div class="box-visual__front">
+              <span>{{ box.code }}</span>
+            </div>
+            <div class="box-visual__side"></div>
+          </div>
+
+          <div class="box-card__content">
+            <div>
+              <span class="box-card__eyebrow">Короб СДЭК</span>
+              <h3>Размер {{ box.code }}</h3>
+            </div>
+            <div class="box-dimensions">
+              <span><strong>{{ box.length }}</strong> длина</span>
+              <i>×</i>
+              <span><strong>{{ box.width }}</strong> ширина</span>
+              <i>×</i>
+              <span><strong>{{ box.height }}</strong> высота</span>
+              <em>см</em>
+            </div>
+            <label class="box-price-field">
+              <span>Стоимость короба</span>
+              <div class="box-price-input">
+                <input v-model.number="box.price" type="number" min="0" max="100000" step="1" inputmode="decimal">
+                <span>₽</span>
+              </div>
+            </label>
+          </div>
+        </article>
+      </div>
+
+      <div v-if="boxMessage" class="boxes-message" :class="{ 'boxes-message--error': boxError }">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path v-if="boxError" d="M12 9v4m0 4h.01M10.3 3.7 2.4 17.4A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.6L13.7 3.7a2 2 0 0 0-3.4 0Z"/>
+          <path v-else d="m5 12 4 4L19 6"/>
+        </svg>
+        {{ boxMessage }}
       </div>
     </div>
 
@@ -324,6 +394,9 @@ watch(activeTab, (newTab) => {
   if (newTab === 'tariffs' && tariffs.value.length === 0) {
     loadTariffs()
   }
+  if (newTab === 'boxes' && boxes.value.length === 0) {
+    loadBoxes()
+  }
 })
 const loading = ref(false)
 const cityLoading = ref(false)
@@ -338,6 +411,11 @@ const cdekOrders = ref([])
 const cityResults = ref([])
 const pickupPoints = ref([])
 const tariffs = ref([])
+const boxes = ref([])
+const boxLoading = ref(false)
+const boxSaving = ref(false)
+const boxMessage = ref('')
+const boxError = ref(false)
 
 // Search
 const orderSearch = ref('')
@@ -553,6 +631,49 @@ async function loadTariffs() {
     console.error('Tariffs error:', e)
   } finally {
     tariffLoading.value = false
+  }
+}
+
+function formatBoxWeight(weight) {
+  const grams = Number(weight || 0)
+  if (grams >= 1000) return `${grams / 1000} кг`
+  return `${grams} г`
+}
+
+async function loadBoxes() {
+  boxLoading.value = true
+  boxMessage.value = ''
+  boxError.value = false
+  try {
+    const { data } = await deliveryApi.get('/boxes')
+    boxes.value = Array.isArray(data)
+      ? data.map(box => ({ ...box, price: Number(box.price || 0) }))
+      : []
+  } catch (error) {
+    boxError.value = true
+    boxMessage.value = error.response?.data?.error || 'Не удалось загрузить коробки'
+  } finally {
+    boxLoading.value = false
+  }
+}
+
+async function saveBoxes() {
+  boxSaving.value = true
+  boxMessage.value = ''
+  boxError.value = false
+  try {
+    const payload = boxes.value.map(box => ({
+      code: box.code,
+      price: Number(box.price)
+    }))
+    const { data } = await deliveryApi.put('/boxes', { boxes: payload })
+    boxes.value = data.boxes.map(box => ({ ...box, price: Number(box.price || 0) }))
+    boxMessage.value = data.message || 'Стоимость коробок сохранена'
+  } catch (error) {
+    boxError.value = true
+    boxMessage.value = error.response?.data?.error || 'Не удалось сохранить стоимость коробок'
+  } finally {
+    boxSaving.value = false
   }
 }
 
@@ -999,6 +1120,288 @@ onMounted(() => {
   color: #3b82f6;
 }
 
+.boxes-section {
+  position: relative;
+  padding: 1.5rem;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(166, 185, 248, 0.14), transparent 28%),
+    linear-gradient(145deg, var(--bg-card), var(--bg-secondary));
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+
+.boxes-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 70%);
+}
+
+.boxes-heading,
+.boxes-grid,
+.boxes-message,
+.boxes-section > .loading {
+  position: relative;
+  z-index: 1;
+}
+
+.boxes-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.section-kicker {
+  display: inline-block;
+  margin-bottom: 0.45rem;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.boxes-heading h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+}
+
+.boxes-heading p {
+  max-width: 650px;
+  margin: 0.55rem 0 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.boxes-save {
+  flex: 0 0 auto;
+  min-width: 190px;
+}
+
+.boxes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.box-card {
+  --box-scale: 0.82;
+  position: relative;
+  min-width: 0;
+  padding: 1rem;
+  overflow: hidden;
+  background: rgba(12, 13, 19, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.12);
+}
+
+.box-card--s {
+  --box-scale: 0.92;
+}
+
+.box-card--m {
+  --box-scale: 1;
+}
+
+.box-card__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.box-card__weight {
+  padding: 0.35rem 0.55rem;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-radius: 999px;
+}
+
+.box-visual {
+  position: relative;
+  width: calc(126px * var(--box-scale));
+  height: calc(104px * var(--box-scale));
+  margin: 1.7rem auto 1.5rem;
+  filter: drop-shadow(0 18px 15px rgba(0, 0, 0, 0.25));
+}
+
+.box-visual__front,
+.box-visual__lid,
+.box-visual__side {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.box-visual__front {
+  left: 0;
+  bottom: 0;
+  width: 96px;
+  height: 67px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #a6b9f8, #768bd4);
+  clip-path: polygon(0 0, 100% 12%, 100% 100%, 0 88%);
+}
+
+.box-visual__front span {
+  color: #111522;
+  font-family: var(--font-mono);
+  font-size: 1.45rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.box-visual__lid {
+  top: 8px;
+  left: 0;
+  width: 96px;
+  height: 36px;
+  background: #c3cff9;
+  clip-path: polygon(22% 0, 100% 22%, 78% 100%, 0 77%);
+}
+
+.box-visual__side {
+  right: 0;
+  bottom: 0;
+  width: 31px;
+  height: 67px;
+  background: #596eaf;
+  clip-path: polygon(0 12%, 100% 0, 100% 88%, 0 100%);
+}
+
+.box-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.box-card__eyebrow {
+  color: var(--text-muted);
+  font-size: 0.69rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.box-card__content h3 {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+
+.box-dimensions {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+  min-height: 40px;
+}
+
+.box-dimensions span {
+  display: flex;
+  flex-direction: column;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.box-dimensions strong {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+}
+
+.box-dimensions i,
+.box-dimensions em {
+  padding-bottom: 0.22rem;
+  color: var(--text-muted);
+  font-style: normal;
+  font-size: 0.72rem;
+}
+
+.box-price-field {
+  display: block;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+
+.box-price-field > span {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.box-price-input {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  padding: 0 0.9rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.box-price-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.box-price-input input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.box-price-input > span {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-weight: 800;
+}
+
+.boxes-message {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.09);
+  border: 1px solid rgba(34, 197, 94, 0.24);
+  border-radius: 12px;
+  font-size: 0.86rem;
+}
+
+.boxes-message--error {
+  color: var(--danger);
+  background: rgba(255, 100, 100, 0.09);
+  border-color: rgba(255, 100, 100, 0.24);
+}
+
 .empty-state {
   text-align: center;
   padding: 3rem;
@@ -1264,6 +1667,34 @@ onMounted(() => {
 
   .package-row {
     flex-direction: column;
+  }
+
+  .boxes-section {
+    padding: 1rem;
+  }
+
+  .boxes-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .boxes-save {
+    width: 100%;
+  }
+
+  .boxes-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 980px) {
+  .boxes-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .box-card--m {
+    grid-column: 1 / -1;
   }
 }
 </style>

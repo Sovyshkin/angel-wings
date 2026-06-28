@@ -182,6 +182,20 @@ model ProductAnalyticsEvent {
   @@map("product_analytics_events")
 }
 
+model CdekBox {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  length    Int
+  width     Int
+  height    Int
+  maxWeight Int
+  price     Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("cdek_boxes")
+}
+
 model MarketingEvent {
   id          Int      @id @default(autoincrement())
   title       String

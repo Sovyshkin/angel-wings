@@ -1,10 +1,87 @@
 import axios from 'axios'
+import cloudKassirService from './cloudKassir.js'
 
 const TOCHKA_API_URL = 'https://enter.tochka.com/uapi/acquiring/v1.0'
 const TOCHKA_OPEN_BANKING_URL = 'https://enter.tochka.com/uapi/open-banking/v1.0'
 const TOCHKA_STATUS_TIMEOUT_MS = Number(process.env.TOCHKA_STATUS_TIMEOUT_MS || 5000)
 
+function toCents(value) {
+  const amount = Number(value)
+  return Number.isFinite(amount) ? Math.round(amount * 100) : 0
+}
+
+function fromCents(value) {
+  return Number((Math.max(0, Number(value) || 0) / 100).toFixed(2))
+}
+
+function sanitizeReceiptText(value, fallback = 'Товар') {
+  return (String(value || fallback).replace(/\s+/g, ' ').trim() || fallback).slice(0, 256)
+}
+
 class TochkaService {
+  buildReceipt(order, paymentAmount) {
+    const email = String(order?.customerEmail || '').trim()
+    if (!email) {
+      throw new Error('В заказе не указан email для отправки чека')
+    }
+
+    // Use the same discount allocation as CloudKassir so both fiscal receipts
+    // contain identical positions and always match the payment amount.
+    const cloudKassirPayload = cloudKassirService.buildIncomeReceiptPayload({
+      ...order,
+      total: paymentAmount
+    })
+    const sourceItems = cloudKassirPayload?.customerReceipt?.items || []
+    const items = sourceItems.map(item => ({
+      name: sanitizeReceiptText(item.label),
+      amount: Number(item.price),
+      quantity: Number(item.quantity),
+      paymentMethod: 'full_payment',
+      paymentObject: item.object === 4 ? 'service' : 'commodity',
+      measure: 'шт.'
+    }))
+
+    const targetCents = toCents(paymentAmount)
+    const itemsCents = sourceItems.reduce((sum, item) => sum + toCents(item.amount), 0)
+    const missingCents = targetCents - itemsCents
+
+    // This is mainly needed for partial additional payments where the payment
+    // can exceed the current set of fiscal positions selected from the order.
+    if (missingCents > 0) {
+      items.push({
+        name: sanitizeReceiptText(`Доплата по заказу #${order?.id || ''}`),
+        amount: fromCents(missingCents),
+        quantity: 1,
+        paymentMethod: 'full_payment',
+        paymentObject: 'service',
+        measure: 'шт.'
+      })
+    }
+
+    if (!items.length) {
+      throw new Error('В заказе нет позиций для чека')
+    }
+
+    const receipt = {
+      Client: {
+        email,
+        name: String(order?.customerName || '').trim() || undefined,
+        phone: cloudKassirPayload?.customerReceipt?.phone
+      },
+      Items: items
+    }
+
+    const taxSystemCode = String(process.env.TOCHKA_TAX_SYSTEM_CODE || 'usn_income').trim()
+    if (taxSystemCode) receipt.taxSystemCode = taxSystemCode
+
+    const vatType = String(process.env.TOCHKA_VAT_TYPE || '').trim()
+    if (vatType) {
+      receipt.Items = receipt.Items.map(item => ({ ...item, vatType }))
+    }
+
+    return receipt
+  }
+
   pickFirstString(candidates = []) {
     for (const value of candidates) {
       if (typeof value === 'string' && value.trim()) return value.trim()
@@ -172,7 +249,7 @@ class TochkaService {
     }
   }
 
-  async createPayment(amount, orderId, purpose, redirectUrl, failRedirectUrl) {
+  async createPayment(amount, orderId, purpose, redirectUrl, failRedirectUrl, order = null) {
     try {
       const { jwtToken, clientId } = this.getEnv()
       console.log('[TOCHKA] createPayment start', JSON.stringify({
@@ -193,6 +270,7 @@ class TochkaService {
       const customerCode = await this.resolveBusinessCustomerCode()
       const merchantId = await this.resolveActiveMerchantId(customerCode)
       const uniqueSuffix = Date.now()
+      const receipt = order ? this.buildReceipt(order, amount) : null
 
       const requestData = {
         Data: {
@@ -206,6 +284,10 @@ class TochkaService {
         }
       }
 
+      if (receipt) {
+        Object.assign(requestData.Data, receipt)
+      }
+
       if (merchantId) {
         requestData.Data.merchantId = merchantId
       }
@@ -214,13 +296,16 @@ class TochkaService {
         orderId,
         customerCode,
         hasMerchantId: Boolean(merchantId),
+        hasReceipt: Boolean(receipt),
+        receiptItemsCount: receipt?.Items?.length || 0,
+        hasReceiptEmail: Boolean(receipt?.Client?.email),
         paymentLinkId: requestData.Data.paymentLinkId,
         redirectUrl,
         failRedirectUrl
       }))
       
       const response = await axios.post(
-        `${TOCHKA_API_URL}/payments`,
+        `${TOCHKA_API_URL}${receipt ? '/payments_with_receipt' : '/payments'}`,
         requestData,
         {
           headers: this.getHeaders()
