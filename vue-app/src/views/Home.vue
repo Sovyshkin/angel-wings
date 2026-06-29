@@ -119,7 +119,7 @@
       </div>
     </section>
 
-    <section class="categories-preview" data-aos="fade-left" data-aos-offset="100">
+    <section ref="catalogPreview" class="categories-preview" data-aos="fade-left" data-aos-offset="100">
       <div class="container">
         <div class="section-header" data-aos="fade-up">
           <h2 class="section-title">Категории</h2>
@@ -418,7 +418,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
 import { trackProductEvent } from '../api/analytics'
@@ -426,6 +426,10 @@ import { trackProductEvent } from '../api/analytics'
 const productStore = useProductStore()
 const cartStore = useCartStore()
 const DISPLAY_CATEGORY_SLUGS = ['longevitiya', 'immunomodulyatory', 'neiropeptide', 'growth']
+const catalogPreview = ref(null)
+let catalogObserver = null
+let catalogFallbackTimer = null
+let catalogLoaded = false
 
 const featuredProducts = computed(() => {
   return productStore.products.slice(0, 4)
@@ -437,16 +441,10 @@ const categoryProductCountMap = computed(() => {
   const counts = Object.create(null)
   for (const slug of DISPLAY_CATEGORY_SLUGS) counts[slug] = 0
 
-  for (const product of productStore.products) {
-    const categoryList = Array.isArray(product?.categories) ? product.categories : []
-    const seen = new Set()
-    for (const category of categoryList) {
-      const slug = String(category?.slug || '').trim()
-      if (!slug || seen.has(slug)) continue
-      seen.add(slug)
-      if (counts[slug] !== undefined) {
-        counts[slug] += 1
-      }
+  for (const category of productStore.categories) {
+    const slug = String(category?.slug || '').trim()
+    if (counts[slug] !== undefined) {
+      counts[slug] = Math.max(0, Number(category?.count || 0))
     }
   }
 
@@ -457,11 +455,33 @@ const totalDirectionsCount = computed(() => {
   return DISPLAY_CATEGORY_SLUGS.filter((slug) => getCategoryCount(slug) > 0).length
 })
 
-onMounted(async () => {
+async function loadCatalogPreview() {
+  if (catalogLoaded) return
+  catalogLoaded = true
+  catalogObserver?.disconnect()
+  if (catalogFallbackTimer) window.clearTimeout(catalogFallbackTimer)
+
   await Promise.all([
     productStore.fetchProducts('', { limit: 4 }),
     productStore.fetchCategories()
   ])
+}
+
+onMounted(() => {
+  if ('IntersectionObserver' in window && catalogPreview.value) {
+    catalogObserver = new IntersectionObserver((entries) => {
+      if (entries.some(entry => entry.isIntersecting)) loadCatalogPreview()
+    }, { rootMargin: '600px 0px' })
+    catalogObserver.observe(catalogPreview.value)
+    return
+  }
+
+  catalogFallbackTimer = window.setTimeout(loadCatalogPreview, 1500)
+})
+
+onBeforeUnmount(() => {
+  catalogObserver?.disconnect()
+  if (catalogFallbackTimer) window.clearTimeout(catalogFallbackTimer)
 })
 
 function handleImageError(e) {

@@ -73,6 +73,13 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
+@media (max-width: 768px) {
+  :root {
+    --font-display: 'Manrope', sans-serif;
+    --font-mono: 'Manrope', sans-serif;
+  }
+}
+
 [data-theme="light"] {
   --bg-primary: #f5f5f7;
   --bg-secondary: #ffffff;
