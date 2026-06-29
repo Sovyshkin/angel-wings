@@ -13,7 +13,16 @@
       <div class="product-layout" v-if="product" data-aos="fade-up" data-aos-delay="100">
         <div class="product-gallery" data-aos="fade-right" data-aos-delay="200">
           <div class="gallery-main">
-            <img v-if="activeImageUrl" :src="activeImageUrl" :alt="product.title" @error="handleImageError">
+            <img
+              v-if="activeImageUrl"
+              :src="activeImageUrl"
+              :alt="product.title"
+              width="800"
+              height="800"
+              fetchpriority="high"
+              decoding="async"
+              @error="handleImageError"
+            >
             <div v-else class="gallery-placeholder">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -33,7 +42,15 @@
               :class="{ active: index === activeImageIndex }"
               @click="activeImageIndex = index"
             >
-              <img :src="imageUrl" :alt="`${product.title} ${index + 1}`" @error="handleImageError">
+              <img
+                :src="imageUrl"
+                :alt="`${product.title} ${index + 1}`"
+                width="96"
+                height="96"
+                loading="lazy"
+                decoding="async"
+                @error="handleImageError"
+              >
             </button>
           </div>
         </div>
@@ -452,7 +469,7 @@ function handleImageError(e) {
   const img = e.target
   if (img.dataset.fallbackApplied === 'true') return
   img.dataset.fallbackApplied = 'true'
-  img.src = '/logo.png'
+  img.src = '/logo-192.webp'
 }
 
 watch(productImages, () => {

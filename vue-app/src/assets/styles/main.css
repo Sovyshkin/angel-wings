@@ -1,3 +1,48 @@
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-cyrillic.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+1E00-1EFF, U+20A0-20CF, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Syne';
+  src: url('/fonts/syne-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+1E00-1EFF, U+20A0-20CF, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-cyrillic.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+1E00-1EFF, U+20A0-20CF, U+2C60-2C7F, U+A720-A7FF;
+}
+
 *, *::before, *::after {
   margin: 0;
   padding: 0;
@@ -76,6 +121,43 @@ body::before {
   pointer-events: none;
   z-index: 0;
   transition: opacity 0.4s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .home > section:not(.hero)[data-aos],
+    .home > section:not(.hero) [data-aos] {
+      animation-duration: 1ms;
+      animation-fill-mode: both;
+      animation-timing-function: linear;
+      animation-timeline: view();
+      animation-range: entry 0% cover 22%;
+    }
+
+    .home > section:not(.hero)[data-aos='fade-left'],
+    .home > section:not(.hero) [data-aos='fade-left'],
+    .home > section:not(.hero)[data-aos='fade-right'],
+    .home > section:not(.hero) [data-aos='fade-right'],
+    .home > section:not(.hero)[data-aos='fade-up'],
+    .home > section:not(.hero) [data-aos='fade-up'] {
+      animation-name: native-scroll-reveal;
+    }
+
+    .home > section:not(.hero)[data-aos='zoom-in'],
+    .home > section:not(.hero) [data-aos='zoom-in'] {
+      animation-name: native-scroll-zoom;
+    }
+  }
+}
+
+@keyframes native-scroll-reveal {
+  from { opacity: 0; transform: translate3d(0, 24px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes native-scroll-zoom {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 [data-theme="light"] body::before {

@@ -25,7 +25,15 @@
     <header class="header">
       <div class="header__container">
         <router-link to="/" class="header__logo">
-          <img class="header-logo" src="./assets/logo.png" alt="">
+          <img
+            class="header-logo"
+            src="/logo-192.webp"
+            alt=""
+            width="192"
+            height="192"
+            fetchpriority="high"
+            decoding="async"
+          >
           <span class="logo-text">ANGEL WINGS</span>
         </router-link>
         <nav class="header__nav">

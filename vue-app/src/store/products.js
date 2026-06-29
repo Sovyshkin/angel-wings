@@ -7,16 +7,21 @@ const API_URL = '/api'
 export const useProductStore = defineStore('products', () => {
   const products = ref([])
   const categories = ref([])
+  const totalProducts = ref(0)
   const loading = ref(false)
   const error = ref(null)
 
-  async function fetchProducts(category = '') {
+  async function fetchProducts(category = '', options = {}) {
     loading.value = true
     error.value = null
     try {
-      const params = category ? { category } : {}
+      const params = {
+        ...(category ? { category } : {}),
+        ...options
+      }
       const { data } = await axios.get(`${API_URL}/products`, { params })
       products.value = data.products || []
+      totalProducts.value = Number(data.total || products.value.length)
     } catch (e) {
       error.value = e.message
       products.value = []
@@ -111,6 +116,7 @@ export const useProductStore = defineStore('products', () => {
   return {
     products,
     categories,
+    totalProducts,
     loading,
     error,
     fetchProducts,

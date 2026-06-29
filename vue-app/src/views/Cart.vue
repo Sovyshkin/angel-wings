@@ -138,7 +138,15 @@
                 class="existing-order-item"
               >
                 <div class="item-image">
-                  <img :src="item.product?.image || '/logo.png'" :alt="item.product?.title || `Товар #${item.productId}`" @error="handleImageError">
+                  <img
+                    :src="item.product?.image || '/logo-192.webp'"
+                    :alt="item.product?.title || `Товар #${item.productId}`"
+                    width="96"
+                    height="96"
+                    loading="lazy"
+                    decoding="async"
+                    @error="handleImageError"
+                  >
                 </div>
                 <div class="existing-order-item__body">
                   <h4>{{ item.product?.title || `Товар #${item.productId}` }}</h4>
@@ -180,7 +188,16 @@
           <div class="cart-item" v-for="item in cartStore.items" :key="item.cartKey || `${item.id}::${item.selectedDosage || ''}`">
             <div class="col-product">
               <div class="item-image">
-                <img v-if="item.image" :src="item.image" :alt="item.title" @error="handleImageError">
+                <img
+                  v-if="item.image"
+                  :src="item.image"
+                  :alt="item.title"
+                  width="120"
+                  height="120"
+                  loading="lazy"
+                  decoding="async"
+                  @error="handleImageError"
+                >
                 <div v-else class="item-placeholder">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
@@ -1213,7 +1230,7 @@ function handleImageError(e) {
   const img = e.target
   if (img.dataset.fallbackApplied === 'true') return
   img.dataset.fallbackApplied = 'true'
-  img.src = '/logo.png'
+  img.src = '/logo-192.webp'
 }
 
 function getOrderAdditionId() {

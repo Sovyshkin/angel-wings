@@ -1,21 +1,22 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../views/Home.vue'
-import Catalog from '../views/Catalog.vue'
-import Cart from '../views/Cart.vue'
-import ProductDetail from '../views/ProductDetail.vue'
-import Auth from '../views/Auth.vue'
-import Profile from '../views/Profile.vue'
-import Contact from '../views/Contact.vue'
-import AboutCompany from '../views/AboutCompany.vue'
-import DeliveryPayment from '../views/DeliveryPayment.vue'
-import Guarantees from '../views/Guarantees.vue'
-import Faq from '../views/Faq.vue'
-import Requisites from '../views/Requisites.vue'
-import OrderSuccess from '../views/OrderSuccess.vue'
-import OrderFail from '../views/OrderFail.vue'
-import PartnerCabinet from '../views/PartnerCabinet.vue'
 import { useAuthStore } from '../store/auth'
 import axios from 'axios'
+
+const Catalog = () => import('../views/Catalog.vue')
+const Cart = () => import('../views/Cart.vue')
+const ProductDetail = () => import('../views/ProductDetail.vue')
+const Auth = () => import('../views/Auth.vue')
+const Profile = () => import('../views/Profile.vue')
+const Contact = () => import('../views/Contact.vue')
+const AboutCompany = () => import('../views/AboutCompany.vue')
+const DeliveryPayment = () => import('../views/DeliveryPayment.vue')
+const Guarantees = () => import('../views/Guarantees.vue')
+const Faq = () => import('../views/Faq.vue')
+const Requisites = () => import('../views/Requisites.vue')
+const OrderSuccess = () => import('../views/OrderSuccess.vue')
+const OrderFail = () => import('../views/OrderFail.vue')
+const PartnerCabinet = () => import('../views/PartnerCabinet.vue')
 
 const routes = [
   { path: '/', name: 'Home', component: Home },

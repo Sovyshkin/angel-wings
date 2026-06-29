@@ -4,7 +4,14 @@
       <div class="auth__card" data-aos="fade-up" data-aos-delay="100">
         <div class="auth__header">
           <router-link to="/" class="auth__logo">
-            <img src="../assets/logo.png" alt="ANGEL WINGS" class="auth__logo-img"/>
+            <img
+              src="/logo-192.webp"
+              alt="ANGEL WINGS"
+              class="auth__logo-img"
+              width="192"
+              height="192"
+              decoding="async"
+            >
           </router-link>
           <h1 class="auth__title">{{ isLogin ? 'Добро пожаловать' : 'Создать аккаунт' }}</h1>
           <p class="auth__subtitle">

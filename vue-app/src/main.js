@@ -5,18 +5,6 @@ import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './store/auth'
 import './assets/styles/main.css'
-import AOS from 'aos'
-
-import 'aos/dist/aos.css'
-
-AOS.init({
-  duration: 600,
-  easing: 'ease-out-cubic',
-  once: true,
-  offset: 80,
-  delay: 50,
-  disable: false,
-})
 
 const app = createApp(App)
 const pinia = createPinia()

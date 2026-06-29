@@ -250,7 +250,15 @@
             class="featured-card"
           >
             <div class="featured-image">
-              <img :src="product.image" :alt="product.title" @error="handleImageError">
+              <img
+                :src="product.image"
+                :alt="product.title"
+                width="480"
+                height="480"
+                loading="lazy"
+                decoding="async"
+                @error="handleImageError"
+              >
             </div>
             <div class="featured-content">
               <span class="featured-category">{{ product.categories?.[0]?.name || product.categories?.[0]?.slug }}</span>
@@ -423,7 +431,7 @@ const featuredProducts = computed(() => {
   return productStore.products.slice(0, 4)
 })
 
-const totalProductsCount = computed(() => productStore.products.length)
+const totalProductsCount = computed(() => productStore.totalProducts || productStore.products.length)
 
 const categoryProductCountMap = computed(() => {
   const counts = Object.create(null)
@@ -451,7 +459,7 @@ const totalDirectionsCount = computed(() => {
 
 onMounted(async () => {
   await Promise.all([
-    productStore.fetchProducts(),
+    productStore.fetchProducts('', { limit: 4 }),
     productStore.fetchCategories()
   ])
 })
@@ -460,7 +468,7 @@ function handleImageError(e) {
   const img = e.target
   if (img.dataset.fallbackApplied === 'true') return
   img.dataset.fallbackApplied = 'true'
-  img.src = '/logo.png'
+  img.src = '/logo-192.webp'
 }
 
 function normalizePrice(value) {
@@ -533,6 +541,17 @@ function getProductWord(count) {
 <style scoped>
 .home {
   padding-bottom: 0;
+}
+
+.features,
+.categories-preview,
+.featured-products,
+.cta,
+.benefits,
+.promo-banner,
+.newsletter {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
 }
 
 .hero {
@@ -1763,6 +1782,24 @@ function getProductWord(count) {
   .hero {
     padding: 4rem 0;
     min-height: auto;
+  }
+
+  .hero__badge,
+  .hero__title,
+  .hero__desc,
+  .hero__chips,
+  .hero__actions,
+  .hero__stats {
+    animation: none;
+  }
+
+  .orb,
+  .promo-orb {
+    animation: none;
+  }
+
+  .floating-elements {
+    display: none;
   }
 
   .hero__container {

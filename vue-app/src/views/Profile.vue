@@ -150,8 +150,12 @@
                       <article v-for="item in order.items" :key="item.id" class="order-product-card">
                         <div class="order-product-card__media">
                           <img
-                            :src="item.product?.image || '/logo.png'"
+                            :src="item.product?.image || '/logo-192.webp'"
                             :alt="item.product?.title || `Товар #${item.productId}`"
+                            width="120"
+                            height="120"
+                            loading="lazy"
+                            decoding="async"
                             @error="onOrderImageError"
                           >
                         </div>
@@ -462,7 +466,7 @@ function onOrderImageError(event) {
   const img = event?.target
   if (!img || img.dataset.fallbackApplied === 'true') return
   img.dataset.fallbackApplied = 'true'
-  img.src = '/logo.png'
+  img.src = '/logo-192.webp'
 }
 
 function canAddItems(order) {

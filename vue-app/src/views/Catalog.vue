@@ -56,6 +56,10 @@
                     v-if="cat.image && !brokenCategoryIcons.has(cat.term_id)"
                     :src="cat.image"
                     :alt="cat.name"
+                    width="48"
+                    height="48"
+                    loading="lazy"
+                    decoding="async"
                     @error="handleCategoryIconError(cat.term_id)"
                   >
                   <span v-else v-html="getCategoryIcon(cat.slug)"></span>
@@ -131,7 +135,17 @@
               :data-aos-delay="100 + index * 50"
             >
               <div class="product-image">
-                <img v-if="product.image" :src="product.image" :alt="product.title" @error="handleImageError">
+                <img
+                  v-if="product.image"
+                  :src="product.image"
+                  :alt="product.title"
+                  width="480"
+                  height="480"
+                  :loading="index < 4 ? 'eager' : 'lazy'"
+                  :fetchpriority="index < 2 ? 'high' : 'auto'"
+                  decoding="async"
+                  @error="handleImageError"
+                >
                 <div v-else class="product-placeholder">
                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
@@ -374,7 +388,7 @@ function handleImageError(e) {
   const img = e.target
   if (img.dataset.fallbackApplied === 'true') return
   img.dataset.fallbackApplied = 'true'
-  img.src = '/logo.png'
+  img.src = '/logo-192.webp'
 }
 
 onMounted(async () => {

@@ -32,7 +32,12 @@ const prisma = new PrismaClient()
 app.use(cors())
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
-app.use('/uploads', express.static(uploadDir))
+app.use('/uploads', express.static(uploadDir, {
+  maxAge: '30d',
+  immutable: true,
+  etag: true,
+  lastModified: true
+}))
 
 app.use('/api/auth', authRoutes)
 app.use('/api/products', productRoutes)
