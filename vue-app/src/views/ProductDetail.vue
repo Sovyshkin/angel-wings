@@ -999,6 +999,68 @@ onMounted(async () => {
   100% { transform: scale(1); }
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .breadcrumb {
+    animation: detail-reveal-down 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .product-gallery {
+    animation: detail-gallery-reveal 0.7s 0.08s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .gallery-main {
+    animation: detail-gallery-focus 0.85s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .thumb-item {
+    animation: detail-thumb-reveal 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .thumb-item:nth-child(1) { animation-delay: 0.18s; }
+  .thumb-item:nth-child(2) { animation-delay: 0.23s; }
+  .thumb-item:nth-child(3) { animation-delay: 0.28s; }
+  .thumb-item:nth-child(4) { animation-delay: 0.33s; }
+  .thumb-item:nth-child(n + 5) { animation-delay: 0.38s; }
+
+  .product-info > * {
+    animation: detail-info-reveal 0.58s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .product-info > :nth-child(1) { animation-delay: 0.08s; }
+  .product-info > :nth-child(2) { animation-delay: 0.12s; }
+  .product-info > :nth-child(3) { animation-delay: 0.16s; }
+  .product-info > :nth-child(4) { animation-delay: 0.2s; }
+  .product-info > :nth-child(5) { animation-delay: 0.24s; }
+  .product-info > :nth-child(6) { animation-delay: 0.28s; }
+  .product-info > :nth-child(7) { animation-delay: 0.32s; }
+  .product-info > :nth-child(n + 8) { animation-delay: 0.36s; }
+}
+
+@keyframes detail-reveal-down {
+  from { opacity: 0; translate: 0 -12px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes detail-gallery-reveal {
+  from { opacity: 0; translate: -28px 0; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes detail-gallery-focus {
+  from { scale: 0.965; }
+  to { scale: 1; }
+}
+
+@keyframes detail-thumb-reveal {
+  from { opacity: 0; translate: 0 10px; scale: 0.94; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+
+@keyframes detail-info-reveal {
+  from { opacity: 0; translate: 22px 0; }
+  to { opacity: 1; translate: 0 0; }
+}
+
 .product-guarantee {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
