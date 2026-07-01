@@ -3501,6 +3501,18 @@ onUnmounted(() => {
   margin-bottom: 0;
 }
 
+.courier-detail label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.25rem;
+  white-space: nowrap;
+}
+
+.courier-detail label .required-mark {
+  flex: 0 0 auto;
+}
+
 .courier-detail .input {
   width: 100%;
   padding: 0.75rem;

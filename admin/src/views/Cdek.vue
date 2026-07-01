@@ -1198,6 +1198,8 @@ onMounted(() => {
 .box-card {
   --box-scale: 0.82;
   position: relative;
+  display: grid;
+  grid-template-rows: auto 155px 1fr;
   min-width: 0;
   padding: 1rem;
   overflow: hidden;
@@ -1235,9 +1237,10 @@ onMounted(() => {
 
 .box-visual {
   position: relative;
+  align-self: center;
   width: calc(126px * var(--box-scale));
   height: calc(104px * var(--box-scale));
-  margin: 1.7rem auto 1.5rem;
+  margin: 0 auto;
   filter: drop-shadow(0 18px 15px rgba(0, 0, 0, 0.25));
 }
 
@@ -1286,9 +1289,13 @@ onMounted(() => {
 }
 
 .box-card__content {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: 58px 50px auto;
   gap: 1rem;
+}
+
+.box-card__content > div:first-child {
+  align-self: end;
 }
 
 .box-card__eyebrow {
@@ -1335,6 +1342,7 @@ onMounted(() => {
 
 .box-price-field {
   display: block;
+  align-self: end;
   padding-top: 0.9rem;
   border-top: 1px solid var(--border);
 }
