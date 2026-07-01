@@ -218,7 +218,7 @@ function getPickupPointCityCode(pickupPoint) {
     null
 }
 
-async function calculateUpdatedDeliveryPrice(order, totalWeight) {
+async function calculateUpdatedDeliveryPrice(order, totalWeight, declaredValue) {
   const currentDeliveryPrice = Math.max(0, Number(order?.deliveryPrice || 0))
   const isCdekPickup = Boolean(order?.deliveryPickupPoint && order?.deliveryTariffCode)
   const isInternalCourier = String(order?.deliveryTariffName || '').toLowerCase().includes('курьер по москве')
@@ -252,9 +252,11 @@ async function calculateUpdatedDeliveryPrice(order, totalWeight) {
       height: 10
     })
 
+    const baseDeliveryPrice = Number(calculated?.delivery_sum || calculated?.total_sum || calculated?.price || 0) || 0
+    const insurancePrice = Math.round(Math.max(0, Number(declaredValue) || 0) * 0.0075 * 100) / 100
     const nextDeliveryPrice = Math.max(
       currentDeliveryPrice,
-      Number(calculated?.delivery_sum || calculated?.total_sum || calculated?.price || currentDeliveryPrice) || currentDeliveryPrice
+      Math.round((baseDeliveryPrice + insurancePrice) * 100) / 100
     )
 
     return {
@@ -354,7 +356,10 @@ async function buildOrderAdditionQuote(orderId, user, rawItems) {
   const currentDeliveryPrice = Math.max(0, Number(order.deliveryPrice || 0))
   const currentWeight = getOrderItemsWeight(order.items)
   const nextWeight = Math.max(1, currentWeight + addedWeight)
-  const deliveryQuote = await calculateUpdatedDeliveryPrice(order, nextWeight)
+  const currentItemsValue = order.items.reduce((sum, item) => (
+    sum + Math.max(0, Number(item.price) || 0) * Math.max(0, Number(item.quantity) || 0)
+  ), 0)
+  const deliveryQuote = await calculateUpdatedDeliveryPrice(order, nextWeight, currentItemsValue + itemsSubtotal)
   const deliveryAdjustment = Math.max(0, Number(deliveryQuote.deliveryPrice || 0) - currentDeliveryPrice)
   const oldOrderTotal = Math.max(0, Number(order.total || 0))
   const newOrderTotal = oldOrderTotal + itemsSubtotal + deliveryAdjustment
@@ -631,7 +636,15 @@ router.post('/', authenticate, async (req, res, next) => {
 
     // total = sum of products in cart (without delivery)
     const itemsSubtotal = total
-    const deliveryPrice = delivery?.price || 0
+    const submittedDeliveryPrice = Math.max(0, Number(delivery?.price) || 0)
+    const isCdekDelivery = normalizedDeliveryType === 'pvz_cdek' || normalizedDeliveryType === 'pvz'
+    const submittedCdekBasePrice = Number(delivery?.base_price)
+    const cdekInsurancePrice = isCdekDelivery
+      ? Math.round(itemsSubtotal * 0.0075 * 100) / 100
+      : 0
+    const deliveryPrice = isCdekDelivery && Number.isFinite(submittedCdekBasePrice)
+      ? Math.round((Math.max(0, submittedCdekBasePrice) + cdekInsurancePrice) * 100) / 100
+      : submittedDeliveryPrice
     const orderTotal = itemsSubtotal + deliveryPrice
 
     let discountAmount = 0

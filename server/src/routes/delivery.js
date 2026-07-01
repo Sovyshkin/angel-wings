@@ -14,23 +14,79 @@ const CDEK_BOXES = [
   { code: 'M', length: 33, width: 25, height: 15, maxWeight: 5000 }
 ]
 
-async function getCdekBoxes() {
-  await prisma.$transaction(
-    CDEK_BOXES.map((box) => prisma.cdekBox.upsert({
-      where: { code: box.code },
-      update: {
-        length: box.length,
-        width: box.width,
-        height: box.height,
-        maxWeight: box.maxWeight
-      },
-      create: { ...box, price: 0 }
-    }))
-  )
+const CDEK_INSURANCE_RATE = 0.0075
 
-  return prisma.cdekBox.findMany({
-    where: { code: { in: CDEK_BOXES.map(box => box.code) } }
-  })
+function roundMoney(value) {
+  return Math.round((Number(value) || 0) * 100) / 100
+}
+
+function addInsuranceToCalculation(result, declaredValue) {
+  const normalizedDeclaredValue = Math.max(0, Number(declaredValue) || 0)
+  const baseDeliveryPrice = Math.max(0, Number(
+    result?.total_sum ?? result?.total_price ?? result?.delivery_sum ?? 0
+  ) || 0)
+  const insurancePrice = roundMoney(normalizedDeclaredValue * CDEK_INSURANCE_RATE)
+
+  return {
+    ...result,
+    base_delivery_sum: roundMoney(baseDeliveryPrice),
+    insurance_sum: insurancePrice,
+    insurance_rate: CDEK_INSURANCE_RATE,
+    declared_value: roundMoney(normalizedDeclaredValue),
+    total_sum: roundMoney(baseDeliveryPrice + insurancePrice)
+  }
+}
+
+async function ensureCdekBoxesTable() {
+  // Raw SQL keeps this setting available even if Prisma Client was not regenerated after deployment.
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "cdek_boxes" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "code" TEXT NOT NULL UNIQUE,
+      "length" INTEGER NOT NULL,
+      "width" INTEGER NOT NULL,
+      "height" INTEGER NOT NULL,
+      "maxWeight" INTEGER NOT NULL,
+      "price" REAL NOT NULL DEFAULT 0,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+}
+
+async function getCdekBoxes() {
+  await ensureCdekBoxesTable()
+
+  for (const box of CDEK_BOXES) {
+    await prisma.$executeRaw`
+      INSERT INTO "cdek_boxes"
+        ("code", "length", "width", "height", "maxWeight", "price", "createdAt", "updatedAt")
+      VALUES
+        (${box.code}, ${box.length}, ${box.width}, ${box.height}, ${box.maxWeight}, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT("code") DO UPDATE SET
+        "length" = excluded."length",
+        "width" = excluded."width",
+        "height" = excluded."height",
+        "maxWeight" = excluded."maxWeight",
+        "updatedAt" = CURRENT_TIMESTAMP
+    `
+  }
+
+  const boxes = await prisma.$queryRaw`
+    SELECT "id", "code", "length", "width", "height", "maxWeight", "price", "createdAt", "updatedAt"
+    FROM "cdek_boxes"
+    WHERE "code" IN ('XS', 'S', 'M')
+  `
+
+  return boxes.map(box => ({
+    ...box,
+    id: Number(box.id),
+    length: Number(box.length),
+    width: Number(box.width),
+    height: Number(box.height),
+    maxWeight: Number(box.maxWeight),
+    price: Number(box.price)
+  }))
 }
 
 function normalizeRussianPhone(value) {
@@ -57,7 +113,7 @@ function normalizeRussianPhone(value) {
 // Расчёт стоимости доставки по конкретному тарифу
 router.post('/calculate-by-tariff', async (req, res) => {
   try {
-    const { tariff_code, from_code, to_code, weight, length, width, height } = req.body
+    const { tariff_code, from_code, to_code, weight, length, width, height, declared_value } = req.body
 
     if (!to_code || !weight) {
       return res.status(400).json({ error: 'Необходимо указать to_code и weight' })
@@ -73,7 +129,7 @@ router.post('/calculate-by-tariff', async (req, res) => {
       height
     })
 
-    res.json(result)
+    res.json(addInsuranceToCalculation(result, declared_value))
   } catch (error) {
     console.error('[CDEK] Calculate by tariff error:', error)
     res.status(400).json(error.data || { error: error.message })
@@ -84,7 +140,7 @@ router.post('/calculate-by-tariff', async (req, res) => {
 // Расчёт стоимости доставки (автоматический выбор тарифа)
 router.post('/calculate', async (req, res) => {
   try {
-    const { from_code, to_code, weight, length, width, height } = req.body
+    const { from_code, to_code, weight, length, width, height, declared_value } = req.body
 
     if (!to_code || !weight) {
       return res.status(400).json({ error: 'Необходимо указать to_code и weight' })
@@ -99,7 +155,7 @@ router.post('/calculate', async (req, res) => {
       height
     })
 
-    res.json(result)
+    res.json(addInsuranceToCalculation(result, declared_value))
   } catch (error) {
     console.error('[CDEK] Calculate error:', error)
     res.status(400).json(error.data || { error: error.message })
@@ -166,12 +222,13 @@ router.put('/boxes', authenticate, requireAdmin, async (req, res, next) => {
     }
 
     await getCdekBoxes()
-    await prisma.$transaction(
-      normalized.map(box => prisma.cdekBox.update({
-        where: { code: box.code },
-        data: { price: Math.round(box.price * 100) / 100 }
-      }))
-    )
+    for (const box of normalized) {
+      await prisma.$executeRaw`
+        UPDATE "cdek_boxes"
+        SET "price" = ${roundMoney(box.price)}, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "code" = ${box.code}
+      `
+    }
 
     const boxes = await getCdekBoxes()
     const order = new Map(CDEK_BOXES.map((box, index) => [box.code, index]))

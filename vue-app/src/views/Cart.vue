@@ -343,6 +343,14 @@
               <span>Дата прибытия:</span>
               <span>{{ formatDate(deliveryInfo.delivery_date_min) }} — {{ formatDate(deliveryInfo.delivery_date_max) }}</span>
             </div>
+            <div v-if="deliveryType === 'pvz' && deliveryInfo.base_delivery_sum > 0" class="delivery-detail-row">
+              <span>Тариф СДЭК:</span>
+              <span>{{ deliveryInfo.base_delivery_sum.toLocaleString('ru-RU') }} ₽</span>
+            </div>
+            <div v-if="deliveryType === 'pvz' && deliveryInfo.insurance_sum > 0" class="delivery-detail-row">
+              <span>Страхование (0,75%):</span>
+              <span>{{ deliveryInfo.insurance_sum.toLocaleString('ru-RU') }} ₽</span>
+            </div>
             <div class="delivery-detail-row">
               <span>Вес посылки:</span>
               <span>{{ (cartStore.totalWeight / 1000).toFixed(2) }} кг</span>
@@ -526,7 +534,36 @@
                 Курьерская доставка работает только в пределах Москвы.
               </div>
 
-              <div class="form-group" style="margin-top: 1rem;">
+              <div class="courier-home-type" role="group" aria-label="Тип жилья">
+                <button
+                  type="button"
+                  class="courier-home-type__option"
+                  :class="{ active: courierHousingType === 'apartment' }"
+                  :aria-pressed="courierHousingType === 'apartment'"
+                  @click="setCourierHousingType('apartment')"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="4" y="2" width="16" height="20" rx="2"/>
+                    <path d="M8 6h2M14 6h2M8 10h2M14 10h2M8 14h2M14 14h2M10 22v-4h4v4"/>
+                  </svg>
+                  <span><strong>Квартира</strong><small>Многоквартирный дом</small></span>
+                </button>
+                <button
+                  type="button"
+                  class="courier-home-type__option"
+                  :class="{ active: courierHousingType === 'private_house' }"
+                  :aria-pressed="courierHousingType === 'private_house'"
+                  @click="setCourierHousingType('private_house')"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 11l9-8 9 8"/>
+                    <path d="M5 10v11h14V10M9 21v-7h6v7"/>
+                  </svg>
+                  <span><strong>Частный дом</strong><small>Без квартиры и подъезда</small></span>
+                </button>
+              </div>
+
+              <div class="form-group courier-address-field">
                 <label>Адрес доставки <span class="required-mark">*</span></label>
                 <textarea 
                   ref="courierAddressInputRef"
@@ -534,13 +571,45 @@
                   class="input"
                   :class="{ 'input--error': (showValidationErrors && isCourierAddressMissing) || Boolean(courierAddressError) }"
                   rows="3" 
-                  placeholder="Например: Москва, Тверская улица, 7, кв. 15"
+                  placeholder="Например: Москва, Тверская улица, дом 7, корпус 1"
                 ></textarea>
                 <p v-if="courierAddressError" class="field-error">{{ courierAddressError }}</p>
                 <p v-else-if="courierAddressHint" class="field-hint">{{ courierAddressHint }}</p>
+                <p v-else class="field-hint">Укажите улицу, дом и при необходимости корпус или строение.</p>
+              </div>
+
+              <div v-if="courierHousingType === 'apartment'" class="courier-details">
+                <div class="form-group courier-detail courier-detail--apartment">
+                  <label>Квартира <span class="required-mark">*</span></label>
+                  <input
+                    ref="courierApartmentInputRef"
+                    v-model.trim="courierApartment"
+                    type="text"
+                    inputmode="text"
+                    autocomplete="address-line2"
+                    maxlength="12"
+                    class="input"
+                    :class="{ 'input--error': Boolean(courierDetailsError) }"
+                    placeholder="15"
+                  >
+                </div>
+                <div class="form-group courier-detail">
+                  <label>Подъезд</label>
+                  <input v-model.trim="courierEntrance" type="text" inputmode="numeric" maxlength="8" class="input" placeholder="2">
+                </div>
+                <div class="form-group courier-detail">
+                  <label>Этаж</label>
+                  <input v-model.trim="courierFloor" type="text" inputmode="numeric" maxlength="8" class="input" placeholder="5">
+                </div>
+                <div class="form-group courier-detail">
+                  <label>Домофон</label>
+                  <input v-model.trim="courierIntercom" type="text" maxlength="20" class="input" placeholder="15К">
+                </div>
+                <p v-if="courierDetailsError" class="field-error courier-details__error">{{ courierDetailsError }}</p>
               </div>
               
               <button 
+                type="button"
                 class="btn btn-primary" 
                 style="width: 100%; margin-top: 1rem;"
                 @click="selectCourierDelivery"
@@ -929,6 +998,12 @@ const pickupFilter = ref('')
 const selectedPickupPoint = ref(null)
 const courierAddress = ref('')
 const addressInput = ref('')
+const courierHousingType = ref('apartment')
+const courierApartment = ref('')
+const courierEntrance = ref('')
+const courierFloor = ref('')
+const courierIntercom = ref('')
+const courierDetailsError = ref('')
 const courierAddressError = ref('')
 const courierAddressHint = ref('')
 const validatingCourierAddress = ref(false)
@@ -943,6 +1018,7 @@ const loadingAdditionOrder = ref(false)
 const additionPreviewLoading = ref(false)
 let additionPreviewTimer = null
 let promoValidateTimer = null
+let deliveryRecalculationTimer = null
 let promoValidateSeq = 0
 const pickupSectionRef = ref(null)
 const consentsSectionRef = ref(null)
@@ -950,6 +1026,7 @@ const nameInputRef = ref(null)
 const phoneInputRef = ref(null)
 const emailInputRef = ref(null)
 const courierAddressInputRef = ref(null)
+const courierApartmentInputRef = ref(null)
 
 const isNameMissing = computed(() => !String(customer.value.name || '').trim())
 const isPhoneMissing = computed(() => !String(customer.value.phone || '').trim())
@@ -960,6 +1037,11 @@ const isPhoneInvalid = computed(() => {
 const isEmailMissing = computed(() => !String(customer.value.email || '').trim())
 const isCourierAddressMissing = computed(() => {
   return deliveryType.value === 'courier' && !String(courierAddress.value || '').trim()
+})
+const isCourierApartmentMissing = computed(() => {
+  return deliveryType.value === 'courier' &&
+    courierHousingType.value === 'apartment' &&
+    !String(courierApartment.value || '').trim()
 })
 const isDeliveryMissing = computed(() => {
   if (!ENABLE_CDEK) return false
@@ -1369,12 +1451,53 @@ function changeDelivery() {
   citySearch.value = ''
   courierAddress.value = ''
   addressInput.value = ''
+  courierHousingType.value = 'apartment'
+  courierApartment.value = ''
+  courierEntrance.value = ''
+  courierFloor.value = ''
+  courierIntercom.value = ''
+  courierDetailsError.value = ''
   courierAddressError.value = ''
   courierAddressHint.value = ''
   deliveryPrice.value = 0
   deliveryInfo.value = {}
   cartStore.setDeliveryPrice(0)
   cartStore.setDelivery({})
+}
+
+function setCourierHousingType(type) {
+  courierHousingType.value = type === 'private_house' ? 'private_house' : 'apartment'
+  courierDetailsError.value = ''
+
+  if (courierHousingType.value === 'private_house') {
+    courierApartment.value = ''
+    courierEntrance.value = ''
+    courierFloor.value = ''
+    courierIntercom.value = ''
+  }
+}
+
+function cleanCourierDetail(value) {
+  return String(value || '')
+    .replace(/[;,\n\r]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 40)
+}
+
+function buildCourierAddress(baseAddress) {
+  const normalizedBase = String(baseAddress || '').trim().replace(/[;,\s]+$/g, '')
+  if (!normalizedBase) return normalizedBase
+  if (courierHousingType.value === 'private_house') return `${normalizedBase}, частный дом`
+
+  const details = [
+    courierApartment.value ? `кв. ${cleanCourierDetail(courierApartment.value)}` : '',
+    courierEntrance.value ? `подъезд ${cleanCourierDetail(courierEntrance.value)}` : '',
+    courierFloor.value ? `этаж ${cleanCourierDetail(courierFloor.value)}` : '',
+    courierIntercom.value ? `домофон ${cleanCourierDetail(courierIntercom.value)}` : ''
+  ].filter(Boolean)
+
+  return details.length ? `${normalizedBase}, ${details.join(', ')}` : normalizedBase
 }
 
 function onDeliveryTypeChange() {
@@ -1429,7 +1552,8 @@ async function onPickupSelect() {
       tariff_code: 136, // PVZ tariff
       from_code: 44,
       to_code: foundCityCode.value,
-      weight: safeWeight
+      weight: safeWeight,
+      declared_value: cartStore.total
     })
     
     console.log('CDEK Response:', res.data)
@@ -1442,7 +1566,10 @@ async function onPickupSelect() {
         period_min: res.data.period_min,
         period_max: res.data.period_max,
         delivery_date_min: res.data.delivery_date_range?.min,
-        delivery_date_max: res.data.delivery_date_range?.max
+        delivery_date_max: res.data.delivery_date_range?.max,
+        base_delivery_sum: Number(res.data.base_delivery_sum || 0),
+        insurance_sum: Number(res.data.insurance_sum || 0),
+        insurance_rate: Number(res.data.insurance_rate || 0)
       }
       cartStore.setDeliveryPrice(price)
       cartStore.setDelivery({
@@ -1501,13 +1628,21 @@ async function selectCourierDelivery() {
   const normalizedAddress = String(addressInput.value || '').trim()
   if (!normalizedAddress) return
 
+  if (courierHousingType.value === 'apartment' && !String(courierApartment.value || '').trim()) {
+    courierDetailsError.value = 'Укажите номер квартиры'
+    focusAndScrollToField(courierApartmentInputRef)
+    return
+  }
+  courierDetailsError.value = ''
+
   const validation = await validateCourierAddress(normalizedAddress)
   if (!validation) return
 
   foundCityName.value = INTERNAL_COURIER_CITY
   foundCityCode.value = INTERNAL_COURIER_CITY_CODE
-  courierAddress.value = validation.normalizedAddress || normalizedAddress
-  addressInput.value = courierAddress.value
+  const validatedBaseAddress = validation.normalizedAddress || normalizedAddress
+  addressInput.value = validatedBaseAddress
+  courierAddress.value = buildCourierAddress(validatedBaseAddress)
   courierAddressHint.value = 'Адрес проверен через Яндекс'
   deliveryPrice.value = INTERNAL_COURIER_PRICE
   deliveryInfo.value = {
@@ -1520,6 +1655,12 @@ async function selectCourierDelivery() {
     city: INTERNAL_COURIER_CITY,
     cityCode: INTERNAL_COURIER_CITY_CODE,
     courierAddress: courierAddress.value,
+    courierBaseAddress: addressInput.value,
+    courierHousingType: courierHousingType.value,
+    courierApartment: courierApartment.value,
+    courierEntrance: courierEntrance.value,
+    courierFloor: courierFloor.value,
+    courierIntercom: courierIntercom.value,
     deliveryPrice: INTERNAL_COURIER_PRICE,
     deliveryInfo: deliveryInfo.value
   })
@@ -1665,6 +1806,9 @@ function getValidationErrors() {
     if (deliveryType.value === 'courier' && !String(courierAddress.value || '').trim()) {
       errors.push('Укажите адрес для курьерской доставки по Москве')
     }
+    if (isCourierApartmentMissing.value) {
+      errors.push('Укажите номер квартиры')
+    }
   }
 
   if (!consents.value.acceptOffer) {
@@ -1697,6 +1841,10 @@ function focusAndScrollToField(elementRef) {
 }
 
 function scrollToFirstInvalidField() {
+  if (courierDetailsError.value && courierApartmentInputRef.value) {
+    focusAndScrollToField(courierApartmentInputRef)
+    return
+  }
   if (courierAddressError.value && courierAddressInputRef.value) {
     focusAndScrollToField(courierAddressInputRef)
     return
@@ -1715,6 +1863,10 @@ function scrollToFirstInvalidField() {
   }
   if (isDeliveryMissing.value) {
     if (deliveryType.value === 'courier' && courierAddressInputRef.value) {
+      if (isCourierApartmentMissing.value && courierApartmentInputRef.value) {
+        focusAndScrollToField(courierApartmentInputRef)
+        return
+      }
       focusAndScrollToField(courierAddressInputRef)
       return
     }
@@ -1813,7 +1965,15 @@ async function placeOrder() {
     }
 
     if (deliveryType.value === 'courier') {
-      const validation = await validateCourierAddress(courierAddress.value || addressInput.value)
+      if (courierHousingType.value === 'apartment' && !String(courierApartment.value || '').trim()) {
+        courierDetailsError.value = 'Укажите номер квартиры'
+        validationErrors.value = [courierDetailsError.value]
+        scrollToFirstInvalidField()
+        ordering.value = false
+        return
+      }
+
+      const validation = await validateCourierAddress(addressInput.value || courierAddress.value)
       if (!validation) {
         validationErrors.value = [courierAddressError.value || 'Проверьте адрес курьерской доставки']
         scrollToFirstInvalidField()
@@ -1821,8 +1981,9 @@ async function placeOrder() {
         return
       }
 
-      courierAddress.value = validation.normalizedAddress || courierAddress.value
-      addressInput.value = courierAddress.value
+      const validatedBaseAddress = validation.normalizedAddress || addressInput.value || courierAddress.value
+      addressInput.value = validatedBaseAddress
+      courierAddress.value = buildCourierAddress(validatedBaseAddress)
     }
 
     if (promoCodeNormalized.value) {
@@ -1854,6 +2015,9 @@ async function placeOrder() {
       deliveryData.pickup_point = selectedPickupPoint.value.code
       deliveryData.pickup_point_name = selectedPickupPoint.value.name
       deliveryData.address = selectedPickupPoint.value.address
+      deliveryData.base_price = Number(deliveryInfo.value.base_delivery_sum || deliveryPrice.value)
+      deliveryData.insurance_price = Number(deliveryInfo.value.insurance_sum || 0)
+      deliveryData.insurance_rate = Number(deliveryInfo.value.insurance_rate || 0.0075)
     } else if (deliveryType.value === 'courier') {
       deliveryData.price = INTERNAL_COURIER_PRICE
       deliveryData.city = INTERNAL_COURIER_CITY
@@ -2037,7 +2201,12 @@ onMounted(async () => {
   }
   if (savedDelivery.type === 'courier' && savedDelivery.courierAddress) {
     courierAddress.value = savedDelivery.courierAddress
-    addressInput.value = savedDelivery.courierAddress
+    addressInput.value = savedDelivery.courierBaseAddress || savedDelivery.courierAddress
+    courierHousingType.value = savedDelivery.courierHousingType === 'private_house' ? 'private_house' : 'apartment'
+    courierApartment.value = savedDelivery.courierApartment || ''
+    courierEntrance.value = savedDelivery.courierEntrance || ''
+    courierFloor.value = savedDelivery.courierFloor || ''
+    courierIntercom.value = savedDelivery.courierIntercom || ''
     foundCityName.value = INTERNAL_COURIER_CITY
     foundCityCode.value = INTERNAL_COURIER_CITY_CODE
   }
@@ -2072,7 +2241,9 @@ watch(
     () => consents.value.acceptResearchTerms,
     () => deliveryType.value,
     () => selectedPickupPoint.value,
-    () => courierAddress.value
+    () => courierAddress.value,
+    () => courierHousingType.value,
+    () => courierApartment.value
   ],
   () => {
     if (!validationErrors.value.length) return
@@ -2092,6 +2263,29 @@ watch(addressInput, (nextAddress) => {
     courierAddressHint.value = ''
   }
 })
+
+watch(
+  [courierApartment, courierEntrance, courierFloor, courierIntercom],
+  () => {
+    courierDetailsError.value = ''
+  }
+)
+
+watch(
+  [() => cartStore.total, () => cartStore.totalWeight],
+  ([nextTotal, nextWeight], [previousTotal, previousWeight]) => {
+    if (
+      nextTotal === previousTotal &&
+      nextWeight === previousWeight
+    ) return
+    if (deliveryType.value !== 'pvz' || !selectedPickupPoint.value || !foundCityCode.value) return
+
+    if (deliveryRecalculationTimer) clearTimeout(deliveryRecalculationTimer)
+    deliveryRecalculationTimer = setTimeout(() => {
+      onPickupSelect()
+    }, 350)
+  }
+)
 
 watch(promoCodeNormalized, (nextCode) => {
   if (!nextCode) {
@@ -2138,6 +2332,7 @@ watch(() => authStore.isAuthenticated, (isAuthenticated) => {
 onUnmounted(() => {
   if (promoValidateTimer) clearTimeout(promoValidateTimer)
   if (additionPreviewTimer) clearTimeout(additionPreviewTimer)
+  if (deliveryRecalculationTimer) clearTimeout(deliveryRecalculationTimer)
 })
 </script>
 
@@ -3229,6 +3424,99 @@ onUnmounted(() => {
   color: var(--accent);
 }
 
+.courier-home-type {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.courier-home-type__option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  text-align: left;
+  transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease, transform 0.25s ease;
+}
+
+.courier-home-type__option:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.courier-home-type__option.active {
+  border-color: rgba(166, 185, 248, 0.65);
+  background: var(--accent-dim);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(166, 185, 248, 0.12);
+}
+
+.courier-home-type__option svg {
+  flex: 0 0 auto;
+}
+
+.courier-home-type__option span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.courier-home-type__option strong {
+  font-size: 0.86rem;
+  color: currentColor;
+}
+
+.courier-home-type__option small {
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+
+.courier-address-field {
+  margin-top: 1rem;
+}
+
+.courier-details {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(145deg, var(--bg-secondary), rgba(166, 185, 248, 0.04));
+  animation: courier-details-reveal 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.courier-detail {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.courier-detail .input {
+  width: 100%;
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.courier-details__error {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@keyframes courier-details-reveal {
+  from { opacity: 0; translate: 0 -8px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
 /* Form */
 .checkout-form h4 {
   font-family: var(--font-display);
@@ -3261,6 +3549,18 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .courier-home-type {
+    grid-template-columns: 1fr;
+  }
+
+  .courier-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    padding: 0.8rem;
+  }
 }
 
 .btn-submit {

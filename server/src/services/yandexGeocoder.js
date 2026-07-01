@@ -21,7 +21,7 @@ const MKAD_APPROX_POLYGON = [
 ]
 const ACCEPTED_PRECISIONS = new Set(['exact', 'number'])
 const ADDRESS_EXTRA_DETAILS_RE =
-  /(?:^|[,\s;])((?:кв(?:артира)?\.?|ап(?:артаменты|\.)?|офис|пом(?:ещение)?\.?|подъезд|этаж|домофон)\s*(?:№|#|n|no|номер)?\s*[\p{L}\d/-]+(?:[\s,;/-].*)?)$/iu
+  /(?:^|[,\s;])((?:(?:кв(?:артира)?\.?|ап(?:артаменты|\.)?|офис|пом(?:ещение)?\.?|подъезд|этаж|домофон)\s*(?:№|#|n|no|номер)?\s*[\p{L}\d/-]+|частный\s+дом)(?:[\s,;/-].*)?)$/iu
 
 function toRadians(value) {
   return Number(value) * Math.PI / 180
@@ -95,6 +95,7 @@ function normalizeAddressExtraDetails(details) {
     .replace(/^кв(?:артира)?\.?\s*/i, 'кв. ')
     .replace(/^ап(?:артаменты|\.)?\s*/i, 'ап. ')
     .replace(/^пом(?:ещение)?\.?\s*/i, 'пом. ')
+    .replace(/^частный\s+дом/i, 'частный дом')
     .replace(/\s+/g, ' ')
     .trim()
 }
