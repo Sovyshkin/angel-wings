@@ -46,10 +46,10 @@
               </button>
               <button 
                 v-for="cat in categories" 
-                :key="cat.term_id"
+                :key="getCategoryKey(cat)"
                 class="filter-item"
-                :class="{ active: selectedCategory === cat.slug }"
-                @click="selectCategory(cat.slug)"
+                :class="{ active: isCategorySelected(cat) }"
+                @click="selectCategory(cat)"
               >
                 <span class="filter-icon">
                   <img
@@ -65,7 +65,7 @@
                   <span v-else v-html="getCategoryIcon(cat.slug)"></span>
                 </span>
                 {{ cat.name }}
-                <span class="filter-count">{{ getCategoryCount(cat.slug) }}</span>
+                <span class="filter-count">{{ getCategoryCount(cat) }}</span>
               </button>
             </div>
           </div>
@@ -242,7 +242,9 @@ const filteredProducts = computed(() => {
   let result = [...products.value]
 
   if (selectedCategory.value) {
-    result = result.filter(p => p.categories?.some(c => c.slug === selectedCategory.value))
+    result = result.filter(product => product.categories?.some(category => (
+      categoriesMatch(category, selectedCategory.value)
+    )))
   }
 
   if (priceMin.value) {
@@ -268,8 +270,47 @@ const filteredProducts = computed(() => {
   return result
 })
 
-function selectCategory(slug) {
-  selectedCategory.value = slug
+function normalizeCategoryText(value) {
+  return String(value || '').trim().toLocaleLowerCase('ru-RU')
+}
+
+function getCategoryId(category) {
+  const id = Number(category?.id ?? category?.term_id)
+  return Number.isFinite(id) && id > 0 ? id : null
+}
+
+function getCategoryKey(category) {
+  const id = getCategoryId(category)
+  if (id) return `id:${id}`
+
+  const slug = normalizeCategoryText(category?.slug)
+  if (slug) return `slug:${slug}`
+
+  return `name:${normalizeCategoryText(category?.name)}`
+}
+
+function categoriesMatch(first, second) {
+  if (!first || !second) return false
+
+  const firstId = getCategoryId(first)
+  const secondId = getCategoryId(second)
+  if (firstId && secondId) return firstId === secondId
+
+  const firstSlug = normalizeCategoryText(first.slug)
+  const secondSlug = normalizeCategoryText(second.slug)
+  if (firstSlug && secondSlug) return firstSlug === secondSlug
+
+  const firstName = normalizeCategoryText(first.name)
+  const secondName = normalizeCategoryText(second.name)
+  return Boolean(firstName && secondName && firstName === secondName)
+}
+
+function isCategorySelected(category) {
+  return categoriesMatch(category, selectedCategory.value)
+}
+
+function selectCategory(category) {
+  selectedCategory.value = category
   closeMobileFilters()
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -323,8 +364,21 @@ function getCategoryName(category) {
   return ''
 }
 
-function getCategoryCount(slug) {
-  return products.value.filter(p => p.categories?.some(c => c.slug === slug)).length
+function getCategoryCount(category) {
+  return products.value.filter(product => product.categories?.some(productCategory => (
+    categoriesMatch(productCategory, category)
+  ))).length
+}
+
+function resolveCategoryQuery(value) {
+  const queryValue = normalizeCategoryText(value)
+  if (!queryValue) return null
+
+  return categories.value.find(category => (
+    normalizeCategoryText(category.slug) === queryValue ||
+    normalizeCategoryText(category.name) === queryValue ||
+    String(getCategoryId(category) || '') === queryValue
+  )) || { slug: String(value) }
 }
 
 function truncate(text, length) {
@@ -399,12 +453,12 @@ onMounted(async () => {
   loading.value = false
   
   if (route.query.category) {
-    selectedCategory.value = route.query.category
+    selectedCategory.value = resolveCategoryQuery(route.query.category)
   }
 })
 
 watch(() => route.query.category, (newCat) => {
-  selectedCategory.value = newCat || null
+  selectedCategory.value = resolveCategoryQuery(newCat)
 })
 </script>
 

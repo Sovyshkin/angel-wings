@@ -8,7 +8,7 @@
         <p>ИНН: 773323389224</p>
         <p>ОГРН: 325774600301379</p>
         <p>Юридический адрес: 125362, РОССИЯ, Г МОСКВА, УЛ ТУШИНСКАЯ, Д 13, КВ 70</p>
-        <p>Email: <a href="mailto:nickkirillov001@gmail.com">nickkirillov001@gmail.com</a></p>
+        <p>Email: <a href="mailto:info@angel-wings.ru">info@angel-wings.ru</a></p>
       </div>
     </div>
   </div>

@@ -171,7 +171,7 @@
               <p>ИНН: 773323389224</p>
               <p>ОГРН: 325774600301379</p>
               <p>Юридический адрес: 125362, РОССИЯ, Г МОСКВА, УЛ ТУШИНСКАЯ, Д 13, КВ 70</p>
-              <p>Email: <a href="mailto:nickkirillov001@gmail.com">nickkirillov001@gmail.com</a></p>
+              <p>Email: <a href="mailto:info@angel-wings.ru">info@angel-wings.ru</a></p>
             </div>
             <div class="footer__social">
               <a href="https://t.me/Angelwingspeptides" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Telegram">
@@ -220,7 +220,7 @@
                 <span class="contact-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                 </span>
-                <span>info@peptidi.shop</span>
+                <a href="mailto:info@angel-wings.ru">info@angel-wings.ru</a>
               </div>
               <div class="contact-item">
                 <span class="contact-icon">

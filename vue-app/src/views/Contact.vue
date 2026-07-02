@@ -122,7 +122,7 @@
             </div>
             <div class="info-content">
               <h3>Email</h3>
-              <p>info@peptidi.shop</p>
+              <p><a href="mailto:info@angel-wings.ru">info@angel-wings.ru</a></p>
             </div>
           </div>
 
