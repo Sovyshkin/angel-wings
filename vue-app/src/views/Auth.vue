@@ -111,7 +111,7 @@
 
           <button type="submit" class="btn btn-primary btn-submit" :disabled="loading || verificationCode.length !== 6">
             <span v-if="loading" class="spinner"></span>
-            <span v-else>Подтвердить email</span>
+            <span v-else>{{ verificationPurpose === 'login_verification' ? 'Подтвердить вход' : 'Подтвердить email' }}</span>
           </button>
 
           <button type="button" class="link-btn verification-resend" :disabled="resending" @click="resendCode">
@@ -145,6 +145,8 @@ const error = ref('')
 const verificationStep = ref(false)
 const pendingEmail = ref('')
 const verificationCode = ref('')
+const verificationPurpose = ref('email_verification')
+const loginChallengeToken = ref('')
 
 const form = ref({
   name: '',
@@ -160,6 +162,8 @@ function toggleMode() {
   verificationStep.value = false
   pendingEmail.value = ''
   verificationCode.value = ''
+  verificationPurpose.value = 'email_verification'
+  loginChallengeToken.value = ''
   form.value = { name: '', email: '', password: '', confirmPassword: '', phone: '' }
 }
 
@@ -169,7 +173,15 @@ async function handleSubmit() {
 
   try {
     if (isLogin.value) {
-      await authStore.login(form.value.email, form.value.password)
+      const result = await authStore.login(form.value.email, form.value.password)
+      if (result?.requiresLoginVerification) {
+        pendingEmail.value = result.email || form.value.email
+        verificationPurpose.value = 'login_verification'
+        loginChallengeToken.value = result.challengeToken || ''
+        verificationStep.value = true
+        verificationCode.value = ''
+        return
+      }
       router.push('/profile')
     } else {
       if (form.value.password !== form.value.confirmPassword) {
@@ -184,6 +196,8 @@ async function handleSubmit() {
       })
       if (result?.requiresEmailVerification) {
         pendingEmail.value = result.email || form.value.email
+        verificationPurpose.value = 'email_verification'
+        loginChallengeToken.value = ''
         verificationStep.value = true
         verificationCode.value = ''
         return
@@ -193,6 +207,8 @@ async function handleSubmit() {
   } catch (e) {
     if (e.code === 'EMAIL_NOT_VERIFIED') {
       pendingEmail.value = e.email || form.value.email
+      verificationPurpose.value = 'email_verification'
+      loginChallengeToken.value = ''
       verificationStep.value = true
       verificationCode.value = ''
       error.value = ''
@@ -209,7 +225,10 @@ async function handleVerifyEmail() {
   loading.value = true
 
   try {
-    await authStore.verifyEmail(pendingEmail.value, verificationCode.value)
+    await authStore.verifyEmail(pendingEmail.value, verificationCode.value, {
+      purpose: verificationPurpose.value,
+      challengeToken: loginChallengeToken.value
+    })
     router.push('/profile')
   } catch (e) {
     error.value = e.response?.data?.error || e.message || 'Не удалось подтвердить email'
@@ -223,7 +242,10 @@ async function resendCode() {
   resending.value = true
 
   try {
-    await authStore.resendVerification(pendingEmail.value)
+    await authStore.resendVerification(pendingEmail.value, {
+      purpose: verificationPurpose.value,
+      challengeToken: loginChallengeToken.value
+    })
   } catch (e) {
     error.value = e.response?.data?.error || e.message || 'Не удалось отправить код повторно'
   } finally {

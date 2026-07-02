@@ -13,11 +13,36 @@ export const useAuthStore = defineStore('auth', () => {
   
   async function login(email, password) {
     const { data } = await axios.post(`${API_URL}/auth/login`, { email, password })
+    if (data.requiresLoginVerification) return data
+    setAuth(data)
+    return data
+  }
+
+  function setAuth(data) {
     user.value = data.user
     token.value = data.token
     localStorage.setItem('peptidi_admin_user', JSON.stringify(data.user))
     localStorage.setItem('peptidi_admin_token', data.token)
     axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
+  }
+
+  async function verifyLogin(email, code, challengeToken) {
+    const { data } = await axios.post(`${API_URL}/auth/verify-email`, {
+      email,
+      code,
+      purpose: 'login_verification',
+      challengeToken
+    })
+    setAuth(data)
+    return data
+  }
+
+  async function resendLoginCode(email, challengeToken) {
+    const { data } = await axios.post(`${API_URL}/auth/resend-verification`, {
+      email,
+      purpose: 'login_verification',
+      challengeToken
+    })
     return data
   }
   
@@ -33,5 +58,5 @@ export const useAuthStore = defineStore('auth', () => {
     axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
   }
   
-  return { user, token, isAuthenticated, isAdmin, login, logout }
+  return { user, token, isAuthenticated, isAdmin, login, verifyLogin, resendLoginCode, logout }
 })

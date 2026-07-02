@@ -228,13 +228,16 @@ class EmailService {
     return result
   }
 
-  async sendVerificationCode({ to, name, code }) {
+  async sendVerificationCode({ to, name, code, purpose = 'email_verification' }) {
     const safeName = escapeHtml(name || 'клиент')
     const safeCode = escapeHtml(code)
+    const isLogin = purpose === 'login_verification'
+    const subject = isLogin ? 'Код для входа в Angel Wings' : 'Код подтверждения Angel Wings'
+    const heading = isLogin ? 'Подтверждение входа' : 'Подтверждение email'
 
     return this.sendMail({
       to,
-      subject: 'Код подтверждения Angel Wings',
+      subject,
       text: [
         `Здравствуйте, ${name || 'клиент'}!`,
         '',
@@ -246,7 +249,7 @@ class EmailService {
       html: `
         <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:28px;background:#f6f7fb;color:#151722">
           <div style="background:#fff;border-radius:20px;padding:28px;border:1px solid #e7e9f2">
-            <h1 style="margin:0 0 12px;font-size:24px">Подтверждение email</h1>
+            <h1 style="margin:0 0 12px;font-size:24px">${heading}</h1>
             <p style="margin:0 0 18px;font-size:16px;line-height:1.5">Здравствуйте, ${safeName}! Введите этот код на сайте Angel Wings:</p>
             <div style="font-size:32px;letter-spacing:8px;font-weight:700;background:#eef2ff;color:#24316f;border-radius:16px;padding:18px;text-align:center">${safeCode}</div>
             <p style="margin:18px 0 0;color:#73788a;font-size:14px">Код действует 15 минут. Если вы не запрашивали код, письмо можно удалить.</p>

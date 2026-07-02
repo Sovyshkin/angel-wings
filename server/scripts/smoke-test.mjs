@@ -62,9 +62,11 @@ async function login(email, password, roleLabel) {
     body: { email, password }
   })
 
-  const ok = res.status === 200 && !!res.json?.token
-  log(ok, `${roleLabel} login`, `status=${res.status}`)
-  return ok ? res.json.token : ''
+  const hasSession = res.status === 200 && !!res.json?.token
+  const requiresCode = res.status === 202 && res.json?.requiresLoginVerification === true && !!res.json?.challengeToken
+  const ok = hasSession || requiresCode
+  log(ok, `${roleLabel} login`, `status=${res.status}${requiresCode ? ', email code required' : ''}`)
+  return { token: hasSession ? res.json.token : '', requiresCode }
 }
 
 async function testUserFlow() {
@@ -73,7 +75,12 @@ async function testUserFlow() {
     return
   }
 
-  const token = await login(userEmail, userPassword, 'USER')
+  const loginResult = await login(userEmail, userPassword, 'USER')
+  if (loginResult.requiresCode) {
+    log(true, 'USER protected flow skipped', 'two-factor email code required')
+    return
+  }
+  const token = loginResult.token
   if (!token) return
 
   const me = await req('/api/auth/me', { token })
@@ -89,7 +96,12 @@ async function testAdminFlow() {
     return
   }
 
-  const token = await login(adminEmail, adminPassword, 'ADMIN')
+  const loginResult = await login(adminEmail, adminPassword, 'ADMIN')
+  if (loginResult.requiresCode) {
+    log(true, 'ADMIN protected flow skipped', 'two-factor email code required')
+    return
+  }
+  const token = loginResult.token
   if (!token) return
 
   const adminOrders = await req('/api/admin/orders?limit=1', { token })

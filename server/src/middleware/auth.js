@@ -13,6 +13,11 @@ export const authenticate = async (req, res, next) => {
     
     const token = authHeader.split(' ')[1]
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
+
+    // Short-lived email challenges are not API session tokens.
+    if (decoded.purpose && decoded.purpose !== 'session') {
+      return res.status(401).json({ error: 'Invalid token' })
+    }
     
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },

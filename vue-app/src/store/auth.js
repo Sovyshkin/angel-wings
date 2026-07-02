@@ -17,6 +17,9 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(email, password) {
     try {
       const { data } = await axios.post(`${API_URL}/auth/login`, { email, password })
+      if (data.requiresLoginVerification) {
+        return data
+      }
       user.value = data.user
       token.value = data.token
       localStorage.setItem('peptidi_user', JSON.stringify(data.user))
@@ -98,8 +101,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function verifyEmail(email, code) {
-    const { data } = await axios.post(`${API_URL}/auth/verify-email`, { email, code })
+  async function verifyEmail(email, code, options = {}) {
+    const { data } = await axios.post(`${API_URL}/auth/verify-email`, {
+      email,
+      code,
+      purpose: options.purpose || 'email_verification',
+      challengeToken: options.challengeToken || undefined
+    })
     user.value = data.user
     token.value = data.token
     localStorage.setItem('peptidi_user', JSON.stringify(data.user))
@@ -108,8 +116,12 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
-  async function resendVerification(email) {
-    const { data } = await axios.post(`${API_URL}/auth/resend-verification`, { email })
+  async function resendVerification(email, options = {}) {
+    const { data } = await axios.post(`${API_URL}/auth/resend-verification`, {
+      email,
+      purpose: options.purpose || 'email_verification',
+      challengeToken: options.challengeToken || undefined
+    })
     return data
   }
 

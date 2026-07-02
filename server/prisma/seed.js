@@ -32,17 +32,29 @@ async function main() {
   console.log('Seeding database...')
   
   const adminPassword = await bcrypt.hash('admin123', 10)
-  
-  await prisma.user.upsert({
-    where: { email: 'admin@peptidi.shop' },
-    update: {},
-    create: {
-      email: 'admin@peptidi.shop',
-      password: adminPassword,
-      name: 'Администратор',
-      role: 'ADMIN'
-    }
+
+  const adminEmail = 'Nickkirillov001@gmail.com'
+  const existingAdmin = await prisma.user.findFirst({
+    where: { role: 'ADMIN' },
+    orderBy: { id: 'asc' }
   })
+
+  if (existingAdmin) {
+    await prisma.user.update({
+      where: { id: existingAdmin.id },
+      data: { email: adminEmail, emailVerified: true }
+    })
+  } else {
+    await prisma.user.create({
+      data: {
+        email: adminEmail,
+        password: adminPassword,
+        name: 'Администратор',
+        role: 'ADMIN',
+        emailVerified: true
+      }
+    })
+  }
   
   for (const cat of categories) {
     await prisma.category.upsert({
@@ -76,7 +88,7 @@ async function main() {
   }
   
   console.log('Seeding completed!')
-  console.log('Admin login: admin@peptidi.shop / admin123')
+  console.log(`Admin login: ${adminEmail}`)
 }
 
 main()

@@ -11,6 +11,40 @@ const router = Router()
 const prisma = new PrismaClient()
 const EMAIL_CODE_TTL_MINUTES = Number(process.env.EMAIL_CODE_TTL_MINUTES || 15)
 
+function getPublicUser(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    phone: user.phone,
+    address: user.address,
+    emailVerified: user.emailVerified
+  }
+}
+
+function createSessionToken(userId) {
+  return jwt.sign({ userId, purpose: 'session' }, process.env.JWT_SECRET, { expiresIn: '7d' })
+}
+
+function createLoginChallenge(userId) {
+  return jwt.sign(
+    { userId, purpose: 'login_verification' },
+    process.env.JWT_SECRET,
+    { expiresIn: `${EMAIL_CODE_TTL_MINUTES}m` }
+  )
+}
+
+function readLoginChallenge(token) {
+  try {
+    const payload = jwt.verify(String(token || ''), process.env.JWT_SECRET)
+    if (payload?.purpose !== 'login_verification' || !payload?.userId) return null
+    return payload
+  } catch {
+    return null
+  }
+}
+
 async function createAndSendEmailCode(user, purpose = 'email_verification') {
   const code = generateEmailCode()
   const expiresAt = new Date(Date.now() + EMAIL_CODE_TTL_MINUTES * 60 * 1000)
@@ -29,7 +63,8 @@ async function createAndSendEmailCode(user, purpose = 'email_verification') {
     await emailService.sendVerificationCode({
       to: user.email,
       name: user.name,
-      code
+      code,
+      purpose
     })
   } catch (error) {
     await prisma.emailVerificationCode.delete({
@@ -39,6 +74,21 @@ async function createAndSendEmailCode(user, purpose = 'email_verification') {
   }
 
   return expiresAt
+}
+
+async function createOrReuseLoginCode(user) {
+  const recentCode = await prisma.emailVerificationCode.findFirst({
+    where: {
+      userId: user.id,
+      purpose: 'login_verification',
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+      createdAt: { gt: new Date(Date.now() - 60 * 1000) }
+    },
+    orderBy: { createdAt: 'desc' }
+  })
+
+  return recentCode?.expiresAt || createAndSendEmailCode(user, 'login_verification')
 }
 
 router.post('/register', async (req, res, next) => {
@@ -112,7 +162,7 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Неверные учётные данные' })
     }
 
-    if (!user.emailVerified && user.role !== 'ADMIN') {
+    if (!user.emailVerified) {
       await createAndSendEmailCode(user)
       return res.status(403).json({
         error: 'Email не подтверждён. Мы отправили новый код подтверждения на почту.',
@@ -120,24 +170,14 @@ router.post('/login', async (req, res, next) => {
         email: user.email
       })
     }
-    
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    )
-    
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        phone: user.phone,
-        address: user.address,
-        emailVerified: user.emailVerified
-      },
-      token
+
+    const expiresAt = await createOrReuseLoginCode(user)
+    res.status(202).json({
+      requiresLoginVerification: true,
+      email: user.email,
+      challengeToken: createLoginChallenge(user.id),
+      expiresAt,
+      message: 'Введите код подтверждения, отправленный на вашу почту'
     })
   } catch (error) {
     next(error)
@@ -146,39 +186,41 @@ router.post('/login', async (req, res, next) => {
 
 router.post('/verify-email', async (req, res, next) => {
   try {
+    const purpose = req.body.purpose === 'login_verification'
+      ? 'login_verification'
+      : 'email_verification'
     const email = normalizeEmail(req.body.email)
     const code = String(req.body.code || '').trim()
 
-    if (!email || !/^\d{6}$/.test(code)) {
+    if (!/^\d{6}$/.test(code)) {
       return res.status(400).json({ error: 'Введите корректный код из 6 цифр' })
     }
 
-    const user = await findUserByEmail(prisma, email)
+    let user
+    if (purpose === 'login_verification') {
+      const challenge = readLoginChallenge(req.body.challengeToken)
+      if (!challenge) {
+        return res.status(401).json({ error: 'Сессия подтверждения истекла. Введите email и пароль ещё раз.' })
+      }
+      user = await prisma.user.findUnique({ where: { id: Number(challenge.userId) } })
+    } else {
+      if (!email) return res.status(400).json({ error: 'Укажите email' })
+      user = await findUserByEmail(prisma, email)
+    }
+
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' })
     }
 
-    if (user.emailVerified) {
-      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' })
-      return res.json({
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          phone: user.phone,
-          address: user.address,
-          emailVerified: true
-        },
-        token
-      })
+    if (purpose === 'email_verification' && user.emailVerified) {
+      return res.status(400).json({ error: 'Email уже подтверждён. Выполните вход заново.' })
     }
 
     const verification = await prisma.emailVerificationCode.findFirst({
       where: {
         userId: user.id,
         email: user.email,
-        purpose: 'email_verification',
+        purpose,
         usedAt: null,
         expiresAt: { gt: new Date() }
       },
@@ -202,30 +244,26 @@ router.post('/verify-email', async (req, res, next) => {
       return res.status(400).json({ error: 'Неверный код подтверждения' })
     }
 
-    const updatedUser = await prisma.$transaction(async (tx) => {
+    const verifiedUser = await prisma.$transaction(async (tx) => {
       await tx.emailVerificationCode.update({
         where: { id: verification.id },
         data: { usedAt: new Date() }
       })
 
-      return tx.user.update({
-        where: { id: user.id },
-        data: { emailVerified: true },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          phone: true,
-          address: true,
-          emailVerified: true
-        }
-      })
+      if (purpose === 'email_verification') {
+        return tx.user.update({
+          where: { id: user.id },
+          data: { emailVerified: true }
+        })
+      }
+
+      return user
     })
 
-    const token = jwt.sign({ userId: updatedUser.id }, process.env.JWT_SECRET, { expiresIn: '7d' })
-
-    res.json({ user: updatedUser, token })
+    res.json({
+      user: getPublicUser(verifiedUser),
+      token: createSessionToken(verifiedUser.id)
+    })
   } catch (error) {
     next(error)
   }
@@ -233,21 +271,34 @@ router.post('/verify-email', async (req, res, next) => {
 
 router.post('/resend-verification', async (req, res, next) => {
   try {
-    const email = normalizeEmail(req.body.email)
-    const user = await findUserByEmail(prisma, email)
+    const purpose = req.body.purpose === 'login_verification'
+      ? 'login_verification'
+      : 'email_verification'
+    let user
+
+    if (purpose === 'login_verification') {
+      const challenge = readLoginChallenge(req.body.challengeToken)
+      if (!challenge) {
+        return res.status(401).json({ error: 'Сессия подтверждения истекла. Выполните вход заново.' })
+      }
+      user = await prisma.user.findUnique({ where: { id: Number(challenge.userId) } })
+    } else {
+      const email = normalizeEmail(req.body.email)
+      user = await findUserByEmail(prisma, email)
+    }
 
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' })
     }
 
-    if (user.emailVerified) {
+    if (purpose === 'email_verification' && user.emailVerified) {
       return res.json({ message: 'Email уже подтверждён' })
     }
 
     const recentCode = await prisma.emailVerificationCode.findFirst({
       where: {
         userId: user.id,
-        purpose: 'email_verification',
+        purpose,
         createdAt: { gt: new Date(Date.now() - 60 * 1000) }
       },
       orderBy: { createdAt: 'desc' }
@@ -257,7 +308,7 @@ router.post('/resend-verification', async (req, res, next) => {
       return res.status(429).json({ error: 'Новый код можно запросить через минуту' })
     }
 
-    const expiresAt = await createAndSendEmailCode(user)
+    const expiresAt = await createAndSendEmailCode(user, purpose)
     res.json({ message: 'Код отправлен повторно', expiresAt })
   } catch (error) {
     next(error)
