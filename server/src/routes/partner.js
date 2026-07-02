@@ -4,6 +4,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 import bcrypt from 'bcryptjs'
 import { v4 as uuidv4 } from 'uuid'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
+import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -493,13 +494,18 @@ router.get('/', authenticate, requireAdmin, async (req, res, next) => {
 
 router.post('/', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { email, password, name, phone, percentage = 5.0 } = req.body
+    const { password, name, phone, percentage = 5.0 } = req.body
+    const email = normalizeEmail(req.body.email)
+
+    if (!email) {
+      return res.status(400).json({ error: 'Укажите корректный email партнёра' })
+    }
 
     if (typeof password !== 'string' || password.length < 6) {
       return res.status(400).json({ error: 'Пароль должен содержать минимум 6 символов' })
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } })
+    const existing = await findUserByEmail(prisma, email)
     if (existing) {
       return res.status(400).json({ error: 'Пользователь с таким email уже существует' })
     }

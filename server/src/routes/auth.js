@@ -5,14 +5,11 @@ import { PrismaClient } from '@prisma/client'
 import { authenticate } from '../middleware/auth.js'
 import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
 import emailService, { generateEmailCode, hashEmailCode } from '../services/email.js'
+import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 
 const router = Router()
 const prisma = new PrismaClient()
 const EMAIL_CODE_TTL_MINUTES = Number(process.env.EMAIL_CODE_TTL_MINUTES || 15)
-
-function normalizeEmail(email) {
-  return String(email || '').trim().toLowerCase()
-}
 
 async function createAndSendEmailCode(user, purpose = 'email_verification') {
   const code = generateEmailCode()
@@ -52,7 +49,7 @@ router.post('/register', async (req, res, next) => {
     const passwordError = validateBasicPassword(password)
     if (passwordError) return res.status(400).json({ error: passwordError })
     
-    const existing = await prisma.user.findUnique({ where: { email } })
+    const existing = await findUserByEmail(prisma, email)
     if (existing) {
       return res.status(400).json({ error: 'Email уже зарегистрирован' })
     }
@@ -105,7 +102,7 @@ router.post('/login', async (req, res, next) => {
     const { password } = req.body
     const email = normalizeEmail(req.body.email)
     
-    const user = await prisma.user.findUnique({ where: { email } })
+    const user = await findUserByEmail(prisma, email)
     if (!user) {
       return res.status(401).json({ error: 'Неверные учётные данные' })
     }
@@ -156,7 +153,7 @@ router.post('/verify-email', async (req, res, next) => {
       return res.status(400).json({ error: 'Введите корректный код из 6 цифр' })
     }
 
-    const user = await prisma.user.findUnique({ where: { email } })
+    const user = await findUserByEmail(prisma, email)
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' })
     }
@@ -237,7 +234,7 @@ router.post('/verify-email', async (req, res, next) => {
 router.post('/resend-verification', async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body.email)
-    const user = await prisma.user.findUnique({ where: { email } })
+    const user = await findUserByEmail(prisma, email)
 
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' })

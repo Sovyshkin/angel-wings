@@ -6,6 +6,7 @@ import { upload } from '../utils/fileUpload.js'
 import tochkaService from '../services/tochka.js'
 import { v4 as uuidv4 } from 'uuid'
 import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
+import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { sendCloudKassirIncomeReceiptOnPaidTransition } from '../utils/cloudKassirReceipt.js'
@@ -298,7 +299,8 @@ router.get('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
 
 router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { email, password, name, role = 'USER', phone } = req.body
+    const { password, name, role = 'USER', phone } = req.body
+    const email = normalizeEmail(req.body.email)
     const normalizedRole = String(role || 'USER').toUpperCase()
 
     const passwordError = normalizedRole === 'ADMIN'
@@ -310,7 +312,7 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'Некорректная роль пользователя' })
     }
     
-    const existing = await prisma.user.findUnique({ where: { email } })
+    const existing = await findUserByEmail(prisma, email)
     if (existing) {
       return res.status(400).json({ error: 'Пользователь с таким email уже существует' })
     }
