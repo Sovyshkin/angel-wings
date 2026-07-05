@@ -196,6 +196,30 @@ export async function getCityInfo(code) {
 
 // ==================== ЗАКАЗЫ ====================
 
+export function normalizePackageItems(pkg, packageIndex) {
+  const providedItems = Array.isArray(pkg.items) && pkg.items.length ? pkg.items : null
+  const sourceItems = providedItems || [pkg]
+
+  return sourceItems.map((item, itemIndex) => {
+    const amount = Math.max(1, parseInt(item.amount, 10) || 1)
+    const rawCost = Math.max(0, Number(item.cost) || 0)
+    const rawWeight = Math.max(1, parseInt(item.weight, 10) || 0)
+
+    // Legacy payloads stored the whole line total in cost. CDEK expects a unit price.
+    const unitCost = providedItems ? rawCost : rawCost / amount
+    const unitWeight = providedItems ? rawWeight : Math.max(1, Math.round(rawWeight / amount))
+
+    return {
+      name: item.name || pkg.name || 'Товар',
+      ware_key: item.ware_key || pkg.ware_key || `ITEM-${packageIndex + 1}-${itemIndex + 1}`,
+      payment: { type: 'prepayment', value: 0 },
+      cost: Math.round(unitCost * 100) / 100,
+      amount,
+      weight: unitWeight
+    }
+  })
+}
+
 // Создать заказ на доставку
 export async function createOrder({ 
   number, 
@@ -227,14 +251,10 @@ export async function createOrder({
       length: pkg.length || 10,
       width: pkg.width || 10,
       height: pkg.height || 10,
-      items: [{
-        name: pkg.name || 'Товар',
-        ware_key: pkg.ware_key || `ITEM-${number}-${idx + 1}`,
-        payment: { type: 'prepayment', value: 0 }, // Способ и сумма оплаты
-        cost: pkg.cost || 0,
-        amount: pkg.amount || 1,
-        weight: pkg.weight // Вес товара (обязательно!)
-      }]
+      items: normalizePackageItems(pkg, idx).map((item, itemIndex) => ({
+        ...item,
+        ware_key: item.ware_key || `ITEM-${number}-${idx + 1}-${itemIndex + 1}`
+      }))
     }))
   }
 

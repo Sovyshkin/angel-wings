@@ -639,13 +639,12 @@ router.post('/', authenticate, async (req, res, next) => {
     const submittedDeliveryPrice = Math.max(0, Number(delivery?.price) || 0)
     const isCdekDelivery = normalizedDeliveryType === 'pvz_cdek' || normalizedDeliveryType === 'pvz'
     const submittedCdekBasePrice = Number(delivery?.base_price)
-    const cdekInsurancePrice = isCdekDelivery
+    let cdekInsurancePrice = isCdekDelivery
       ? Math.round(itemsSubtotal * 0.0075 * 100) / 100
       : 0
-    const deliveryPrice = isCdekDelivery && Number.isFinite(submittedCdekBasePrice)
+    let deliveryPrice = isCdekDelivery && Number.isFinite(submittedCdekBasePrice)
       ? Math.round((Math.max(0, submittedCdekBasePrice) + cdekInsurancePrice) * 100) / 100
       : submittedDeliveryPrice
-    const orderTotal = itemsSubtotal + deliveryPrice
 
     let discountAmount = 0
     const requestedPartnerBonusAmount = Math.max(0, Number(partnerBonusAmount) || 0)
@@ -756,6 +755,11 @@ router.post('/', authenticate, async (req, res, next) => {
       }
 
       const promoDiscountAmount = Math.min(itemsSubtotal, Math.max(0, Number(discountAmount || 0)))
+      if (isCdekDelivery && Number.isFinite(submittedCdekBasePrice)) {
+        const declaredValueAfterPromo = Math.max(0, itemsSubtotal - promoDiscountAmount)
+        cdekInsurancePrice = Math.round(declaredValueAfterPromo * 0.0075 * 100) / 100
+        deliveryPrice = Math.round((Math.max(0, submittedCdekBasePrice) + cdekInsurancePrice) * 100) / 100
+      }
       const subtotalAfterPromo = Math.max(0, itemsSubtotal - promoDiscountAmount) + deliveryPrice
 
       if (requestedPartnerBonusAmount > 0) {
@@ -795,7 +799,7 @@ router.post('/', authenticate, async (req, res, next) => {
       }
 
       const totalDiscountAmount = promoDiscountAmount + partnerBonusUsed
-      const finalOrderTotal = Math.max(0, orderTotal - totalDiscountAmount)
+      const finalOrderTotal = Math.max(0, itemsSubtotal + deliveryPrice - totalDiscountAmount)
       const orderCreateData = {
         customerName,
         customerEmail,

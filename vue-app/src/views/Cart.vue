@@ -1553,7 +1553,7 @@ async function onPickupSelect() {
       from_code: 44,
       to_code: foundCityCode.value,
       weight: safeWeight,
-      declared_value: cartStore.total
+      declared_value: Math.max(0, cartStore.total - promoDiscountPreview.value)
     })
     
     console.log('CDEK Response:', res.data)
@@ -2081,6 +2081,36 @@ async function placeOrder() {
       // Create CDEK order - critical error if fails
       try {
         const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
+        const declaredGoodsTotal = Math.max(
+          0,
+          createdOrderTotal - Number(data?.order?.deliveryPrice || deliveryPrice.value) + actualPartnerBonusUsed
+        )
+        const baseGoodsTotal = Math.max(0, Number(cartStore.total) || 0)
+        const targetCents = Math.round(declaredGoodsTotal * 100)
+        const units = cartStore.items.flatMap(item => {
+          const quantity = Math.max(1, parseInt(item.quantity, 10) || 1)
+          return Array.from({ length: quantity }, (_, unitIndex) => ({
+            name: `${item.title || 'Товар'}${item.selectedDosage ? ` (${item.selectedDosage})` : ''}`,
+            ware_key: `${item.sku || item.id}-${item.selectedDosage || 'base'}-${unitIndex + 1}`,
+            basePrice: Math.max(0, Number(item.price) || 0),
+            weight: Math.max(1, parseInt(item.weight, 10) || 1)
+          }))
+        })
+        let allocatedCents = 0
+        const cdekItems = units.map((item, index) => {
+          const isLast = index === units.length - 1
+          const itemCents = isLast
+            ? Math.max(0, targetCents - allocatedCents)
+            : Math.max(0, Math.floor(targetCents * (baseGoodsTotal > 0 ? item.basePrice / baseGoodsTotal : 0)))
+          allocatedCents += itemCents
+          return {
+            name: item.name,
+            ware_key: item.ware_key,
+            cost: itemCents / 100,
+            amount: 1,
+            weight: item.weight
+          }
+        })
         const cdekPayload = {
           number: `order-${lastOrderId.value}`,
           tariff_code: deliveryData.tariff_code,
@@ -2089,9 +2119,7 @@ async function placeOrder() {
           recipient_email: customer.value.email,
           packages: [{
             weight: safeWeight,
-            name: 'Товар',
-            cost: cartStore.total,
-            amount: cartStore.count
+            items: cdekItems
           }]
         }
 
@@ -2272,11 +2300,12 @@ watch(
 )
 
 watch(
-  [() => cartStore.total, () => cartStore.totalWeight],
-  ([nextTotal, nextWeight], [previousTotal, previousWeight]) => {
+  [() => cartStore.total, () => cartStore.totalWeight, () => promoDiscountPreview.value],
+  ([nextTotal, nextWeight, nextDiscount], [previousTotal, previousWeight, previousDiscount]) => {
     if (
       nextTotal === previousTotal &&
-      nextWeight === previousWeight
+      nextWeight === previousWeight &&
+      nextDiscount === previousDiscount
     ) return
     if (deliveryType.value !== 'pvz' || !selectedPickupPoint.value || !foundCityCode.value) return
 
