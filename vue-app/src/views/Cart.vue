@@ -809,9 +809,9 @@
                   <a href="/public-offer-2026.pdf" target="_blank" rel="noopener">Оферты</a>
                 </span>
               </label>
-              <label class="consent-item" :class="{ 'consent-item--error': showValidationErrors && !consents.acceptMarketing }">
+              <label class="consent-item">
                 <input type="checkbox" v-model="consents.acceptMarketing">
-                <span><span class="required-mark">*</span> Я согласен на получение информационных и рекламных сообщений</span>
+                <span>Я согласен на получение информационных и рекламных сообщений <span class="optional-mark">(необязательно)</span></span>
               </label>
               <label class="consent-item" :class="{ 'consent-item--error': showValidationErrors && !consents.acceptPrivacy }">
                 <input type="checkbox" v-model="consents.acceptPrivacy">
@@ -1051,7 +1051,6 @@ const isDeliveryMissing = computed(() => {
 })
 const hasConsentErrors = computed(() => {
   return !consents.value.acceptOffer ||
-    !consents.value.acceptMarketing ||
     !consents.value.acceptPrivacy ||
     !consents.value.acceptResearchTerms
 })
@@ -1768,7 +1767,6 @@ const isFormValid = computed(() => {
     : true
   const hasAllConsents =
     consents.value.acceptOffer &&
-    consents.value.acceptMarketing &&
     consents.value.acceptPrivacy &&
     consents.value.acceptResearchTerms
   return hasContact && hasDelivery && hasAllConsents
@@ -1813,9 +1811,6 @@ function getValidationErrors() {
 
   if (!consents.value.acceptOffer) {
     errors.push('Подтвердите согласие с условиями Оферты')
-  }
-  if (!consents.value.acceptMarketing) {
-    errors.push('Подтвердите согласие на получение информационных и рекламных сообщений')
   }
   if (!consents.value.acceptPrivacy) {
     errors.push('Подтвердите согласие с Политикой конфиденциальности')
