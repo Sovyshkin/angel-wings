@@ -2075,21 +2075,6 @@ async function placeOrder() {
       deliveryData.type = 'courier_internal_moscow'
       deliveryData.tariff_name = 'Курьер по Москве (внутренняя доставка)'
       deliveryData.address = courierAddress.value
-      deliveryData.base_address = addressInput.value
-      deliveryData.housing_type = courierHousingType.value
-      deliveryData.apartment = courierApartment.value
-      deliveryData.entrance = courierEntrance.value
-      deliveryData.floor = courierFloor.value
-      deliveryData.intercom = courierIntercom.value
-      deliveryData.courier_details = {
-        housingType: courierHousingType.value,
-        baseAddress: addressInput.value,
-        fullAddress: courierAddress.value,
-        apartment: courierApartment.value,
-        entrance: courierEntrance.value,
-        floor: courierFloor.value,
-        intercom: courierIntercom.value
-      }
     } else {
       deliveryData.price = SELF_PICKUP_PRICE
       deliveryData.city = SELF_PICKUP_CITY

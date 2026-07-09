@@ -77,33 +77,6 @@ function getPartnerBonusLines(order) {
   return lines
 }
 
-function getCourierDeliveryDetailsLines(order) {
-  const details = order?.courierDeliveryDetails
-  if (!details || typeof details !== 'object') return []
-
-  const housingType = details.housingType === 'private_house' ? 'Частный дом' : 'Квартира'
-  const lines = [
-    '',
-    '<b>Детали курьерской доставки:</b>',
-    `• Тип: ${escapeHtml(housingType)}`
-  ]
-
-  if (details.baseAddress) {
-    lines.push(`• Проверенный адрес: ${escapeHtml(details.baseAddress)}`)
-  }
-
-  if (details.housingType === 'private_house') {
-    return lines
-  }
-
-  lines.push(`• Квартира: ${escapeHtml(details.apartment || '—')}`)
-  if (details.entrance) lines.push(`• Подъезд: ${escapeHtml(details.entrance)}`)
-  if (details.floor) lines.push(`• Этаж: ${escapeHtml(details.floor)}`)
-  if (details.intercom) lines.push(`• Домофон: ${escapeHtml(details.intercom)}`)
-
-  return lines
-}
-
 function buildOrderMessage(order) {
   const items = Array.isArray(order?.items) ? order.items : []
   const lines = []
@@ -125,7 +98,6 @@ function buildOrderMessage(order) {
     ...getPartnerBonusLines(order),
     `<b>Доставка:</b> ${escapeHtml(getDeliveryLabel(order))}`,
     `<b>Адрес:</b> ${escapeHtml(order.shippingAddress || order.deliveryPickupName || order.deliveryCity || '—')}`,
-    ...getCourierDeliveryDetailsLines(order),
     '',
     '<b>Клиент:</b>',
     `• ${escapeHtml(order.customerName || '—')}`,
