@@ -259,6 +259,52 @@ class EmailService {
     })
   }
 
+  async sendAdminInvite({ to, name, password, adminUrl }) {
+    const safeName = escapeHtml(name || 'администратор')
+    const safeEmail = escapeHtml(to)
+    const safePassword = escapeHtml(password)
+    const safeAdminUrl = escapeHtml(adminUrl)
+
+    return this.sendMail({
+      to,
+      subject: 'Вас назначили администратором Angel Wings',
+      text: [
+        `Здравствуйте, ${name || 'администратор'}!`,
+        '',
+        'Вас назначили администратором Angel Wings.',
+        '',
+        `Панель администратора: ${adminUrl}`,
+        `Логин: ${to}`,
+        `Временный пароль: ${password}`,
+        '',
+        'После входа рекомендуем сменить пароль на новый надежный.',
+        'Если вы не ожидали это письмо, пожалуйста, свяжитесь с владельцем магазина.'
+      ].join('\n'),
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:28px;background:#f6f7fb;color:#151722">
+          <div style="background:#fff;border-radius:22px;padding:30px;border:1px solid #e7e9f2">
+            <div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#8da2ff;font-weight:700;margin-bottom:12px">Angel Wings</div>
+            <h1 style="margin:0 0 14px;font-size:25px;line-height:1.2">Вас назначили администратором</h1>
+            <p style="margin:0 0 22px;font-size:16px;line-height:1.55">Здравствуйте, ${safeName}! Для вас создан доступ к админ-панели Angel Wings.</p>
+
+            <div style="background:#f3f5ff;border-radius:18px;padding:20px;margin:0 0 22px;border:1px solid #dfe5ff">
+              <p style="margin:0 0 10px;color:#687087;font-size:14px">Ссылка для входа</p>
+              <a href="${safeAdminUrl}" style="display:inline-block;color:#5068d9;font-size:16px;font-weight:700;text-decoration:none">${safeAdminUrl}</a>
+              <div style="height:16px"></div>
+              <p style="margin:0 0 8px;color:#687087;font-size:14px">Логин</p>
+              <div style="font-size:17px;font-weight:700;color:#151722">${safeEmail}</div>
+              <div style="height:16px"></div>
+              <p style="margin:0 0 8px;color:#687087;font-size:14px">Временный пароль</p>
+              <div style="font-family:Menlo,Consolas,monospace;font-size:20px;font-weight:700;letter-spacing:.04em;background:#151722;color:#fff;border-radius:14px;padding:14px 16px">${safePassword}</div>
+            </div>
+
+            <p style="margin:0;color:#73788a;font-size:14px;line-height:1.5">После первого входа рекомендуем сменить пароль на новый надежный. Если вы не ожидали это письмо, свяжитесь с владельцем магазина.</p>
+          </div>
+        </div>
+      `
+    })
+  }
+
   async sendCampaignEmail({ to, subject, body }) {
     return this.sendMail({
       to,

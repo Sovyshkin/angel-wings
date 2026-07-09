@@ -1,11 +1,12 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
+import crypto from 'node:crypto'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
 import tochkaService from '../services/tochka.js'
 import { v4 as uuidv4 } from 'uuid'
-import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
+import { validateBasicPassword } from '../utils/passwordPolicy.js'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
@@ -15,6 +16,42 @@ import emailService from '../services/email.js'
 const router = Router()
 const prisma = new PrismaClient()
 const ALLOWED_USER_ROLES = ['USER', 'ADMIN', 'PARTNER']
+const ADMIN_PASSWORD_LENGTH = 18
+
+function getAdminLoginUrl() {
+  return String(process.env.ADMIN_LOGIN_URL || process.env.ADMIN_URL || 'https://admin.angel-wings.ru').trim()
+}
+
+function pickRandom(chars) {
+  return chars[crypto.randomInt(0, chars.length)]
+}
+
+function shuffleSecure(chars) {
+  const result = [...chars]
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = crypto.randomInt(0, i + 1)
+    const current = result[i]
+    result[i] = result[j]
+    result[j] = current
+  }
+  return result.join('')
+}
+
+function generateSecureAdminPassword(length = ADMIN_PASSWORD_LENGTH) {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+  const lower = 'abcdefghijkmnopqrstuvwxyz'
+  const digits = '23456789'
+  const symbols = '!@#$%^&*()-_=+'
+  const all = `${upper}${lower}${digits}${symbols}`
+  const required = [
+    pickRandom(upper),
+    pickRandom(lower),
+    pickRandom(digits),
+    pickRandom(symbols)
+  ]
+  const rest = Array.from({ length: Math.max(0, length - required.length) }, () => pickRandom(all))
+  return shuffleSecure([...required, ...rest])
+}
 
 async function generatePartnerReferralCode(tx = prisma) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -303,21 +340,21 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
     const email = normalizeEmail(req.body.email)
     const normalizedRole = String(role || 'USER').toUpperCase()
 
-    const passwordError = normalizedRole === 'ADMIN'
-      ? validatePasswordPolicy(password, { email, name })
-      : validateBasicPassword(password)
-    if (passwordError) return res.status(400).json({ error: passwordError })
-
     if (!ALLOWED_USER_ROLES.includes(normalizedRole)) {
       return res.status(400).json({ error: 'Некорректная роль пользователя' })
     }
+
+    const generatedAdminPassword = normalizedRole === 'ADMIN' ? generateSecureAdminPassword() : null
+    const effectivePassword = generatedAdminPassword || password
+    const passwordError = generatedAdminPassword ? null : validateBasicPassword(effectivePassword)
+    if (passwordError) return res.status(400).json({ error: passwordError })
     
     const existing = await findUserByEmail(prisma, email)
     if (existing) {
       return res.status(400).json({ error: 'Пользователь с таким email уже существует' })
     }
     
-    const hashedPassword = await bcrypt.hash(password, 10)
+    const hashedPassword = await bcrypt.hash(effectivePassword, 10)
     
     const user = await prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
@@ -338,8 +375,22 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
 
       return createdUser
     })
+
+    if (generatedAdminPassword) {
+      try {
+        await emailService.sendAdminInvite({
+          to: user.email,
+          name: user.name,
+          password: generatedAdminPassword,
+          adminUrl: getAdminLoginUrl()
+        })
+      } catch (emailError) {
+        await prisma.user.delete({ where: { id: user.id } }).catch(() => null)
+        throw emailError
+      }
+    }
     
-    res.status(201).json({ user })
+    res.status(201).json({ user, adminInviteSent: Boolean(generatedAdminPassword) })
   } catch (error) {
     next(error)
   }
@@ -347,26 +398,30 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
 
 router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { name, role, phone, password } = req.body
+    const { name, role, phone } = req.body
     const userId = parseInt(req.params.id)
     const normalizedRole = role !== undefined ? String(role).toUpperCase() : undefined
 
     if (normalizedRole !== undefined && !ALLOWED_USER_ROLES.includes(normalizedRole)) {
       return res.status(400).json({ error: 'Некорректная роль пользователя' })
     }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true, role: true, password: true }
+    })
+
+    if (!currentUser || currentUser.role === 'DELETED') {
+      return res.status(404).json({ error: 'Пользователь не найден' })
+    }
     
     const passwordUpdate = {}
-    if (normalizedRole === 'ADMIN') {
-      const currentUser = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true, name: true }
-      })
-      const passwordError = validatePasswordPolicy(password, {
-        email: currentUser?.email,
-        name: name || currentUser?.name
-      })
-      if (passwordError) return res.status(400).json({ error: passwordError })
-      passwordUpdate.password = await bcrypt.hash(password, 10)
+    const generatedAdminPassword = normalizedRole === 'ADMIN' && currentUser.role !== 'ADMIN'
+      ? generateSecureAdminPassword()
+      : null
+
+    if (generatedAdminPassword) {
+      passwordUpdate.password = await bcrypt.hash(generatedAdminPassword, 10)
     }
 
     const user = await prisma.$transaction(async (tx) => {
@@ -400,8 +455,43 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
 
       return updatedUser
     })
+
+    if (generatedAdminPassword) {
+      try {
+        await emailService.sendAdminInvite({
+          to: user.email,
+          name: user.name,
+          password: generatedAdminPassword,
+          adminUrl: getAdminLoginUrl()
+        })
+      } catch (emailError) {
+        await prisma.$transaction(async (tx) => {
+          await tx.user.update({
+            where: { id: userId },
+            data: {
+              role: currentUser.role,
+              password: currentUser.password
+            }
+          })
+
+          if (currentUser.role === 'PARTNER') {
+            await tx.partner.updateMany({
+              where: { userId },
+              data: { isActive: true }
+            })
+          } else {
+            await tx.partner.updateMany({
+              where: { userId },
+              data: { isActive: false }
+            })
+          }
+        }).catch(() => null)
+
+        throw emailError
+      }
+    }
     
-    res.json({ user })
+    res.json({ user, adminInviteSent: Boolean(generatedAdminPassword) })
   } catch (error) {
     next(error)
   }

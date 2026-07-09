@@ -151,12 +151,14 @@
             <input type="email" v-model="form.email" required class="input" placeholder="email@example.com">
           </div>
 
-          <div class="form-group">
+          <div v-if="form.role !== 'ADMIN'" class="form-group">
             <label class="form-label">Пароль</label>
-            <input type="password" v-model="form.password" required :minlength="form.role === 'ADMIN' ? 12 : 6" class="input" :placeholder="form.role === 'ADMIN' ? '12+ символов, Aa, цифра и спецсимвол' : 'Минимум 6 символов'">
-            <small v-if="form.role === 'ADMIN'" class="password-hint">
-              Для админа нужен надежный пароль: минимум 12 символов, заглавная и строчная буква, цифра и спецсимвол.
-            </small>
+            <input type="password" v-model="form.password" required minlength="6" class="input" placeholder="Минимум 6 символов">
+          </div>
+
+          <div v-else class="admin-password-notice">
+            <strong>Пароль для администратора создастся автоматически</strong>
+            <span>Мы сгенерируем безопасный временный пароль и отправим его на email нового администратора вместе со ссылкой на вход.</span>
           </div>
 
           <div class="form-group">
@@ -228,15 +230,6 @@ function openUserDetail(id) {
 async function updateRole(id, role) {
   const payload = { role }
 
-  if (role === 'ADMIN') {
-    const password = prompt('Задайте новый надежный пароль для администратора: минимум 12 символов, заглавная и строчная буква, цифра и спецсимвол.')
-    if (!password) {
-      fetchUsers()
-      return
-    }
-    payload.password = password
-  }
-
   try {
     const { data } = await axios.put(`${API_URL}/users/${id}`, payload)
     const index = users.value.findIndex(u => u.id === id)
@@ -245,6 +238,9 @@ async function updateRole(id, role) {
         ...users.value[index],
         ...data.user
       }
+    }
+    if (data.adminInviteSent) {
+      alert('Пользователь назначен администратором. Данные для входа отправлены на его email.')
     }
   } catch (e) {
     alert(e.response?.data?.error || 'Ошибка обновления роли')
@@ -273,9 +269,16 @@ async function handleSubmit() {
   error.value = ''
   loadingForm.value = true
   try {
-    await axios.post(API_URL + '/users', form.value)
+    const payload = { ...form.value }
+    if (payload.role === 'ADMIN') {
+      delete payload.password
+    }
+    const { data } = await axios.post(API_URL + '/users', payload)
     closeModal()
     fetchUsers()
+    if (data.adminInviteSent) {
+      alert('Администратор создан. Данные для входа отправлены на email.')
+    }
   } catch (e) {
     error.value = e.response?.data?.error || 'Ошибка создания'
   } finally {
@@ -689,9 +692,23 @@ watch(search, scheduleSearch)
   color: var(--text-secondary);
 }
 
-.password-hint {
-  color: var(--text-muted);
-  font-size: 0.78rem;
+.admin-password-notice {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+  border: 1px solid rgba(163, 183, 255, 0.35);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(163, 183, 255, 0.14), rgba(163, 183, 255, 0.04));
+  color: var(--text-secondary);
+}
+
+.admin-password-notice strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.admin-password-notice span {
+  font-size: 0.84rem;
   line-height: 1.45;
 }
 
