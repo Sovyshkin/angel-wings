@@ -13,6 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
   
   async function login(email, password) {
     const { data } = await axios.post(`${API_URL}/auth/login`, { email, password, adminLogin: true })
+    if (data.requiresLoginVerification) return data
     setAuth(data)
     return data
   }
@@ -30,7 +31,8 @@ export const useAuthStore = defineStore('auth', () => {
       email,
       code,
       purpose: 'login_verification',
-      challengeToken
+      challengeToken,
+      adminLogin: true
     })
     setAuth(data)
     return data
@@ -40,7 +42,8 @@ export const useAuthStore = defineStore('auth', () => {
     const { data } = await axios.post(`${API_URL}/auth/resend-verification`, {
       email,
       purpose: 'login_verification',
-      challengeToken
+      challengeToken,
+      adminLogin: true
     })
     return data
   }

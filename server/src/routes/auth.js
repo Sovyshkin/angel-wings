@@ -168,10 +168,13 @@ router.post('/login', async (req, res, next) => {
         return res.status(403).json({ error: 'Доступ в админку разрешён только администраторам' })
       }
 
-      const token = createSessionToken(user.id)
-      return res.json({
-        token,
-        user: getPublicUser(user)
+      const expiresAt = await createOrReuseLoginCode(user)
+      return res.status(202).json({
+        requiresLoginVerification: true,
+        email: user.email,
+        challengeToken: createLoginChallenge(user.id),
+        expiresAt,
+        message: 'Введите код подтверждения, отправленный на вашу почту'
       })
     }
 
@@ -223,6 +226,10 @@ router.post('/verify-email', async (req, res, next) => {
 
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' })
+    }
+
+    if (purpose === 'login_verification' && req.body.adminLogin === true && user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Доступ в админку разрешён только администраторам' })
     }
 
     if (purpose === 'email_verification' && user.emailVerified) {
@@ -302,6 +309,10 @@ router.post('/resend-verification', async (req, res, next) => {
 
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' })
+    }
+
+    if (purpose === 'login_verification' && req.body.adminLogin === true && user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Доступ в админку разрешён только администраторам' })
     }
 
     if (purpose === 'email_verification' && user.emailVerified) {
