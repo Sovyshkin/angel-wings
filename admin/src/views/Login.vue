@@ -6,12 +6,10 @@
           <span class="logo-text">ANGEL WINGS</span>
         </router-link>
         
-        <h1 class="login-title">{{ verificationStep ? 'Подтверждение входа' : 'Вход в админку' }}</h1>
-        <p class="login-subtitle">
-          {{ verificationStep ? `Код отправлен на ${pendingEmail}` : 'Управление магазином пептидов' }}
-        </p>
+        <h1 class="login-title">Вход в админку</h1>
+        <p class="login-subtitle">Управление магазином пептидов</p>
         
-        <form v-if="!verificationStep" @submit.prevent="handleLogin" class="login-form">
+        <form @submit.prevent="handleLogin" class="login-form">
           <div class="form-group">
             <label class="form-label">Email</label>
             <input 
@@ -41,35 +39,6 @@
             <span v-else>Войти</span>
           </button>
         </form>
-
-        <form v-else @submit.prevent="handleVerification" class="login-form">
-          <div class="verification-notice">
-            Введите шестизначный код из письма. Код действует 15 минут.
-          </div>
-          <div class="form-group">
-            <label class="form-label">Код подтверждения</label>
-            <input
-              v-model="verificationCode"
-              type="text"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              maxlength="6"
-              required
-              class="input verification-input"
-              placeholder="000000"
-            >
-          </div>
-
-          <div v-if="error" class="error-message">{{ error }}</div>
-
-          <button type="submit" class="btn btn-primary btn-full" :disabled="loading || verificationCode.length !== 6">
-            {{ loading ? 'Проверяем...' : 'Подтвердить вход' }}
-          </button>
-          <button type="button" class="resend-button" :disabled="resending" @click="resendCode">
-            {{ resending ? 'Отправляем...' : 'Отправить код повторно' }}
-          </button>
-          <button type="button" class="resend-button" @click="backToLogin">Вернуться к вводу пароля</button>
-        </form>
       </div>
     </div>
   </div>
@@ -87,63 +56,19 @@ const email = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
-const resending = ref(false)
-const verificationStep = ref(false)
-const pendingEmail = ref('')
-const verificationCode = ref('')
-const challengeToken = ref('')
 
 async function handleLogin() {
   error.value = ''
   loading.value = true
   
   try {
-    const result = await authStore.login(email.value, password.value)
-    if (result?.requiresLoginVerification) {
-      pendingEmail.value = result.email || email.value
-      challengeToken.value = result.challengeToken || ''
-      verificationCode.value = ''
-      verificationStep.value = true
-      return
-    }
+    await authStore.login(email.value, password.value)
     router.push('/dashboard')
   } catch (e) {
     error.value = e.response?.data?.error || 'Ошибка входа'
   } finally {
     loading.value = false
   }
-}
-
-async function handleVerification() {
-  error.value = ''
-  loading.value = true
-  try {
-    await authStore.verifyLogin(pendingEmail.value, verificationCode.value, challengeToken.value)
-    router.push('/dashboard')
-  } catch (e) {
-    error.value = e.response?.data?.error || 'Неверный или истёкший код'
-  } finally {
-    loading.value = false
-  }
-}
-
-async function resendCode() {
-  error.value = ''
-  resending.value = true
-  try {
-    await authStore.resendLoginCode(pendingEmail.value, challengeToken.value)
-  } catch (e) {
-    error.value = e.response?.data?.error || 'Не удалось отправить код'
-  } finally {
-    resending.value = false
-  }
-}
-
-function backToLogin() {
-  verificationStep.value = false
-  verificationCode.value = ''
-  challengeToken.value = ''
-  error.value = ''
 }
 </script>
 

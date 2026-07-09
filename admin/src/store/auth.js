@@ -12,8 +12,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(() => user.value?.role === 'ADMIN')
   
   async function login(email, password) {
-    const { data } = await axios.post(`${API_URL}/auth/login`, { email, password })
-    if (data.requiresLoginVerification) return data
+    const { data } = await axios.post(`${API_URL}/auth/login`, { email, password, adminLogin: true })
     setAuth(data)
     return data
   }

@@ -150,6 +150,7 @@ router.post('/register', async (req, res, next) => {
 router.post('/login', async (req, res, next) => {
   try {
     const { password } = req.body
+    const isAdminLogin = req.body.adminLogin === true
     const email = normalizeEmail(req.body.email)
     
     const user = await findUserByEmail(prisma, email)
@@ -160,6 +161,18 @@ router.post('/login', async (req, res, next) => {
     const isValid = await bcrypt.compare(password, user.password)
     if (!isValid) {
       return res.status(401).json({ error: 'Неверные учётные данные' })
+    }
+
+    if (isAdminLogin) {
+      if (user.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Доступ в админку разрешён только администраторам' })
+      }
+
+      const token = createSessionToken(user.id)
+      return res.json({
+        token,
+        user: getPublicUser(user)
+      })
     }
 
     if (!user.emailVerified) {
