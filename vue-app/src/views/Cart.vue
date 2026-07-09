@@ -450,7 +450,7 @@
                     Самовывоз
                     <span v-if="!SELF_PICKUP_AVAILABLE" class="option-unavailable-badge">Временно недоступен</span>
                   </strong>
-                  <span>Москва, Чкаловский бульвар, 6</span>
+                  <span>Москва, ул. Маршала Рыбалко, 2, корп. 3</span>
                 </div>
                 <div class="option-meta">
                   <span v-if="SELF_PICKUP_AVAILABLE" class="option-price option-price--free">Бесплатно</span>
@@ -459,6 +459,58 @@
                 </div>
               </label>
             </div>
+
+            <section
+              v-if="SELF_PICKUP_AVAILABLE && deliveryType === 'self_pickup'"
+              class="pickup-map-card"
+              aria-label="Карта пункта самовывоза Коворкинг-М1"
+            >
+              <iframe
+                class="pickup-map-card__map"
+                :src="SELF_PICKUP_MAP_URL"
+                title="Коворкинг-М1 на Яндекс Картах"
+                loading="lazy"
+                allowfullscreen
+              ></iframe>
+              <div class="pickup-map-card__shade" aria-hidden="true"></div>
+              <a
+                class="pickup-map-card__place"
+                :href="SELF_PICKUP_YANDEX_URL"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span class="pickup-map-card__pin">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 7h16v12H4z"/>
+                    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M4 12h16M10 12v2h4v-2"/>
+                  </svg>
+                </span>
+                <span>
+                  <strong>Коворкинг-М1</strong>
+                  <small>Пункт самовывоза</small>
+                </span>
+                <svg class="pickup-map-card__external" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>
+                </svg>
+              </a>
+              <a
+                class="pickup-map-card__route"
+                :href="SELF_PICKUP_ROUTE_URL"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span class="pickup-map-card__route-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18 3 12l6-6"/>
+                    <path d="M3 12h11a7 7 0 0 1 7 7v2"/>
+                  </svg>
+                </span>
+                <span>
+                  <strong>Как пройти</strong>
+                  <small>Открыть маршрут</small>
+                </span>
+              </a>
+            </section>
 
             <div v-if="loadingDelivery" class="loading-pickup">
               <span class="spinner"></span>
@@ -898,7 +950,11 @@ const INTERNAL_COURIER_CITY = 'Москва'
 const INTERNAL_COURIER_CITY_CODE = '44'
 const INTERNAL_COURIER_PRICE = 690
 const SELF_PICKUP_CITY = 'Москва'
-const SELF_PICKUP_ADDRESS = 'г. Москва, Чкаловский бульвар, 6'
+const SELF_PICKUP_ADDRESS = 'г. Москва, ул. Маршала Рыбалко, 2, корп. 3, Коворкинг-М1'
+const SELF_PICKUP_MAP_QUERY = encodeURIComponent('Коворкинг-М1, Москва, улица Маршала Рыбалко, 2, корпус 3')
+const SELF_PICKUP_MAP_URL = `https://yandex.ru/map-widget/v1/?mode=search&text=${SELF_PICKUP_MAP_QUERY}&z=16`
+const SELF_PICKUP_YANDEX_URL = `https://yandex.ru/maps/?mode=search&text=${SELF_PICKUP_MAP_QUERY}`
+const SELF_PICKUP_ROUTE_URL = `https://yandex.ru/maps/?mode=routes&rtext=~${SELF_PICKUP_MAP_QUERY}&rtt=pedestrian`
 const SELF_PICKUP_PRICE = 0
 const SELF_PICKUP_AVAILABLE = false
 const CHECKOUT_REQUEST_KEY = 'peptidi_checkout_request_guard'
@@ -2019,6 +2075,21 @@ async function placeOrder() {
       deliveryData.type = 'courier_internal_moscow'
       deliveryData.tariff_name = 'Курьер по Москве (внутренняя доставка)'
       deliveryData.address = courierAddress.value
+      deliveryData.base_address = addressInput.value
+      deliveryData.housing_type = courierHousingType.value
+      deliveryData.apartment = courierApartment.value
+      deliveryData.entrance = courierEntrance.value
+      deliveryData.floor = courierFloor.value
+      deliveryData.intercom = courierIntercom.value
+      deliveryData.courier_details = {
+        housingType: courierHousingType.value,
+        baseAddress: addressInput.value,
+        fullAddress: courierAddress.value,
+        apartment: courierApartment.value,
+        entrance: courierEntrance.value,
+        floor: courierFloor.value,
+        intercom: courierIntercom.value
+      }
     } else {
       deliveryData.price = SELF_PICKUP_PRICE
       deliveryData.city = SELF_PICKUP_CITY
@@ -3192,6 +3263,130 @@ onUnmounted(() => {
   transform: rotate(45deg);
 }
 
+.pickup-map-card {
+  position: relative;
+  min-height: 250px;
+  margin: 0.25rem 0 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #151925;
+  box-shadow: 0 18px 44px rgba(4, 7, 16, 0.22);
+  isolation: isolate;
+}
+
+.pickup-map-card__map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  filter: saturate(0.82) contrast(1.05);
+}
+
+.pickup-map-card__shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(9, 11, 18, 0.42) 0%, transparent 38%),
+    linear-gradient(0deg, rgba(9, 11, 18, 0.58) 0%, transparent 45%);
+}
+
+.pickup-map-card__place,
+.pickup-map-card__route {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: #f8fafc;
+  text-decoration: none;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.pickup-map-card__place {
+  top: 14px;
+  left: 14px;
+  max-width: calc(100% - 28px);
+  padding: 0.6rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 13px;
+  background: rgba(17, 20, 30, 0.88);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.pickup-map-card__pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 11px;
+  background: #ff4d45;
+  box-shadow: 0 8px 18px rgba(255, 77, 69, 0.3);
+}
+
+.pickup-map-card__place > span:nth-child(2),
+.pickup-map-card__route > span:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.pickup-map-card__place strong,
+.pickup-map-card__route strong {
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.pickup-map-card__place small,
+.pickup-map-card__route small {
+  color: rgba(248, 250, 252, 0.62);
+  font-size: 0.66rem;
+  line-height: 1.25;
+}
+
+.pickup-map-card__external {
+  flex: 0 0 auto;
+  margin-left: 0.3rem;
+  color: rgba(248, 250, 252, 0.6);
+}
+
+.pickup-map-card__route {
+  left: 14px;
+  bottom: 14px;
+  padding: 0.55rem 0.75rem 0.55rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 13px;
+  background: rgba(18, 21, 31, 0.92);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+}
+
+.pickup-map-card__route-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 10px;
+  color: #121620;
+  background: var(--accent);
+}
+
+.pickup-map-card__place:hover,
+.pickup-map-card__route:hover {
+  transform: translateY(-2px);
+  border-color: rgba(166, 185, 248, 0.75);
+  background: rgba(26, 30, 43, 0.96);
+}
+
 .payment-method-card {
   margin: 1rem 0 1.25rem;
   padding: 1rem;
@@ -3596,6 +3791,22 @@ onUnmounted(() => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.65rem;
     padding: 0.8rem;
+  }
+
+  .pickup-map-card {
+    min-height: 220px;
+    border-radius: 15px;
+  }
+
+  .pickup-map-card__place {
+    top: 10px;
+    left: 10px;
+    max-width: calc(100% - 20px);
+  }
+
+  .pickup-map-card__route {
+    left: 10px;
+    bottom: 10px;
   }
 }
 

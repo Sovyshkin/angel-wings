@@ -61,6 +61,36 @@ function normalizePromoCodeValue(code) {
   return String(code || '').trim().toUpperCase()
 }
 
+function cleanDeliveryDetail(value, maxLength = 80) {
+  return String(value || '')
+    .replace(/[\n\r;]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength)
+}
+
+function buildCourierDeliveryDetails(delivery = {}, validatedAddress = null, fallbackAddress = null) {
+  const details = delivery?.courier_details && typeof delivery.courier_details === 'object'
+    ? delivery.courier_details
+    : {}
+  const housingType = cleanDeliveryDetail(
+    details.housingType || delivery.housing_type || delivery.housingType || 'apartment',
+    40
+  ) === 'private_house'
+    ? 'private_house'
+    : 'apartment'
+
+  return {
+    housingType,
+    baseAddress: cleanDeliveryDetail(details.baseAddress || delivery.base_address || validatedAddress || fallbackAddress, 220),
+    fullAddress: cleanDeliveryDetail(details.fullAddress || delivery.address || fallbackAddress || validatedAddress, 260),
+    apartment: housingType === 'apartment' ? cleanDeliveryDetail(details.apartment || delivery.apartment, 40) : '',
+    entrance: housingType === 'apartment' ? cleanDeliveryDetail(details.entrance || delivery.entrance, 40) : '',
+    floor: housingType === 'apartment' ? cleanDeliveryDetail(details.floor || delivery.floor, 40) : '',
+    intercom: housingType === 'apartment' ? cleanDeliveryDetail(details.intercom || delivery.intercom, 60) : ''
+  }
+}
+
 async function findPromoCodeByCode(code) {
   const rawCode = String(code || '').trim()
   const normalizedCode = normalizePromoCodeValue(rawCode)
@@ -580,6 +610,7 @@ router.post('/', authenticate, async (req, res, next) => {
     const normalizedPaymentMethod = String(paymentMethod || 'online').trim().toLowerCase()
     const isCashOnDelivery = normalizedPaymentMethod === 'cash_on_delivery'
     let validatedCourierAddress = null
+    let courierDeliveryDetails = null
 
     if (isCashOnDelivery && !isInternalMoscowCourier) {
       return res.status(400).json({
@@ -588,7 +619,13 @@ router.post('/', authenticate, async (req, res, next) => {
     }
 
     if (isInternalMoscowCourier) {
-      const courierAddress = String(delivery?.address || shippingAddress || '').trim()
+      const courierAddress = String(
+        delivery?.courier_details?.baseAddress ||
+        delivery?.base_address ||
+        delivery?.address ||
+        shippingAddress ||
+        ''
+      ).trim()
       if (!courierAddress) {
         return res.status(400).json({ error: 'Для курьерской доставки по Москве укажите адрес' })
       }
@@ -602,6 +639,7 @@ router.post('/', authenticate, async (req, res, next) => {
       }
 
       validatedCourierAddress = addressValidation.normalizedAddress || courierAddress
+      courierDeliveryDetails = buildCourierDeliveryDetails(delivery, validatedCourierAddress, shippingAddress)
     }
 
     const productIds = items.map(item => item.productId)
@@ -804,7 +842,7 @@ router.post('/', authenticate, async (req, res, next) => {
         customerName,
         customerEmail,
         customerPhone: normalizedCustomerPhone,
-        shippingAddress: validatedCourierAddress || shippingAddress || delivery?.address || null,
+        shippingAddress: courierDeliveryDetails?.fullAddress || validatedCourierAddress || shippingAddress || delivery?.address || null,
         notes,
         total: finalOrderTotal,
         paymentStatus: finalOrderTotal <= 0 ? 'PAID' : (isCashOnDelivery ? 'CASH_ON_DELIVERY' : 'PENDING'),
@@ -823,7 +861,7 @@ router.post('/', authenticate, async (req, res, next) => {
         deliveryPrice: deliveryPrice,
         deliveryCity: delivery?.city || (isInternalMoscowCourier ? 'Москва' : null),
         deliveryPickupPoint: isInternalMoscowCourier ? null : delivery?.pickup_point,
-        deliveryPickupName: isInternalMoscowCourier ? (validatedCourierAddress || delivery?.address || shippingAddress || null) : delivery?.pickup_point_name,
+        deliveryPickupName: isInternalMoscowCourier ? (courierDeliveryDetails?.fullAddress || validatedCourierAddress || delivery?.address || shippingAddress || null) : delivery?.pickup_point_name,
         items: {
           create: orderItems
         }
@@ -893,6 +931,10 @@ router.post('/', authenticate, async (req, res, next) => {
           balance: await calculatePartnerBalance(prisma, buyerPartner.id)
         }
       }
+    }
+
+    if (courierDeliveryDetails) {
+      order.courierDeliveryDetails = courierDeliveryDetails
     }
 
     await syncPartnerCommissionForOrder(prisma, order.id)

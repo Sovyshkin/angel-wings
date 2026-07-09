@@ -80,4 +80,26 @@ router.beforeEach(async (to, from, next) => {
   }
 })
 
+router.afterEach((to, from, failure) => {
+  if (failure || !from.name || typeof window === 'undefined') return
+
+  const pageUrl = window.location.href
+  const pagePath = to.fullPath
+
+  window.dataLayer = window.dataLayer || []
+  window.dataLayer.push({
+    event: 'virtual_page_view',
+    page_path: pagePath,
+    page_location: pageUrl,
+    page_title: document.title
+  })
+
+  if (typeof window.ym === 'function') {
+    window.ym(110515849, 'hit', pageUrl, {
+      title: document.title,
+      referer: from.fullPath
+    })
+  }
+})
+
 export default router
