@@ -493,23 +493,6 @@
                   <path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>
                 </svg>
               </a>
-              <a
-                class="pickup-map-card__route"
-                :href="SELF_PICKUP_ROUTE_URL"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <span class="pickup-map-card__route-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 18 3 12l6-6"/>
-                    <path d="M3 12h11a7 7 0 0 1 7 7v2"/>
-                  </svg>
-                </span>
-                <span>
-                  <strong>Как пройти</strong>
-                  <small>Открыть маршрут</small>
-                </span>
-              </a>
             </section>
 
             <div v-if="loadingDelivery" class="loading-pickup">
@@ -954,9 +937,8 @@ const SELF_PICKUP_ADDRESS = 'г. Москва, ул. Маршала Рыбалк
 const SELF_PICKUP_MAP_QUERY = encodeURIComponent('Коворкинг-М1, Москва, улица Маршала Рыбалко, 2, корпус 3')
 const SELF_PICKUP_MAP_URL = `https://yandex.ru/map-widget/v1/?mode=search&text=${SELF_PICKUP_MAP_QUERY}&z=16`
 const SELF_PICKUP_YANDEX_URL = `https://yandex.ru/maps/?mode=search&text=${SELF_PICKUP_MAP_QUERY}`
-const SELF_PICKUP_ROUTE_URL = `https://yandex.ru/maps/?mode=routes&rtext=~${SELF_PICKUP_MAP_QUERY}&rtt=pedestrian`
 const SELF_PICKUP_PRICE = 0
-const SELF_PICKUP_AVAILABLE = false
+const SELF_PICKUP_AVAILABLE = true
 const CHECKOUT_REQUEST_KEY = 'peptidi_checkout_request_guard'
 const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
 const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
@@ -3279,8 +3261,7 @@ onUnmounted(() => {
     linear-gradient(0deg, rgba(9, 11, 18, 0.58) 0%, transparent 45%);
 }
 
-.pickup-map-card__place,
-.pickup-map-card__route {
+.pickup-map-card__place {
   position: absolute;
   z-index: 2;
   display: flex;
@@ -3316,22 +3297,19 @@ onUnmounted(() => {
   box-shadow: 0 8px 18px rgba(255, 77, 69, 0.3);
 }
 
-.pickup-map-card__place > span:nth-child(2),
-.pickup-map-card__route > span:nth-child(2) {
+.pickup-map-card__place > span:nth-child(2) {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 0.08rem;
 }
 
-.pickup-map-card__place strong,
-.pickup-map-card__route strong {
+.pickup-map-card__place strong {
   font-size: 0.82rem;
   line-height: 1.2;
 }
 
-.pickup-map-card__place small,
-.pickup-map-card__route small {
+.pickup-map-card__place small {
   color: rgba(248, 250, 252, 0.62);
   font-size: 0.66rem;
   line-height: 1.25;
@@ -3343,30 +3321,7 @@ onUnmounted(() => {
   color: rgba(248, 250, 252, 0.6);
 }
 
-.pickup-map-card__route {
-  left: 14px;
-  bottom: 14px;
-  padding: 0.55rem 0.75rem 0.55rem 0.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 13px;
-  background: rgba(18, 21, 31, 0.92);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
-}
-
-.pickup-map-card__route-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
-  border-radius: 10px;
-  color: #121620;
-  background: var(--accent);
-}
-
-.pickup-map-card__place:hover,
-.pickup-map-card__route:hover {
+.pickup-map-card__place:hover {
   transform: translateY(-2px);
   border-color: rgba(166, 185, 248, 0.75);
   background: rgba(26, 30, 43, 0.96);
@@ -3789,10 +3744,6 @@ onUnmounted(() => {
     max-width: calc(100% - 20px);
   }
 
-  .pickup-map-card__route {
-    left: 10px;
-    bottom: 10px;
-  }
 }
 
 .btn-submit {
