@@ -45,7 +45,9 @@ export const errorHandler = (err, req, res, next) => {
   if (err.code === 'EMAIL_DELIVERY_FAILED' || err.name === 'EmailDeliveryError') {
     return res.status(503).json({
       error: 'Не удалось отправить письмо. Почтовый сервис временно недоступен, попробуйте ещё раз через несколько минут.',
-      code: 'EMAIL_DELIVERY_FAILED'
+      code: 'EMAIL_DELIVERY_FAILED',
+      deliveryCode: err.deliveryCode || null,
+      reason: err.publicReason || null
     })
   }
 

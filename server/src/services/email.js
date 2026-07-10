@@ -110,9 +110,11 @@ class EmailService {
     })
 
     if (Number(response.status || 0) >= 400 || response.data?.ok === false) {
-      const error = new Error(response.data?.error || `Email relay returned HTTP ${response.status}`)
+      const error = new Error(response.data?.message || response.data?.error || `Email relay returned HTTP ${response.status}`)
       error.code = 'EMAIL_RELAY_REJECTED'
       error.responseCode = response.status
+      error.relayCode = response.data?.code || null
+      error.relayMessage = response.data?.message || response.data?.error || null
       throw error
     }
 
@@ -202,6 +204,7 @@ class EmailService {
         mode: relay.url ? 'relay' : 'smtp',
         target: relay.url || `${config.host}:${config.port}`,
         code: error?.code || error?.cause?.code || null,
+        relayCode: error?.relayCode || null,
         command: error?.command || null,
         responseCode: error?.responseCode || null,
         message: error?.message || error?.cause?.message || 'Unknown delivery error',
@@ -214,6 +217,8 @@ class EmailService {
       deliveryError.name = 'EmailDeliveryError'
       deliveryError.code = 'EMAIL_DELIVERY_FAILED'
       deliveryError.status = 503
+      deliveryError.deliveryCode = error?.relayCode || error?.code || error?.cause?.code || null
+      deliveryError.publicReason = error?.relayMessage || null
       deliveryError.cause = error
       throw deliveryError
     }

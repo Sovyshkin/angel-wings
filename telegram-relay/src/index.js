@@ -119,6 +119,45 @@ function getMailTransporter() {
   return mailTransporter
 }
 
+function getEmailErrorInfo(error) {
+  const code = error?.code || error?.cause?.code || ''
+  const responseCode = Number(error?.responseCode || 0)
+  const message = String(error?.message || error?.cause?.message || '')
+
+  if (message.includes('is not configured')) {
+    return {
+      code: 'SMTP_NOT_CONFIGURED',
+      message: 'На relay-сервере не настроены SMTP-параметры'
+    }
+  }
+
+  if (code === 'EAUTH' || responseCode === 535 || responseCode === 534) {
+    return {
+      code: 'SMTP_AUTH_FAILED',
+      message: 'SMTP отклонил логин или пароль почтового ящика'
+    }
+  }
+
+  if (['ETIMEDOUT', 'ESOCKET', 'ECONNREFUSED', 'EHOSTUNREACH', 'ENOTFOUND'].includes(code)) {
+    return {
+      code: 'SMTP_CONNECTION_FAILED',
+      message: 'Relay-сервер не смог подключиться к SMTP-серверу'
+    }
+  }
+
+  if (responseCode >= 400) {
+    return {
+      code: 'SMTP_REJECTED',
+      message: 'SMTP-сервер отклонил отправку письма'
+    }
+  }
+
+  return {
+    code: 'SMTP_DELIVERY_FAILED',
+    message: 'Почтовый сервис не смог отправить письмо'
+  }
+}
+
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
@@ -169,14 +208,21 @@ app.post('/email/send', requireRelayAuth, async (req, res) => {
       rejected: result.rejected || []
     })
   } catch (error) {
+    const emailError = getEmailErrorInfo(error)
     console.error('[RELAY] Email send failed', JSON.stringify({
       to,
+      emailErrorCode: emailError.code,
       code: error?.code || null,
       command: error?.command || null,
       responseCode: error?.responseCode || null,
       message: error?.message || null
     }))
-    return res.status(503).json({ ok: false, error: 'Email delivery failed' })
+    return res.status(503).json({
+      ok: false,
+      error: 'Email delivery failed',
+      code: emailError.code,
+      message: emailError.message
+    })
   }
 })
 

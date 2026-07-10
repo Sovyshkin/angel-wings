@@ -201,6 +201,15 @@ let searchTimer = null
 
 const currentUserId = computed(() => authStore.user?.id)
 
+function getApiErrorMessage(error, fallback = 'Что-то пошло не так') {
+  const data = error?.response?.data || {}
+  if (data.code === 'EMAIL_DELIVERY_FAILED') {
+    const reason = data.reason ? ` Причина: ${data.reason}.` : ''
+    return `${data.error || 'Не удалось отправить письмо.'}${reason} Назначение администратором отменено, чтобы пароль не потерялся.`
+  }
+  return data.error || fallback
+}
+
 async function fetchUsers() {
   try {
     const { data } = await axios.get(API_URL + '/users', {
@@ -243,7 +252,7 @@ async function updateRole(id, role) {
       alert('Пользователь назначен администратором. Данные для входа отправлены на его email.')
     }
   } catch (e) {
-    alert(e.response?.data?.error || 'Ошибка обновления роли')
+    alert(getApiErrorMessage(e, 'Ошибка обновления роли'))
     fetchUsers()
   }
 }
@@ -280,7 +289,7 @@ async function handleSubmit() {
       alert('Администратор создан. Данные для входа отправлены на email.')
     }
   } catch (e) {
-    error.value = e.response?.data?.error || 'Ошибка создания'
+    error.value = getApiErrorMessage(e, 'Ошибка создания')
   } finally {
     loadingForm.value = false
   }
