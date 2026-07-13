@@ -115,6 +115,7 @@ class EmailService {
       error.responseCode = response.status
       error.relayCode = response.data?.code || null
       error.relayMessage = response.data?.message || response.data?.error || null
+      error.relayResponse = response.data || null
       throw error
     }
 
@@ -208,6 +209,7 @@ class EmailService {
         command: error?.command || null,
         responseCode: error?.responseCode || null,
         message: error?.message || error?.cause?.message || 'Unknown delivery error',
+        relayResponse: error?.relayResponse || null,
         nestedErrors
       }))
 

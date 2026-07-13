@@ -30,7 +30,10 @@ SMTP_REQUIRE_TLS="false"
 SMTP_USER="info@angel-wings.ru"
 SMTP_PASSWORD="пароль-почтового-ящика"
 SMTP_FROM="info@angel-wings.ru"
+EMAIL_SMTP_MAX_ATTEMPTS="3"
 ```
+
+`SMTP_FROM` можно не указывать, если отправитель совпадает с `SMTP_USER`.
 
 `TELEGRAM_RELAY_SECRET` должен совпадать с секретом на основном backend. Он используется не как обычный пароль, а как HMAC-секрет для подписи тела запроса.
 

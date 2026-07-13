@@ -36,6 +36,14 @@ function getRequiredEnv(name) {
   return value
 }
 
+function getOptionalEnv(name) {
+  return String(process.env[name] || '').trim()
+}
+
+function getSmtpFrom() {
+  return getOptionalEnv('SMTP_FROM') || getRequiredEnv('SMTP_USER')
+}
+
 function requireRelayAuth(req, res, next) {
   const isEmailRequest = req.path === '/email/send'
   const expectedSecret = String(isEmailRequest
@@ -86,6 +94,20 @@ function requireRelayAuth(req, res, next) {
 }
 
 let mailTransporter = null
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function isRetryableEmailError(error) {
+  const code = error?.code || error?.cause?.code || ''
+  const responseCode = Number(error?.responseCode || 0)
+
+  return (
+    ['ETIMEDOUT', 'ESOCKET', 'ECONNRESET', 'ECONNREFUSED', 'EHOSTUNREACH', 'ENOTFOUND'].includes(code) ||
+    [421, 450, 451, 452].includes(responseCode)
+  )
+}
 
 function getMailTransporter() {
   if (mailTransporter) return mailTransporter
@@ -168,7 +190,8 @@ app.get('/health', (req, res) => {
       process.env.SMTP_USER &&
       process.env.SMTP_PASSWORD &&
       (process.env.EMAIL_RELAY_SECRET || process.env.TELEGRAM_RELAY_SECRET)
-    )
+    ),
+    smtpFrom: getOptionalEnv('SMTP_FROM') || getOptionalEnv('SMTP_USER') || null
   })
 })
 
@@ -183,16 +206,50 @@ app.post('/email/send', requireRelayAuth, async (req, res) => {
   }
 
   try {
-    const from = getRequiredEnv('SMTP_FROM')
+    const from = getSmtpFrom()
     console.log('[RELAY] Email send request', JSON.stringify({ to, subject }))
 
-    const result = await getMailTransporter().sendMail({
+    const message = {
       from: `"Angel Wings" <${from}>`,
       to,
       subject,
       text,
       html: html || undefined
-    })
+    }
+
+    let result
+    let lastError
+    const maxAttempts = Number(process.env.EMAIL_SMTP_MAX_ATTEMPTS || 3)
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        result = await getMailTransporter().sendMail(message)
+        break
+      } catch (error) {
+        lastError = error
+        const retryable = isRetryableEmailError(error)
+        console.warn('[RELAY] Email send attempt failed', JSON.stringify({
+          to,
+          attempt,
+          maxAttempts,
+          retryable,
+          code: error?.code || null,
+          responseCode: error?.responseCode || null,
+          message: error?.message || null
+        }))
+
+        if (!retryable || attempt >= maxAttempts) {
+          throw error
+        }
+
+        mailTransporter = null
+        await wait(800 * attempt)
+      }
+    }
+
+    if (!result && lastError) {
+      throw lastError
+    }
 
     console.log('[RELAY] Email send success', JSON.stringify({
       to,
@@ -213,6 +270,10 @@ app.post('/email/send', requireRelayAuth, async (req, res) => {
       to,
       emailErrorCode: emailError.code,
       code: error?.code || null,
+      errno: error?.errno || null,
+      syscall: error?.syscall || null,
+      address: error?.address || null,
+      port: error?.port || null,
       command: error?.command || null,
       responseCode: error?.responseCode || null,
       message: error?.message || null

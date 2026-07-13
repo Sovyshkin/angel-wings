@@ -369,12 +369,33 @@ onMounted(() => {
     x: window.innerWidth / 2,
     y: window.innerHeight / 2
   }
+  const nativeCursorSelector = '[data-native-cursor]'
 
   const onPointerMove = (event) => {
     if (event.pointerType === 'touch') return
+    if (event.target?.closest?.(nativeCursorSelector)) {
+      cursorRoot.value?.classList.remove('is-visible')
+      return
+    }
     mouse.x = event.clientX
     mouse.y = event.clientY
     cursorRoot.value?.classList.add('is-visible')
+  }
+
+  const onPointerOver = (event) => {
+    if (event.pointerType === 'touch') return
+    if (event.target?.closest?.(nativeCursorSelector)) {
+      cursorRoot.value?.classList.remove('is-visible')
+    }
+  }
+
+  const onPointerOut = (event) => {
+    if (event.pointerType === 'touch') return
+    const fromNativeCursor = event.target?.closest?.(nativeCursorSelector)
+    const toNativeCursor = event.relatedTarget?.closest?.(nativeCursorSelector)
+    if (fromNativeCursor && !toNativeCursor) {
+      cursorRoot.value?.classList.add('is-visible')
+    }
   }
 
   const renderCursor = () => {
@@ -413,7 +434,13 @@ onMounted(() => {
   }
 
   window.addEventListener('pointermove', onPointerMove, { passive: true })
-  removeCursorMoveListener = () => window.removeEventListener('pointermove', onPointerMove)
+  document.addEventListener('pointerover', onPointerOver, { passive: true })
+  document.addEventListener('pointerout', onPointerOut, { passive: true })
+  removeCursorMoveListener = () => {
+    window.removeEventListener('pointermove', onPointerMove)
+    document.removeEventListener('pointerover', onPointerOver)
+    document.removeEventListener('pointerout', onPointerOut)
+  }
   renderCursor()
 })
 
@@ -433,6 +460,16 @@ onBeforeUnmount(() => {
   html.has-goo-cursor,
   html.has-goo-cursor * {
     cursor: none !important;
+  }
+
+  html.has-goo-cursor [data-native-cursor],
+  html.has-goo-cursor [data-native-cursor] iframe {
+    cursor: auto !important;
+  }
+
+  html.has-goo-cursor [data-native-cursor] a,
+  html.has-goo-cursor [data-native-cursor] button {
+    cursor: pointer !important;
   }
 }
 

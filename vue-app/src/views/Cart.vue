@@ -463,6 +463,7 @@
             <section
               v-if="SELF_PICKUP_AVAILABLE && deliveryType === 'self_pickup'"
               class="pickup-map-card"
+              data-native-cursor
               aria-label="Карта пункта самовывоза Коворкинг-М1"
             >
               <iframe
