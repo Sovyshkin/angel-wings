@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import crypto from 'node:crypto'
 import { PrismaClient } from '@prisma/client'
 import { authenticate } from '../middleware/auth.js'
 import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
@@ -10,6 +11,7 @@ import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 const router = Router()
 const prisma = new PrismaClient()
 const EMAIL_CODE_TTL_MINUTES = Number(process.env.EMAIL_CODE_TTL_MINUTES || 15)
+const PASSWORD_RESET_TTL_MINUTES = Number(process.env.PASSWORD_RESET_TTL_MINUTES || 30)
 
 function getPublicUser(user) {
   return {
@@ -25,6 +27,14 @@ function getPublicUser(user) {
 
 function createSessionToken(userId) {
   return jwt.sign({ userId, purpose: 'session' }, process.env.JWT_SECRET, { expiresIn: '7d' })
+}
+
+function getClientUrl() {
+  return String(process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '')
+}
+
+function createPasswordResetToken() {
+  return crypto.randomBytes(32).toString('hex')
 }
 
 function createLoginChallenge(userId) {
@@ -334,6 +344,128 @@ router.post('/resend-verification', async (req, res, next) => {
 
     const expiresAt = await createAndSendEmailCode(user, purpose)
     res.json({ message: 'Код отправлен повторно', expiresAt })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/forgot-password', async (req, res, next) => {
+  try {
+    const email = normalizeEmail(req.body.email)
+    const genericResponse = {
+      message: 'Если такой email зарегистрирован, мы отправили ссылку для восстановления пароля.'
+    }
+
+    if (!email) return res.json(genericResponse)
+
+    const user = await findUserByEmail(prisma, email)
+    if (!user) return res.json(genericResponse)
+
+    const recentReset = await prisma.emailVerificationCode.findFirst({
+      where: {
+        userId: user.id,
+        purpose: 'password_reset',
+        usedAt: null,
+        createdAt: { gt: new Date(Date.now() - 60 * 1000) }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    if (recentReset) return res.json(genericResponse)
+
+    const token = createPasswordResetToken()
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60 * 1000)
+    const resetUrl = `${getClientUrl()}/reset-password?token=${encodeURIComponent(token)}`
+
+    const resetRecord = await prisma.emailVerificationCode.create({
+      data: {
+        userId: user.id,
+        email: user.email,
+        codeHash: hashEmailCode(token),
+        purpose: 'password_reset',
+        expiresAt
+      }
+    })
+
+    try {
+      await emailService.sendPasswordResetLink({
+        to: user.email,
+        name: user.name,
+        resetUrl
+      })
+    } catch (error) {
+      await prisma.emailVerificationCode.delete({ where: { id: resetRecord.id } }).catch(() => {})
+      throw error
+    }
+
+    res.json(genericResponse)
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const token = String(req.body.token || '').trim()
+    const newPassword = String(req.body.password || '')
+
+    if (!token || token.length < 32) {
+      return res.status(400).json({ error: 'Ссылка восстановления недействительна или повреждена.' })
+    }
+
+    const tokenHash = hashEmailCode(token)
+    const resetRecord = await prisma.emailVerificationCode.findFirst({
+      where: {
+        codeHash: tokenHash,
+        purpose: 'password_reset',
+        usedAt: null,
+        expiresAt: { gt: new Date() }
+      },
+      include: { user: true },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    if (!resetRecord) {
+      return res.status(400).json({ error: 'Ссылка восстановления истекла или уже была использована.' })
+    }
+
+    if (resetRecord.attempts >= 5) {
+      return res.status(429).json({ error: 'Слишком много попыток. Запросите новую ссылку восстановления.' })
+    }
+
+    const passwordError = resetRecord.user?.role === 'ADMIN'
+      ? validatePasswordPolicy(newPassword, resetRecord.user)
+      : validateBasicPassword(newPassword)
+    if (passwordError) {
+      await prisma.emailVerificationCode.update({
+        where: { id: resetRecord.id },
+        data: { attempts: { increment: 1 } }
+      })
+      return res.status(400).json({ error: passwordError })
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: resetRecord.userId },
+        data: {
+          password: hashedPassword,
+          emailVerified: true
+        }
+      })
+
+      await tx.emailVerificationCode.updateMany({
+        where: {
+          userId: resetRecord.userId,
+          purpose: 'password_reset',
+          usedAt: null
+        },
+        data: { usedAt: new Date() }
+      })
+    })
+
+    res.json({ message: 'Пароль успешно обновлён. Теперь можно войти с новым паролем.' })
   } catch (error) {
     next(error)
   }

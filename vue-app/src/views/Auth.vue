@@ -31,7 +31,12 @@
           </div>
           
           <div class="form-group">
-            <label>Пароль</label>
+            <div class="password-label-row">
+              <label>Пароль</label>
+              <router-link v-if="isLogin" to="/forgot-password" class="forgot-password-link">
+                Забыли пароль?
+              </router-link>
+            </div>
             <div class="password-input">
               <input 
                 v-model="form.password" 
@@ -322,6 +327,24 @@ async function resendCode() {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
+}
+
+.password-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.forgot-password-link {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.forgot-password-link:hover {
+  text-decoration: underline;
 }
 
 .password-input {

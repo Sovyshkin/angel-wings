@@ -7,6 +7,8 @@ const Catalog = () => import('../views/Catalog.vue')
 const Cart = () => import('../views/Cart.vue')
 const ProductDetail = () => import('../views/ProductDetail.vue')
 const Auth = () => import('../views/Auth.vue')
+const ForgotPassword = () => import('../views/ForgotPassword.vue')
+const ResetPassword = () => import('../views/ResetPassword.vue')
 const Profile = () => import('../views/Profile.vue')
 const Contact = () => import('../views/Contact.vue')
 const AboutCompany = () => import('../views/AboutCompany.vue')
@@ -24,6 +26,8 @@ const routes = [
   { path: '/cart', name: 'Cart', component: Cart },
   { path: '/product/:id', name: 'ProductDetail', component: ProductDetail },
   { path: '/auth', name: 'Auth', component: Auth },
+  { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPassword },
+  { path: '/reset-password', name: 'ResetPassword', component: ResetPassword },
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
   { path: '/contact', name: 'Contact', component: Contact },
   { path: '/about', name: 'AboutCompany', component: AboutCompany },

@@ -125,6 +125,19 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
+  async function forgotPassword(email) {
+    const { data } = await axios.post(`${API_URL}/auth/forgot-password`, { email })
+    return data
+  }
+
+  async function resetPassword(tokenValue, password) {
+    const { data } = await axios.post(`${API_URL}/auth/reset-password`, {
+      token: tokenValue,
+      password
+    })
+    return data
+  }
+
   function logout() {
     user.value = null
     token.value = ''
@@ -158,6 +171,8 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     verifyEmail,
     resendVerification,
+    forgotPassword,
+    resetPassword,
     setAuth,
     logout,
     updateUser,

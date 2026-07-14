@@ -312,6 +312,37 @@ class EmailService {
     })
   }
 
+  async sendPasswordResetLink({ to, name, resetUrl }) {
+    const safeName = escapeHtml(name || 'клиент')
+    const safeResetUrl = escapeHtml(resetUrl)
+
+    return this.sendMail({
+      to,
+      subject: 'Восстановление пароля Angel Wings',
+      text: [
+        `Здравствуйте, ${name || 'клиент'}!`,
+        '',
+        'Мы получили запрос на восстановление пароля.',
+        `Чтобы задать новый пароль, перейдите по ссылке: ${resetUrl}`,
+        '',
+        'Ссылка действует 30 минут и может быть использована только один раз.',
+        'Если вы не запрашивали восстановление пароля, просто проигнорируйте это письмо.'
+      ].join('\n'),
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:28px;background:#f6f7fb;color:#151722">
+          <div style="background:#fff;border-radius:22px;padding:30px;border:1px solid #e7e9f2">
+            <div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#8da2ff;font-weight:700;margin-bottom:12px">Angel Wings</div>
+            <h1 style="margin:0 0 14px;font-size:25px;line-height:1.2">Восстановление пароля</h1>
+            <p style="margin:0 0 22px;font-size:16px;line-height:1.55">Здравствуйте, ${safeName}! Нажмите кнопку ниже, чтобы задать новый пароль.</p>
+            <a href="${safeResetUrl}" style="display:block;text-align:center;background:#9fb3ff;color:#10131f;text-decoration:none;font-weight:700;border-radius:16px;padding:16px 20px;margin:0 0 20px">Задать новый пароль</a>
+            <p style="margin:0 0 12px;color:#73788a;font-size:14px;line-height:1.5">Ссылка действует 30 минут и может быть использована только один раз.</p>
+            <p style="margin:0;color:#73788a;font-size:14px;line-height:1.5">Если кнопка не открывается, скопируйте ссылку в браузер:<br><span style="word-break:break-all;color:#5068d9">${safeResetUrl}</span></p>
+          </div>
+        </div>
+      `
+    })
+  }
+
   async sendCampaignEmail({ to, subject, body }) {
     return this.sendMail({
       to,
