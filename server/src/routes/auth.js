@@ -55,6 +55,36 @@ function readLoginChallenge(token) {
   }
 }
 
+function isEmailDeliveryError(error) {
+  return error?.name === 'EmailDeliveryError' ||
+    [
+      'EMAIL_DELIVERY_FAILED',
+      'EMAIL_RELAY_REJECTED',
+      'EMAIL_RELAY_NOT_CONFIGURED',
+      'SMTP_NOT_CONFIGURED',
+      'SMTP_CONNECTION_FAILED',
+      'SMTP_AUTH_FAILED',
+      'SMTP_DELIVERY_FAILED'
+    ].includes(error?.code)
+}
+
+async function createAuthResponse(user, message, extra = {}) {
+  const actualUser = user.emailVerified
+    ? user
+    : await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true }
+    })
+
+  return {
+    user: getPublicUser(actualUser),
+    token: createSessionToken(actualUser.id),
+    message,
+    emailVerificationBypassed: true,
+    ...extra
+  }
+}
+
 async function createAndSendEmailCode(user, purpose = 'email_verification') {
   const code = generateEmailCode()
   const expiresAt = new Date(Date.now() + EMAIL_CODE_TTL_MINUTES * 60 * 1000)
@@ -116,34 +146,40 @@ router.post('/register', async (req, res, next) => {
     
     const hashedPassword = await bcrypt.hash(password, 10)
     
-    let user
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        phone,
+        emailVerified: false
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        role: true,
+        emailVerified: true,
+        createdAt: true
+      }
+    })
+
     let expiresAt
     try {
-      user = await prisma.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          name,
-          phone,
-          emailVerified: false
-        },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          phone: true,
-          role: true,
-          emailVerified: true,
-          createdAt: true
-        }
-      })
-
       expiresAt = await createAndSendEmailCode(user)
     } catch (error) {
-      if (user?.id) {
-        await prisma.user.delete({ where: { id: user.id } }).catch(() => {})
-      }
-      throw error
+      if (!isEmailDeliveryError(error)) throw error
+      console.warn('[AUTH] Email verification bypassed after register because email delivery failed', JSON.stringify({
+        userId: user.id,
+        email: user.email,
+        code: error.code || null
+      }))
+      return res.status(201).json(await createAuthResponse(
+        user,
+        'Регистрация завершена. Почта временно недоступна, поэтому код подтверждения пропущен.',
+        { emailDeliveryUnavailable: true }
+      ))
     }
 
     res.status(201).json({
@@ -178,7 +214,22 @@ router.post('/login', async (req, res, next) => {
         return res.status(403).json({ error: 'Доступ в админку разрешён только администраторам' })
       }
 
-      const expiresAt = await createOrReuseLoginCode(user)
+      let expiresAt
+      try {
+        expiresAt = await createOrReuseLoginCode(user)
+      } catch (error) {
+        if (!isEmailDeliveryError(error)) throw error
+        console.warn('[AUTH] Admin login email verification bypassed because email delivery failed', JSON.stringify({
+          userId: user.id,
+          email: user.email,
+          code: error.code || null
+        }))
+        return res.json(await createAuthResponse(
+          user,
+          'Вход выполнен. Почтовый сервис временно недоступен, поэтому код подтверждения пропущен.',
+          { emailDeliveryUnavailable: true }
+        ))
+      }
       return res.status(202).json({
         requiresLoginVerification: true,
         email: user.email,
@@ -189,7 +240,21 @@ router.post('/login', async (req, res, next) => {
     }
 
     if (!user.emailVerified) {
-      await createAndSendEmailCode(user)
+      try {
+        await createAndSendEmailCode(user)
+      } catch (error) {
+        if (!isEmailDeliveryError(error)) throw error
+        console.warn('[AUTH] Email verification bypassed on unverified login because email delivery failed', JSON.stringify({
+          userId: user.id,
+          email: user.email,
+          code: error.code || null
+        }))
+        return res.json(await createAuthResponse(
+          user,
+          'Вход выполнен. Почтовый сервис временно недоступен, поэтому код подтверждения пропущен.',
+          { emailDeliveryUnavailable: true }
+        ))
+      }
       return res.status(403).json({
         error: 'Email не подтверждён. Мы отправили новый код подтверждения на почту.',
         code: 'EMAIL_NOT_VERIFIED',
@@ -197,7 +262,22 @@ router.post('/login', async (req, res, next) => {
       })
     }
 
-    const expiresAt = await createOrReuseLoginCode(user)
+    let expiresAt
+    try {
+      expiresAt = await createOrReuseLoginCode(user)
+    } catch (error) {
+      if (!isEmailDeliveryError(error)) throw error
+      console.warn('[AUTH] Login email verification bypassed because email delivery failed', JSON.stringify({
+        userId: user.id,
+        email: user.email,
+        code: error.code || null
+      }))
+      return res.json(await createAuthResponse(
+        user,
+        'Вход выполнен. Почтовый сервис временно недоступен, поэтому код подтверждения пропущен.',
+        { emailDeliveryUnavailable: true }
+      ))
+    }
     res.status(202).json({
       requiresLoginVerification: true,
       email: user.email,
