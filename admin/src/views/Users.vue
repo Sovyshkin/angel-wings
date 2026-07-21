@@ -63,6 +63,18 @@
               </td>
               <td class="cell-orders">{{ user._count?.orders || 0 }}</td>
               <td class="row-actions">
+                <button
+                  v-if="user.role === 'ADMIN' && user.id !== currentUserId"
+                  @click.stop="resendAdminInvite(user)"
+                  class="action-btn mail"
+                  :disabled="resendingInviteId === user.id"
+                  title="Повторно отправить данные для входа"
+                >
+                  <svg v-if="resendingInviteId !== user.id" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+                  </svg>
+                  <span v-else class="mini-spinner"></span>
+                </button>
                 <button @click.stop="openUserDetail(user.id)" class="action-btn" title="Открыть карточку">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
@@ -114,6 +126,14 @@
           </div>
           <div class="user-card__actions">
             <button @click="openUserDetail(user.id)" class="btn btn-secondary btn-sm user-detail-btn">Карточка</button>
+            <button
+              v-if="user.role === 'ADMIN' && user.id !== currentUserId"
+              @click="resendAdminInvite(user)"
+              class="btn btn-secondary btn-sm invite-btn"
+              :disabled="resendingInviteId === user.id"
+            >
+              {{ resendingInviteId === user.id ? 'Отправка...' : 'Письмо' }}
+            </button>
             <select :value="user.role" @change="updateRole(user.id, $event.target.value)" class="role-select-full" :disabled="user.id === currentUserId">
               <option value="USER">Пользователь</option>
               <option value="ADMIN">Админ</option>
@@ -194,6 +214,7 @@ const loading = ref(true)
 const showModal = ref(false)
 const error = ref('')
 const loadingForm = ref(false)
+const resendingInviteId = ref(null)
 
 const form = ref({ name: '', email: '', password: '', phone: '', role: 'USER' })
 const search = ref('')
@@ -254,6 +275,20 @@ async function updateRole(id, role) {
   } catch (e) {
     alert(getApiErrorMessage(e, 'Ошибка обновления роли'))
     fetchUsers()
+  }
+}
+
+async function resendAdminInvite(user) {
+  if (!confirm(`Сгенерировать новый временный пароль и отправить данные для входа на ${user.email}?`)) return
+
+  resendingInviteId.value = user.id
+  try {
+    await axios.post(`${API_URL}/users/${user.id}/resend-admin-invite`)
+    alert('Письмо с новыми данными администратора отправлено.')
+  } catch (e) {
+    alert(getApiErrorMessage(e, 'Не удалось отправить письмо с данными администратора'))
+  } finally {
+    resendingInviteId.value = null
   }
 }
 
@@ -475,6 +510,18 @@ watch(search, scheduleSearch)
   color: #fff;
 }
 
+.action-btn.mail {
+  color: var(--accent);
+  background: rgba(159, 181, 255, 0.1);
+  border: 1px solid rgba(159, 181, 255, 0.16);
+}
+
+.action-btn.mail:hover {
+  background: linear-gradient(135deg, rgba(159, 181, 255, 0.95), rgba(123, 143, 240, 0.95));
+  color: #10121b;
+  box-shadow: 0 10px 24px rgba(159, 181, 255, 0.18);
+}
+
 .action-btn.danger:hover {
   background: var(--danger);
 }
@@ -482,6 +529,15 @@ watch(search, scheduleSearch)
 .action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.mini-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: spin 0.65s linear infinite;
 }
 
 .users-cards {
@@ -573,6 +629,11 @@ watch(search, scheduleSearch)
 }
 
 .user-detail-btn {
+  white-space: nowrap;
+}
+
+.invite-btn {
+  min-width: 82px;
   white-space: nowrap;
 }
 

@@ -396,6 +396,62 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
   }
 })
 
+router.post('/users/:id/resend-admin-invite', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const userId = parseInt(req.params.id)
+
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: 'Нельзя переотправить данные самому себе. Для своей учётной записи используйте смену пароля.' })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        password: true
+      }
+    })
+
+    if (!user || user.role === 'DELETED') {
+      return res.status(404).json({ error: 'Пользователь не найден' })
+    }
+
+    if (user.role !== 'ADMIN') {
+      return res.status(400).json({ error: 'Повторная отправка доступна только для администраторов' })
+    }
+
+    const generatedAdminPassword = generateSecureAdminPassword()
+    const hashedPassword = await bcrypt.hash(generatedAdminPassword, 10)
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword }
+    })
+
+    try {
+      await emailService.sendAdminInvite({
+        to: user.email,
+        name: user.name,
+        password: generatedAdminPassword,
+        adminUrl: getAdminLoginUrl()
+      })
+    } catch (emailError) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { password: user.password }
+      }).catch(() => null)
+      throw emailError
+    }
+
+    res.json({ message: 'Письмо с новыми данными администратора отправлено', adminInviteSent: true })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { name, role, phone } = req.body
