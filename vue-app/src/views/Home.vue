@@ -261,7 +261,10 @@
               >
             </div>
             <div class="featured-content">
-              <span class="featured-category">{{ product.categories?.[0]?.name || product.categories?.[0]?.slug }}</span>
+              <div class="featured-meta">
+                <span class="featured-category">{{ product.categories?.[0]?.name || product.categories?.[0]?.slug }}</span>
+                <span v-if="isLowStock(product)" class="featured-low-stock">Меньше 10 осталось</span>
+              </div>
               <h3>{{ product.title }}</h3>
               <div class="featured-footer">
                 <div class="featured-price-block">
@@ -512,6 +515,11 @@ function getDiscountPercent(product) {
   const old = getOldPrice(product)
   if (!old || old <= 0 || current <= 0 || old <= current) return 0
   return Math.round(((old - current) / old) * 100)
+}
+
+function isLowStock(product) {
+  const stock = Number(product?.stock || 0)
+  return stock > 0 && stock < 10
 }
 
 function getFeaturedBaseCartItem(productId) {
@@ -1214,6 +1222,14 @@ function getProductWord(count) {
   padding: 1.25rem;
 }
 
+.featured-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
 .featured-category {
   display: inline-block;
   font-size: 0.65rem;
@@ -1224,7 +1240,20 @@ function getProductWord(count) {
   background: var(--accent-dim);
   padding: 0.3rem 0.6rem;
   border-radius: 6px;
-  margin-bottom: 0.75rem;
+}
+
+.featured-low-stock {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 999px;
+  padding: 0.28rem 0.55rem;
 }
 
 .featured-content h3 {

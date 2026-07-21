@@ -59,7 +59,7 @@
           <div class="product-meta">
             <span class="product-category">{{ getCategoryName(product.categories?.[0]) }}</span>
             <span class="product-stock" :class="{ available: currentStock > 0 }">
-              {{ currentStock > 0 ? 'В наличии' : 'Нет в наличии' }}
+              {{ getPublicStockLabel(currentStock) }}
             </span>
           </div>
           
@@ -97,7 +97,9 @@
                     -{{ getDiscountPercentByValues(getDosagePrice(item), getDosageComparePrice(item)) }}%
                   </span>
                 </div>
-                <span class="variant-stock">{{ item.quantity > 0 ? `В наличии: ${item.quantity} шт.` : 'Нет в наличии' }}</span>
+                <span class="variant-stock" :class="{ low: isLowStock(item.quantity) }">
+                  {{ getPublicStockLabel(item.quantity) }}
+                </span>
               </button>
             </div>
           </div>
@@ -295,6 +297,17 @@ const currentStock = computed(() => {
   const selected = dosageSpecs.value[selectedDosageIndex.value]
   return selected ? selected.quantity : 0
 })
+
+function isLowStock(stockValue) {
+  const stock = Number(stockValue || 0)
+  return stock > 0 && stock < 10
+}
+
+function getPublicStockLabel(stockValue) {
+  if (Number(stockValue || 0) <= 0) return 'Нет в наличии'
+  if (isLowStock(stockValue)) return 'Меньше 10 осталось'
+  return 'В наличии'
+}
 
 const currentComparePrice = computed(() => {
   if (!product.value) return null
@@ -783,6 +796,11 @@ onMounted(async () => {
 .variant-stock {
   font-size: 0.8125rem;
   color: var(--text-secondary);
+}
+
+.variant-stock.low {
+  color: #f59e0b;
+  font-weight: 700;
 }
 
 .product-country {

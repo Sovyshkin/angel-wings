@@ -45,6 +45,20 @@ function getRelayConfig() {
   }
 }
 
+function getEmailDeliveryMode() {
+  const mode = String(process.env.EMAIL_DELIVERY_MODE || 'auto').trim().toLowerCase()
+  if (['smtp', 'relay', 'auto'].includes(mode)) return mode
+  return 'auto'
+}
+
+function hasSmtpConfig(config = getSmtpConfig()) {
+  return Boolean(config.host && config.port && config.user && config.pass)
+}
+
+function hasRelayConfig(relay = getRelayConfig()) {
+  return Boolean(relay.url && relay.secret)
+}
+
 function createRelaySignature(secret, timestamp, body) {
   return crypto
     .createHmac('sha256', secret)
@@ -72,13 +86,26 @@ class EmailService {
   }
 
   isConfigured() {
+    const mode = getEmailDeliveryMode()
+    const smtp = getSmtpConfig()
     const relay = getRelayConfig()
-    if (relay.url) {
-      return Boolean(relay.secret)
-    }
 
-    const config = getSmtpConfig()
-    return Boolean(config.host && config.port && config.user && config.pass)
+    if (mode === 'smtp') return hasSmtpConfig(smtp)
+    if (mode === 'relay') return hasRelayConfig(relay)
+
+    return hasSmtpConfig(smtp) || hasRelayConfig(relay)
+  }
+
+  getDeliveryTarget(config = getSmtpConfig(), relay = getRelayConfig()) {
+    const mode = getEmailDeliveryMode()
+    const smtpConfigured = hasSmtpConfig(config)
+    const relayConfigured = hasRelayConfig(relay)
+
+    if (mode === 'smtp') return 'smtp'
+    if (mode === 'relay') return 'relay'
+    if (smtpConfigured) return 'smtp'
+    if (relayConfigured) return 'relay'
+    return 'smtp'
   }
 
   async sendViaRelay(message) {
@@ -162,9 +189,10 @@ class EmailService {
   async sendMail({ to, subject, text, html }) {
     const config = getSmtpConfig()
     const relay = getRelayConfig()
+    const deliveryTarget = this.getDeliveryTarget(config, relay)
 
     if (!this.isConfigured()) {
-      const error = new Error('Отправка почты не настроена. Проверьте EMAIL_RELAY_URL/EMAIL_RELAY_SECRET или SMTP-параметры в .env')
+      const error = new Error('Отправка почты не настроена. Проверьте SMTP-параметры в .env или EMAIL_RELAY_URL/EMAIL_RELAY_SECRET для резервного relay.')
       error.code = 'SMTP_NOT_CONFIGURED'
       throw error
     }
@@ -180,15 +208,16 @@ class EmailService {
     console.log('[EMAIL] sendMail request', JSON.stringify({
       to,
       subject,
-      mode: relay.url ? 'relay' : 'smtp',
-      target: relay.url || `${config.host}:${config.port}`,
-      secure: relay.url ? true : config.secure,
-      requireTLS: relay.url ? null : config.requireTLS
+      mode: deliveryTarget,
+      configuredMode: getEmailDeliveryMode(),
+      target: deliveryTarget === 'relay' ? relay.url : `${config.host}:${config.port}`,
+      secure: deliveryTarget === 'relay' ? true : config.secure,
+      requireTLS: deliveryTarget === 'relay' ? null : config.requireTLS
     }))
 
     let result
     try {
-      result = relay.url
+      result = deliveryTarget === 'relay'
         ? await this.sendViaRelay(message)
         : await this.getTransporter().sendMail(message)
     } catch (error) {
@@ -202,8 +231,9 @@ class EmailService {
         : []
       console.error('[EMAIL] sendMail failed', JSON.stringify({
         to,
-        mode: relay.url ? 'relay' : 'smtp',
-        target: relay.url || `${config.host}:${config.port}`,
+        mode: deliveryTarget,
+        configuredMode: getEmailDeliveryMode(),
+        target: deliveryTarget === 'relay' ? relay.url : `${config.host}:${config.port}`,
         code: error?.code || error?.cause?.code || null,
         relayCode: error?.relayCode || null,
         command: error?.command || null,

@@ -158,7 +158,10 @@
                 </div>
               </div>
               <div class="product-content">
-                <span class="product-category-badge">{{ getCategoryName(product.categories?.[0]) }}</span>
+                <div class="product-card-meta">
+                  <span class="product-category-badge">{{ getCategoryName(product.categories?.[0]) }}</span>
+                  <span v-if="isLowStock(product)" class="product-low-stock">Меньше 10 осталось</span>
+                </div>
                 <h3 class="product-title">{{ product.title }}</h3>
                 <p class="product-desc">{{ truncate(product.description, 100) }}</p>
                 <div class="product-footer">
@@ -384,6 +387,11 @@ function resolveCategoryQuery(value) {
 function truncate(text, length) {
   if (!text) return ''
   return text.length > length ? text.substring(0, length) + '...' : text
+}
+
+function isLowStock(product) {
+  const stock = Number(product?.stock || 0)
+  return stock > 0 && stock < 10
 }
 
 function getBaseCartItem(productId) {
@@ -765,6 +773,14 @@ watch(() => route.query.category, (newCat) => {
   padding: 1.5rem;
 }
 
+.product-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
 .product-category-badge {
   display: inline-block;
   font-size: 0.65rem;
@@ -775,7 +791,21 @@ watch(() => route.query.category, (newCat) => {
   background: var(--accent-dim);
   padding: 0.35rem 0.7rem;
   border-radius: 6px;
-  margin-bottom: 0.75rem;
+}
+
+.product-low-stock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 999px;
+  padding: 0.32rem 0.62rem;
 }
 
 .product-title {
