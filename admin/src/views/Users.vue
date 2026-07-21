@@ -63,28 +63,30 @@
               </td>
               <td class="cell-orders">{{ user._count?.orders || 0 }}</td>
               <td class="row-actions">
-                <button
-                  v-if="user.role === 'ADMIN' && user.id !== currentUserId"
-                  @click.stop="resendAdminInvite(user)"
-                  class="action-btn mail"
-                  :disabled="resendingInviteId === user.id"
-                  title="Повторно отправить данные для входа"
-                >
-                  <svg v-if="resendingInviteId !== user.id" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
-                  </svg>
-                  <span v-else class="mini-spinner"></span>
-                </button>
-                <button @click.stop="openUserDetail(user.id)" class="action-btn" title="Открыть карточку">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
-                  </svg>
-                </button>
-                <button @click.stop="deleteUser(user.id)" class="action-btn danger" :disabled="user.id === currentUserId" title="Архивировать">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                  </svg>
-                </button>
+                <div class="row-actions__inner">
+                  <button
+                    v-if="user.role === 'ADMIN' && user.id !== currentUserId"
+                    @click.stop="resendAdminInvite(user)"
+                    class="action-btn mail"
+                    :disabled="resendingInviteId === user.id"
+                    title="Повторно отправить данные для входа"
+                  >
+                    <svg v-if="resendingInviteId !== user.id" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                    <span v-else class="mini-spinner"></span>
+                  </button>
+                  <button @click.stop="openUserDetail(user.id)" class="action-btn" title="Открыть карточку">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </button>
+                  <button @click.stop="deleteUser(user.id)" class="action-btn danger" :disabled="user.id === currentUserId" title="Архивировать">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                    </svg>
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -488,6 +490,10 @@ watch(search, scheduleSearch)
 }
 
 .row-actions {
+  text-align: right;
+}
+
+.row-actions__inner {
   display: flex;
   justify-content: flex-end;
   gap: 0.45rem;
