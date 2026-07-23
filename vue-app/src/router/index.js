@@ -99,7 +99,7 @@ router.afterEach((to, from, failure) => {
   })
 
   if (typeof window.ym === 'function') {
-    window.ym(110515849, 'hit', pageUrl, {
+    window.ym(110967998, 'hit', pageUrl, {
       title: document.title,
       referer: from.fullPath
     })

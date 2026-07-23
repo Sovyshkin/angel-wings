@@ -149,6 +149,12 @@
           </div>
         </div>
       </div>
+
+      <AdminPagination
+        v-model:page="currentPage"
+        :total="total"
+        :per-page="USERS_PER_PAGE"
+      />
     </div>
 
     <div v-if="showModal" class="modal-overlay">
@@ -205,6 +211,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import axios from 'axios'
+import AdminPagination from '../components/AdminPagination.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -220,6 +227,8 @@ const resendingInviteId = ref(null)
 
 const form = ref({ name: '', email: '', password: '', phone: '', role: 'USER' })
 const search = ref('')
+const currentPage = ref(1)
+const USERS_PER_PAGE = 20
 let searchTimer = null
 
 const currentUserId = computed(() => authStore.user?.id)
@@ -238,7 +247,8 @@ async function fetchUsers() {
     const { data } = await axios.get(API_URL + '/users', {
       params: {
         q: search.value.trim(),
-        limit: 100
+        limit: USERS_PER_PAGE,
+        offset: (currentPage.value - 1) * USERS_PER_PAGE
       }
     })
     users.value = data.users
@@ -252,7 +262,13 @@ async function fetchUsers() {
 
 function scheduleSearch() {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(fetchUsers, 250)
+  searchTimer = setTimeout(() => {
+    if (currentPage.value === 1) {
+      fetchUsers()
+    } else {
+      currentPage.value = 1
+    }
+  }, 250)
 }
 
 function openUserDetail(id) {
@@ -321,7 +337,11 @@ async function handleSubmit() {
     }
     const { data } = await axios.post(API_URL + '/users', payload)
     closeModal()
-    fetchUsers()
+    if (currentPage.value === 1) {
+      fetchUsers()
+    } else {
+      currentPage.value = 1
+    }
     if (data.adminInviteSent) {
       alert('Администратор создан. Данные для входа отправлены на email.')
     }
@@ -336,7 +356,13 @@ async function deleteUser(id) {
   if (!confirm('Удалить пользователя?')) return
   try {
     await axios.delete(`${API_URL}/users/${id}`)
-    users.value = users.value.filter(u => u.id !== id)
+    const nextTotal = Math.max(0, total.value - 1)
+    const nextLastPage = Math.max(1, Math.ceil(nextTotal / USERS_PER_PAGE))
+    if (currentPage.value > nextLastPage) {
+      currentPage.value = nextLastPage
+    } else {
+      await fetchUsers()
+    }
   } catch (e) {
     alert(e.response?.data?.error || 'Не удалось архивировать пользователя')
   }
@@ -344,6 +370,7 @@ async function deleteUser(id) {
 
 onMounted(fetchUsers)
 
+watch(currentPage, fetchUsers)
 watch(search, scheduleSearch)
 </script>
 

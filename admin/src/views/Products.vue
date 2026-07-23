@@ -22,7 +22,7 @@
     <div v-else>
       <AdminSearchPanel
         v-model="search"
-        :total="filteredProducts.length"
+        :total="total"
         placeholder="Поиск по названию, ID, категории, цене, остатку или статусу"
         total-label="товаров в каталоге"
         found-label="товаров найдено"
@@ -43,7 +43,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="product in filteredProducts" :key="product.id">
+            <tr v-for="product in products" :key="product.id">
               <td class="cell-id">{{ product.id }}</td>
               <td>
                 <div class="product-cell">
@@ -82,7 +82,7 @@
       </div>
 
       <div class="products-cards">
-        <div v-for="product in filteredProducts" :key="product.id" class="product-card card">
+        <div v-for="product in products" :key="product.id" class="product-card card">
           <div class="product-card__header">
             <img v-if="product.image" :src="product.image" :alt="product.title" class="product-card__img">
             <div v-else class="product-card__img-placeholder">
@@ -122,7 +122,13 @@
         </div>
       </div>
 
-      <div v-if="filteredProducts.length === 0" class="empty-state">
+      <AdminPagination
+        v-model:page="currentPage"
+        :total="total"
+        :per-page="PRODUCTS_PER_PAGE"
+      />
+
+      <div v-if="products.length === 0" class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
         </svg>
@@ -134,42 +140,33 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import axios from 'axios'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
+import AdminPagination from '../components/AdminPagination.vue'
 
 const API_URL = '/api/admin/products'
 
 const products = ref([])
+const total = ref(0)
 const loading = ref(true)
 const error = ref('')
 const search = ref('')
-
-const filteredProducts = computed(() => {
-  const query = search.value.trim().toLowerCase()
-  if (!query) return products.value
-
-  return products.value.filter((product) => {
-    const status = product.active ? 'активен active видим' : 'скрыт inactive hidden'
-    const haystack = [
-      product.id,
-      product.title,
-      product.slug,
-      product.price,
-      product.stock,
-      formatPackageSize(product),
-      status,
-      ...(product.categories || []).map(category => category.name)
-    ].join(' ').toLowerCase()
-
-    return haystack.includes(query)
-  })
-})
+const currentPage = ref(1)
+const PRODUCTS_PER_PAGE = 20
+let searchTimer = null
 
 async function fetchProducts() {
   try {
-    const { data } = await axios.get(API_URL)
+    const { data } = await axios.get(API_URL, {
+      params: {
+        q: search.value.trim(),
+        limit: PRODUCTS_PER_PAGE,
+        offset: (currentPage.value - 1) * PRODUCTS_PER_PAGE
+      }
+    })
     products.value = data.products
+    total.value = data.total || 0
   } catch (e) {
     error.value = 'Ошибка загрузки товаров'
   } finally {
@@ -181,7 +178,13 @@ async function deleteProduct(id) {
   if (!confirm('Удалить этот товар?')) return
   try {
     await axios.delete(`${API_URL}/${id}`)
-    products.value = products.value.filter(p => p.id !== id)
+    const nextTotal = Math.max(0, total.value - 1)
+    const nextLastPage = Math.max(1, Math.ceil(nextTotal / PRODUCTS_PER_PAGE))
+    if (currentPage.value > nextLastPage) {
+      currentPage.value = nextLastPage
+    } else {
+      await fetchProducts()
+    }
   } catch (e) {
     alert('Ошибка удаления')
   }
@@ -200,6 +203,19 @@ function formatPackageSize(product) {
 }
 
 onMounted(fetchProducts)
+
+watch(currentPage, fetchProducts)
+
+watch(search, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    if (currentPage.value === 1) {
+      fetchProducts()
+    } else {
+      currentPage.value = 1
+    }
+  }, 250)
+})
 </script>
 
 <style scoped>

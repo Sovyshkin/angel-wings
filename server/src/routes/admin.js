@@ -959,11 +959,35 @@ router.delete('/orders/:id', authenticate, requireAdmin, async (req, res, next) 
 
 router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { active, limit = 100, offset = 0 } = req.query
+    const { active, limit = 100, offset = 0, q = '' } = req.query
+    const search = String(q || '').trim()
 
     const where = {}
     if (active !== undefined) {
       where.active = active === 'true'
+    }
+
+    if (search) {
+      const numericId = Number.parseInt(search, 10)
+      const numericPrice = Number.parseFloat(search.replace(',', '.'))
+      const normalizedSearch = search.toLowerCase()
+      const isHiddenSearch = ['скрыт', 'hidden', 'inactive', 'неактив'].some(token => normalizedSearch.includes(token))
+      const isActiveSearch = !isHiddenSearch && ['актив', 'active', 'видим', 'visible'].some(token => normalizedSearch.includes(token))
+
+      where.OR = [
+        ...(Number.isFinite(numericId) ? [{ id: numericId }, { stock: numericId }, { weight: numericId }] : []),
+        ...(Number.isFinite(numericPrice) ? [{ price: numericPrice }] : []),
+        { title: { contains: search } },
+        { slug: { contains: search } },
+        { sku: { contains: search } },
+        { purity: { contains: search } },
+        { volume: { contains: search } },
+        { country: { contains: search } },
+        { categories: { some: { name: { contains: search } } } },
+        { categories: { some: { slug: { contains: search } } } },
+        ...(isActiveSearch ? [{ active: true }] : []),
+        ...(isHiddenSearch ? [{ active: false }] : [])
+      ]
     }
 
     const [products, total] = await Promise.all([

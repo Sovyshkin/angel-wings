@@ -6,7 +6,7 @@
         <p class="page-subtitle">Управление заказами</p>
       </div>
       <div class="header-actions">
-        <select v-model="filterStatus" @change="fetchOrders" class="input status-filter">
+        <select v-model="filterStatus" @change="handleStatusFilterChange" class="input status-filter">
           <option value="">Все статусы</option>
           <option value="PENDING">Ожидает</option>
           <option value="PROCESSING">В обработке</option>
@@ -20,7 +20,7 @@
 
     <AdminSearchPanel
       v-model="search"
-      :total="orders.length"
+      :total="total"
       placeholder="Поиск по заказу, клиенту, телефону, email, адресу, ПВЗ, СДЭК или промокоду"
       total-label="заказов"
       found-label="заказов найдено"
@@ -261,6 +261,12 @@
           </div>
         </div>
       </div>
+
+      <AdminPagination
+        v-model:page="currentPage"
+        :total="total"
+        :per-page="ORDERS_PER_PAGE"
+      />
     </div>
 
     <div v-if="selectedOrder" class="modal-overlay" @click.self="selectedOrder = null">
@@ -509,10 +515,12 @@ import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import deliveryApi from '../api/delivery'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
+import AdminPagination from '../components/AdminPagination.vue'
 
 const API_URL = '/api/admin'
 
 const orders = ref([])
+const total = ref(0)
 const loading = ref(true)
 const filterStatus = ref('')
 const search = ref('')
@@ -527,6 +535,8 @@ const cancelReasonOptions = [
   { value: 'changed_mind', label: 'Передумал принимать пептиды' },
   { value: 'other', label: 'Другое' }
 ]
+const currentPage = ref(1)
+const ORDERS_PER_PAGE = 10
 
 const stats = computed(() => ({
   pending: orders.value.filter(o => o.status === 'PENDING').length,
@@ -542,10 +552,13 @@ async function fetchOrders() {
   try {
     const params = {
       ...(filterStatus.value ? { status: filterStatus.value } : {}),
-      ...(search.value.trim() ? { q: search.value.trim() } : {})
+      ...(search.value.trim() ? { q: search.value.trim() } : {}),
+      limit: ORDERS_PER_PAGE,
+      offset: (currentPage.value - 1) * ORDERS_PER_PAGE
     }
     const { data } = await axios.get(`${API_URL}/orders`, { params })
     orders.value = data.orders
+    total.value = data.total || 0
   } catch (e) {
     console.error(e)
   } finally {
@@ -555,7 +568,21 @@ async function fetchOrders() {
 
 function scheduleOrdersSearch() {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(fetchOrders, 250)
+  searchTimer = setTimeout(() => {
+    if (currentPage.value === 1) {
+      fetchOrders()
+    } else {
+      currentPage.value = 1
+    }
+  }, 250)
+}
+
+function handleStatusFilterChange() {
+  if (currentPage.value === 1) {
+    fetchOrders()
+  } else {
+    currentPage.value = 1
+  }
 }
 
 async function updateStatus(id, status) {
@@ -610,7 +637,13 @@ async function deleteOrder(order) {
 
   try {
     await axios.delete(`${API_URL}/orders/${order.id}`)
-    orders.value = orders.value.filter(o => o.id !== order.id)
+    const nextTotal = Math.max(0, total.value - 1)
+    const nextLastPage = Math.max(1, Math.ceil(nextTotal / ORDERS_PER_PAGE))
+    if (currentPage.value > nextLastPage) {
+      currentPage.value = nextLastPage
+    } else {
+      await fetchOrders()
+    }
     if (selectedOrder.value?.id === order.id) {
       selectedOrder.value = null
     }
@@ -831,6 +864,7 @@ function isOrderPaid(status) {
 
 onMounted(fetchOrders)
 
+watch(currentPage, fetchOrders)
 watch(search, scheduleOrdersSearch)
 </script>
 
