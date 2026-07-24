@@ -260,11 +260,16 @@ export async function createOrder({
   }
 
   const hasDeliveryPoint = Boolean(delivery_point)
-  const recipientDeliveryCost = Math.max(0, Number(delivery_recipient_cost) || 0)
+  const recipientDeliveryCostValue = typeof delivery_recipient_cost === 'object' && delivery_recipient_cost !== null
+    ? delivery_recipient_cost.value
+    : delivery_recipient_cost
+  const recipientDeliveryCost = Math.max(0, Number(recipientDeliveryCostValue) || 0)
 
   if (recipientDeliveryCost > 0) {
     // СДЭК взимает эту сумму с получателя, сайт ее не принимает в оплату.
-    orderPayload.delivery_recipient_cost = Math.round(recipientDeliveryCost * 100) / 100
+    orderPayload.delivery_recipient_cost = {
+      value: Math.round(recipientDeliveryCost * 100) / 100
+    }
   }
 
   // Если указан ПВЗ, to_location/address передавать нельзя
