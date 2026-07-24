@@ -12,6 +12,68 @@ const CDEK_SENDER_LOCATION = {
   postal_code: '125424'
 }
 
+function isEnvEnabled(value, defaultValue = true) {
+  if (value === undefined || value === null || value === '') return defaultValue
+  return !['0', 'false', 'no', 'off'].includes(String(value).trim().toLowerCase())
+}
+
+function normalizeServiceCode(value) {
+  return String(value || '').trim().toUpperCase()
+}
+
+function getDefaultRecipientServices(recipientPhone) {
+  if (!isEnvEnabled(process.env.CDEK_ENABLE_RECIPIENT_SMS, true)) {
+    return []
+  }
+
+  const serviceCodes = String(process.env.CDEK_SMS_SERVICE_CODES || 'SMS')
+    .split(',')
+    .map(normalizeServiceCode)
+    .filter(Boolean)
+
+  return serviceCodes.map(code => {
+    const service = { code }
+
+    // For the SMS service CDEK expects the recipient phone in the parameter field.
+    if (code === 'SMS') {
+      service.parameter = recipientPhone
+    }
+
+    return service
+  })
+}
+
+function normalizeCdekServices(services = [], recipientPhone) {
+  const normalized = []
+  const seen = new Set()
+
+  const addService = (service) => {
+    const item = typeof service === 'string' ? { code: service } : service
+    const code = normalizeServiceCode(item?.code)
+
+    if (!code) return
+
+    const normalizedService = { ...item, code }
+    if (code === 'SMS' && !normalizedService.parameter) {
+      normalizedService.parameter = recipientPhone
+    }
+
+    const key = `${normalizedService.code}:${normalizedService.parameter || ''}`
+    if (seen.has(key)) return
+
+    seen.add(key)
+    normalized.push(normalizedService)
+  }
+
+  getDefaultRecipientServices(recipientPhone).forEach(addService)
+
+  if (Array.isArray(services)) {
+    services.forEach(addService)
+  }
+
+  return normalized
+}
+
 function log(level, message, data = null) {
   const timestamp = new Date().toISOString()
   const logMessage = `[${timestamp}] [${level.toUpperCase()}] [CDEK] ${message}`
@@ -233,7 +295,8 @@ export async function createOrder({
   packages,
   from_contact,
   address,
-  delivery_recipient_cost
+  delivery_recipient_cost,
+  services
 }) {
   const orderPayload = {
     number: String(number),
@@ -270,6 +333,11 @@ export async function createOrder({
     orderPayload.delivery_recipient_cost = {
       value: Math.round(recipientDeliveryCost * 100) / 100
     }
+  }
+
+  const cdekServices = normalizeCdekServices(services, recipient_phone)
+  if (cdekServices.length > 0) {
+    orderPayload.services = cdekServices
   }
 
   // Если указан ПВЗ, to_location/address передавать нельзя
