@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { pushAddToCart, pushRemoveFromCart } from '../utils/ecommerce'
 
 export const useCartStore = defineStore('cart', () => {
   const CHECKOUT_REQUEST_KEY = 'peptidi_checkout_request_guard'
@@ -36,12 +37,17 @@ export const useCartStore = defineStore('cart', () => {
     } else {
       items.value.push({ ...product, weight: normalizedWeight, quantity: 1, cartKey: productKey })
     }
+    pushAddToCart(product, 1)
     lastAddedId.value = product.id
     save()
   }
   
   function removeItem(productId, selectedDosage = null) {
     const key = `${productId}::${selectedDosage || ''}`
+    const item = items.value.find(i => getItemKey(i) === key)
+    if (item) {
+      pushRemoveFromCart(item, item.quantity)
+    }
     items.value = items.value.filter(i => getItemKey(i) !== key)
     save()
   }
@@ -50,7 +56,17 @@ export const useCartStore = defineStore('cart', () => {
     const key = `${productId}::${selectedDosage || ''}`
     const item = items.value.find(i => getItemKey(i) === key)
     if (item) {
-      item.quantity = Math.max(1, quantity)
+      const previousQuantity = Math.max(1, Number(item.quantity) || 1)
+      const nextQuantity = Math.max(1, quantity)
+      const delta = nextQuantity - previousQuantity
+
+      if (delta > 0) {
+        pushAddToCart(item, delta)
+      } else if (delta < 0) {
+        pushRemoveFromCart(item, Math.abs(delta))
+      }
+
+      item.quantity = nextQuantity
       save()
     }
   }

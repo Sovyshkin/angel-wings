@@ -207,6 +207,7 @@ import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
 import Loader from '../components/Loader.vue'
 import { trackProductEvent } from '../api/analytics'
+import { pushProductDetail } from '../utils/ecommerce'
 
 const route = useRoute()
 const productStore = useProductStore()
@@ -501,6 +502,7 @@ watch(selectedDosageIndex, () => {
 watch(() => product.value?.id, (productId) => {
   if (productId) {
     trackProductEvent(productId, 'view', { source: 'product_detail' })
+    pushProductDetail(product.value)
   }
 }, { immediate: true })
 

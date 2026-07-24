@@ -21,6 +21,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
+import { getPendingPurchase, pushPurchase } from '../utils/ecommerce'
 
 const route = useRoute()
 const orderId = ref(null)
@@ -29,7 +30,12 @@ async function syncPaymentStatus() {
   if (!orderId.value) return
 
   try {
-    await axios.post(`/api/payment/sync-order/${orderId.value}`)
+    const { data } = await axios.post(`/api/payment/sync-order/${orderId.value}`)
+    const paymentStatus = String(data?.paymentStatus || '').toUpperCase()
+
+    if (paymentStatus === 'PAID') {
+      pushPurchase(getPendingPurchase(orderId.value))
+    }
   } catch (error) {
     console.warn('Payment sync on success page failed:', error?.response?.data || error?.message)
   }

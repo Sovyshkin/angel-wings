@@ -943,6 +943,11 @@ import { useProductStore } from '../store/products'
 import { useAuthStore } from '../store/auth'
 import axios from 'axios'
 import deliveryApi from '../api/delivery'
+import {
+  createPendingPurchasePayload,
+  pushPurchase,
+  savePendingPurchase
+} from '../utils/ecommerce'
 
 const router = useRouter()
 const route = useRoute()
@@ -2127,6 +2132,11 @@ async function placeOrder() {
     const { data } = await axios.post('/api/orders', orderData)
     lastOrderId.value = data.order?.id
     const createdOrderTotal = Number(data?.order?.total ?? totalAfterPartnerBonus.value)
+    const purchasePayload = createPendingPurchasePayload(data?.order, cartStore.items, {
+      revenue: createdOrderTotal,
+      shipping: sitePaidDeliveryPrice.value,
+      coupon: normalizedPromoCode
+    })
     const actualPartnerBonusUsed = Math.max(0, Number(data?.meta?.partnerBonusUsed || 0))
     if (actualPartnerBonusUsed > 0) {
       partnerBalanceAvailable.value = Math.max(0, partnerBalanceAvailable.value - actualPartnerBonusUsed)
@@ -2204,6 +2214,7 @@ async function placeOrder() {
     }
     
     if (deliveryType.value === 'courier' && paymentMethod.value === 'cash_on_delivery') {
+      pushPurchase(purchasePayload)
       clearCheckoutRequestGuard()
       cartStore.clear()
       orderComplete.value = true
@@ -2214,6 +2225,7 @@ async function placeOrder() {
     }
 
     if (createdOrderTotal <= 0) {
+      pushPurchase(purchasePayload)
       clearCheckoutRequestGuard()
       cartStore.clear()
       orderComplete.value = true
@@ -2232,6 +2244,7 @@ async function placeOrder() {
       })
 
       if (paymentResponse.data.success && paymentResponse.data.paymentUrl) {
+        savePendingPurchase(purchasePayload)
         // Redirect to Tochka payment page
         clearCheckoutRequestGuard()
         window.location.href = paymentResponse.data.paymentUrl
@@ -2246,6 +2259,7 @@ async function placeOrder() {
     }
     
     // If we get here without redirect, something unexpected happened
+    pushPurchase(purchasePayload)
     clearCheckoutRequestGuard()
     cartStore.clear()
     orderComplete.value = true
