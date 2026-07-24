@@ -275,9 +275,9 @@
                 </span>
               </div>
             </div>
-            <div v-if="deliveryType === 'pvz' && deliveryPrice > 0 && !isOrderAdditionMode" class="summary-row summary-row-muted">
+            <div v-if="deliveryType === 'pvz' && deliveryPrice > 0 && !isOrderAdditionMode" class="summary-row summary-row-cdek-recipient">
               <span>Оплата доставки</span>
-              <span>напрямую СДЭКу</span>
+              <span>при получении в СДЭК</span>
             </div>
             <div v-if="isOrderAdditionMode" class="summary-row">
               <span>Доплата за доставку</span>
@@ -354,6 +354,23 @@
             <div v-if="deliveryType === 'pvz' && deliveryInfo.insurance_sum > 0" class="delivery-detail-row">
               <span>Страхование (0,75%):</span>
               <span>{{ deliveryInfo.insurance_sum.toLocaleString('ru-RU') }} ₽</span>
+            </div>
+            <div v-if="deliveryType === 'pvz' && deliveryPrice > 0" class="cdek-recipient-payment-note">
+              <div class="cdek-recipient-payment-note__icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 7H4a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>
+                  <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
+                  <path d="M12 12v3"/>
+                  <path d="M10.5 13.5h3"/>
+                </svg>
+              </div>
+              <div>
+                <strong>Доставка оплачивается отдельно</strong>
+                <p>
+                  Сейчас на сайте вы оплачиваете только товары.
+                  Стоимость доставки {{ deliveryPrice.toLocaleString('ru-RU') }} ₽ нужно будет оплатить напрямую СДЭКу при получении заказа.
+                </p>
+              </div>
             </div>
             <div class="delivery-detail-row">
               <span>Вес посылки:</span>
@@ -2808,6 +2825,23 @@ onUnmounted(() => {
   text-decoration: line-through;
 }
 
+.summary-row-cdek-recipient {
+  align-items: center;
+  color: #a6b9f8;
+}
+
+.summary-row-cdek-recipient span:first-child {
+  color: var(--text-secondary);
+}
+
+.summary-row-cdek-recipient span:last-child {
+  max-width: 55%;
+  color: #a6b9f8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: right;
+}
+
 .delivery-price {
   color: var(--accent);
   font-weight: 700;
@@ -2875,6 +2909,44 @@ onUnmounted(() => {
 
 .delivery-detail-row span:last-child {
   font-weight: 600;
+}
+
+.cdek-recipient-payment-note {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0.85rem 0;
+  padding: 0.85rem;
+  border: 1px solid rgba(166, 185, 248, 0.25);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(166, 185, 248, 0.14), rgba(34, 197, 94, 0.08)),
+    rgba(166, 185, 248, 0.06);
+}
+
+.cdek-recipient-payment-note__icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 12px;
+  color: #a6b9f8;
+  background: rgba(166, 185, 248, 0.15);
+}
+
+.cdek-recipient-payment-note strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+}
+
+.cdek-recipient-payment-note p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .summary-total {
