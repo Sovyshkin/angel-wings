@@ -232,7 +232,8 @@ export async function createOrder({
   to_location,
   packages,
   from_contact,
-  address
+  address,
+  delivery_recipient_cost
 }) {
   const orderPayload = {
     number: String(number),
@@ -259,6 +260,12 @@ export async function createOrder({
   }
 
   const hasDeliveryPoint = Boolean(delivery_point)
+  const recipientDeliveryCost = Math.max(0, Number(delivery_recipient_cost) || 0)
+
+  if (recipientDeliveryCost > 0) {
+    // СДЭК взимает эту сумму с получателя, сайт ее не принимает в оплату.
+    orderPayload.delivery_recipient_cost = Math.round(recipientDeliveryCost * 100) / 100
+  }
 
   // Если указан ПВЗ, to_location/address передавать нельзя
   if (hasDeliveryPoint) {

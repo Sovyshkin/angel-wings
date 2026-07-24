@@ -56,6 +56,16 @@ function getPaymentLabel(order) {
   return '⏳ Ожидает оплаты'
 }
 
+function isRecipientPaidCdekDelivery(order) {
+  const tariffName = String(order?.deliveryTariffName || '').toLowerCase()
+  return Boolean(
+    order?.deliveryPickupPoint ||
+    order?.cdekOrderUuid ||
+    tariffName.includes('сдэк') ||
+    tariffName.includes('склад-склад')
+  )
+}
+
 function getPartnerBonusLines(order) {
   const bonusAmount = Math.max(0, Number(order?.partnerBonusAmount || order?.partnerBonusInfo?.amount || 0))
   if (bonusAmount <= 0) return []
@@ -97,6 +107,9 @@ function buildOrderMessage(order) {
     `<b>Статус оплаты:</b> ${escapeHtml(getPaymentLabel(order))}`,
     ...getPartnerBonusLines(order),
     `<b>Доставка:</b> ${escapeHtml(getDeliveryLabel(order))}`,
+    isRecipientPaidCdekDelivery(order) && Number(order?.deliveryPrice || 0) > 0
+      ? `<b>Оплата доставки:</b> клиент оплачивает СДЭКу отдельно (${escapeHtml(formatMoney(order.deliveryPrice))})`
+      : '',
     `<b>Адрес:</b> ${escapeHtml(order.shippingAddress || order.deliveryPickupName || order.deliveryCity || '—')}`,
     '',
     '<b>Клиент:</b>',

@@ -36,6 +36,16 @@ function parseOptionalNumber(value) {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+function isRecipientPaidCdekDelivery(order) {
+  const tariffName = String(order?.deliveryTariffName || '').toLowerCase()
+  return Boolean(
+    order?.deliveryPickupPoint ||
+    order?.cdekOrderUuid ||
+    tariffName.includes('сдэк') ||
+    tariffName.includes('склад-склад')
+  )
+}
+
 function resolveVat() {
   const raw = String(process.env.CLOUDKASSIR_VAT ?? 'none').trim().toLowerCase()
   if (!raw || ['none', 'null', 'no_vat', 'без ндс', 'безндс'].includes(raw)) return null
@@ -164,7 +174,7 @@ class CloudKassirService {
       }
     }).filter(line => line.grossCents > 0)
 
-    const deliveryCents = toCents(order?.deliveryPrice)
+    const deliveryCents = isRecipientPaidCdekDelivery(order) ? 0 : toCents(order?.deliveryPrice)
     const deliveryLine = deliveryCents > 0
       ? [{
           key: 'delivery',

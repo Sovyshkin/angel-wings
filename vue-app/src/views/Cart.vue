@@ -275,6 +275,10 @@
                 </span>
               </div>
             </div>
+            <div v-if="deliveryType === 'pvz' && deliveryPrice > 0 && !isOrderAdditionMode" class="summary-row summary-row-muted">
+              <span>Оплата доставки</span>
+              <span>напрямую СДЭКу</span>
+            </div>
             <div v-if="isOrderAdditionMode" class="summary-row">
               <span>Доплата за доставку</span>
               <div class="delivery-info">
@@ -362,7 +366,7 @@
           </div>
           
           <div class="summary-total">
-            <span>{{ isOrderAdditionMode ? additionTotalLabel : 'Итого' }}</span>
+            <span>{{ isOrderAdditionMode ? additionTotalLabel : 'К оплате на сайте' }}</span>
             <span class="total-value">{{ visibleTotal.toLocaleString('ru-RU') }} ₽</span>
           </div>
           
@@ -1772,13 +1776,17 @@ function buildCheckoutSignature(orderData) {
   })
 }
 
+const sitePaidDeliveryPrice = computed(() => {
+  return deliveryType.value === 'pvz' ? 0 : deliveryPrice.value
+})
+
 const totalWithDelivery = computed(() => {
-  return cartStore.total + deliveryPrice.value
+  return cartStore.total + sitePaidDeliveryPrice.value
 })
 
 const totalWithPromo = computed(() => {
   const productsAfterPromo = Math.max(0, cartStore.total - promoDiscountPreview.value)
-  return productsAfterPromo + deliveryPrice.value
+  return productsAfterPromo + sitePaidDeliveryPrice.value
 })
 
 const partnerBonusToUse = computed(() => {
@@ -2117,7 +2125,7 @@ async function placeOrder() {
         const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
         const declaredGoodsTotal = Math.max(
           0,
-          createdOrderTotal - Number(data?.order?.deliveryPrice || deliveryPrice.value) + actualPartnerBonusUsed
+          createdOrderTotal + actualPartnerBonusUsed
         )
         const baseGoodsTotal = Math.max(0, Number(cartStore.total) || 0)
         const targetCents = Math.round(declaredGoodsTotal * 100)
@@ -2154,7 +2162,8 @@ async function placeOrder() {
           packages: [{
             weight: safeWeight,
             items: cdekItems
-          }]
+          }],
+          delivery_recipient_cost: Number(data?.order?.deliveryPrice || deliveryPrice.value || 0)
         }
 
         cdekPayload.delivery_point = deliveryData.pickup_point

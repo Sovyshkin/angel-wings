@@ -165,6 +165,11 @@ function calculatePromoDiscount(amount, promoCode) {
   return Math.min(promoCode.discountValue, normalizedAmount)
 }
 
+function isCdekDeliveryType(deliveryType) {
+  const normalized = String(deliveryType || '').trim().toLowerCase()
+  return normalized === 'pvz_cdek' || normalized === 'pvz'
+}
+
 function createClientError(message, status = 400) {
   const error = new Error(message)
   error.status = status
@@ -354,6 +359,7 @@ async function buildOrderAdditionQuote(orderId, user, rawItems) {
   }
 
   const currentDeliveryPrice = Math.max(0, Number(order.deliveryPrice || 0))
+  const isCdekPickup = Boolean(order.deliveryPickupPoint && order.deliveryTariffCode)
   const currentWeight = getOrderItemsWeight(order.items)
   const nextWeight = Math.max(1, currentWeight + addedWeight)
   const currentItemsValue = order.items.reduce((sum, item) => (
@@ -361,13 +367,14 @@ async function buildOrderAdditionQuote(orderId, user, rawItems) {
   ), 0)
   const deliveryQuote = await calculateUpdatedDeliveryPrice(order, nextWeight, currentItemsValue + itemsSubtotal)
   const deliveryAdjustment = Math.max(0, Number(deliveryQuote.deliveryPrice || 0) - currentDeliveryPrice)
+  const sitePaidDeliveryAdjustment = isCdekPickup ? 0 : deliveryAdjustment
   const oldOrderTotal = Math.max(0, Number(order.total || 0))
-  const newOrderTotal = oldOrderTotal + itemsSubtotal + deliveryAdjustment
+  const newOrderTotal = oldOrderTotal + itemsSubtotal + sitePaidDeliveryAdjustment
   const isCashOnDelivery = normalizePaymentStatusValue(order.paymentStatus) === 'CASH_ON_DELIVERY'
-  const requiresOnlinePayment = !isCashOnDelivery && (isPaidStatus(order.paymentStatus) ? itemsSubtotal + deliveryAdjustment : newOrderTotal) > 0
+  const requiresOnlinePayment = !isCashOnDelivery && (isPaidStatus(order.paymentStatus) ? itemsSubtotal + sitePaidDeliveryAdjustment : newOrderTotal) > 0
   const paymentAmount = isCashOnDelivery
     ? 0
-    : (isPaidStatus(order.paymentStatus) ? itemsSubtotal + deliveryAdjustment : newOrderTotal)
+    : (isPaidStatus(order.paymentStatus) ? itemsSubtotal + sitePaidDeliveryAdjustment : newOrderTotal)
 
   return {
     order,
@@ -376,6 +383,8 @@ async function buildOrderAdditionQuote(orderId, user, rawItems) {
     currentDeliveryPrice,
     nextDeliveryPrice: deliveryQuote.deliveryPrice,
     deliveryAdjustment,
+    sitePaidDeliveryAdjustment,
+    deliveryPaidByRecipient: isCdekPickup,
     oldOrderTotal,
     newOrderTotal,
     paymentAmount,
@@ -637,7 +646,7 @@ router.post('/', authenticate, async (req, res, next) => {
     // total = sum of products in cart (without delivery)
     const itemsSubtotal = total
     const submittedDeliveryPrice = Math.max(0, Number(delivery?.price) || 0)
-    const isCdekDelivery = normalizedDeliveryType === 'pvz_cdek' || normalizedDeliveryType === 'pvz'
+    const isCdekDelivery = isCdekDeliveryType(normalizedDeliveryType)
     const submittedCdekBasePrice = Number(delivery?.base_price)
     let cdekInsurancePrice = isCdekDelivery
       ? Math.round(itemsSubtotal * 0.0075 * 100) / 100
@@ -760,7 +769,8 @@ router.post('/', authenticate, async (req, res, next) => {
         cdekInsurancePrice = Math.round(declaredValueAfterPromo * 0.0075 * 100) / 100
         deliveryPrice = Math.round((Math.max(0, submittedCdekBasePrice) + cdekInsurancePrice) * 100) / 100
       }
-      const subtotalAfterPromo = Math.max(0, itemsSubtotal - promoDiscountAmount) + deliveryPrice
+      const sitePaidDeliveryPrice = isCdekDelivery ? 0 : deliveryPrice
+      const subtotalAfterPromo = Math.max(0, itemsSubtotal - promoDiscountAmount) + sitePaidDeliveryPrice
 
       if (requestedPartnerBonusAmount > 0) {
         if (!actualUserId) {
@@ -799,7 +809,7 @@ router.post('/', authenticate, async (req, res, next) => {
       }
 
       const totalDiscountAmount = promoDiscountAmount + partnerBonusUsed
-      const finalOrderTotal = Math.max(0, itemsSubtotal + deliveryPrice - totalDiscountAmount)
+      const finalOrderTotal = Math.max(0, itemsSubtotal + sitePaidDeliveryPrice - totalDiscountAmount)
       const orderCreateData = {
         customerName,
         customerEmail,
@@ -1029,6 +1039,8 @@ router.post('/:id/add-items/preview', authenticate, async (req, res, next) => {
         currentDeliveryPrice: quote.currentDeliveryPrice,
         nextDeliveryPrice: quote.nextDeliveryPrice,
         deliveryAdjustment: quote.deliveryAdjustment,
+        sitePaidDeliveryAdjustment: quote.sitePaidDeliveryAdjustment,
+        deliveryPaidByRecipient: quote.deliveryPaidByRecipient,
         oldOrderTotal: quote.oldOrderTotal,
         newOrderTotal: quote.newOrderTotal,
         paymentAmount: quote.paymentAmount,
@@ -1117,6 +1129,8 @@ router.post('/:id/add-items', authenticate, async (req, res, next) => {
         addedItems: quote.items,
         itemsSubtotal: quote.itemsSubtotal,
         deliveryAdjustment: quote.deliveryAdjustment,
+        sitePaidDeliveryAdjustment: quote.sitePaidDeliveryAdjustment,
+        deliveryPaidByRecipient: quote.deliveryPaidByRecipient,
         oldOrderTotal: quote.oldOrderTotal,
         newOrderTotal: quote.newOrderTotal,
         paymentAmount: quote.paymentAmount,

@@ -348,7 +348,8 @@ router.post('/orders', async (req, res) => {
       to_location,
       packages,
       from_contact,
-      address
+      address,
+      delivery_recipient_cost
     } = req.body
 
     if (!number || !recipient_name || !recipient_phone || !packages || !packages.length) {
@@ -375,7 +376,8 @@ router.post('/orders', async (req, res) => {
       to_location,
       packages,
       from_contact,
-      address
+      address,
+      delivery_recipient_cost
     })
 
     res.json(result)
