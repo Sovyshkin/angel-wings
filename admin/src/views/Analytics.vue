@@ -183,15 +183,27 @@
 
       <div class="analytics-table card">
         <div class="table-head">
-          <span>Препарат</span>
-          <span>Скорость</span>
-          <span>Воронка</span>
-          <span>Средний чек</span>
-          <span>LTV</span>
-          <span>Склад</span>
+          <button type="button" class="sortable-column" @click="toggleSort('products', 'title')">
+            Препарат <span>{{ getSortIndicator('products', 'title') }}</span>
+          </button>
+          <button type="button" class="sortable-column" @click="toggleSort('products', 'velocityPerDay')">
+            Скорость <span>{{ getSortIndicator('products', 'velocityPerDay') }}</span>
+          </button>
+          <button type="button" class="sortable-column" @click="toggleSort('products', 'successfulOrders')">
+            Воронка <span>{{ getSortIndicator('products', 'successfulOrders') }}</span>
+          </button>
+          <button type="button" class="sortable-column" @click="toggleSort('products', 'avgCheck')">
+            Средний чек <span>{{ getSortIndicator('products', 'avgCheck') }}</span>
+          </button>
+          <button type="button" class="sortable-column" @click="toggleSort('products', 'ltv')">
+            LTV <span>{{ getSortIndicator('products', 'ltv') }}</span>
+          </button>
+          <button type="button" class="sortable-column" @click="toggleSort('products', 'stock')">
+            Склад <span>{{ getSortIndicator('products', 'stock') }}</span>
+          </button>
         </div>
 
-        <article v-for="item in filteredProducts" :key="item.productId" class="product-row">
+        <article v-for="item in sortedFilteredProducts" :key="item.productId" class="product-row">
           <div class="product-cell">
             <div class="product-icon">{{ getInitials(item.title) }}</div>
             <div>
@@ -610,13 +622,23 @@
             </div>
             <div class="margin-table">
               <div class="margin-table-head">
-                <span>Канал</span>
-                <span>Прибыль</span>
-                <span>Затраты</span>
-                <span>ROMI</span>
-                <span>CAC</span>
+                <button type="button" class="sortable-column" @click="toggleSort('marginChannels', 'channel')">
+                  Канал <span>{{ getSortIndicator('marginChannels', 'channel') }}</span>
+                </button>
+                <button type="button" class="sortable-column" @click="toggleSort('marginChannels', 'netProfit')">
+                  Прибыль <span>{{ getSortIndicator('marginChannels', 'netProfit') }}</span>
+                </button>
+                <button type="button" class="sortable-column" @click="toggleSort('marginChannels', 'adSpend')">
+                  Затраты <span>{{ getSortIndicator('marginChannels', 'adSpend') }}</span>
+                </button>
+                <button type="button" class="sortable-column" @click="toggleSort('marginChannels', 'romi')">
+                  ROMI <span>{{ getSortIndicator('marginChannels', 'romi') }}</span>
+                </button>
+                <button type="button" class="sortable-column" @click="toggleSort('marginChannels', 'cac')">
+                  CAC <span>{{ getSortIndicator('marginChannels', 'cac') }}</span>
+                </button>
               </div>
-              <div v-for="channel in marginChannels" :key="channel.channel" class="margin-table-row">
+              <div v-for="channel in sortedMarginChannels" :key="channel.channel" class="margin-table-row">
                 <strong>{{ channel.channel }}</strong>
                 <span>{{ formatCurrency(channel.netProfit) }}</span>
                 <span>{{ formatCurrency(channel.adSpend) }}</span>
@@ -717,8 +739,19 @@
               </div>
               <span class="pill">{{ topCustomers.length }}</span>
             </div>
+            <div class="client-sort-head">
+              <button type="button" class="sortable-column" @click="toggleSort('topCustomers', 'name')">
+                Клиент <span>{{ getSortIndicator('topCustomers', 'name') }}</span>
+              </button>
+              <button type="button" class="sortable-column" @click="toggleSort('topCustomers', 'totalRevenue')">
+                Выручка <span>{{ getSortIndicator('topCustomers', 'totalRevenue') }}</span>
+              </button>
+              <button type="button" class="sortable-column" @click="toggleSort('topCustomers', 'ordersCount')">
+                Заказы <span>{{ getSortIndicator('topCustomers', 'ordersCount') }}</span>
+              </button>
+            </div>
             <div class="client-list">
-              <div v-for="client in topCustomers" :key="client.key" class="client-row">
+              <div v-for="client in sortedTopCustomers" :key="client.key" class="client-row">
                 <div class="client-rank" :class="{ core: client.isCoreAudience }">
                   {{ client.isCoreAudience ? '20%' : '#' }}
                 </div>
@@ -860,6 +893,11 @@ const activeTab = ref('actions')
 const days = ref(30)
 const search = ref('')
 const onlySignals = ref(false)
+const sortState = ref({
+  products: { key: 'ltv', direction: 'desc' },
+  marginChannels: { key: 'netProfit', direction: 'desc' },
+  topCustomers: { key: 'totalRevenue', direction: 'desc' }
+})
 const analyticsTabs = [
   { key: 'actions', label: 'Действия', hint: 'Главный экран утра' },
   { key: 'products', label: 'Препараты', hint: 'Velocity и LTV' },
@@ -884,9 +922,92 @@ const filteredProducts = computed(() => {
   })
 })
 
+const sortedFilteredProducts = computed(() => {
+  return sortRows(filteredProducts.value, 'products')
+})
+
+const sortedMarginChannels = computed(() => {
+  return sortRows(marginChannels.value, 'marginChannels')
+})
+
+const sortedTopCustomers = computed(() => {
+  return sortRows(topCustomers.value, 'topCustomers')
+})
+
 const maxMonthRevenue = computed(() => {
   return Math.max(1, ...monthComparison.value.flatMap(item => [Number(item.currentRevenue || 0), Number(item.previousRevenue || 0)]))
 })
+
+const sortAccessors = {
+  products: {
+    title: item => item.title,
+    velocityPerDay: item => item.velocityPerDay,
+    successfulOrders: item => item.funnel?.successfulOrders,
+    avgCheck: item => item.avgCheck,
+    ltv: item => item.ltv,
+    stock: item => item.stock
+  },
+  marginChannels: {
+    channel: item => item.channel,
+    netProfit: item => item.netProfit,
+    adSpend: item => item.adSpend,
+    romi: item => item.romi,
+    cac: item => item.cac
+  },
+  topCustomers: {
+    name: item => item.name,
+    totalRevenue: item => item.totalRevenue,
+    ordersCount: item => item.ordersCount
+  }
+}
+
+function toggleSort(table, key) {
+  const current = sortState.value[table] || {}
+  sortState.value = {
+    ...sortState.value,
+    [table]: {
+      key,
+      direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
+    }
+  }
+}
+
+function getSortIndicator(table, key) {
+  const current = sortState.value[table]
+  if (!current || current.key !== key) return '↕'
+  return current.direction === 'asc' ? '↑' : '↓'
+}
+
+function sortRows(rows, table) {
+  const current = sortState.value[table]
+  const getter = sortAccessors[table]?.[current?.key]
+  if (!getter) return [...rows]
+
+  const direction = current.direction === 'asc' ? 1 : -1
+  return [...rows].sort((a, b) => {
+    const left = getter(a)
+    const right = getter(b)
+    const emptyLeft = left === null || left === undefined || left === ''
+    const emptyRight = right === null || right === undefined || right === ''
+    if (emptyLeft && emptyRight) return 0
+    if (emptyLeft) return 1
+    if (emptyRight) return -1
+    return compareSortValues(left, right) * direction
+  })
+}
+
+function compareSortValues(left, right) {
+  const leftNumber = Number(left)
+  const rightNumber = Number(right)
+  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+    return leftNumber - rightNumber
+  }
+
+  return String(left).localeCompare(String(right), 'ru', {
+    numeric: true,
+    sensitivity: 'base'
+  })
+}
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('ru-RU', {
@@ -1517,6 +1638,40 @@ onMounted(fetchAnalytics)
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.sortable-column {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.sortable-column span {
+  color: var(--accent);
+  font-size: 0.78rem;
+  line-height: 1;
+  opacity: 0.72;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.sortable-column:hover {
+  color: var(--text-primary);
+}
+
+.sortable-column:hover span {
+  opacity: 1;
+  transform: translateY(-1px);
 }
 
 .product-row {
@@ -2418,6 +2573,20 @@ onMounted(fetchAnalytics)
 }
 
 .margin-table-head {
+  padding: 0 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.client-sort-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.85rem;
+  align-items: center;
+  margin: -0.35rem 0 0.75rem;
   padding: 0 0.85rem;
   color: var(--text-muted);
   font-size: 0.74rem;

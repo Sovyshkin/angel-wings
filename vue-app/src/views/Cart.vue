@@ -421,12 +421,14 @@
               
               <label 
                 class="delivery-type-option"
-                :class="{ selected: deliveryType === 'courier' }"
+                :class="{ selected: deliveryType === 'courier', 'delivery-type-option--blocked': isCourierMinOrderBlocked }"
+                @click="handleCourierOptionClick"
               >
                 <input 
                   type="radio" 
                   value="courier" 
                   v-model="deliveryType"
+                  :disabled="isCourierMinOrderBlocked"
                   @change="onDeliveryTypeChange"
                 >
                 <div class="option-icon">
@@ -440,6 +442,9 @@
                 <div class="option-content">
                   <strong>Курьер</strong>
                   <span>Только по Москве, в пределах МКАД</span>
+                  <span class="option-note" :class="{ 'option-note--warning': isCourierMinOrderBlocked }">
+                    {{ courierMinOrderText }}
+                  </span>
                 </div>
                 <div class="option-meta">
                   <span class="option-price">690 ₽</span>
@@ -959,6 +964,7 @@ const ENABLE_CDEK = true
 const INTERNAL_COURIER_CITY = 'Москва'
 const INTERNAL_COURIER_CITY_CODE = '44'
 const INTERNAL_COURIER_PRICE = 690
+const INTERNAL_COURIER_MIN_ORDER_AMOUNT = 5000
 const SELF_PICKUP_CITY = 'Москва'
 const SELF_PICKUP_ADDRESS = 'г. Москва, ул. Маршала Рыбалко, 2, корп. 3, Коворкинг-М1'
 const SELF_PICKUP_MAP_QUERY = encodeURIComponent('Коворкинг-М1, Москва, улица Маршала Рыбалко, 2, корпус 3')
@@ -1220,6 +1226,18 @@ const deliveryTariffLabel = computed(() => {
   if (deliveryType.value === 'pvz') return 'ПВЗ СДЭК'
   if (deliveryType.value === 'courier') return 'Курьер по Москве (внутренняя)'
   return 'Самовывоз'
+})
+
+const courierMinOrderRemaining = computed(() => {
+  return Math.max(0, INTERNAL_COURIER_MIN_ORDER_AMOUNT - Math.max(0, Number(cartStore.total || 0)))
+})
+const isCourierMinOrderBlocked = computed(() => courierMinOrderRemaining.value > 0)
+const courierMinOrderError = computed(() => {
+  return `Курьер по Москве доступен от ${INTERNAL_COURIER_MIN_ORDER_AMOUNT.toLocaleString('ru-RU')} ₽`
+})
+const courierMinOrderText = computed(() => {
+  if (!isCourierMinOrderBlocked.value) return 'Минимум заказа 5 000 ₽'
+  return `От 5 000 ₽, добавьте ещё ${courierMinOrderRemaining.value.toLocaleString('ru-RU')} ₽`
 })
 const promoCodeNormalized = computed(() => String(promoCode.value || '').trim().toUpperCase())
 
@@ -1564,9 +1582,22 @@ function buildCourierAddress(baseAddress) {
   return details.length ? `${normalizedBase}, ${details.join(', ')}` : normalizedBase
 }
 
+function handleCourierOptionClick(event) {
+  if (!isCourierMinOrderBlocked.value) return
+  event.preventDefault()
+  validationErrors.value = [courierMinOrderError.value]
+  focusAndScrollToField(pickupSectionRef)
+}
+
 function onDeliveryTypeChange() {
   if (!ENABLE_PVZ && deliveryType.value === 'pvz') {
     deliveryType.value = 'courier'
+  }
+  if (deliveryType.value === 'courier' && isCourierMinOrderBlocked.value) {
+    deliveryType.value = ENABLE_PVZ ? 'pvz' : 'self_pickup'
+    validationErrors.value = [courierMinOrderError.value]
+    focusAndScrollToField(pickupSectionRef)
+    return
   }
   if (!SELF_PICKUP_AVAILABLE && deliveryType.value === 'self_pickup') {
     deliveryType.value = ENABLE_PVZ ? 'pvz' : 'courier'
@@ -1689,6 +1720,12 @@ async function validateCourierAddress(address) {
 }
 
 async function selectCourierDelivery() {
+  if (isCourierMinOrderBlocked.value) {
+    validationErrors.value = [courierMinOrderError.value]
+    focusAndScrollToField(pickupSectionRef)
+    return
+  }
+
   const normalizedAddress = String(addressInput.value || '').trim()
   if (!normalizedAddress) return
 
@@ -1838,7 +1875,7 @@ const isFormValid = computed(() => {
     consents.value.acceptOffer &&
     consents.value.acceptPrivacy &&
     consents.value.acceptResearchTerms
-  return hasContact && hasDelivery && hasAllConsents
+  return hasContact && hasDelivery && hasAllConsents && !(deliveryType.value === 'courier' && isCourierMinOrderBlocked.value)
 })
 
 function getValidationErrors() {
@@ -1872,6 +1909,9 @@ function getValidationErrors() {
     }
     if (deliveryType.value === 'courier' && !String(courierAddress.value || '').trim()) {
       errors.push('Укажите адрес для курьерской доставки по Москве')
+    }
+    if (deliveryType.value === 'courier' && isCourierMinOrderBlocked.value) {
+      errors.push(courierMinOrderError.value)
     }
     if (isCourierApartmentMissing.value) {
       errors.push('Укажите номер квартиры')
@@ -1934,6 +1974,10 @@ function scrollToFirstInvalidField() {
       focusAndScrollToField(courierAddressInputRef)
       return
     }
+    focusAndScrollToField(pickupSectionRef)
+    return
+  }
+  if (deliveryType.value === 'courier' && isCourierMinOrderBlocked.value) {
     focusAndScrollToField(pickupSectionRef)
     return
   }
@@ -2387,6 +2431,16 @@ watch(
     deliveryRecalculationTimer = setTimeout(() => {
       onPickupSelect()
     }, 350)
+  }
+)
+
+watch(
+  () => cartStore.total,
+  () => {
+    if (deliveryType.value !== 'courier' || !isCourierMinOrderBlocked.value) return
+    changeDelivery()
+    deliveryType.value = ENABLE_PVZ ? 'pvz' : 'self_pickup'
+    validationErrors.value = [courierMinOrderError.value]
   }
 )
 
@@ -3212,6 +3266,20 @@ onUnmounted(() => {
   transform: none;
 }
 
+.delivery-type-option--blocked {
+  cursor: not-allowed;
+  opacity: 0.86;
+  border-color: rgba(255, 95, 103, 0.36);
+  background:
+    radial-gradient(circle at 100% 0, rgba(255, 95, 103, 0.12), transparent 34%),
+    var(--bg-card);
+}
+
+.delivery-type-option--blocked:hover {
+  border-color: rgba(255, 95, 103, 0.48);
+  transform: none;
+}
+
 .delivery-type-option input {
   display: none;
 }
@@ -3256,6 +3324,15 @@ onUnmounted(() => {
   font-size: 0.75rem;
   color: var(--text-muted);
   line-height: 1.35;
+}
+
+.option-content .option-note {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.option-content .option-note--warning {
+  color: #ff6b75;
 }
 
 .option-meta {

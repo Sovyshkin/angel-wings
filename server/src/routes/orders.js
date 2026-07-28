@@ -13,6 +13,7 @@ const router = Router()
 const prisma = new PrismaClient()
 const VALID_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'RETURNED', 'CANCELLED']
 const ADDABLE_ORDER_STATUSES = ['PENDING', 'PROCESSING']
+const INTERNAL_COURIER_MIN_ORDER_AMOUNT = 5000
 let clientRequestIdPersistenceAvailable = true
 const ORDER_INCLUDE = {
   items: {
@@ -645,6 +646,12 @@ router.post('/', authenticate, async (req, res, next) => {
 
     // total = sum of products in cart (without delivery)
     const itemsSubtotal = total
+    if (isInternalMoscowCourier && itemsSubtotal < INTERNAL_COURIER_MIN_ORDER_AMOUNT) {
+      return res.status(400).json({
+        error: `Курьер по Москве доступен от ${INTERNAL_COURIER_MIN_ORDER_AMOUNT.toLocaleString('ru-RU')} ₽`
+      })
+    }
+
     const submittedDeliveryPrice = Math.max(0, Number(delivery?.price) || 0)
     const isCdekDelivery = isCdekDeliveryType(normalizedDeliveryType)
     const submittedCdekBasePrice = Number(delivery?.base_price)
