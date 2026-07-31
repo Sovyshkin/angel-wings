@@ -53,9 +53,51 @@ export function isCisFastDeliveryLocation(location = {}) {
   ].some(isCisFastDeliveryCountry)
 }
 
+const CIS_FAST_API_TARIFF_CODES = new Set([480, 481, 482, 483, 605, 606])
+
 function isFastCisTariff(tariff = {}) {
+  const tariffCode = Number(tariff.tariff_code ?? tariff.id)
+  if (CIS_FAST_API_TARIFF_CODES.has(tariffCode)) return true
+
   const name = normalizeCountryText(tariff.tariff_name || tariff.name || tariff.description)
-  return name.includes('быстро') && !name.includes('очень')
+  if (name.includes('быстро') && !name.includes('очень')) return true
+
+  // В API СДЭК международный вариант "Быстро" часто приходит как "Экспресс ...".
+  return name.includes('экспресс') &&
+    !name.includes('магистральный') &&
+    !name.includes('очень')
+}
+
+function getPreferredCisDeliveryModes(requestedTariffCode) {
+  const code = Number(requestedTariffCode)
+
+  // Российский 136 = склад-склад / ПВЗ. Для международки аналогичный режим у СДЭК = 4.
+  if (code === 136) return [4, 9, 2, 3, 8, 1]
+
+  // Российский 137/138 на практике означает доставку до двери получателя.
+  if (code === 137 || code === 138) return [3, 8, 1, 4, 9, 2]
+
+  return [4, 3, 9, 8, 2, 1]
+}
+
+function pickFastCisTariff(tariffs = [], requestedTariffCode) {
+  const preferredModes = getPreferredCisDeliveryModes(requestedTariffCode)
+  const modePriority = new Map(preferredModes.map((mode, index) => [mode, index]))
+
+  return tariffs
+    .filter(isFastCisTariff)
+    .sort((a, b) => {
+      const aModePriority = modePriority.get(Number(a.delivery_mode)) ?? 999
+      const bModePriority = modePriority.get(Number(b.delivery_mode)) ?? 999
+      if (aModePriority !== bModePriority) return aModePriority - bModePriority
+
+      const aPeriod = Number(a.period_min ?? a.period_max ?? 999)
+      const bPeriod = Number(b.period_min ?? b.period_max ?? 999)
+      if (aPeriod !== bPeriod) return aPeriod - bPeriod
+
+      return Number(a.delivery_sum ?? a.total_sum ?? a.total_price ?? 0) -
+        Number(b.delivery_sum ?? b.total_sum ?? b.total_price ?? 0)
+    })[0]
 }
 
 function formatTariffForLog(tariff = {}) {
@@ -375,7 +417,7 @@ async function resolveTariffForDestination({ tariff_code, to_code, to_location, 
     height
   })
   const normalizedTariffs = normalizeTariffList(tariffList)
-  const fastTariff = normalizedTariffs.find(isFastCisTariff)
+  const fastTariff = pickFastCisTariff(normalizedTariffs, tariff_code)
 
   if (!fastTariff?.tariff_code) {
     log('warn', 'CDEK did not return Fast tariff for CIS destination.', {
