@@ -280,13 +280,13 @@ router.get('/pickup-point/:code', async (req, res) => {
 // Найти город по названию
 router.post('/find-city', async (req, res) => {
   try {
-    const { name } = req.body
+    const { name, country_code, countryCode } = req.body
 
     if (!name) {
       return res.status(400).json({ error: 'Необходимо указать name' })
     }
 
-    const result = await cdek.findCity(name)
+    const result = await cdek.findCity(name, { country_code: country_code || countryCode })
     res.json(result)
   } catch (error) {
     console.error('[CDEK] Find city error:', error)

@@ -30,6 +30,11 @@ function normalizeCountryText(value) {
   return String(value || '').trim().toLowerCase().replace(/ё/g, 'е')
 }
 
+function normalizeCountryCode(value) {
+  const code = String(value || '').trim().toUpperCase()
+  return /^[A-Z]{2}$/.test(code) ? code : ''
+}
+
 export function isCisFastDeliveryCountry(value) {
   const normalized = normalizeCountryText(value)
   if (!normalized) return false
@@ -51,6 +56,17 @@ export function isCisFastDeliveryLocation(location = {}) {
 function isFastCisTariff(tariff = {}) {
   const name = normalizeCountryText(tariff.tariff_name || tariff.name || tariff.description)
   return name.includes('быстро') && !name.includes('очень')
+}
+
+function formatTariffForLog(tariff = {}) {
+  return {
+    tariff_code: tariff.tariff_code ?? tariff.id ?? null,
+    tariff_name: tariff.tariff_name || tariff.name || tariff.description || null,
+    delivery_mode: tariff.delivery_mode ?? null,
+    delivery_sum: tariff.delivery_sum ?? tariff.total_sum ?? tariff.total_price ?? null,
+    period_min: tariff.period_min ?? null,
+    period_max: tariff.period_max ?? null
+  }
 }
 
 function normalizeTariffList(result) {
@@ -298,6 +314,36 @@ async function getDestinationLocation({ to_code, to_location }) {
     destination.code = to_code
   }
 
+  const countryCode = normalizeCountryCode(destination.country_code || destination.countryCode)
+  if (countryCode && destination.city && isCisFastDeliveryLocation(destination)) {
+    try {
+      const cities = await findCity(destination.city, { country_code: countryCode })
+      const normalizedCity = normalizeCountryText(destination.city)
+      const matchedCity = (Array.isArray(cities) ? cities : []).find(city => (
+        normalizeCountryCode(city.country_code || city.countryCode) === countryCode &&
+        normalizeCountryText(city.city || city.name) === normalizedCity
+      )) || (Array.isArray(cities) ? cities : []).find(city => (
+        normalizeCountryCode(city.country_code || city.countryCode) === countryCode
+      ))
+
+      if (matchedCity?.code && Number(matchedCity.code) !== Number(destination.code)) {
+        log('info', 'Resolved CIS destination city code from CDEK directory.', {
+          requestedCode: destination.code || to_code,
+          resolvedCode: matchedCity.code,
+          city: matchedCity.city || matchedCity.name || destination.city,
+          countryCode
+        })
+        Object.assign(destination, matchedCity)
+      }
+    } catch (error) {
+      log('warn', 'Could not resolve CIS destination city by country code.', {
+        city: destination.city,
+        countryCode,
+        error: error?.message || error?.data || error
+      })
+    }
+  }
+
   if (!isCisFastDeliveryLocation(destination) && destination.code) {
     try {
       const cityInfo = await getCityInfo(destination.code)
@@ -328,16 +374,23 @@ async function resolveTariffForDestination({ tariff_code, to_code, to_location, 
     width,
     height
   })
-  const fastTariff = normalizeTariffList(tariffList).find(isFastCisTariff)
+  const normalizedTariffs = normalizeTariffList(tariffList)
+  const fastTariff = normalizedTariffs.find(isFastCisTariff)
 
   if (!fastTariff?.tariff_code) {
+    log('warn', 'CDEK did not return Fast tariff for CIS destination.', {
+      destination,
+      requestedTariffCode: tariff_code,
+      availableTariffs: normalizedTariffs.map(formatTariffForLog)
+    })
     throw new Error('Для доставки в страны СНГ нужен тариф СДЭК "Быстро", но СДЭК не вернул его для выбранного направления. Попробуйте другой город или ПВЗ.')
   }
 
   return {
     tariff_code: Number(fastTariff.tariff_code),
     tariff_name: fastTariff.tariff_name || fastTariff.name || 'Быстро',
-    overridden: Number(fastTariff.tariff_code) !== Number(tariff_code)
+    overridden: Number(fastTariff.tariff_code) !== Number(tariff_code),
+    to_code: destination.code || to_code
   }
 }
 
@@ -362,7 +415,7 @@ export async function calculateDeliveryWithDestinationTariff({
 
   const result = await calculateDeliveryByTariff({
     tariff_code: resolvedTariff.tariff_code,
-    to_code,
+    to_code: resolvedTariff.to_code || to_code,
     weight,
     length,
     width,
@@ -398,9 +451,16 @@ export async function getPickupPoint(code) {
 // ==================== ЛОКАЦИИ ====================
 
 // Поиск города по названию
-export async function findCity(name) {
-  // GET запрос с параметром city в query
-  return cdekRequest(`/location/cities?city=${encodeURIComponent(name)}`, 'GET')
+export async function findCity(name, options = {}) {
+  const params = new URLSearchParams()
+  params.append('city', name)
+
+  const countryCode = normalizeCountryCode(options.country_code || options.countryCode)
+  if (countryCode) {
+    params.append('country_codes', countryCode)
+  }
+
+  return cdekRequest(`/location/cities?${params.toString()}`, 'GET')
 }
 
 // Получить информацию о городе по коду
