@@ -1,5 +1,25 @@
 <template>
   <div class="partner-cabinet">
+    <Transition name="credit-postcard">
+      <div v-if="activeCreditNotification" class="credit-postcard-overlay">
+        <article class="credit-postcard" role="dialog" aria-modal="true" aria-labelledby="credit-postcard-title">
+          <div class="credit-postcard__glow"></div>
+          <div class="credit-postcard__badge">Angel Wings</div>
+          <h2 id="credit-postcard-title">Баллы начислены</h2>
+          <p class="credit-postcard__amount">+{{ formatCurrency(activeCreditNotification.amount) }}</p>
+          <p v-if="activeCreditNotification.comment" class="credit-postcard__comment">
+            {{ activeCreditNotification.comment }}
+          </p>
+          <p class="credit-postcard__date">
+            Начисление от {{ formatDate(activeCreditNotification.createdAt) }}
+          </p>
+          <button class="btn btn-primary credit-postcard__button" @click="dismissCreditNotification">
+            Отлично, спасибо
+          </button>
+        </article>
+      </div>
+    </Transition>
+
     <div class="page-header">
       <div>
         <h1 class="page-title">Личный кабинет партнёра</h1>
@@ -214,6 +234,9 @@
                   <strong>{{ transaction.title }}</strong>
                   <span>{{ transactionStatusLabel(transaction.status) }} · {{ formatDate(transaction.createdAt) }}</span>
                   <small v-if="transaction.description">{{ transaction.description }}</small>
+                  <small v-if="transaction.comment && transaction.comment !== transaction.description" class="transaction-comment">
+                    Комментарий: {{ transaction.comment }}
+                  </small>
                 </div>
                 <div :class="['transaction-amount', transaction.direction === 'INCOME' ? 'income' : transaction.direction === 'OUTCOME' ? 'outcome' : 'neutral']">
                   {{ transaction.direction === 'INCOME' ? '+' : transaction.direction === 'OUTCOME' ? '-' : '' }}{{ formatCurrency(transaction.amount) }}
@@ -402,6 +425,8 @@ const partnerUsers = ref([])
 const commissions = ref([])
 const transactions = ref([])
 const dailyStats = ref([])
+const creditNotifications = ref([])
+const activeCreditNotification = ref(null)
 const usersLoading = ref(false)
 const filterStartDate = ref('')
 const filterEndDate = ref('')
@@ -487,6 +512,26 @@ async function fetchDailyStats() {
   dailyStats.value = data.dailyStats || []
 }
 
+async function fetchCreditNotifications() {
+  const { data } = await axios.get(`${API_URL}/cabinet/credit-notifications`)
+  creditNotifications.value = data.notifications || []
+  activeCreditNotification.value = creditNotifications.value[0] || null
+}
+
+async function dismissCreditNotification() {
+  const notification = activeCreditNotification.value
+  activeCreditNotification.value = null
+  if (!notification?.id) return
+
+  try {
+    await axios.post(`${API_URL}/cabinet/credit-notifications/${notification.id}/read`)
+    creditNotifications.value = creditNotifications.value.filter(item => item.id !== notification.id)
+    activeCreditNotification.value = creditNotifications.value[0] || null
+  } catch (error) {
+    console.error('Failed to mark credit notification as read:', error)
+  }
+}
+
 async function createPayoutRequest() {
   payoutError.value = ''
   payoutSuccess.value = ''
@@ -566,6 +611,7 @@ function formatDate(dateStr) {
 function transactionStatusLabel(status) {
   const labels = {
     COMPLETED: 'Зачислено',
+    PAID: 'Зачислено',
     PAYOUT_REQUESTED: 'Заявка на проверке',
     PAYOUT_APPROVED: 'Выплачено',
     PAYOUT_REJECTED: 'Отклонено',
@@ -587,7 +633,8 @@ onMounted(async () => {
       fetchUsers(),
       fetchCommissions(),
       fetchTransactions(),
-      fetchDailyStats()
+      fetchDailyStats(),
+      fetchCreditNotifications()
     ])
     accessDenied.value = false
   } catch (error) {
@@ -607,6 +654,116 @@ onMounted(async () => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 0.25rem 3rem;
+}
+
+.credit-postcard-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(5, 7, 14, 0.72);
+  backdrop-filter: blur(18px);
+}
+
+.credit-postcard {
+  position: relative;
+  width: min(460px, 100%);
+  overflow: hidden;
+  padding: clamp(1.4rem, 4vw, 2rem);
+  border: 1px solid rgba(159, 179, 255, 0.42);
+  border-radius: 28px;
+  background:
+    linear-gradient(145deg, rgba(31, 36, 55, 0.98), rgba(16, 18, 29, 0.98)),
+    var(--bg-card);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.44),
+    0 0 42px rgba(159, 179, 255, 0.16);
+  text-align: center;
+}
+
+.credit-postcard__glow {
+  position: absolute;
+  inset: -40% -20% auto;
+  height: 220px;
+  background: radial-gradient(circle, rgba(159, 179, 255, 0.42), transparent 62%);
+  pointer-events: none;
+}
+
+.credit-postcard__badge {
+  position: relative;
+  display: inline-flex;
+  padding: 0.45rem 0.8rem;
+  margin-bottom: 1rem;
+  border-radius: 999px;
+  background: rgba(159, 179, 255, 0.14);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.credit-postcard h2 {
+  position: relative;
+  margin: 0;
+  font-size: clamp(1.6rem, 5vw, 2.35rem);
+}
+
+.credit-postcard__amount {
+  position: relative;
+  margin: 1rem 0;
+  color: #86efac;
+  font-size: clamp(2rem, 8vw, 3.4rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.credit-postcard__comment {
+  position: relative;
+  margin: 0 auto 1rem;
+  padding: 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  line-height: 1.55;
+}
+
+.credit-postcard__date {
+  position: relative;
+  margin: 0 0 1.25rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.credit-postcard__button {
+  position: relative;
+  width: 100%;
+  justify-content: center;
+}
+
+.credit-postcard-enter-active,
+.credit-postcard-leave-active {
+  transition: opacity 0.24s ease;
+}
+
+.credit-postcard-enter-active .credit-postcard,
+.credit-postcard-leave-active .credit-postcard {
+  transition:
+    transform 0.24s ease,
+    opacity 0.24s ease;
+}
+
+.credit-postcard-enter-from,
+.credit-postcard-leave-to {
+  opacity: 0;
+}
+
+.credit-postcard-enter-from .credit-postcard,
+.credit-postcard-leave-to .credit-postcard {
+  opacity: 0;
+  transform: translateY(18px) scale(0.96);
 }
 
 .page-header {
@@ -933,6 +1090,17 @@ onMounted(async () => {
 .transaction-main span,
 .transaction-main small {
   color: var(--text-secondary);
+}
+
+.transaction-comment {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.35rem 0.55rem;
+  border-radius: 12px;
+  background: rgba(159, 179, 255, 0.1);
+  color: var(--accent) !important;
+  line-height: 1.35;
 }
 
 .transaction-amount {

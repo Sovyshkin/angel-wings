@@ -1064,6 +1064,8 @@ const citySearch = ref('')
 const pickupCombinedSearch = ref('')
 const foundCityName = ref('')
 const foundCityCode = ref('')
+const foundCityCountry = ref('')
+const foundCityCountryCode = ref('')
 const pickupPoints = ref([])
 const pickupFilter = ref('')
 const selectedPickupPoint = ref(null)
@@ -1223,7 +1225,9 @@ const deliverySummaryLabel = computed(() => {
 })
 
 const deliveryTariffLabel = computed(() => {
-  if (deliveryType.value === 'pvz') return 'ПВЗ СДЭК'
+  if (deliveryType.value === 'pvz') {
+    return deliveryInfo.value.selected_tariff_name || deliveryInfo.value.tariff_name || 'ПВЗ СДЭК'
+  }
   if (deliveryType.value === 'courier') return 'Курьер по Москве (внутренняя)'
   return 'Самовывоз'
 })
@@ -1543,6 +1547,8 @@ function changeDelivery() {
   courierAddressHint.value = ''
   deliveryPrice.value = 0
   deliveryInfo.value = {}
+  foundCityCountry.value = ''
+  foundCityCountryCode.value = ''
   cartStore.setDeliveryPrice(0)
   cartStore.setDelivery({})
 }
@@ -1618,6 +1624,8 @@ async function searchCityAndPickup() {
   pickupFilter.value = street
   foundCityName.value = ''
   foundCityCode.value = ''
+  foundCityCountry.value = ''
+  foundCityCountryCode.value = ''
   
   try {
     const res = await deliveryApi.post('/find-city', { name: city })
@@ -1625,6 +1633,8 @@ async function searchCityAndPickup() {
       const city = res.data[0]
       foundCityName.value = city.city
       foundCityCode.value = city.code
+      foundCityCountry.value = city.country || city.country_name || ''
+      foundCityCountryCode.value = city.country_code || city.countryCode || ''
       
       // Load pickup points
       const pointsRes = await deliveryApi.get(`/pickup-points?city_code=${city.code}&limit=50`)
@@ -1647,6 +1657,12 @@ async function onPickupSelect() {
       tariff_code: 136, // PVZ tariff
       from_code: 44,
       to_code: foundCityCode.value,
+      to_location: {
+        code: foundCityCode.value,
+        city: foundCityName.value,
+        country: foundCityCountry.value,
+        country_code: foundCityCountryCode.value
+      },
       weight: safeWeight,
       declared_value: Math.max(0, cartStore.total - promoDiscountPreview.value)
     })
@@ -1664,13 +1680,18 @@ async function onPickupSelect() {
         delivery_date_max: res.data.delivery_date_range?.max,
         base_delivery_sum: Number(res.data.base_delivery_sum || 0),
         insurance_sum: Number(res.data.insurance_sum || 0),
-        insurance_rate: Number(res.data.insurance_rate || 0)
+        insurance_rate: Number(res.data.insurance_rate || 0),
+        selected_tariff_code: res.data.selected_tariff_code || res.data.tariff_code || null,
+        selected_tariff_name: res.data.selected_tariff_name || res.data.tariff_name || null,
+        tariff_overridden: Boolean(res.data.tariff_overridden)
       }
       cartStore.setDeliveryPrice(price)
       cartStore.setDelivery({
         type: 'pvz',
         city: foundCityName.value,
         cityCode: foundCityCode.value,
+        cityCountry: foundCityCountry.value,
+        cityCountryCode: foundCityCountryCode.value,
         pickupPoint: selectedPickupPoint.value,
         deliveryPrice: price,
         deliveryInfo: deliveryInfo.value
@@ -2118,8 +2139,10 @@ async function placeOrder() {
       deliveryData.price = deliveryPrice.value
       deliveryData.city = foundCityName.value
       deliveryData.type = 'pvz_cdek'
-      deliveryData.tariff_code = 136
-      deliveryData.tariff_name = 'Экспресс лайт склад-склад'
+      deliveryData.tariff_code = Number(deliveryInfo.value.selected_tariff_code || deliveryInfo.value.tariff_code || 136)
+      deliveryData.tariff_name = deliveryInfo.value.selected_tariff_name || deliveryInfo.value.tariff_name || 'Экспресс лайт склад-склад'
+      deliveryData.city_country = foundCityCountry.value
+      deliveryData.city_country_code = foundCityCountryCode.value
       deliveryData.pickup_point = selectedPickupPoint.value.code
       deliveryData.pickup_point_name = selectedPickupPoint.value.name
       deliveryData.address = selectedPickupPoint.value.address
@@ -2238,6 +2261,12 @@ async function placeOrder() {
         }
 
         cdekPayload.delivery_point = deliveryData.pickup_point
+        cdekPayload.to_location = {
+          code: foundCityCode.value,
+          city: foundCityName.value,
+          country: foundCityCountry.value,
+          country_code: foundCityCountryCode.value
+        }
 
         const cdekResponse = await deliveryApi.post('/orders', {
           ...cdekPayload
@@ -2341,6 +2370,12 @@ onMounted(async () => {
   }
   if (savedDelivery.cityCode) {
     foundCityCode.value = savedDelivery.cityCode
+  }
+  if (savedDelivery.cityCountry) {
+    foundCityCountry.value = savedDelivery.cityCountry
+  }
+  if (savedDelivery.cityCountryCode) {
+    foundCityCountryCode.value = savedDelivery.cityCountryCode
   }
   if (ENABLE_PVZ && savedDelivery.type === 'pvz' && savedDelivery.pickupPoint) {
     selectedPickupPoint.value = savedDelivery.pickupPoint

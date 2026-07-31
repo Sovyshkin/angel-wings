@@ -15,11 +15,18 @@ function getOrderAmountWithoutDelivery(order) {
 
 function parsePaymentDetails(details) {
   if (!details) return null
+  if (typeof details === 'object') return details
   try {
     return JSON.parse(details)
   } catch {
     return null
   }
+}
+
+function isUnseenCredit(payment) {
+  if (payment.type !== 'ADMIN_CREDIT') return false
+  const details = parsePaymentDetails(payment.details) || {}
+  return !details.notificationSeenAt
 }
 
 function normalizePayoutDetails(details = {}) {
@@ -87,7 +94,7 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
       .filter(o => o.status !== 'CANCELLED')
       .reduce((sum, o) => sum + getOrderAmountWithoutDelivery(o), 0)
 
-    const totalEarned = commissionsData._sum.amount || 0
+    const totalEarned = balanceData.totalEarned
 
     res.json({
       stats: {
@@ -95,6 +102,8 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
         ordersCount: commissionsData._count,
         totalOrdersAmount,
         totalEarned,
+        totalCommissions: balanceData.totalCommissions,
+        adminCredits: balanceData.adminCredits,
         totalPaidOut: balanceData.totalPaidOut,
         pendingPayouts: balanceData.pendingPayouts,
         spentOnOrders: balanceData.totalSpentOnOrders,
@@ -301,6 +310,81 @@ router.get('/cabinet/payments', authenticate, requirePartner, async (req, res, n
   }
 })
 
+router.get('/cabinet/credit-notifications', authenticate, requirePartner, async (req, res, next) => {
+  try {
+    const partner = await prisma.partner.findUnique({
+      where: { userId: req.user.id }
+    })
+
+    if (!partner) {
+      return res.status(404).json({ error: 'Партнёр не найден' })
+    }
+
+    const payments = await prisma.partnerPayment.findMany({
+      where: {
+        partnerId: partner.id,
+        type: 'ADMIN_CREDIT',
+        status: 'PAID'
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    })
+
+    res.json({
+      notifications: payments
+        .filter(isUnseenCredit)
+        .map(payment => ({
+          id: payment.id,
+          amount: payment.amount,
+          comment: payment.comment || parsePaymentDetails(payment.details)?.comment || '',
+          createdAt: payment.createdAt
+        }))
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/cabinet/credit-notifications/:id/read', authenticate, requirePartner, async (req, res, next) => {
+  try {
+    const partner = await prisma.partner.findUnique({
+      where: { userId: req.user.id }
+    })
+
+    if (!partner) {
+      return res.status(404).json({ error: 'Партнёр не найден' })
+    }
+
+    const id = parseInt(req.params.id, 10)
+    const payment = await prisma.partnerPayment.findFirst({
+      where: {
+        id,
+        partnerId: partner.id,
+        type: 'ADMIN_CREDIT'
+      }
+    })
+
+    if (!payment) {
+      return res.status(404).json({ error: 'Начисление не найдено' })
+    }
+
+    const details = parsePaymentDetails(payment.details) || {}
+    await prisma.partnerPayment.update({
+      where: { id: payment.id },
+      data: {
+        details: JSON.stringify({
+          ...details,
+          notificationSeenAt: new Date().toISOString()
+        })
+      }
+    })
+
+    res.json({ ok: true })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.post('/cabinet/payout-requests', authenticate, requirePartner, async (req, res, next) => {
   try {
     const partner = await prisma.partner.findUnique({
@@ -407,13 +491,20 @@ router.get('/cabinet/transactions', authenticate, requirePartner, async (req, re
         id: `payment-${payment.id}`,
         sourceId: payment.id,
         type: payment.type || 'PAYOUT',
-        direction: payment.status === 'PAYOUT_REJECTED' ? 'NEUTRAL' : 'OUTCOME',
+        direction: payment.type === 'ADMIN_CREDIT'
+          ? 'INCOME'
+          : payment.status === 'PAYOUT_REJECTED'
+            ? 'NEUTRAL'
+            : 'OUTCOME',
         status: payment.status,
         amount: payment.amount,
-        title: payment.type === 'ORDER_SPEND' || payment.status === 'SPENT_ON_ORDER'
-          ? 'Списание на покупку'
-          : 'Заявка на вывод',
+        title: payment.type === 'ADMIN_CREDIT'
+          ? 'Начисление баллов'
+          : payment.type === 'ORDER_SPEND' || payment.status === 'SPENT_ON_ORDER'
+            ? 'Списание на покупку'
+            : 'Заявка на вывод',
         description: payment.comment || null,
+        comment: payment.comment || parsePaymentDetails(payment.details)?.comment || null,
         details: parsePaymentDetails(payment.details),
         createdAt: payment.createdAt,
         processedAt: payment.processedAt || payment.paidAt

@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs'
 import { v4 as uuidv4 } from 'uuid'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
+import emailService from '../services/email.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -15,11 +16,69 @@ function normalizePromoCodeValue(code) {
 
 function parsePaymentDetails(details) {
   if (!details) return null
+  if (typeof details === 'object') return details
   try {
     return JSON.parse(details)
   } catch {
     return null
   }
+}
+
+function formatRubles(value) {
+  return new Intl.NumberFormat('ru-RU', {
+    style: 'currency',
+    currency: 'RUB',
+    maximumFractionDigits: 2
+  }).format(Number(value || 0))
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+async function sendPartnerCreditEmail({ partner, amount, comment }) {
+  const email = partner?.user?.email
+  if (!email) return null
+
+  const rawName = String(partner?.user?.name || 'партнёр')
+  const rawComment = String(comment || '').trim()
+  const safeName = escapeHtml(rawName)
+  const safeAmount = escapeHtml(formatRubles(amount))
+  const safeComment = escapeHtml(rawComment)
+
+  return emailService.sendMail({
+    to: email,
+    subject: 'Вам начислены баллы Angel Wings',
+    text: [
+      `Здравствуйте, ${rawName}!`,
+      '',
+      `Вам начислено: ${formatRubles(amount)}`,
+      rawComment ? `Комментарий: ${rawComment}` : '',
+      '',
+      'Баллы уже доступны в личном кабинете партнёра.',
+      'Личный кабинет: https://angel-wings.ru/partner'
+    ].filter(Boolean).join('\n'),
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:28px;background:#f6f7fb;color:#151722">
+        <div style="background:#fff;border-radius:24px;padding:30px;border:1px solid #e7e9f2">
+          <div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#8da2ff;font-weight:700;margin-bottom:12px">Angel Wings</div>
+          <h1 style="margin:0 0 14px;font-size:25px;line-height:1.2">Вам начислены баллы</h1>
+          <p style="margin:0 0 20px;font-size:16px;line-height:1.55">Здравствуйте, ${safeName}! На ваш партнёрский баланс добавлено начисление.</p>
+          <div style="background:#f3f5ff;border-radius:18px;padding:22px;margin:0 0 20px;border:1px solid #dfe5ff">
+            <p style="margin:0 0 8px;color:#687087;font-size:14px">Сумма начисления</p>
+            <div style="font-size:30px;font-weight:800;color:#22305f">${safeAmount}</div>
+            ${safeComment ? `<p style="margin:18px 0 8px;color:#687087;font-size:14px">Комментарий</p><div style="font-size:16px;line-height:1.5;color:#151722">${safeComment}</div>` : ''}
+          </div>
+          <a href="https://angel-wings.ru/partner" style="display:block;text-align:center;background:#9fb3ff;color:#10131f;text-decoration:none;font-weight:700;border-radius:16px;padding:16px 20px">Открыть кабинет партнёра</a>
+        </div>
+      </div>
+    `
+  })
 }
 
 // Resource routes - placed before /:id to avoid conflicts
@@ -411,6 +470,92 @@ router.put('/payments/:id', authenticate, requireAdmin, async (req, res, next) =
   }
 })
 
+router.post('/:id/credits', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const partnerId = parseInt(req.params.id, 10)
+    const amount = Number(req.body?.amount || 0)
+    const comment = String(req.body?.comment || '').trim()
+
+    if (!Number.isFinite(partnerId)) {
+      return res.status(400).json({ error: 'Некорректный ID партнёра' })
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Укажите сумму начисления больше 0' })
+    }
+
+    if (amount > 1000000) {
+      return res.status(400).json({ error: 'Сумма начисления слишком большая' })
+    }
+
+    if (!comment) {
+      return res.status(400).json({ error: 'Укажите комментарий к начислению' })
+    }
+
+    if (comment.length > 700) {
+      return res.status(400).json({ error: 'Комментарий должен быть короче 700 символов' })
+    }
+
+    const partner = await prisma.partner.findUnique({
+      where: { id: partnerId },
+      include: {
+        user: { select: { id: true, email: true, name: true, phone: true } }
+      }
+    })
+
+    if (!partner) {
+      return res.status(404).json({ error: 'Партнёр не найден' })
+    }
+
+    const payment = await prisma.partnerPayment.create({
+      data: {
+        partnerId,
+        amount,
+        type: 'ADMIN_CREDIT',
+        status: 'PAID',
+        comment,
+        details: JSON.stringify({
+          source: 'admin_manual_credit',
+          comment,
+          createdBy: req.user.id,
+          notificationSeenAt: null
+        }),
+        processedBy: req.user.id,
+        paidAt: new Date(),
+        processedAt: new Date()
+      }
+    })
+
+    let emailSent = false
+    let emailError = null
+    try {
+      await sendPartnerCreditEmail({ partner, amount, comment })
+      emailSent = true
+    } catch (error) {
+      emailError = error?.message || 'Не удалось отправить письмо'
+      console.error('[PARTNER] credit email failed', JSON.stringify({
+        partnerId,
+        paymentId: payment.id,
+        email: partner.user?.email || null,
+        code: error?.code || error?.deliveryCode || null,
+        message: emailError
+      }))
+    }
+
+    res.status(201).json({
+      payment: {
+        ...payment,
+        details: parsePaymentDetails(payment.details)
+      },
+      balance: await calculatePartnerBalance(prisma, partnerId),
+      emailSent,
+      emailError
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/stats/partner', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const [partnersCount, promoCodesCount, activeBindings, totalCommissions] = await Promise.all([
@@ -587,6 +732,7 @@ router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
     }
 
     const totalCommission = partner.commissions.reduce((sum, c) => sum + c.amount, 0)
+    const balance = await calculatePartnerBalance(prisma, parseInt(req.params.id, 10))
 
     const recentOrders = await prisma.order.findMany({
       where: {
@@ -606,6 +752,7 @@ router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
       partner: {
         ...partnerWithoutReferralCode,
         totalCommission,
+        balance,
         user: partner.user,
         users: partner.partnerUsers.map(pu => ({
           id: pu.user.id,

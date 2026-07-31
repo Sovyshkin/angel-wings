@@ -12,6 +12,72 @@ const CDEK_SENDER_LOCATION = {
   postal_code: '125424'
 }
 
+const CIS_FAST_DELIVERY_COUNTRY_CODES = new Set(['KZ', 'BY', 'KG', 'AM', 'UZ', 'AZ', 'MD'])
+const CIS_FAST_DELIVERY_COUNTRY_NAMES = new Set([
+  'казахстан',
+  'беларусь',
+  'белоруссия',
+  'кыргызстан',
+  'киргизия',
+  'армения',
+  'узбекистан',
+  'азербайджан',
+  'молдова',
+  'молдавия'
+])
+
+function normalizeCountryText(value) {
+  return String(value || '').trim().toLowerCase().replace(/ё/g, 'е')
+}
+
+export function isCisFastDeliveryCountry(value) {
+  const normalized = normalizeCountryText(value)
+  if (!normalized) return false
+
+  return CIS_FAST_DELIVERY_COUNTRY_CODES.has(normalized.toUpperCase()) ||
+    CIS_FAST_DELIVERY_COUNTRY_NAMES.has(normalized)
+}
+
+export function isCisFastDeliveryLocation(location = {}) {
+  return [
+    location.country_code,
+    location.countryCode,
+    location.country,
+    location.country_name,
+    location.countryName
+  ].some(isCisFastDeliveryCountry)
+}
+
+function isFastCisTariff(tariff = {}) {
+  const name = normalizeCountryText(tariff.tariff_name || tariff.name || tariff.description)
+  return name.includes('быстро') && !name.includes('очень')
+}
+
+function normalizeTariffList(result) {
+  if (Array.isArray(result)) return result
+  if (Array.isArray(result?.tariff_codes)) return result.tariff_codes
+  if (Array.isArray(result?.tariffs)) return result.tariffs
+  return []
+}
+
+function normalizeCalculatorPackages({ packages, weight, length, width, height }) {
+  if (Array.isArray(packages) && packages.length) {
+    return packages.map(pkg => ({
+      weight: Math.max(1, Number(pkg.weight) || 1),
+      length: Number(pkg.length) || 10,
+      width: Number(pkg.width) || 10,
+      height: Number(pkg.height) || 10
+    }))
+  }
+
+  return [{
+    weight: Math.max(1, Number(weight) || 1),
+    length: Number(length) || 10,
+    width: Number(width) || 10,
+    height: Number(height) || 10
+  }]
+}
+
 function isEnvEnabled(value, defaultValue = true) {
   if (value === undefined || value === null || value === '') return defaultValue
   return !['0', 'false', 'no', 'off'].includes(String(value).trim().toLowerCase())
@@ -196,33 +262,119 @@ export async function getTariffs() {
 
 // Расчёт стоимости доставки по конкретному тарифу
 export async function calculateDeliveryByTariff({ tariff_code, from_code, to_code, weight, length, width, height }) {
+  const packages = normalizeCalculatorPackages({ weight, length, width, height })
   // Для /calculator/tariff поле date не является обязательным - убираем его
   return cdekRequest('/calculator/tariff', 'POST', {
     tariff_code,
     from_location: { ...CDEK_SENDER_LOCATION },
     to_location: { code: to_code },
-    packages: [{
-      weight: weight,
-      length: length || 10,
-      width: width || 10,
-      height: height || 10
-    }]
+    packages
   })
 }
 
 // Расчёт стоимости доставки (автоматический выбор тарифа)
 export async function calculateDelivery({ from_code, to_code, weight, length, width, height }) {
+  const packages = normalizeCalculatorPackages({ weight, length, width, height })
   // Для /calculator поле date не является обязательным - убираем его
   return cdekRequest('/calculator', 'POST', {
     from_location: { ...CDEK_SENDER_LOCATION },
     to_location: { code: to_code },
-    packages: [{
-      weight: weight,
-      length: length || 10,
-      width: width || 10,
-      height: height || 10
-    }]
+    packages
   })
+}
+
+export async function getAvailableTariffs({ to_code, packages, weight, length, width, height }) {
+  return cdekRequest('/calculator/tarifflist', 'POST', {
+    from_location: { ...CDEK_SENDER_LOCATION },
+    to_location: { code: to_code },
+    packages: normalizeCalculatorPackages({ packages, weight, length, width, height })
+  })
+}
+
+async function getDestinationLocation({ to_code, to_location }) {
+  const destination = { ...(to_location || {}) }
+
+  if (!destination.code && to_code) {
+    destination.code = to_code
+  }
+
+  if (!isCisFastDeliveryLocation(destination) && destination.code) {
+    try {
+      const cityInfo = await getCityInfo(destination.code)
+      Object.assign(destination, cityInfo || {})
+    } catch (error) {
+      log('warn', 'Could not resolve destination country for tariff override.', {
+        to_code: destination.code,
+        error: error?.message || error?.data || error
+      })
+    }
+  }
+
+  return destination
+}
+
+async function resolveTariffForDestination({ tariff_code, to_code, to_location, packages, weight, length, width, height }) {
+  const destination = await getDestinationLocation({ to_code, to_location })
+
+  if (!isCisFastDeliveryLocation(destination)) {
+    return { tariff_code, tariff_name: null, overridden: false }
+  }
+
+  const tariffList = await getAvailableTariffs({
+    to_code: destination.code || to_code,
+    packages,
+    weight,
+    length,
+    width,
+    height
+  })
+  const fastTariff = normalizeTariffList(tariffList).find(isFastCisTariff)
+
+  if (!fastTariff?.tariff_code) {
+    throw new Error('Для доставки в страны СНГ нужен тариф СДЭК "Быстро", но СДЭК не вернул его для выбранного направления. Попробуйте другой город или ПВЗ.')
+  }
+
+  return {
+    tariff_code: Number(fastTariff.tariff_code),
+    tariff_name: fastTariff.tariff_name || fastTariff.name || 'Быстро',
+    overridden: Number(fastTariff.tariff_code) !== Number(tariff_code)
+  }
+}
+
+export async function calculateDeliveryWithDestinationTariff({
+  tariff_code,
+  to_code,
+  to_location,
+  weight,
+  length,
+  width,
+  height
+}) {
+  const resolvedTariff = await resolveTariffForDestination({
+    tariff_code,
+    to_code,
+    to_location,
+    weight,
+    length,
+    width,
+    height
+  })
+
+  const result = await calculateDeliveryByTariff({
+    tariff_code: resolvedTariff.tariff_code,
+    to_code,
+    weight,
+    length,
+    width,
+    height
+  })
+
+  return {
+    ...result,
+    selected_tariff_code: resolvedTariff.tariff_code,
+    selected_tariff_name: resolvedTariff.tariff_name || result?.tariff_name || null,
+    tariff_overridden: resolvedTariff.overridden
+  }
 }
 
 // ==================== ПВЗ (Пункты выдачи заказов) ====================
@@ -298,9 +450,25 @@ export async function createOrder({
   delivery_recipient_cost,
   services
 }) {
+  const resolvedTariff = await resolveTariffForDestination({
+    tariff_code: tariff_code || 137,
+    to_code: to_location?.code,
+    to_location,
+    packages
+  })
+
+  if (resolvedTariff.overridden) {
+    log('info', 'CIS destination detected. Tariff overridden to CDEK Fast.', {
+      order: number,
+      requestedTariffCode: tariff_code,
+      selectedTariffCode: resolvedTariff.tariff_code,
+      selectedTariffName: resolvedTariff.tariff_name
+    })
+  }
+
   const orderPayload = {
     number: String(number),
-    tariff_code: tariff_code || 137, // safer default for pickup flow; explicit value should be passed from client
+    tariff_code: resolvedTariff.tariff_code || tariff_code || 137, // safer default for pickup flow; explicit value should be passed from client
     comment: comment || '',
     // Фиксированный адрес отправления
     from_location: { ...CDEK_SENDER_LOCATION },
@@ -447,7 +615,9 @@ export default {
   getAuthToken,
   getTariffs,
   calculateDeliveryByTariff,
+  calculateDeliveryWithDestinationTariff,
   calculateDelivery,
+  getAvailableTariffs,
   getPickupPoints,
   getPickupPoint,
   findCity,

@@ -44,6 +44,10 @@
           <div class="stat-card__value">{{ formatCurrency(partner.totalCommission || 0) }}</div>
           <div class="stat-card__label">Общая комиссия</div>
         </div>
+        <div class="stat-card card stat-card--balance">
+          <div class="stat-card__value">{{ formatCurrency(partner.balance?.availableBalance || 0) }}</div>
+          <div class="stat-card__label">Доступный баланс</div>
+        </div>
         <div class="stat-card card">
           <div class="stat-card__value">{{ partner.percentage }}%</div>
           <div class="stat-card__label">Процент комиссии</div>
@@ -91,6 +95,47 @@
               <button @click="updatePercentage" class="btn btn-primary btn-sm">Сохранить</button>
             </div>
           </div>
+        </div>
+
+        <div class="card info-card credit-card">
+          <div class="credit-card__heading">
+            <div>
+              <h3 class="card-title">Начислить баллы</h3>
+              <p>Сумма сразу попадёт на баланс партнёра.</p>
+            </div>
+          </div>
+
+          <form class="credit-form" @submit.prevent="grantPartnerCredit">
+            <div class="form-group">
+              <label class="form-label">Сумма начисления</label>
+              <input
+                v-model="creditForm.amount"
+                type="number"
+                min="1"
+                step="0.01"
+                class="input"
+                placeholder="Например, 1500"
+              >
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Комментарий</label>
+              <textarea
+                v-model="creditForm.comment"
+                class="input"
+                rows="4"
+                maxlength="700"
+                placeholder="Например: бонус за активность в июле"
+              ></textarea>
+            </div>
+
+            <p v-if="creditError" class="credit-message credit-message--error">{{ creditError }}</p>
+            <p v-if="creditSuccess" class="credit-message credit-message--success">{{ creditSuccess }}</p>
+
+            <button class="btn btn-primary credit-submit" :disabled="creditLoading">
+              {{ creditLoading ? 'Начисляем...' : 'Начислить баллы' }}
+            </button>
+          </form>
         </div>
       </div>
 
@@ -262,6 +307,13 @@ const loading = ref(true)
 const percentage = ref(5)
 const notFound = ref(false)
 const loadError = ref('')
+const creditLoading = ref(false)
+const creditError = ref('')
+const creditSuccess = ref('')
+const creditForm = ref({
+  amount: '',
+  comment: ''
+})
 
 async function fetchPartner() {
   loading.value = true
@@ -304,6 +356,49 @@ async function toggleActive() {
     partner.value.isActive = newStatus
   } catch (e) {
     console.error(e)
+  }
+}
+
+async function grantPartnerCredit() {
+  if (!partner.value || creditLoading.value) return
+
+  creditError.value = ''
+  creditSuccess.value = ''
+
+  const amount = Number(creditForm.value.amount)
+  const comment = String(creditForm.value.comment || '').trim()
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    creditError.value = 'Укажите сумму начисления больше 0'
+    return
+  }
+
+  if (!comment) {
+    creditError.value = 'Добавьте комментарий к начислению'
+    return
+  }
+
+  creditLoading.value = true
+  try {
+    const { data } = await axios.post(`${API_URL}/${route.params.id}/credits`, {
+      amount,
+      comment
+    })
+
+    if (data.balance) {
+      partner.value.balance = data.balance
+    }
+
+    creditForm.value.amount = ''
+    creditForm.value.comment = ''
+    creditSuccess.value = data.emailSent
+      ? 'Баллы начислены, письмо партнёру отправлено.'
+      : 'Баллы начислены. Письмо не отправилось, почтовый сервис временно недоступен.'
+    await fetchPartner()
+  } catch (e) {
+    creditError.value = e?.response?.data?.error || 'Не удалось начислить баллы'
+  } finally {
+    creditLoading.value = false
   }
 }
 
@@ -397,6 +492,10 @@ onMounted(fetchPartner)
   color: var(--text-secondary);
 }
 
+.stat-card--balance .stat-card__value {
+  color: #22c55e;
+}
+
 .info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -443,6 +542,53 @@ onMounted(fetchPartner)
 
 .percentage-edit .input {
   width: 100px;
+}
+
+.credit-card {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(159, 179, 255, 0.16), transparent 34%),
+    var(--bg-card);
+}
+
+.credit-card__heading p {
+  margin: -0.35rem 0 1rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.credit-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.credit-form textarea {
+  resize: vertical;
+}
+
+.credit-message {
+  margin: 0;
+  padding: 0.8rem 0.95rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.credit-message--error {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.credit-message--success {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.credit-submit {
+  width: 100%;
+  justify-content: center;
 }
 
 .section {

@@ -113,16 +113,17 @@ function normalizeRussianPhone(value) {
 // Расчёт стоимости доставки по конкретному тарифу
 router.post('/calculate-by-tariff', async (req, res) => {
   try {
-    const { tariff_code, from_code, to_code, weight, length, width, height, declared_value } = req.body
+    const { tariff_code, from_code, to_code, to_location, weight, length, width, height, declared_value } = req.body
 
     if (!to_code || !weight) {
       return res.status(400).json({ error: 'Необходимо указать to_code и weight' })
     }
 
-    const result = await cdek.calculateDeliveryByTariff({
+    const result = await cdek.calculateDeliveryWithDestinationTariff({
       tariff_code: tariff_code || 136,
       from_code,
       to_code,
+      to_location,
       weight,
       length,
       width,

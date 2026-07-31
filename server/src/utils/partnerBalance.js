@@ -12,6 +12,7 @@ export async function calculatePartnerBalance(prismaLike, partnerId) {
 
   const [
     commissionsAgg,
+    adminCreditsAgg,
     paidOutAgg,
     pendingPayoutsAgg,
     spentOnOrdersAgg
@@ -26,6 +27,15 @@ export async function calculatePartnerBalance(prismaLike, partnerId) {
     prismaLike.partnerPayment.aggregate({
       where: {
         partnerId: safePartnerId,
+        type: 'ADMIN_CREDIT',
+        status: { in: ['PAID', 'COMPLETED', 'ADMIN_CREDITED'] }
+      },
+      _sum: { amount: true }
+    }),
+    prismaLike.partnerPayment.aggregate({
+      where: {
+        partnerId: safePartnerId,
+        type: 'PAYOUT',
         status: { in: ['PAID', 'PAYOUT_APPROVED'] }
       },
       _sum: { amount: true }
@@ -33,6 +43,7 @@ export async function calculatePartnerBalance(prismaLike, partnerId) {
     prismaLike.partnerPayment.aggregate({
       where: {
         partnerId: safePartnerId,
+        type: 'PAYOUT',
         status: { in: ['PENDING', 'PAYOUT_REQUESTED'] }
       },
       _sum: { amount: true }
@@ -46,7 +57,9 @@ export async function calculatePartnerBalance(prismaLike, partnerId) {
     })
   ])
 
-  const totalEarned = Number(commissionsAgg?._sum?.amount || 0)
+  const totalCommissions = Number(commissionsAgg?._sum?.amount || 0)
+  const adminCredits = Number(adminCreditsAgg?._sum?.amount || 0)
+  const totalEarned = totalCommissions + adminCredits
   const totalPaidOut = Number(paidOutAgg?._sum?.amount || 0)
   const pendingPayouts = Number(pendingPayoutsAgg?._sum?.amount || 0)
   const totalSpentOnOrders = Number(spentOnOrdersAgg?._sum?.amount || 0)
@@ -54,6 +67,8 @@ export async function calculatePartnerBalance(prismaLike, partnerId) {
 
   return {
     totalEarned,
+    totalCommissions,
+    adminCredits,
     totalPaidOut,
     pendingPayouts,
     totalSpentOnOrders,
