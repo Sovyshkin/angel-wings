@@ -100,6 +100,58 @@ export function createPendingPurchasePayload(order, items, options = {}) {
   }
 }
 
+function isCdekRecipientPaidDelivery(order) {
+  const tariffName = String(order?.deliveryTariffName || '').toLowerCase()
+  return Boolean(order?.cdekOrderUuid || order?.deliveryPickupPoint || tariffName.includes('сдэк'))
+}
+
+export function createPurchasePayloadFromOrder(order) {
+  const orderId = String(order?.id || '').trim()
+  const items = Array.isArray(order?.items) ? order.items : []
+  if (!orderId || !items.length) return null
+
+  const sitePaidShipping = isCdekRecipientPaidDelivery(order)
+    ? 0
+    : normalizeMoney(order?.deliveryPrice)
+  const revenue = normalizeMoney(order?.total)
+  const goodsRevenue = Math.max(0, normalizeMoney(revenue - sitePaidShipping))
+  const grossGoodsTotal = items.reduce((sum, item) => {
+    return sum + normalizeMoney(item?.price) * normalizeQuantity(item?.quantity)
+  }, 0)
+
+  let allocatedCents = 0
+  const products = items.map((item, index) => {
+    const quantity = normalizeQuantity(item?.quantity)
+    const grossLineTotal = normalizeMoney(item?.price) * quantity
+    const isLast = index === items.length - 1
+    const lineCents = isLast
+      ? Math.max(0, Math.round(goodsRevenue * 100) - allocatedCents)
+      : Math.max(0, Math.round(goodsRevenue * 100 * (grossGoodsTotal > 0 ? grossLineTotal / grossGoodsTotal : 0)))
+    allocatedCents += lineCents
+
+    return toEcommerceProduct({
+      id: item?.product?.id || item?.productId || item?.id,
+      sku: item?.product?.sku,
+      title: item?.product?.title || item?.title,
+      dosage: item?.dosage,
+      quantity,
+      categories: item?.product?.categories || []
+    }, {
+      quantity,
+      price: quantity > 0 ? lineCents / 100 / quantity : 0
+    })
+  }).filter(Boolean)
+
+  return {
+    orderId,
+    revenue,
+    tax: 0,
+    shipping: sitePaidShipping,
+    coupon: order?.promoCode?.code || '',
+    products
+  }
+}
+
 export function savePendingPurchase(payload) {
   if (typeof sessionStorage === 'undefined' || !payload?.orderId) return
 

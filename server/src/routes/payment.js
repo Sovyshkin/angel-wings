@@ -11,6 +11,52 @@ import {
 const router = Router()
 const prisma = new PrismaClient()
 
+const PAYMENT_SYNC_ORDER_SELECT = {
+  id: true,
+  userId: true,
+  paymentId: true,
+  paymentStatus: true,
+  total: true,
+  discountAmount: true,
+  partnerBonusAmount: true,
+  deliveryPrice: true,
+  deliveryTariffName: true,
+  deliveryPickupPoint: true,
+  cdekOrderUuid: true,
+  promoCodeId: true,
+  items: {
+    include: {
+      product: {
+        select: {
+          id: true,
+          title: true,
+          sku: true,
+          categories: {
+            select: {
+              name: true,
+              slug: true
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+async function attachPromoCode(order) {
+  if (!order?.promoCodeId) return { ...order, promoCode: null }
+
+  const promoCode = await prisma.promoCode.findUnique({
+    where: { id: order.promoCodeId },
+    select: { code: true }
+  })
+
+  return {
+    ...order,
+    promoCode: promoCode ? { code: promoCode.code } : null
+  }
+}
+
 function normalizePaymentStatus(status) {
   const raw = String(status || '').trim().toUpperCase()
 
@@ -314,7 +360,7 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, userId: true, paymentId: true, paymentStatus: true }
+      select: PAYMENT_SYNC_ORDER_SELECT
     })
 
     if (!order) {
@@ -326,10 +372,12 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
     }
 
     if (!order.paymentId) {
+      const orderForResponse = await attachPromoCode(order)
       return res.json({
         success: true,
         paymentStatus: order.paymentStatus || 'PENDING',
-        status: null
+        status: null,
+        order: orderForResponse
       })
     }
 
@@ -345,9 +393,10 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
       rawStatus: result.status,
       paymentStatus
     }))
-    await prisma.order.update({
+    const updatedOrder = await prisma.order.update({
       where: { id: order.id },
-      data: { paymentStatus }
+      data: { paymentStatus },
+      select: PAYMENT_SYNC_ORDER_SELECT
     })
     await syncPartnerCommissionForOrder(prisma, order.id)
     await sendCloudKassirIncomeReceiptOnPaidTransition(
@@ -358,10 +407,13 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
       'sync-order'
     )
 
+    const orderForResponse = await attachPromoCode(updatedOrder)
+
     res.json({
       success: true,
       paymentStatus,
-      status: result.status
+      status: result.status,
+      order: orderForResponse
     })
   } catch (error) {
     next(error)
