@@ -20,11 +20,22 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useCartStore } from '../store/cart'
 import axios from 'axios'
 import { createPurchasePayloadFromOrder, getPendingPurchase, pushPurchase } from '../utils/ecommerce'
+import { clearPendingUnpaidOrder } from '../utils/checkoutRecovery'
 
 const route = useRoute()
+const cartStore = useCartStore()
 const orderId = ref(null)
+
+function clearCheckoutRequestGuard() {
+  try {
+    sessionStorage.removeItem('peptidi_checkout_request_guard')
+  } catch {
+    // noop
+  }
+}
 
 async function syncPaymentStatus() {
   if (!orderId.value) return
@@ -37,6 +48,9 @@ async function syncPaymentStatus() {
       const pendingPurchase = getPendingPurchase(orderId.value)
       const purchasePayload = pendingPurchase || createPurchasePayloadFromOrder(data?.order)
       pushPurchase(purchasePayload)
+      clearPendingUnpaidOrder(orderId.value)
+      clearCheckoutRequestGuard()
+      cartStore.clear()
     }
   } catch (error) {
     console.warn('Payment sync on success page failed:', error?.response?.data || error?.message)

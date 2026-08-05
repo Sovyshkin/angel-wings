@@ -97,6 +97,33 @@
     </Transition>
 
     <div class="container">
+      <div v-if="pendingUnpaidOrder && !isOrderAdditionMode" class="pending-payment-card" data-aos="fade-up">
+        <div class="pending-payment-card__icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <div class="pending-payment-card__content">
+          <span class="pending-payment-card__eyebrow">Неоплаченный заказ</span>
+          <h3>Заказ #{{ pendingUnpaidOrder.orderId }} ждёт оплату</h3>
+          <p>
+            Мы сохранили этот заказ, чтобы не создавать дубль. Можно продолжить оплату
+            или сбросить его и оформить новый.
+          </p>
+          <div v-if="pendingPaymentError" class="pending-payment-card__error">{{ pendingPaymentError }}</div>
+        </div>
+        <div class="pending-payment-card__actions">
+          <button class="btn btn-primary" @click="continuePendingOrderPayment" :disabled="continuingPendingOrder">
+            <span v-if="continuingPendingOrder" class="spinner"></span>
+            {{ continuingPendingOrder ? 'Открываем оплату...' : `Оплатить ${pendingUnpaidOrderAmountLabel}` }}
+          </button>
+          <button class="btn btn-secondary" @click="forgetPendingUnpaidOrder">
+            Оформить новый
+          </button>
+        </div>
+      </div>
+
       <div v-if="cartStore.items.length === 0 && !isOrderAdditionMode && !isOrderAdditionRequested" class="empty" data-aos="fade-up">
         <div class="empty-icon">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -953,6 +980,11 @@ import {
   pushPurchase,
   savePendingPurchase
 } from '../utils/ecommerce'
+import {
+  clearPendingUnpaidOrder,
+  getPendingUnpaidOrder,
+  savePendingUnpaidOrder
+} from '../utils/checkoutRecovery'
 
 const router = useRouter()
 const route = useRoute()
@@ -1053,6 +1085,9 @@ const orderComplete = ref(false)
 const orderError = ref(null)
 const lastOrderId = ref(null)
 const completedOrderAddition = ref(false)
+const pendingUnpaidOrder = ref(null)
+const continuingPendingOrder = ref(false)
+const pendingPaymentError = ref('')
 const showLoginModal = ref(false)
 const loginForm = ref({ email: '', password: '' })
 const loginError = ref('')
@@ -1147,6 +1182,10 @@ const additionSubmitLabel = computed(() => {
 })
 const visibleTotal = computed(() => {
   return isOrderAdditionMode.value ? additionPaymentAmount.value : totalAfterPartnerBonus.value
+})
+const pendingUnpaidOrderAmountLabel = computed(() => {
+  const amount = Number(pendingUnpaidOrder.value?.amount || 0)
+  return amount > 0 ? `${amount.toLocaleString('ru-RU')} ₽` : 'заказ'
 })
 
 const filteredPickupPoints = computed(() => {
@@ -1817,6 +1856,70 @@ function clearCheckoutRequestGuard() {
   }
 }
 
+function refreshPendingUnpaidOrder() {
+  pendingUnpaidOrder.value = getPendingUnpaidOrder()
+}
+
+function persistPendingUnpaidOrder({ orderId, amount, clientRequestId, paymentUrl = '' }) {
+  if (!orderId || amount <= 0) return
+
+  savePendingUnpaidOrder({
+    orderId,
+    amount,
+    clientRequestId,
+    paymentUrl,
+    itemsCount: cartStore.count,
+    customerEmail: customer.value.email,
+    customerPhone: customer.value.phone
+  })
+  refreshPendingUnpaidOrder()
+}
+
+function forgetPendingUnpaidOrder() {
+  clearPendingUnpaidOrder()
+  clearCheckoutRequestGuard()
+  pendingPaymentError.value = ''
+  pendingUnpaidOrder.value = null
+}
+
+async function continuePendingOrderPayment() {
+  const pendingOrder = pendingUnpaidOrder.value
+  if (!pendingOrder?.orderId) return
+
+  if (!authStore.isAuthenticated) {
+    showLoginModal.value = true
+    pendingPaymentError.value = 'Войдите в аккаунт, чтобы продолжить оплату сохранённого заказа.'
+    return
+  }
+
+  continuingPendingOrder.value = true
+  pendingPaymentError.value = ''
+
+  try {
+    const { data } = await axios.post(`/api/payment/create-for-order/${pendingOrder.orderId}`, {
+      description: `Оплата заказа #${pendingOrder.orderId}`
+    })
+
+    if (data?.success && data?.paymentUrl) {
+      window.location.href = data.paymentUrl
+      return
+    }
+
+    if (data?.alreadyPaid) {
+      clearPendingUnpaidOrder(pendingOrder.orderId)
+      clearCheckoutRequestGuard()
+      router.push({ path: '/order-success', query: { orderId: pendingOrder.orderId } })
+      return
+    }
+
+    pendingPaymentError.value = data?.error || 'Не удалось открыть оплату. Попробуйте ещё раз.'
+  } catch (error) {
+    pendingPaymentError.value = error.response?.data?.error || 'Не удалось открыть оплату. Попробуйте ещё раз.'
+  } finally {
+    continuingPendingOrder.value = false
+  }
+}
+
 function getOrCreateCheckoutRequestId(signature) {
   try {
     const stored = JSON.parse(sessionStorage.getItem(CHECKOUT_REQUEST_KEY) || 'null')
@@ -2029,6 +2132,11 @@ async function handleLogin() {
 }
 
 async function placeOrder() {
+  if (!isOrderAdditionMode.value && pendingUnpaidOrder.value?.orderId) {
+    await continuePendingOrderPayment()
+    return
+  }
+
   if (!isFormValid.value) {
     validationErrors.value = getValidationErrors()
     scrollToFirstInvalidField()
@@ -2196,9 +2304,35 @@ async function placeOrder() {
       orderData.userId = authStore.user.id
     }
 
+    const checkoutSignature = buildCheckoutSignature(orderData)
+    orderData.clientRequestId = getOrCreateCheckoutRequestId(checkoutSignature)
+
     const { data } = await axios.post('/api/orders', orderData)
     lastOrderId.value = data.order?.id
     const createdOrderTotal = Number(data?.order?.total ?? totalAfterPartnerBonus.value)
+
+    if (data?.meta?.duplicate && lastOrderId.value) {
+      const duplicatePaymentStatus = String(data?.order?.paymentStatus || '').toUpperCase()
+
+      if (duplicatePaymentStatus === 'PAID') {
+        clearPendingUnpaidOrder(lastOrderId.value)
+        clearCheckoutRequestGuard()
+        cartStore.clear()
+        router.push({ path: '/order-success', query: { orderId: lastOrderId.value } })
+        return
+      }
+
+      if (createdOrderTotal > 0) {
+        persistPendingUnpaidOrder({
+          orderId: lastOrderId.value,
+          amount: createdOrderTotal,
+          clientRequestId: orderData.clientRequestId
+        })
+        await continuePendingOrderPayment()
+        return
+      }
+    }
+
     const purchasePayload = createPendingPurchasePayload(data?.order, cartStore.items, {
       revenue: createdOrderTotal,
       shipping: sitePaidDeliveryPrice.value,
@@ -2318,15 +2452,25 @@ async function placeOrder() {
 
       if (paymentResponse.data.success && paymentResponse.data.paymentUrl) {
         savePendingPurchase(purchasePayload)
+        persistPendingUnpaidOrder({
+          orderId: lastOrderId.value,
+          amount: createdOrderTotal,
+          clientRequestId: orderData.clientRequestId,
+          paymentUrl: paymentResponse.data.paymentUrl
+        })
         // Redirect to Tochka payment page
-        clearCheckoutRequestGuard()
         window.location.href = paymentResponse.data.paymentUrl
         return // Don't clear cart - user will return from payment
       }
     } catch (e) {
       console.error('Payment creation error:', e)
       // Payment failed but order was created - show warning
-      orderError.value = 'Заказ создан, но не удалось создать ссылку для оплаты. Свяжитесь с нами для оплаты.'
+      persistPendingUnpaidOrder({
+        orderId: lastOrderId.value,
+        amount: createdOrderTotal,
+        clientRequestId: orderData.clientRequestId
+      })
+      orderError.value = 'Заказ создан, но не удалось открыть оплату. Закройте это окно и нажмите «Оплатить заказ» в корзине.'
       ordering.value = false
       return
     }
@@ -2347,6 +2491,7 @@ async function placeOrder() {
 }
 
 onMounted(async () => {
+  refreshPendingUnpaidOrder()
   captureAttributionFromUrl()
   await productStore.fetchCategories()
   prefillFromProfile()
@@ -2881,6 +3026,70 @@ onUnmounted(() => {
   padding: 2rem;
   position: sticky;
   top: 100px;
+}
+
+.pending-payment-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 1.25rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(165, 183, 255, 0.35);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(165, 183, 255, 0.18), transparent 34%),
+    linear-gradient(135deg, rgba(34, 36, 50, 0.96), rgba(18, 19, 28, 0.96));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+}
+
+.pending-payment-card__icon {
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  color: var(--accent);
+  background: rgba(165, 183, 255, 0.16);
+}
+
+.pending-payment-card__eyebrow {
+  display: inline-flex;
+  margin-bottom: 0.35rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pending-payment-card h3 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+
+.pending-payment-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.pending-payment-card__actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.pending-payment-card__actions .btn {
+  white-space: nowrap;
+}
+
+.pending-payment-card__error {
+  margin-top: 0.6rem;
+  color: #fecaca;
+  font-size: 0.9rem;
 }
 
 .summary-header {
@@ -4171,6 +4380,21 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+  .pending-payment-card {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .pending-payment-card__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pending-payment-card__actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
   .cart__layout {
     grid-template-columns: 1fr;
     gap: 1rem;
