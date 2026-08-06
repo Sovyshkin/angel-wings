@@ -615,7 +615,8 @@ function transactionStatusLabel(status) {
     PAYOUT_REQUESTED: 'Заявка на проверке',
     PAYOUT_APPROVED: 'Выплачено',
     PAYOUT_REJECTED: 'Отклонено',
-    SPENT_ON_ORDER: 'Списано на заказ'
+    SPENT_ON_ORDER: 'Списано на заказ',
+    ADMIN_DEBITED: 'Списано администратором'
   }
   return labels[status] || status
 }

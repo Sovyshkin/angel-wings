@@ -15,7 +15,8 @@ export async function calculatePartnerBalance(prismaLike, partnerId) {
     adminCreditsAgg,
     paidOutAgg,
     pendingPayoutsAgg,
-    spentOnOrdersAgg
+    spentOnOrdersAgg,
+    adminDebitsAgg
   ] = await Promise.all([
     prismaLike.partnerCommission.aggregate({
       where: {
@@ -54,6 +55,14 @@ export async function calculatePartnerBalance(prismaLike, partnerId) {
         status: 'SPENT_ON_ORDER'
       },
       _sum: { amount: true }
+    }),
+    prismaLike.partnerPayment.aggregate({
+      where: {
+        partnerId: safePartnerId,
+        type: 'ADMIN_DEBIT',
+        status: { in: ['PAID', 'COMPLETED', 'ADMIN_DEBITED'] }
+      },
+      _sum: { amount: true }
     })
   ])
 
@@ -63,12 +72,14 @@ export async function calculatePartnerBalance(prismaLike, partnerId) {
   const totalPaidOut = Number(paidOutAgg?._sum?.amount || 0)
   const pendingPayouts = Number(pendingPayoutsAgg?._sum?.amount || 0)
   const totalSpentOnOrders = Number(spentOnOrdersAgg?._sum?.amount || 0)
-  const availableBalance = Math.max(0, totalEarned - totalPaidOut - pendingPayouts - totalSpentOnOrders)
+  const adminDebits = Number(adminDebitsAgg?._sum?.amount || 0)
+  const availableBalance = Math.max(0, totalEarned - totalPaidOut - pendingPayouts - totalSpentOnOrders - adminDebits)
 
   return {
     totalEarned,
     totalCommissions,
     adminCredits,
+    adminDebits,
     totalPaidOut,
     pendingPayouts,
     totalSpentOnOrders,

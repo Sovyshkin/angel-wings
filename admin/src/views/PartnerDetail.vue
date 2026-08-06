@@ -137,6 +137,57 @@
             </button>
           </form>
         </div>
+
+        <div class="card info-card debit-card">
+          <div class="credit-card__heading">
+            <div>
+              <h3 class="card-title">Списать баллы</h3>
+              <p>Можно списать часть баланса или обнулить его полностью.</p>
+            </div>
+          </div>
+
+          <form class="credit-form" @submit.prevent="debitPartnerBalance('amount')">
+            <div class="form-group">
+              <label class="form-label">Сумма списания</label>
+              <input
+                v-model="debitForm.amount"
+                type="number"
+                min="1"
+                step="0.01"
+                class="input"
+                placeholder="Например, 500"
+              >
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Комментарий (необязательно)</label>
+              <textarea
+                v-model="debitForm.comment"
+                class="input"
+                rows="3"
+                maxlength="700"
+                placeholder="Причина списания для внутренней истории"
+              ></textarea>
+            </div>
+
+            <p v-if="debitError" class="credit-message credit-message--error">{{ debitError }}</p>
+            <p v-if="debitSuccess" class="credit-message credit-message--success">{{ debitSuccess }}</p>
+
+            <div class="debit-actions">
+              <button class="btn btn-secondary credit-submit" :disabled="debitLoading">
+                {{ debitLoading ? 'Списываем...' : 'Списать' }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-danger credit-submit"
+                :disabled="debitLoading || !hasAvailableBalance"
+                @click="debitPartnerBalance('reset')"
+              >
+                Обнулить баланс
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
       <div class="section">
@@ -294,7 +345,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
@@ -314,6 +365,15 @@ const creditForm = ref({
   amount: '',
   comment: ''
 })
+const debitLoading = ref(false)
+const debitError = ref('')
+const debitSuccess = ref('')
+const debitForm = ref({
+  amount: '',
+  comment: ''
+})
+
+const hasAvailableBalance = computed(() => Number(partner.value?.balance?.availableBalance || 0) > 0)
 
 async function fetchPartner() {
   loading.value = true
@@ -399,6 +459,48 @@ async function grantPartnerCredit() {
     creditError.value = e?.response?.data?.error || 'Не удалось начислить баллы'
   } finally {
     creditLoading.value = false
+  }
+}
+
+async function debitPartnerBalance(mode = 'amount') {
+  if (!partner.value || debitLoading.value) return
+
+  debitError.value = ''
+  debitSuccess.value = ''
+
+  const amount = Number(debitForm.value.amount)
+  const comment = String(debitForm.value.comment || '').trim()
+
+  if (mode !== 'reset' && (!Number.isFinite(amount) || amount <= 0)) {
+    debitError.value = 'Укажите сумму списания больше 0'
+    return
+  }
+
+  if (!hasAvailableBalance.value) {
+    debitError.value = 'У партнёра нет доступного баланса для списания'
+    return
+  }
+
+  debitLoading.value = true
+  try {
+    const payload = mode === 'reset'
+      ? { mode: 'reset', comment }
+      : { mode: 'amount', amount, comment }
+
+    const { data } = await axios.post(`${API_URL}/${route.params.id}/debits`, payload)
+
+    if (data.balance) {
+      partner.value.balance = data.balance
+    }
+
+    debitForm.value.amount = ''
+    debitForm.value.comment = ''
+    debitSuccess.value = mode === 'reset' ? 'Баланс партнёра обнулён.' : 'Баллы списаны.'
+    await fetchPartner()
+  } catch (e) {
+    debitError.value = e?.response?.data?.error || 'Не удалось списать баллы'
+  } finally {
+    debitLoading.value = false
   }
 }
 
@@ -550,6 +652,12 @@ onMounted(fetchPartner)
     var(--bg-card);
 }
 
+.debit-card {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(248, 113, 113, 0.13), transparent 34%),
+    var(--bg-card);
+}
+
 .credit-card__heading p {
   margin: -0.35rem 0 1rem;
   color: var(--text-secondary);
@@ -589,6 +697,24 @@ onMounted(fetchPartner)
 .credit-submit {
   width: 100%;
   justify-content: center;
+}
+
+.debit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.btn-danger {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+.btn-danger:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.45);
 }
 
 .section {
@@ -836,6 +962,10 @@ onMounted(fetchPartner)
 
   .percentage-edit {
     flex-wrap: wrap;
+  }
+
+  .debit-actions {
+    grid-template-columns: 1fr;
   }
 }
 </style>

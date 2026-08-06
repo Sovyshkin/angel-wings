@@ -556,6 +556,74 @@ router.post('/:id/credits', authenticate, requireAdmin, async (req, res, next) =
   }
 })
 
+router.post('/:id/debits', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const partnerId = parseInt(req.params.id, 10)
+    const mode = String(req.body?.mode || 'amount').trim()
+    const requestedAmount = Number(req.body?.amount || 0)
+    const comment = String(req.body?.comment || '').trim()
+
+    if (!Number.isFinite(partnerId)) {
+      return res.status(400).json({ error: 'Некорректный ID партнёра' })
+    }
+
+    if (comment.length > 700) {
+      return res.status(400).json({ error: 'Комментарий должен быть короче 700 символов' })
+    }
+
+    const partner = await prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { id: true }
+    })
+
+    if (!partner) {
+      return res.status(404).json({ error: 'Партнёр не найден' })
+    }
+
+    const balanceBefore = await calculatePartnerBalance(prisma, partnerId)
+    const availableBalance = Number(balanceBefore.availableBalance || 0)
+    const amount = mode === 'reset' ? availableBalance : requestedAmount
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Укажите сумму списания больше 0' })
+    }
+
+    if (amount > availableBalance) {
+      return res.status(400).json({ error: 'Нельзя списать больше доступного баланса партнёра' })
+    }
+
+    const normalizedAmount = Math.round(amount * 100) / 100
+    const payment = await prisma.partnerPayment.create({
+      data: {
+        partnerId,
+        amount: normalizedAmount,
+        type: 'ADMIN_DEBIT',
+        status: 'ADMIN_DEBITED',
+        comment: comment || (mode === 'reset' ? 'Баланс обнулён администратором' : 'Ручное списание баллов'),
+        details: JSON.stringify({
+          source: mode === 'reset' ? 'admin_balance_reset' : 'admin_manual_debit',
+          comment: comment || null,
+          balanceBefore: availableBalance,
+          createdBy: req.user.id
+        }),
+        processedBy: req.user.id,
+        paidAt: new Date(),
+        processedAt: new Date()
+      }
+    })
+
+    res.status(201).json({
+      payment: {
+        ...payment,
+        details: parsePaymentDetails(payment.details)
+      },
+      balance: await calculatePartnerBalance(prisma, partnerId)
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/stats/partner', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const [partnersCount, promoCodesCount, activeBindings, totalCommissions] = await Promise.all([

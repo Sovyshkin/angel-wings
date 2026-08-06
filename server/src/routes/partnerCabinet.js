@@ -500,9 +500,11 @@ router.get('/cabinet/transactions', authenticate, requirePartner, async (req, re
         amount: payment.amount,
         title: payment.type === 'ADMIN_CREDIT'
           ? 'Начисление баллов'
-          : payment.type === 'ORDER_SPEND' || payment.status === 'SPENT_ON_ORDER'
-            ? 'Списание на покупку'
-            : 'Заявка на вывод',
+          : payment.type === 'ADMIN_DEBIT'
+            ? 'Ручное списание'
+            : payment.type === 'ORDER_SPEND' || payment.status === 'SPENT_ON_ORDER'
+              ? 'Списание на покупку'
+              : 'Заявка на вывод',
         description: payment.comment || null,
         comment: payment.comment || parsePaymentDetails(payment.details)?.comment || null,
         details: parsePaymentDetails(payment.details),
