@@ -766,7 +766,7 @@
                   type="tel"
                   class="input"
                   :class="{ 'input--error': showValidationErrors && (isPhoneMissing || isPhoneInvalid) }"
-                  placeholder="+7 995 901-64-88"
+                  placeholder="+7 966 179-00-13"
                   required
                 >
                 <p v-if="showValidationErrors && isPhoneInvalid" class="field-error">
