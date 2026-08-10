@@ -96,6 +96,44 @@
       </div>
     </Transition>
 
+    <Transition name="support-slide">
+      <div
+        v-if="showCheckoutSupportNotice && !orderComplete"
+        class="checkout-support-notice"
+        role="status"
+        aria-live="polite"
+      >
+        <button
+          type="button"
+          class="checkout-support-notice__close"
+          aria-label="Скрыть подсказку"
+          @click="showCheckoutSupportNotice = false"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <div class="checkout-support-notice__icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4z"/>
+            <path d="M8 9h8M8 13h5"/>
+          </svg>
+        </div>
+        <div class="checkout-support-notice__content">
+          <strong>Возникла проблема с оформлением</strong>
+          <p>Напишите нам или позвоните, поможем оформить заказ вручную.</p>
+          <div class="checkout-support-notice__actions">
+            <button type="button" @click="copyCheckoutSupportText">
+              {{ supportCartCopyStatus === 'copied' ? 'Скопировано' : 'Скопировать корзину' }}
+            </button>
+            <a href="tel:+79661790013">8 966 179-00-13</a>
+            <a href="https://t.me/Seraphim_angelwings" target="_blank" rel="noopener noreferrer">Telegram</a>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <div class="container">
       <div v-if="pendingUnpaidOrder && !isOrderAdditionMode" class="pending-payment-card" data-aos="fade-up">
         <div class="pending-payment-card__icon">
@@ -1092,6 +1130,8 @@ const showLoginModal = ref(false)
 const loginForm = ref({ email: '', password: '' })
 const loginError = ref('')
 const loggingIn = ref(false)
+const showCheckoutSupportNotice = ref(false)
+const supportCartCopyStatus = ref('idle')
 
 // Delivery state
 const deliveryType = ref(ENABLE_PVZ ? 'pvz' : 'courier') // 'pvz', 'courier' or 'self_pickup'
@@ -1127,6 +1167,7 @@ const additionPreviewLoading = ref(false)
 let additionPreviewTimer = null
 let promoValidateTimer = null
 let deliveryRecalculationTimer = null
+let supportCartCopyTimer = null
 let promoValidateSeq = 0
 const pickupSectionRef = ref(null)
 const consentsSectionRef = ref(null)
@@ -1879,6 +1920,7 @@ function forgetPendingUnpaidOrder() {
   clearPendingUnpaidOrder()
   clearCheckoutRequestGuard()
   pendingPaymentError.value = ''
+  showCheckoutSupportNotice.value = false
   pendingUnpaidOrder.value = null
 }
 
@@ -1894,6 +1936,7 @@ async function continuePendingOrderPayment() {
 
   continuingPendingOrder.value = true
   pendingPaymentError.value = ''
+  showCheckoutSupportNotice.value = false
 
   try {
     const { data } = await axios.post(`/api/payment/create-for-order/${pendingOrder.orderId}`, {
@@ -1913,8 +1956,10 @@ async function continuePendingOrderPayment() {
     }
 
     pendingPaymentError.value = data?.error || 'Не удалось открыть оплату. Попробуйте ещё раз.'
+    showCheckoutSupport()
   } catch (error) {
     pendingPaymentError.value = error.response?.data?.error || 'Не удалось открыть оплату. Попробуйте ещё раз.'
+    showCheckoutSupport()
   } finally {
     continuingPendingOrder.value = false
   }
@@ -2110,6 +2155,134 @@ function scrollToFirstInvalidField() {
   }
 }
 
+function showCheckoutSupport() {
+  showCheckoutSupportNotice.value = true
+}
+
+function formatSupportMoney(value) {
+  return `${Math.max(0, Number(value) || 0).toLocaleString('ru-RU')} ₽`
+}
+
+function getCheckoutSupportDeliveryText() {
+  if (deliveryType.value === 'pvz') {
+    const price = Number(deliveryPrice.value || 0)
+    const lines = [
+      `Способ доставки: СДЭК, ${deliveryTariffLabel.value}`,
+      price > 0
+        ? `Стоимость доставки: ${formatSupportMoney(price)} (оплата напрямую СДЭК при получении)`
+        : 'Стоимость доставки: оплата напрямую СДЭК при получении'
+    ]
+
+    if (selectedPickupPoint.value) {
+      lines.push(`ПВЗ: ${selectedPickupPoint.value.code || ''} ${selectedPickupPoint.value.name || ''}`.trim())
+      lines.push(`Адрес ПВЗ: ${selectedPickupPoint.value.address || 'не выбран'}`)
+    } else {
+      lines.push('ПВЗ: не выбран')
+    }
+
+    if (foundCityName.value) {
+      lines.push(`Город: ${foundCityName.value}`)
+    }
+
+    return lines
+  }
+
+  if (deliveryType.value === 'courier') {
+    return [
+      'Способ доставки: Курьер по Москве',
+      `Стоимость доставки: ${formatSupportMoney(INTERNAL_COURIER_PRICE)}`,
+      `Адрес: ${courierAddress.value || addressInput.value || 'не указан'}`
+    ]
+  }
+
+  return [
+    'Способ доставки: Самовывоз',
+    `Адрес самовывоза: ${SELF_PICKUP_ADDRESS}`
+  ]
+}
+
+function buildCheckoutSupportText() {
+  const items = cartStore.items.map((item, index) => {
+    const title = item.title || item.name || 'Товар'
+    const dosage = item.selectedDosage ? ` (${item.selectedDosage})` : ''
+    const quantity = Math.max(1, Number(item.quantity) || 1)
+    const price = Math.max(0, Number(item.price) || 0)
+    return `${index + 1}. ${title}${dosage} — ${quantity} шт. x ${formatSupportMoney(price)} = ${formatSupportMoney(price * quantity)}`
+  })
+
+  const lines = [
+    'Здравствуйте! Возникла проблема с оформлением заказа на сайте Angel Wings.',
+    'Помогите, пожалуйста, оформить заказ вручную.',
+    '',
+    'Товары:',
+    ...(items.length ? items : ['Корзина пустая']),
+    '',
+    `Сумма товаров: ${formatSupportMoney(cartStore.total)}`
+  ]
+
+  if (promoCodeNormalized.value) {
+    lines.push(`Промокод: ${promoCodeNormalized.value}`)
+  }
+
+  if (promoDiscountPreview.value > 0) {
+    lines.push(`Скидка по промокоду: ${formatSupportMoney(promoDiscountPreview.value)}`)
+  }
+
+  if (partnerBonusToUse.value > 0) {
+    lines.push(`Списано баллов партнера: ${formatSupportMoney(partnerBonusToUse.value)}`)
+  }
+
+  lines.push(`Итого к оплате на сайте: ${formatSupportMoney(visibleTotal.value)}`)
+  lines.push('')
+  lines.push(...getCheckoutSupportDeliveryText())
+  lines.push('')
+  lines.push('Контакты клиента:')
+  lines.push(`Имя: ${customer.value.name || 'не указано'}`)
+  lines.push(`Телефон: ${normalizedCustomerPhone.value || customer.value.phone || 'не указан'}`)
+  lines.push(`Email: ${customer.value.email || 'не указан'}`)
+
+  if (String(customer.value.comment || '').trim()) {
+    lines.push('')
+    lines.push(`Комментарий: ${customer.value.comment.trim()}`)
+  }
+
+  return lines.join('\n')
+}
+
+function fallbackCopyToClipboard(text) {
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  textarea.style.top = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  document.execCommand('copy')
+  document.body.removeChild(textarea)
+}
+
+async function copyCheckoutSupportText() {
+  const text = buildCheckoutSupportText()
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      fallbackCopyToClipboard(text)
+    }
+
+    supportCartCopyStatus.value = 'copied'
+    if (supportCartCopyTimer) clearTimeout(supportCartCopyTimer)
+    supportCartCopyTimer = setTimeout(() => {
+      supportCartCopyStatus.value = 'idle'
+    }, 2200)
+  } catch (error) {
+    fallbackCopyToClipboard(text)
+    supportCartCopyStatus.value = 'copied'
+  }
+}
+
 async function handleLogin() {
   loginError.value = ''
   loggingIn.value = true
@@ -2132,6 +2305,8 @@ async function handleLogin() {
 }
 
 async function placeOrder() {
+  showCheckoutSupportNotice.value = false
+
   if (!isOrderAdditionMode.value && pendingUnpaidOrder.value?.orderId) {
     await continuePendingOrderPayment()
     return
@@ -2415,6 +2590,7 @@ async function placeOrder() {
       } catch (e) {
         console.error('CDEK order creation error:', e)
         orderError.value = 'Ошибка создания заказа в системе доставки СДЭК. Пожалуйста, попробуйте позже или выберите другой способ доставки.'
+        showCheckoutSupport()
         ordering.value = false
         return
       }
@@ -2471,6 +2647,7 @@ async function placeOrder() {
         clientRequestId: orderData.clientRequestId
       })
       orderError.value = 'Заказ создан, но не удалось открыть оплату. Закройте это окно и нажмите «Оплатить заказ» в корзине.'
+      showCheckoutSupport()
       ordering.value = false
       return
     }
@@ -2485,6 +2662,7 @@ async function placeOrder() {
     }, 10000)
   } catch (e) {
     orderError.value = e.response?.data?.error || e.response?.data?.message || e.message || 'Ошибка оформления заказа'
+    showCheckoutSupport()
   } finally {
     ordering.value = false
   }
@@ -2670,6 +2848,7 @@ onUnmounted(() => {
   if (promoValidateTimer) clearTimeout(promoValidateTimer)
   if (additionPreviewTimer) clearTimeout(additionPreviewTimer)
   if (deliveryRecalculationTimer) clearTimeout(deliveryRecalculationTimer)
+  if (supportCartCopyTimer) clearTimeout(supportCartCopyTimer)
 })
 </script>
 
@@ -2718,6 +2897,132 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   overflow: hidden;
+}
+
+.checkout-support-notice {
+  position: fixed;
+  right: clamp(1rem, 3vw, 2rem);
+  bottom: clamp(5.5rem, 7vw, 6.5rem);
+  z-index: 900;
+  width: min(380px, calc(100vw - 2rem));
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 0.9rem;
+  padding: 1rem 1rem 1rem 0.95rem;
+  border: 1px solid rgba(166, 185, 248, 0.32);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 15% 0, rgba(166, 185, 248, 0.22), transparent 42%),
+    linear-gradient(145deg, rgba(26, 28, 37, 0.96), rgba(14, 15, 21, 0.94));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  backdrop-filter: blur(18px);
+}
+
+.checkout-support-notice__icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: var(--accent);
+  background: rgba(166, 185, 248, 0.14);
+  box-shadow: 0 12px 32px rgba(166, 185, 248, 0.14);
+}
+
+.checkout-support-notice__content {
+  min-width: 0;
+  padding-right: 1.6rem;
+}
+
+.checkout-support-notice__content strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.checkout-support-notice__content p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.checkout-support-notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.checkout-support-notice__actions a,
+.checkout-support-notice__actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(166, 185, 248, 0.24);
+  border-radius: 999px;
+  color: var(--accent);
+  background: rgba(166, 185, 248, 0.1);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.checkout-support-notice__actions button {
+  flex: 1 1 100%;
+  color: #10131d;
+  background: var(--accent);
+  border-color: rgba(166, 185, 248, 0.72);
+}
+
+.checkout-support-notice__actions a:hover,
+.checkout-support-notice__actions button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(166, 185, 248, 0.5);
+  background: rgba(166, 185, 248, 0.18);
+}
+
+.checkout-support-notice__actions button:hover {
+  background: #b7c6ff;
+}
+
+.checkout-support-notice__close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.checkout-support-notice__close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.support-slide-enter-active,
+.support-slide-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.support-slide-enter-from,
+.support-slide-leave-to {
+  opacity: 0;
+  transform: translate3d(18px, 12px, 0) scale(0.96);
 }
 
 .addition-mode-card {
@@ -4380,6 +4685,13 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+  .checkout-support-notice {
+    left: 1rem;
+    right: 1rem;
+    bottom: 5.25rem;
+    width: auto;
+  }
+
   .pending-payment-card {
     grid-template-columns: 1fr;
     gap: 1rem;
