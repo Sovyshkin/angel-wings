@@ -70,8 +70,6 @@ async function main() {
     
     const title = parts[0]?.trim()
     const price = parseInt(parts[1]) || 0
-    const volume = parts[2]?.trim() || ''
-    const purity = parts[3]?.trim() || ''
     const country = parts[4]?.trim() || 'Россия'
     const description = parts[5]?.trim() || ''
     
@@ -88,7 +86,7 @@ async function main() {
       seenSlugs.add(uniqueSlug)
       
       const sku = `PRD-${Date.now()}-${i}`
-      products.push({ title, slug: uniqueSlug, price, volume, purity: purity ? `${purity}%` : '', country, description, sku })
+      products.push({ title, slug: uniqueSlug, price, country, description, sku })
     }
   }
   
@@ -126,14 +124,9 @@ async function main() {
         title: prod.title,
         slug: prod.slug,
         price: prod.price,
-        volume: prod.volume || null,
-        purity: prod.purity || null,
         country: prod.country || null,
         description: prod.description,
-        specs: JSON.stringify({
-          ...(prod.purity ? { 'Чистота': prod.purity } : {}),
-          ...(prod.volume ? { 'Объём': prod.volume } : {})
-        }),
+        specs: '{}',
         stock: 99,
         active: true,
         sku: prod.sku,

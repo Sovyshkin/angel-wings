@@ -116,7 +116,7 @@
               {{ descriptionExpanded ? 'Скрыть' : 'Показать полностью' }}
             </button>
           </div>
-          
+
           <div class="product-country" v-if="product.country">
             <div class="country-badge">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -805,31 +805,6 @@ onMounted(async () => {
   font-weight: 700;
 }
 
-.product-country {
-  margin-bottom: 1.5rem;
-}
-
-.country-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.25rem;
-  background: linear-gradient(135deg, var(--accent-dim), rgba(59, 130, 246, 0.1));
-  border: 1px solid var(--accent);
-  border-radius: 100px;
-  color: var(--accent);
-}
-
-.country-badge svg {
-  flex-shrink: 0;
-}
-
-.country-badge span {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
 .product-description {
   margin-bottom: 2rem;
 }
@@ -866,6 +841,31 @@ onMounted(async () => {
 
 .description-toggle:hover {
   color: var(--text-primary);
+}
+
+.product-country {
+  margin-bottom: 1.5rem;
+}
+
+.country-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+}
+
+.country-badge svg {
+  flex-shrink: 0;
+}
+
+.country-badge span {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .product-attributes {

@@ -143,7 +143,7 @@ router.post('/', authenticate, requireAdmin, upload.fields([
   { name: 'images', maxCount: 12 }
 ]), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, active, purity, volume, country } = req.body
+    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, active, country } = req.body
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const galleryImages = galleryFiles.map(file => `/uploads/${file.filename}`)
@@ -177,10 +177,8 @@ router.post('/', authenticate, requireAdmin, upload.fields([
         packageWidth: parsePackageDimension(packageWidth),
         packageHeight: parsePackageDimension(packageHeight),
         repeatCycleDays: parsedRepeatCycleDays,
-        specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
-        purity: purity || null,
-        volume: volume || null,
         country: country || null,
+        specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
         image: mainImage,
         images: JSON.stringify(galleryImages),
         featured: featured === 'true',
@@ -202,7 +200,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
   { name: 'images', maxCount: 12 }
 ]), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, active, purity, volume, country, existingImages } = req.body
+    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, active, country, existingImages } = req.body
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const persistedImages = parseImagesField(existingImages)
@@ -233,10 +231,8 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
       packageWidth: parsePackageDimension(packageWidth),
       packageHeight: parsePackageDimension(packageHeight),
       repeatCycleDays: parsedRepeatCycleDays,
-      specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
-      purity: purity || null,
-      volume: volume || null,
       country: country || null,
+      specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
       featured: featured === 'true',
       active: active !== 'false'
     }

@@ -93,12 +93,10 @@ model Product {
   packageWidth  Int     @default(0) // Ширина упаковки в см
   packageHeight Int     @default(0) // Высота упаковки в см
   repeatCycleDays Int?  // Через сколько дней клиенту пора повторить курс
+  country     String?
   image       String?
   images      String    @default("[]")
   specs       String    @default("{}")
-  purity      String?   // Чистота
-  volume      String?   // Объём
-  country     String?   // Страна
   featured    Boolean   @default(false)
   active      Boolean   @default(true)
   categories  Category[] @relation("ProductCategories")

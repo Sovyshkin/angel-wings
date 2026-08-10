@@ -980,8 +980,6 @@ router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
         { title: { contains: search } },
         { slug: { contains: search } },
         { sku: { contains: search } },
-        { purity: { contains: search } },
-        { volume: { contains: search } },
         { country: { contains: search } },
         { categories: { some: { name: { contains: search } } } },
         { categories: { some: { slug: { contains: search } } } },
