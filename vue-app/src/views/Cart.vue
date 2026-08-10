@@ -599,7 +599,7 @@
                   v-model="pickupCombinedSearch" 
                   type="text" 
                   class="input" 
-                  placeholder="Город и улица, например: Москва, Тверская"
+                  placeholder="Город, улица и дом, например: Казань, Большая Красная 64"
                   @keyup.enter="searchCityAndPickup"
                 >
                 <button class="btn btn-secondary" @click="searchCityAndPickup" :disabled="loadingPickup">
@@ -607,11 +607,11 @@
                 </button>
               </div>
               <p class="pickup-search-hint">
-                Можно указать только город или город и улицу через запятую.
+                Можно указать город, улицу и дом. Если ПВЗ на этой улице несколько, ближайшие к дому будут выше.
               </p>
               
               <div v-if="foundCityName" class="found-info">
-                ПВЗ в г. {{ foundCityName }}<span v-if="pickupFilter">, поиск: {{ pickupFilter }}</span>
+                ПВЗ в г. {{ foundCityName }}<span v-if="pickupSearchDisplayLabel">, поиск: {{ pickupSearchDisplayLabel }}</span>
               </div>
               
               <div class="pickup-list">
@@ -1143,6 +1143,7 @@ const foundCityCountry = ref('')
 const foundCityCountryCode = ref('')
 const pickupPoints = ref([])
 const pickupFilter = ref('')
+const pickupHouseFilter = ref('')
 const selectedPickupPoint = ref(null)
 const courierAddress = ref('')
 const addressInput = ref('')
@@ -1229,31 +1230,86 @@ const pendingUnpaidOrderAmountLabel = computed(() => {
   return amount > 0 ? `${amount.toLocaleString('ru-RU')} ₽` : 'заказ'
 })
 
+function normalizePickupSearchText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/\b(ул|улица|пр|пр-т|проспект|пер|переулок|д|дом)\.?\b/g, ' ')
+    .replace(/[.,;:()"]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function splitStreetAndHouse(value) {
+  const source = String(value || '').trim().replace(/\s+/g, ' ')
+  if (!source) return { street: '', house: '' }
+
+  const houseMatch = source.match(/(?:^|\s)(?:д\.?\s*)?(\d+[а-яa-z]?)(?:\s*(?:к|корп\.?|корпус)\s*\d+[а-яa-z]?|\s*к\d+[а-яa-z]?)?(?:\s*(?:стр\.?|строение)\s*\d+[а-яa-z]?)?$/i)
+  if (!houseMatch) return { street: source, house: '' }
+
+  const street = source.slice(0, houseMatch.index).trim()
+  if (!street) return { street: source, house: '' }
+
+  return {
+    street,
+    house: houseMatch[0].trim().replace(/^д\.?\s*/i, '')
+  }
+}
+
+function getPickupPointSearchText(point) {
+  return normalizePickupSearchText(`${point?.name || ''} ${point?.address || ''}`)
+}
+
+function getPickupHouseRank(point, house) {
+  const normalizedHouse = normalizePickupSearchText(house)
+  if (!normalizedHouse) return 0
+
+  const pointText = getPickupPointSearchText(point)
+  const houseNumber = normalizedHouse.match(/\d+/)?.[0] || ''
+
+  if (pointText.includes(normalizedHouse)) return 2
+  if (houseNumber && pointText.includes(houseNumber)) return 1
+  return 0
+}
+
+const pickupSearchDisplayLabel = computed(() => {
+  const street = String(pickupFilter.value || '').trim()
+  const house = String(pickupHouseFilter.value || '').trim()
+  if (street && house) return `${street}, дом ${house}`
+  return street
+})
+
 const filteredPickupPoints = computed(() => {
-  const q = pickupFilter.value.trim().toLowerCase()
-  if (!q) return pickupPoints.value
-  return pickupPoints.value.filter(point => {
-    const name = String(point?.name || '').toLowerCase()
-    const address = String(point?.address || '').toLowerCase()
-    return name.includes(q) || address.includes(q)
+  const q = normalizePickupSearchText(pickupFilter.value)
+  const house = String(pickupHouseFilter.value || '').trim()
+  const streetMatches = q
+    ? pickupPoints.value.filter(point => getPickupPointSearchText(point).includes(q))
+    : [...pickupPoints.value]
+
+  if (!house) return streetMatches
+
+  return [...streetMatches].sort((a, b) => {
+    return getPickupHouseRank(b, house) - getPickupHouseRank(a, house)
   })
 })
 
 const parsedPickupSearch = computed(() => {
   const raw = String(pickupCombinedSearch.value || '').trim()
-  if (!raw) return { city: '', street: '' }
+  if (!raw) return { city: '', street: '', house: '' }
 
   const commaParts = raw.split(',').map(part => part.trim()).filter(Boolean)
   if (commaParts.length > 1) {
+    const streetQuery = splitStreetAndHouse(commaParts.slice(1).join(' '))
     return {
       city: commaParts[0],
-      street: commaParts.slice(1).join(' ')
+      street: streetQuery.street,
+      house: streetQuery.house
     }
   }
 
   const words = raw.split(/\s+/).filter(Boolean)
   if (words.length === 1) {
-    return { city: raw, street: '' }
+    return { city: raw, street: '', house: '' }
   }
 
   const first = words[0].toLowerCase()
@@ -1273,22 +1329,28 @@ const parsedPickupSearch = computed(() => {
   ])
 
   if (threeWordCityStarts.has(first) && second === 'на' && words.length >= 3) {
+    const streetQuery = splitStreetAndHouse(words.slice(3).join(' '))
     return {
       city: words.slice(0, 3).join(' '),
-      street: words.slice(3).join(' ')
+      street: streetQuery.street,
+      house: streetQuery.house
     }
   }
 
   if (twoWordCityStarts.has(first) && words.length >= 2) {
+    const streetQuery = splitStreetAndHouse(words.slice(2).join(' '))
     return {
       city: words.slice(0, 2).join(' '),
-      street: words.slice(2).join(' ')
+      street: streetQuery.street,
+      house: streetQuery.house
     }
   }
 
+  const streetQuery = splitStreetAndHouse(words.slice(1).join(' '))
   return {
     city: words[0],
-    street: words.slice(1).join(' ')
+    street: streetQuery.street,
+    house: streetQuery.house
   }
 })
 
@@ -1613,6 +1675,7 @@ function retryOrder() {
 function changeDelivery() {
   selectedPickupPoint.value = null
   pickupFilter.value = ''
+  pickupHouseFilter.value = ''
   pickupCombinedSearch.value = ''
   citySearch.value = ''
   courierAddress.value = ''
@@ -1695,13 +1758,14 @@ function onDeliveryTypeChange() {
 }
 
 async function searchCityAndPickup() {
-  const { city, street } = parsedPickupSearch.value
+  const { city, street, house } = parsedPickupSearch.value
   if (!city || city.length < 3) return
   citySearch.value = city
   
   loadingPickup.value = true
   pickupPoints.value = []
   pickupFilter.value = street
+  pickupHouseFilter.value = house
   foundCityName.value = ''
   foundCityCode.value = ''
   foundCityCountry.value = ''
