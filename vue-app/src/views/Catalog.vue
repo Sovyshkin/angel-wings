@@ -97,6 +97,27 @@
                 </svg>
                 Фильтры
               </button>
+              <label class="catalog-search" aria-label="Поиск по названию товара">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input
+                  v-model.trim="searchQuery"
+                  type="search"
+                  placeholder="Найти товар..."
+                  autocomplete="off"
+                >
+                <button
+                  v-if="searchQuery"
+                  class="catalog-search__clear"
+                  type="button"
+                  aria-label="Очистить поиск"
+                  @click="searchQuery = ''"
+                >
+                  ×
+                </button>
+              </label>
               <div class="results-count">
                 <span>{{ filteredProducts.length }}</span> товаров
               </div>
@@ -121,7 +142,7 @@
               </svg>
             </div>
             <h3>Товары не найдены</h3>
-            <p>В этой категории пока нет товаров или измените параметры фильтра</p>
+            <p>Попробуйте изменить поиск, категорию или параметры фильтра</p>
             <button class="btn btn-secondary" @click="resetFilters">Сбросить фильтры</button>
           </div>
           
@@ -134,6 +155,7 @@
               :style="{ '--reveal-delay': `${Math.min(index, 8) * 45}ms` }"
               :data-aos="'fade-up'"
               :data-aos-delay="100 + index * 50"
+              @click="rememberCatalogScroll"
             >
               <div class="product-image">
                 <img
@@ -219,7 +241,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
@@ -232,11 +254,14 @@ const cartStore = useCartStore()
 
 const selectedCategory = ref(null)
 const sortBy = ref('default')
+const searchQuery = ref('')
 const priceMin = ref(null)
 const priceMax = ref(null)
 const loading = ref(false)
 const mobileFiltersOpen = ref(false)
 const brokenCategoryIcons = ref(new Set())
+const CATALOG_SCROLL_KEY = 'angel-wings:catalog-scroll'
+let shouldRestoreCatalogScroll = false
 
 const products = computed(() => productStore.products)
 const categories = computed(() => productStore.categories)
@@ -248,6 +273,11 @@ const filteredProducts = computed(() => {
     result = result.filter(product => product.categories?.some(category => (
       categoriesMatch(category, selectedCategory.value)
     )))
+  }
+
+  const normalizedSearch = normalizeSearchText(searchQuery.value)
+  if (normalizedSearch) {
+    result = result.filter(product => normalizeSearchText(product.title).includes(normalizedSearch))
   }
 
   if (priceMin.value) {
@@ -275,6 +305,46 @@ const filteredProducts = computed(() => {
 
 function normalizeCategoryText(value) {
   return String(value || '').trim().toLocaleLowerCase('ru-RU')
+}
+
+function normalizeSearchText(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('ru-RU')
+}
+
+function rememberCatalogScroll() {
+  if (typeof window === 'undefined') return
+  window.sessionStorage.setItem(CATALOG_SCROLL_KEY, JSON.stringify({
+    top: window.scrollY,
+    category: route.query.category || null,
+    search: searchQuery.value || '',
+    createdAt: Date.now()
+  }))
+}
+
+async function restoreCatalogScroll() {
+  if (typeof window === 'undefined' || !shouldRestoreCatalogScroll) return
+  shouldRestoreCatalogScroll = false
+
+  let payload = null
+  try {
+    payload = JSON.parse(window.sessionStorage.getItem(CATALOG_SCROLL_KEY) || 'null')
+  } catch {
+    payload = null
+  }
+
+  if (!payload || !Number.isFinite(Number(payload.top))) return
+  if (Date.now() - Number(payload.createdAt || 0) > 30 * 60 * 1000) return
+  if ((payload.category || null) !== (route.query.category || null)) return
+
+  if (payload.search) searchQuery.value = payload.search
+
+  await nextTick()
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: Math.max(0, Number(payload.top)), behavior: 'auto' })
+  })
 }
 
 function getCategoryId(category) {
@@ -320,6 +390,7 @@ function selectCategory(category) {
 
 function resetFilters() {
   selectedCategory.value = null
+  searchQuery.value = ''
   priceMin.value = null
   priceMax.value = null
   sortBy.value = 'default'
@@ -455,6 +526,8 @@ function handleImageError(e) {
 }
 
 onMounted(async () => {
+  const historyState = typeof window !== 'undefined' ? window.history.state : null
+  shouldRestoreCatalogScroll = typeof historyState?.forward === 'string' && historyState.forward.startsWith('/product/')
   loading.value = true
   await productStore.fetchProducts()
   await productStore.fetchCategories()
@@ -462,6 +535,14 @@ onMounted(async () => {
   
   if (route.query.category) {
     selectedCategory.value = resolveCategoryQuery(route.query.category)
+  }
+
+  await restoreCatalogScroll()
+})
+
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/product/')) {
+    rememberCatalogScroll()
   }
 })
 
@@ -624,6 +705,8 @@ watch(() => route.query.category, (newCat) => {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .catalog__filters-toggle {
@@ -639,7 +722,71 @@ watch(() => route.query.category, (newCat) => {
   font-weight: 600;
 }
 
+.catalog-search {
+  position: relative;
+  width: min(360px, 42vw);
+  min-width: 220px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.72rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(166, 185, 248, 0.1), transparent 46%),
+    var(--bg-card);
+  color: var(--text-muted);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.catalog-search:focus-within {
+  border-color: rgba(166, 185, 248, 0.45);
+  box-shadow: 0 0 0 4px rgba(166, 185, 248, 0.08);
+}
+
+.catalog-search svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.catalog-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.catalog-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.catalog-search__clear {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.catalog-search__clear:hover {
+  border-color: rgba(166, 185, 248, 0.35);
+  color: var(--text-primary);
+}
+
 .results-count {
+  flex: 0 0 auto;
   font-size: 0.9rem;
   color: var(--text-muted);
 }
@@ -1067,6 +1214,7 @@ watch(() => route.query.category, (newCat) => {
 
   .catalog__bar-left {
     width: 100%;
+    flex-wrap: wrap;
     justify-content: space-between;
   }
 
@@ -1076,6 +1224,13 @@ watch(() => route.query.category, (newCat) => {
 
   .results-count {
     font-size: 0.8rem;
+  }
+
+  .catalog-search {
+    order: 3;
+    width: 100%;
+    min-width: 0;
+    padding: 0.68rem 0.82rem;
   }
 
   .sort-select select {
