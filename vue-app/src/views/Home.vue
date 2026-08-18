@@ -12,12 +12,9 @@
           Высокочистые пептиды
         </div>
         <h1 class="hero__title">
-          Научный подход<br>
-          <span class="accent">к здоровью</span>
+          Единственный производитель пептидов с действующей
+          <span class="accent">фармацевтической лицензией</span>
         </h1>
-        <p class="hero__desc">
-          Единственный производитель пептидов с действующей фармацевтической лицензией
-        </p>
         <div class="hero__chips">
           <span class="hero-chip">in vitro only</span>
           <span class="hero-chip">Фармлицензия</span>
@@ -702,11 +699,12 @@ function getProductWord(count) {
 
 .hero__title {
   font-family: var(--font-display);
-  font-size: clamp(3.5rem, 10vw, 7rem);
+  font-size: clamp(2.15rem, 4.25vw, 4.1rem);
   font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  margin-bottom: 2rem;
+  line-height: 1.12;
+  letter-spacing: 0;
+  max-width: 1040px;
+  margin-bottom: 1.75rem;
   animation: slideUp 0.8s ease-out 0.1s both;
 }
 
@@ -716,10 +714,10 @@ function getProductWord(count) {
 }
 
 .hero__desc {
-  font-size: 1.25rem;
-  line-height: 1.7;
+  font-size: clamp(1.05rem, 1.5vw, 1.32rem);
+  line-height: 1.65;
   color: var(--text-secondary);
-  max-width: 560px;
+  max-width: 720px;
   margin-bottom: 1.5rem;
   animation: slideUp 0.8s ease-out 0.2s both;
 }
@@ -1947,12 +1945,14 @@ function getProductWord(count) {
   }
 
   .hero__title {
-    font-size: 2rem;
-    margin-bottom: 1rem;
+    font-size: 1.95rem;
+    line-height: 1.16;
+    margin-bottom: 1.35rem;
   }
 
   .hero__desc {
-    font-size: 1rem;
+    font-size: 0.98rem;
+    line-height: 1.55;
     margin-bottom: 2rem;
   }
 
