@@ -16,11 +16,11 @@
           <span class="accent">к здоровью</span>
         </h1>
         <p class="hero__desc">
-          Фармацевтический подход производства пептидов. 20+ лет опыта в производстве и разработке лекарств
+          Единственный производитель пептидов с действующей фармацевтической лицензией
         </p>
         <div class="hero__chips">
           <span class="hero-chip">in vitro only</span>
-          <span class="hero-chip">GMP-подход</span>
+          <span class="hero-chip">Фармлицензия</span>
           <span class="hero-chip">Контроль партий</span>
         </div>
         <div class="hero__actions">
@@ -31,6 +31,14 @@
             </svg>
           </router-link>
           <a href="#features" class="btn btn-secondary">Узнать больше</a>
+          <a href="/pharmaceutical-license.pdf" class="btn btn-license" target="_blank" rel="noopener">
+            Лицензия PDF
+            <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <path d="M14 2v6h6"/>
+              <path d="M9 15h6M9 18h4"/>
+            </svg>
+          </a>
         </div>
         <div class="hero__stats">
           <div class="stat">
@@ -59,6 +67,18 @@
               Мы выстроили цикл от разработки до выпуска так, чтобы клиент получал прогнозируемое качество,
               а не случайный результат от партии к партии.
             </p>
+            <a href="/pharmaceutical-license.pdf" class="features-license" target="_blank" rel="noopener">
+              <span class="features-license__icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  <path d="M9 12l2 2 4-4"/>
+                </svg>
+              </span>
+              <span>
+                Действующая фармацевтическая лицензия
+                <small>Открыть документ PDF</small>
+              </span>
+            </a>
             <div class="features-metrics">
               <div class="features-metric">
                 <strong>100%</strong>
@@ -361,13 +381,6 @@
               <p>Отправка в течение 24 часов. DHL, FedEx, EMS — доставка в 150+ стран мира.</p>
             </div>
           </div>
-          <div class="timeline-item">
-            <div class="timeline-index">04</div>
-            <div class="timeline-content">
-              <h3>Анонимность</h3>
-              <p>Конфиденциальная упаковка без указания содержимого. Оплата криптовалютой.</p>
-            </div>
-          </div>
         </div>
       </div>
     </section>
@@ -381,14 +394,18 @@
       <div class="container">
         <div class="promo-content">
           <div class="promo-badge">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              Новая коллекция 2026
-            </div>
-          <h2>Пептидные комплексы нового поколения</h2>
-          <p>Обновленный каталог с 50+ новыми позициями. Скидки до 25% на популярные пептиды</p>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a4 4 0 01-4 4H7l-4 4V7a4 4 0 014-4h10a4 4 0 014 4z"/>
+            </svg>
+            Персональная консультация
+          </div>
+          <h2>Подберем пептидный комплекс под задачу</h2>
+          <p>Поможем сориентироваться в каталоге и выбрать продукты под исследовательский протокол</p>
           <div class="promo-actions">
-            <router-link to="/catalog" class="btn btn-accent">Смотреть каталог</router-link>
-            <span class="promo-timer">До конца акции: 3д 14ч 22м</span>
+            <a href="https://t.me/Seraphim_angelwings" target="_blank" rel="noopener noreferrer" class="btn btn-accent">
+              Получить консультацию
+            </a>
+            <router-link to="/catalog" class="promo-link">Открыть каталог</router-link>
           </div>
         </div>
       </div>
@@ -767,6 +784,18 @@ function getProductWord(count) {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.btn-license {
+  background: rgba(166, 185, 248, 0.1);
+  color: var(--accent);
+  border: 1px solid rgba(166, 185, 248, 0.28);
+}
+
+.btn-license:hover {
+  background: rgba(166, 185, 248, 0.16);
+  border-color: rgba(166, 185, 248, 0.46);
+  transform: translateY(-3px);
+}
+
 .btn-icon {
   transition: transform 0.3s ease;
 }
@@ -863,6 +892,50 @@ function getProductWord(count) {
   color: var(--text-secondary);
   line-height: 1.7;
   margin-bottom: 1.2rem;
+}
+
+.features-license {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  width: min(100%, 420px);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.2rem;
+  border: 1px solid rgba(166, 185, 248, 0.24);
+  border-radius: 14px;
+  background: rgba(166, 185, 248, 0.08);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: transform 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+}
+
+.features-license:hover {
+  transform: translateY(-2px);
+  border-color: rgba(166, 185, 248, 0.44);
+  background: rgba(166, 185, 248, 0.12);
+}
+
+.features-license__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.features-license small {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
 }
 
 .features-metrics {
@@ -1655,6 +1728,18 @@ function getProductWord(count) {
   opacity: 0.8;
 }
 
+.promo-link {
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 700;
+  opacity: 0.86;
+  transition: opacity 0.3s ease;
+}
+
+.promo-link:hover {
+  opacity: 1;
+}
+
 .author-avatar {
   width: 40px;
   height: 40px;
@@ -1894,6 +1979,10 @@ function getProductWord(count) {
     flex-direction: column;
     gap: 0.75rem;
     margin-bottom: 3rem;
+  }
+
+  .hero__actions .btn {
+    width: 100%;
   }
 
   .feature-card,
