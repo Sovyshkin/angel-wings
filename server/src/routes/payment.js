@@ -444,11 +444,16 @@ router.post('/webhook', async (req, res, next) => {
       if (Number.isFinite(orderId)) {
         const previousPaymentStatus = await prisma.order.findUnique({
           where: { id: orderId },
-          select: { paymentStatus: true }
+          select: { paymentStatus: true, paymentId: true }
         })
         updatedOrder = await prisma.order.update({
           where: { id: orderId },
-          data: { paymentStatus: normalized }
+          data: {
+            paymentStatus: normalized,
+            ...(paymentId && !previousPaymentStatus?.paymentId
+              ? { paymentId: String(paymentId) }
+              : {})
+          }
         })
         updatedOrder.previousPaymentStatus = previousPaymentStatus?.paymentStatus || null
       }

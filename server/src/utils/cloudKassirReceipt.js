@@ -31,6 +31,22 @@ export async function sendCloudKassirIncomeReceiptForOrder(prisma, orderId, sour
     return null
   }
 
+  const isTochkaReceiptSource = [
+    'payment-status',
+    'sync-order',
+    'tochka-webhook',
+    'admin-orders-auto-sync'
+  ].includes(String(source || ''))
+
+  if ((order.paymentId || isTochkaReceiptSource) && process.env.CLOUDKASSIR_SEND_STANDALONE_FOR_TOCHKA !== 'true') {
+    console.warn('[CLOUDKASSIR] standalone receipt skipped: Tochka payment already includes receipt', JSON.stringify({
+      orderId,
+      paymentId: order.paymentId || null,
+      source
+    }))
+    return { success: false, skipped: true, reason: 'tochka-payment-with-receipt' }
+  }
+
   return cloudKassirService.sendIncomeReceipt(order, { source })
 }
 
