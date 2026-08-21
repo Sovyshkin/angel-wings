@@ -301,6 +301,7 @@ const error = ref('')
 const success = ref('')
 const loading = ref(false)
 const file = ref(null)
+const mainImageRemoved = ref(false)
 const galleryFiles = ref([])
 const existingGalleryImages = ref([])
 const galleryPreviewUrls = ref([])
@@ -346,6 +347,7 @@ async function fetchProduct() {
   }
   existingGalleryImages.value = Array.isArray(p.images) ? [...p.images] : []
   galleryFiles.value = []
+  mainImageRemoved.value = false
   galleryPreviewUrls.value = [...existingGalleryImages.value]
   const specs = p.specs || {}
   specsArray.value = jsonToSpecsArray(specs)
@@ -355,6 +357,7 @@ async function fetchProduct() {
 function handleFileChange(e) {
   file.value = e.target.files[0]
   if (file.value) {
+    mainImageRemoved.value = false
     form.value.image = URL.createObjectURL(file.value)
   }
 }
@@ -362,6 +365,7 @@ function handleFileChange(e) {
 function removeImage() {
   form.value.image = null
   file.value = null
+  mainImageRemoved.value = true
 }
 
 function handleGalleryFilesChange(e) {
@@ -481,6 +485,7 @@ async function handleSubmit() {
     if (form.value.country) formData.append('country', form.value.country)
     if (form.value.categoryId) formData.append('categories', JSON.stringify([form.value.categoryId]))
     if (file.value) formData.append('image', file.value)
+    if (isEdit.value && mainImageRemoved.value && !file.value) formData.append('removeMainImage', 'true')
     formData.append('existingImages', JSON.stringify(existingGalleryImages.value))
     galleryFiles.value.forEach(fileItem => formData.append('images', fileItem))
     

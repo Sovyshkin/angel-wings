@@ -200,7 +200,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
   { name: 'images', maxCount: 12 }
 ]), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, active, country, existingImages } = req.body
+    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, active, country, existingImages, removeMainImage } = req.body
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const persistedImages = parseImagesField(existingImages)
@@ -239,7 +239,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
     
     updateData.images = JSON.stringify(mergedGalleryImages)
     if (mainFile) updateData.image = `/uploads/${mainFile.filename}`
-    else if (!updateData.image && mergedGalleryImages.length > 0) updateData.image = mergedGalleryImages[0]
+    else if (removeMainImage === 'true') updateData.image = null
     
     if (categories) {
       updateData.categories = {
