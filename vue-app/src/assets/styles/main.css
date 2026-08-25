@@ -98,7 +98,7 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   max-width: 100vw;
   overflow-x: hidden;
 }
@@ -128,43 +128,6 @@ body::before {
   pointer-events: none;
   z-index: 0;
   transition: opacity 0.4s ease;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    .home > section:not(.hero)[data-aos],
-    .home > section:not(.hero) [data-aos] {
-      animation-duration: 1ms;
-      animation-fill-mode: both;
-      animation-timing-function: linear;
-      animation-timeline: view();
-      animation-range: entry 0% cover 22%;
-    }
-
-    .home > section:not(.hero)[data-aos='fade-left'],
-    .home > section:not(.hero) [data-aos='fade-left'],
-    .home > section:not(.hero)[data-aos='fade-right'],
-    .home > section:not(.hero) [data-aos='fade-right'],
-    .home > section:not(.hero)[data-aos='fade-up'],
-    .home > section:not(.hero) [data-aos='fade-up'] {
-      animation-name: native-scroll-reveal;
-    }
-
-    .home > section:not(.hero)[data-aos='zoom-in'],
-    .home > section:not(.hero) [data-aos='zoom-in'] {
-      animation-name: native-scroll-zoom;
-    }
-  }
-}
-
-@keyframes native-scroll-reveal {
-  from { opacity: 0; transform: translate3d(0, 24px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
-}
-
-@keyframes native-scroll-zoom {
-  from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
 }
 
 [data-theme="light"] body::before {
@@ -609,7 +572,7 @@ button:active,
 }
 
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   max-width: 100vw;
   overflow-x: hidden;
 }
