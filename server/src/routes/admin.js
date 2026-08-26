@@ -22,6 +22,10 @@ function getAdminLoginUrl() {
   return String(process.env.ADMIN_LOGIN_URL || process.env.ADMIN_URL || 'https://admin.angel-wings.ru').trim()
 }
 
+function getClientUrl() {
+  return String(process.env.CLIENT_URL || process.env.FRONTEND_URL || 'https://angel-wings.ru').trim()
+}
+
 function pickRandom(chars) {
   return chars[crypto.randomInt(0, chars.length)]
 }
@@ -83,6 +87,45 @@ async function ensurePartnerForUser(tx, userId) {
       referralCode: await generatePartnerReferralCode(tx),
       isActive: true
     }
+  })
+}
+
+async function sendPartnerWelcomeEmail({ to, name, password, partnerUrl }) {
+  const rawName = String(name || 'партнёр')
+  const safeName = escapeHtml(rawName)
+  const safeEmail = escapeHtml(to)
+  const safePassword = escapeHtml(password)
+  const safePartnerUrl = escapeHtml(partnerUrl)
+
+  return emailService.sendMail({
+    to,
+    subject: 'Ваша заявка в партнёрскую программу Angel Wings одобрена',
+    text: [
+      `Здравствуйте, ${rawName}!`,
+      '',
+      'Ваша заявка в партнёрскую программу Angel Wings одобрена.',
+      `Личный кабинет партнёра: ${partnerUrl}`,
+      `Email для входа: ${to}`,
+      `Временный пароль: ${password}`,
+      '',
+      'После входа рекомендуем сменить пароль в профиле.'
+    ].join('\n'),
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:28px;background:#f6f7fb;color:#151722">
+        <div style="background:#fff;border-radius:24px;padding:30px;border:1px solid #e7e9f2">
+          <div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#8da2ff;font-weight:700;margin-bottom:12px">Angel Wings</div>
+          <h1 style="margin:0 0 14px;font-size:25px;line-height:1.2">Заявка одобрена</h1>
+          <p style="margin:0 0 18px;font-size:16px;line-height:1.55">Здравствуйте, ${safeName}! Мы подключили для вас партнёрский кабинет.</p>
+          <div style="background:#f3f5ff;border-radius:18px;padding:20px;margin:0 0 20px;border:1px solid #dfe5ff">
+            <p style="margin:0 0 8px;color:#687087;font-size:14px">Email для входа</p>
+            <div style="font-size:17px;font-weight:700;color:#22305f;margin-bottom:16px">${safeEmail}</div>
+            <p style="margin:0 0 8px;color:#687087;font-size:14px">Временный пароль</p>
+            <div style="font-family:Menlo,Consolas,monospace;font-size:20px;font-weight:700;letter-spacing:.04em;background:#151722;color:#fff;border-radius:14px;padding:14px 16px">${safePassword}</div>
+          </div>
+          <a href="${safePartnerUrl}" style="display:block;text-align:center;background:#9fb3ff;color:#10131f;text-decoration:none;font-weight:700;border-radius:16px;padding:16px 20px">Открыть кабинет партнёра</a>
+        </div>
+      </div>
+    `
   })
 }
 
@@ -214,6 +257,186 @@ router.get('/users', authenticate, requireAdmin, async (req, res, next) => {
     ])
     
     res.json({ users, total })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/partner-applications', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { status = 'PENDING', limit = 50, offset = 0 } = req.query
+    const normalizedStatus = String(status || '').trim().toUpperCase()
+    const where = ['PENDING', 'APPROVED', 'REJECTED'].includes(normalizedStatus)
+      ? { status: normalizedStatus }
+      : {}
+
+    const [applications, total, pendingCount] = await Promise.all([
+      prisma.partnerApplication.findMany({
+        where,
+        include: {
+          user: { select: { id: true, email: true, name: true, role: true } },
+          partner: { select: { id: true, referralCode: true, percentage: true, isActive: true } },
+          reviewedBy: { select: { id: true, name: true, email: true } }
+        },
+        take: Math.min(100, Math.max(1, parseInt(limit, 10) || 50)),
+        skip: Math.max(0, parseInt(offset, 10) || 0),
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.partnerApplication.count({ where }),
+      prisma.partnerApplication.count({ where: { status: 'PENDING' } })
+    ])
+
+    res.json({ applications, total, pendingCount })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/partner-applications/:id/approve', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const applicationId = parseInt(req.params.id, 10)
+    const adminNote = String(req.body.adminNote || '').trim() || null
+    const partnerUrl = `${getClientUrl().replace(/\/$/, '')}/partner`
+    let createdUser = false
+    let generatedPassword = null
+
+    const result = await prisma.$transaction(async (tx) => {
+      const application = await tx.partnerApplication.findUnique({
+        where: { id: applicationId }
+      })
+
+      if (!application) {
+        const error = new Error('Заявка не найдена')
+        error.status = 404
+        throw error
+      }
+
+      if (application.status !== 'PENDING') {
+        const error = new Error('Эта заявка уже обработана')
+        error.status = 400
+        throw error
+      }
+
+      let user = await findUserByEmail(tx, application.email)
+
+      if (user?.role === 'DELETED') {
+        user = null
+      }
+
+      if (!user) {
+        createdUser = true
+        generatedPassword = generateSecureAdminPassword()
+        const hashedPassword = await bcrypt.hash(generatedPassword, 10)
+
+        user = await tx.user.create({
+          data: {
+            email: application.email,
+            password: hashedPassword,
+            name: application.name,
+            role: 'PARTNER',
+            phone: application.phone,
+            emailVerified: true
+          }
+        })
+      } else if (user.role !== 'PARTNER') {
+        user = await tx.user.update({
+          where: { id: user.id },
+          data: {
+            role: 'PARTNER',
+            name: user.name || application.name,
+            phone: user.phone || application.phone || null
+          }
+        })
+      }
+
+      const partner = await ensurePartnerForUser(tx, user.id)
+
+      const updatedApplication = await tx.partnerApplication.update({
+        where: { id: application.id },
+        data: {
+          status: 'APPROVED',
+          adminNote,
+          userId: user.id,
+          partnerId: partner.id,
+          reviewedById: req.user.id,
+          reviewedAt: new Date()
+        },
+        include: {
+          user: { select: { id: true, email: true, name: true, role: true } },
+          partner: { select: { id: true, referralCode: true, percentage: true, isActive: true } },
+          reviewedBy: { select: { id: true, name: true, email: true } }
+        }
+      })
+
+      return { application: updatedApplication, user, partner }
+    })
+
+    let welcomeEmailSent = false
+    if (createdUser && generatedPassword) {
+      try {
+        await sendPartnerWelcomeEmail({
+          to: result.user.email,
+          name: result.user.name,
+          password: generatedPassword,
+          partnerUrl
+        })
+        welcomeEmailSent = true
+      } catch (emailError) {
+        console.error('[PARTNER_APPLICATION] welcome email failed', emailError?.message || emailError)
+      }
+    }
+
+    res.json({
+      ...result,
+      createdUser,
+      welcomeEmailSent
+    })
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ error: error.message })
+    }
+    next(error)
+  }
+})
+
+router.post('/partner-applications/:id/reject', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const applicationId = parseInt(req.params.id, 10)
+    const adminNote = String(req.body.adminNote || '').trim()
+
+    if (!adminNote) {
+      return res.status(400).json({ error: 'Укажите причину или комментарий к отклонению' })
+    }
+
+    const current = await prisma.partnerApplication.findUnique({
+      where: { id: applicationId },
+      select: { id: true, status: true }
+    })
+
+    if (!current) {
+      return res.status(404).json({ error: 'Заявка не найдена' })
+    }
+
+    if (current.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Эта заявка уже обработана' })
+    }
+
+    const application = await prisma.partnerApplication.update({
+      where: { id: applicationId },
+      data: {
+        status: 'REJECTED',
+        adminNote,
+        reviewedById: req.user.id,
+        reviewedAt: new Date()
+      },
+      include: {
+        user: { select: { id: true, email: true, name: true, role: true } },
+        partner: { select: { id: true, referralCode: true, percentage: true, isActive: true } },
+        reviewedBy: { select: { id: true, name: true, email: true } }
+      }
+    })
+
+    res.json({ application })
   } catch (error) {
     next(error)
   }

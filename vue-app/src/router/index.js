@@ -18,6 +18,7 @@ const Faq = () => import('../views/Faq.vue')
 const Requisites = () => import('../views/Requisites.vue')
 const OrderSuccess = () => import('../views/OrderSuccess.vue')
 const OrderFail = () => import('../views/OrderFail.vue')
+const Partnership = () => import('../views/Partnership.vue')
 const PartnerCabinet = () => import('../views/PartnerCabinet.vue')
 
 const routes = [
@@ -35,6 +36,7 @@ const routes = [
   { path: '/guarantees', name: 'Guarantees', component: Guarantees },
   { path: '/faq', name: 'Faq', component: Faq },
   { path: '/requisites', name: 'Requisites', component: Requisites },
+  { path: '/partnership', name: 'Partnership', component: Partnership },
   { path: '/order-success', name: 'OrderSuccess', component: OrderSuccess },
   { path: '/order-failed', name: 'OrderFail', component: OrderFail },
   { path: '/partner', name: 'PartnerCabinet', component: PartnerCabinet, meta: { requiresAuth: true, requiresPartner: true } },

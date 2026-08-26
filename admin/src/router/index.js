@@ -27,6 +27,7 @@ const routes = [
       { path: 'users', name: 'AdminUsers', component: () => import('../views/Users.vue') },
       { path: 'users/:id', name: 'AdminUserDetail', component: () => import('../views/UserDetail.vue') },
       { path: 'partners', name: 'AdminPartners', component: () => import('../views/Partners.vue') },
+      { path: 'partner-applications', name: 'PartnerApplications', component: () => import('../views/PartnerApplications.vue') },
       { path: 'partners/:id', name: 'PartnerDetail', component: () => import('../views/PartnerDetail.vue') },
       { path: 'partner-payouts', name: 'PartnerPayouts', component: () => import('../views/PartnerPayouts.vue') },
       { path: 'promo-codes', name: 'PromoCodes', component: () => import('../views/PromoCodes.vue') },

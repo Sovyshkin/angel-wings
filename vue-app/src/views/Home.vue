@@ -1,11 +1,20 @@
 <template>
   <div class="home">
-    <section
-      class="hero"
-      @pointermove="handleHeroPointerMove"
-      @pointerleave="handleHeroPointerLeave"
-      @pointercancel="handleHeroPointerLeave"
-    >
+    <div class="home-global-decor" aria-hidden="true">
+      <img class="home-global-decor__item home-global-decor__item--molecule-1" src="/hero-assets/молекула-1.png" alt="" loading="lazy" decoding="async">
+      <img class="home-global-decor__item home-global-decor__item--molecule-2" src="/hero-assets/молекула-2.png" alt="" loading="lazy" decoding="async">
+      <img class="home-global-decor__item home-global-decor__item--molecule-3" src="/hero-assets/молекула-3.png" alt="" loading="lazy" decoding="async">
+      <img class="home-global-decor__item home-global-decor__item--molecule-4" src="/hero-assets/молекула-1.png" alt="" loading="lazy" decoding="async">
+      <img class="home-global-decor__item home-global-decor__item--molecule-5" src="/hero-assets/молекула-2.png" alt="" loading="lazy" decoding="async">
+      <img class="home-global-decor__item home-global-decor__item--drop-1" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
+      <img class="home-global-decor__item home-global-decor__item--drop-2" src="/hero-assets/капелька-2.png" alt="" loading="lazy" decoding="async">
+      <img class="home-global-decor__item home-global-decor__item--drop-3" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
+      <img class="home-global-decor__item home-global-decor__item--drop-4" src="/hero-assets/капелька-2.png" alt="" loading="lazy" decoding="async">
+      <img class="home-global-decor__item home-global-decor__item--drop-5" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
+      <img class="home-global-decor__item home-global-decor__item--drop-6" src="/hero-assets/капелька-2.png" alt="" loading="lazy" decoding="async">
+    </div>
+
+    <section class="hero">
       <div class="hero__bg">
         <div class="orb orb-1"></div>
         <div class="orb orb-2"></div>
@@ -69,76 +78,73 @@
         </div>
 
         <div ref="heroVisual" class="hero__visual" aria-hidden="true">
-          <div class="hero-orbits">
-            <img
-              class="hero-orbit-image hero-orbit-image--back"
-              src="/hero-assets/orbit-ring.webp"
-              alt=""
-              loading="eager"
-              decoding="async"
-            >
-            <img
-              class="hero-orbit-image hero-orbit-image--front"
-              src="/hero-assets/orbit-ring.webp"
-              alt=""
-              loading="eager"
-              decoding="async"
-            >
-          </div>
+          <div class="hero-scene">
+            <div class="hero-orbits">
+              <img
+                class="hero-orbit-image hero-orbit-image--back"
+                src="/hero-assets/кольцо.png"
+                alt=""
+                loading="eager"
+                decoding="async"
+              >
+            </div>
 
-          <img
-            class="hero-molecule hero-molecule--one"
-            src="/hero-assets/molecule-scene-1.webp"
-            alt=""
-            loading="eager"
-            decoding="async"
-          >
-          <img
-            class="hero-molecule hero-molecule--two"
-            src="/hero-assets/molecule-scene-2.webp"
-            alt=""
-            loading="eager"
-            decoding="async"
-          >
+            <div class="hero-molecule hero-molecule--one">
+              <img class="hero-molecule__image" src="/hero-assets/молекула-1.png" alt="" loading="eager" decoding="async">
+            </div>
+            <div class="hero-molecule hero-molecule--two">
+              <img class="hero-molecule__image" src="/hero-assets/молекула-2.png" alt="" loading="eager" decoding="async">
+            </div>
+            <div class="hero-molecule hero-molecule--background">
+              <img class="hero-molecule__image" src="/hero-assets/молекула-3.png" alt="" loading="eager" decoding="async">
+            </div>
 
-          <img
-            class="glass-cube glass-cube--one"
-            src="/hero-assets/glass-cube-1.webp"
-            alt=""
-            loading="eager"
-            decoding="async"
-          >
-          <img
-            class="glass-cube glass-cube--two"
-            src="/hero-assets/glass-cube-2.webp"
-            alt=""
-            loading="eager"
-            decoding="async"
-          >
+            <div class="hero-sphere hero-sphere--top">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-1.png" alt="" loading="eager" decoding="async">
+            </div>
+            <div class="hero-sphere hero-sphere--right">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" loading="eager" decoding="async">
+            </div>
+            <div class="hero-sphere hero-sphere--orbit">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-1.png" alt="" loading="eager" decoding="async">
+            </div>
+            <div class="hero-sphere hero-sphere--far-left">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" loading="eager" decoding="async">
+            </div>
+            <div class="hero-sphere hero-sphere--far-right">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" loading="eager" decoding="async">
+            </div>
 
-          <div class="hero-pen-wrap">
-            <img
-              class="hero-pen"
-              src="/hero-assets/flagellin-pen-clean.webp"
-              alt=""
-              loading="eager"
-              decoding="async"
-            >
-          </div>
+            <div class="hero-pen-wrap">
+              <img
+                class="hero-pen"
+                src="/hero-assets/ручка.png"
+                alt=""
+                loading="eager"
+                decoding="async"
+              >
+            </div>
 
-          <div class="hero-platform">
-            <img
-              src="/hero-assets/platform-scene.webp"
-              alt=""
-              loading="eager"
-              decoding="async"
-            >
+            <div class="hero-platform">
+              <img
+                src="/hero-assets/подставка.png"
+                alt=""
+                loading="eager"
+                decoding="async"
+              >
+            </div>
           </div>
         </div>
       </div>
     </section>
 
     <section class="features" id="features" data-aos="fade-up" data-aos-offset="100">
+      <div class="section-decor section-decor--features" aria-hidden="true">
+        <img class="section-decor__molecule section-decor__molecule--features-main" src="/hero-assets/молекула-1.png" alt="" loading="lazy" decoding="async">
+        <img class="section-decor__molecule section-decor__molecule--features-soft" src="/hero-assets/молекула-3.png" alt="" loading="lazy" decoding="async">
+        <img class="section-decor__drop section-decor__drop--features-top" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
+        <img class="section-decor__drop section-decor__drop--features-low" src="/hero-assets/капелька-2.png" alt="" loading="lazy" decoding="async">
+      </div>
       <div class="container">
         <div class="features-panel" data-aos="fade-up" data-aos-delay="100">
           <article class="features-lead">
@@ -221,6 +227,13 @@
     </section>
 
     <section ref="catalogPreview" class="categories-preview" data-aos="fade-left" data-aos-offset="100">
+      <div class="section-decor section-decor--categories" aria-hidden="true">
+        <img class="section-decor__molecule section-decor__molecule--categories-main" src="/hero-assets/молекула-2.png" alt="" loading="lazy" decoding="async">
+        <img class="section-decor__molecule section-decor__molecule--categories-soft" src="/hero-assets/молекула-3.png" alt="" loading="lazy" decoding="async">
+        <img class="section-decor__drop section-decor__drop--categories-top" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
+        <img class="section-decor__drop section-decor__drop--categories-mid" src="/hero-assets/капелька-2.png" alt="" loading="lazy" decoding="async">
+        <img class="section-decor__drop section-decor__drop--categories-low" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
+      </div>
       <div class="container">
         <div class="section-header" data-aos="fade-up">
           <h2 class="section-title">Категории</h2>
@@ -466,6 +479,41 @@
       </div>
     </section>
 
+    <section class="partnership-teaser" data-aos="fade-up" data-aos-offset="100">
+      <div class="container">
+        <div class="partnership-teaser__inner">
+          <div class="partnership-teaser__copy">
+            <span class="partnership-teaser__kicker">Партнёрская программа</span>
+            <h2>Станьте партнёром Angel Wings</h2>
+            <p>
+              Оставьте заявку, и после одобрения мы подключим партнёрский кабинет,
+              персональный реферальный код и прозрачную статистику начислений.
+            </p>
+          </div>
+          <div class="partnership-teaser__stats" aria-label="Возможности партнёрской программы">
+            <div>
+              <strong>Код</strong>
+              <span>Реферальная привязка клиентов</span>
+            </div>
+            <div>
+              <strong>%</strong>
+              <span>Комиссия по заказам</span>
+            </div>
+            <div>
+              <strong>ЛК</strong>
+              <span>Баланс, выплаты и статистика</span>
+            </div>
+          </div>
+          <router-link to="/partnership" class="btn btn-primary partnership-teaser__button">
+            Оставить заявку
+            <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </router-link>
+        </div>
+      </div>
+    </section>
+
     <section class="promo-banner" data-aos="fade-right" data-aos-offset="100">
       <div class="promo-bg">
         <div class="promo-orb promo-orb-1"></div>
@@ -487,6 +535,134 @@
               Получить консультацию
             </a>
             <router-link to="/catalog" class="promo-link">Открыть каталог</router-link>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-faq" data-aos="fade-up" data-aos-offset="100">
+      <div class="container">
+        <div class="home-faq__layout">
+          <div class="home-faq__intro">
+            <span class="home-faq__kicker">FAQ</span>
+            <h2>Частые вопросы по ручкам и хранению</h2>
+            <p>
+              Собрали самые частые ситуации после получения заказа: единицы на барабане,
+              холостой ход, хранение и доставка.
+            </p>
+            <a href="https://t.me/Seraphim_angelwings" target="_blank" rel="noopener noreferrer" class="home-faq__manager">
+              Написать менеджеру
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </a>
+          </div>
+
+          <div class="home-faq__list">
+            <details class="home-faq__item" open>
+              <summary>
+                <span>Как рассчитать щелчки и единицы?</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </summary>
+              <div class="home-faq__answer">
+                <p>Каждая ручка рассчитана на 300 единиц. Чтобы понять, сколько вещества в одной единице, общий объем делится на 300.</p>
+                <p><strong>Пример:</strong> Мотс 50 мг: 50 мг / 300 ед = 0,166 мг в одной единице. Если нужно набрать 1,5 мг: 1,5 / 0,166 = 9 единиц ручки.</p>
+                <p>Информация о единицах также указана на этикетке.</p>
+              </div>
+            </details>
+
+            <details class="home-faq__item">
+              <summary>
+                <span>Что такое холостой ход?</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </summary>
+              <div class="home-faq__answer">
+                <p>В начале у ручки может быть холостой ход. Перед накручиванием иглы отверните ручку примерно на 50 ед. и нажмите: вы почувствуете момент, когда ручка упрется и не будет нажиматься.</p>
+                <p>После этого закрутите ручку обратно. Теперь ручка будет выдавливать жидкость.</p>
+              </div>
+            </details>
+
+            <details class="home-faq__item">
+              <summary>
+                <span>Ручка прокручивается и не выдавливает жидкость</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </summary>
+              <div class="home-faq__answer">
+                <p>Снимите ситуацию на видео и отправьте менеджеру: вам вышлют ручку за наш счет и подскажут, как переставить картридж в новую ручку.</p>
+                <p>
+                  Чтобы не ждать замену, можно заранее
+                  <router-link to="/product/151">приобрести многоразовую ручку</router-link>
+                  и использовать ее в подобных ситуациях.
+                </p>
+              </div>
+            </details>
+
+            <details class="home-faq__item">
+              <summary>
+                <span>Пептид доедет до меня в сохранности?</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </summary>
+              <div class="home-faq__answer">
+                <p>Пептиды отправляются в термопакетах с хладоэлементом. Этого достаточно для доставки.</p>
+                <p>Стабильный раствор прозрачный, без сгустков и мутности. Если пептид пришел мутным, отправьте фото или видео менеджеру.</p>
+              </div>
+            </details>
+
+            <details class="home-faq__item">
+              <summary>
+                <span>Почему внутри нет инструкции?</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </summary>
+              <div class="home-faq__answer">
+                <p>Инструкции внутри упаковки не вкладываются. Если нужна помощь по ручке, единицам или хранению, напишите менеджеру.</p>
+              </div>
+            </details>
+
+            <details class="home-faq__item">
+              <summary>
+                <span>Я улетаю, пептид не испортится?</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </summary>
+              <div class="home-faq__answer">
+                <p>Для надежности можно перевозить пептиды в термопеналах. 1-2 дня при комнатной температуре обычно не критичны.</p>
+              </div>
+            </details>
+
+            <details class="home-faq__item">
+              <summary>
+                <span>Как хранить ручку?</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </summary>
+              <div class="home-faq__answer">
+                <p>Храните ручку в холодильнике.</p>
+              </div>
+            </details>
+
+            <details class="home-faq__item">
+              <summary>
+                <span>Какой срок годности?</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </summary>
+              <div class="home-faq__answer">
+                <p>Срок годности — 2 года при хранении в холодильнике.</p>
+              </div>
+            </details>
           </div>
         </div>
       </div>
@@ -532,9 +708,6 @@ const heroVisual = ref(null)
 let catalogObserver = null
 let catalogFallbackTimer = null
 let catalogLoaded = false
-let heroParallaxFrame = null
-let heroParallaxTarget = { x: '0', y: '0' }
-let heroParallaxCurrent = { x: '0', y: '0' }
 let heroScrollFrame = null
 let heroScrollProgress = '0'
 
@@ -593,7 +766,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   catalogObserver?.disconnect()
   if (catalogFallbackTimer) window.clearTimeout(catalogFallbackTimer)
-  if (heroParallaxFrame) window.cancelAnimationFrame(heroParallaxFrame)
   if (heroScrollFrame) window.cancelAnimationFrame(heroScrollFrame)
   window.removeEventListener('scroll', queueHeroScrollProgress)
   window.removeEventListener('resize', queueHeroScrollProgress)
@@ -699,63 +871,271 @@ function queueHeroScrollProgress() {
   heroScrollFrame = window.requestAnimationFrame(updateHeroScrollProgress)
 }
 
-function applyHeroParallax() {
-  heroParallaxFrame = null
-  if (!heroVisual.value) return
-  if (
-    heroParallaxTarget.x === heroParallaxCurrent.x &&
-    heroParallaxTarget.y === heroParallaxCurrent.y
-  ) {
-    return
-  }
-
-  heroParallaxCurrent = { ...heroParallaxTarget }
-  heroVisual.value.style.setProperty('--hero-parallax-x', heroParallaxTarget.x)
-  heroVisual.value.style.setProperty('--hero-parallax-y', heroParallaxTarget.y)
-}
-
-function queueHeroParallax(x, y) {
-  heroParallaxTarget = { x, y }
-  if (heroParallaxFrame) return
-  heroParallaxFrame = window.requestAnimationFrame(applyHeroParallax)
-}
-
-function resetHeroParallax() {
-  queueHeroParallax('0', '0')
-}
-
-function handleHeroPointerMove(event) {
-  if (
-    !heroVisual.value ||
-    event.pointerType === 'touch' ||
-    window.matchMedia('(max-width: 900px)').matches
-  ) {
-    resetHeroParallax()
-    return
-  }
-
-  const headerBottom = document.querySelector('.header')?.getBoundingClientRect().bottom || 0
-  if (event.clientY <= headerBottom + 2) {
-    resetHeroParallax()
-    return
-  }
-
-  const rect = event.currentTarget.getBoundingClientRect()
-  const x = ((event.clientX - rect.left) / rect.width - 0.5).toFixed(3)
-  const y = ((event.clientY - rect.top) / rect.height - 0.5).toFixed(3)
-
-  queueHeroParallax(x, y)
-}
-
-function handleHeroPointerLeave() {
-  resetHeroParallax()
-}
 </script>
 
 <style scoped>
+@property --hero-land-y {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --hero-land-opacity {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --hero-pen-enter-y {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --hero-platform-enter-x {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --hero-orbit-enter-scale {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --hero-scene-enter-opacity {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --hero-idle-x {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --hero-idle-y {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --hero-idle-rotate {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
 .home {
+  position: relative;
   padding-bottom: 0;
   overflow-x: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 14% 10%, rgba(42, 107, 255, 0.08), transparent 26%),
+    radial-gradient(circle at 88% 28%, rgba(54, 141, 255, 0.1), transparent 24%),
+    radial-gradient(circle at 18% 56%, rgba(166, 185, 248, 0.06), transparent 24%),
+    radial-gradient(circle at 78% 76%, rgba(36, 109, 255, 0.08), transparent 28%),
+    linear-gradient(180deg, #07080e 0%, #080910 28%, #07080e 58%, #090a12 100%);
+}
+
+.home > section {
+  position: relative;
+  z-index: 1;
+}
+
+.home-global-decor {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+}
+
+.home-global-decor::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+  background-size: 96px 96px;
+  mask-image: linear-gradient(180deg, transparent 0%, black 7%, black 94%, transparent 100%);
+}
+
+.home-global-decor__item {
+  position: absolute;
+  display: block;
+  height: auto;
+  object-fit: contain;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  user-select: none;
+  will-change: transform;
+  animation: pageDecorDrift 15s ease-in-out infinite alternate;
+}
+
+.home-global-decor__item--molecule-1 {
+  width: clamp(150px, 12vw, 240px);
+  right: -4%;
+  top: 18%;
+  opacity: 0.22;
+  filter: saturate(0.96) blur(5px) drop-shadow(0 0 14px rgba(44, 133, 255, 0.14));
+}
+
+.home-global-decor__item--molecule-2 {
+  width: clamp(170px, 14vw, 280px);
+  left: -5%;
+  top: 33%;
+  opacity: 0.18;
+  filter: saturate(0.9) blur(8px) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
+  animation-duration: 18s;
+  animation-delay: -6s;
+}
+
+.home-global-decor__item--molecule-3 {
+  width: clamp(120px, 10vw, 200px);
+  right: 13%;
+  top: 47%;
+  opacity: 0.26;
+  filter: saturate(1.05) blur(2px) drop-shadow(0 0 16px rgba(44, 133, 255, 0.16));
+  animation-duration: 13s;
+  animation-delay: -3s;
+}
+
+.home-global-decor__item--molecule-4 {
+  width: clamp(150px, 13vw, 260px);
+  left: 8%;
+  top: 68%;
+  opacity: 0.16;
+  filter: saturate(0.88) blur(9px) drop-shadow(0 0 12px rgba(44, 133, 255, 0.1));
+  animation-duration: 20s;
+  animation-delay: -10s;
+}
+
+.home-global-decor__item--molecule-5 {
+  width: clamp(150px, 12vw, 245px);
+  right: -3%;
+  top: 84%;
+  opacity: 0.2;
+  filter: saturate(0.98) blur(5px) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
+  animation-duration: 17s;
+  animation-delay: -8s;
+}
+
+.home-global-decor__item--drop-1 {
+  width: clamp(48px, 4vw, 82px);
+  left: 44%;
+  top: 22%;
+  opacity: 0.28;
+  filter: saturate(1.05) blur(1px) drop-shadow(0 0 16px rgba(78, 159, 255, 0.16));
+  animation-duration: 12s;
+  animation-delay: -2s;
+}
+
+.home-global-decor__item--drop-2 {
+  width: clamp(80px, 7vw, 140px);
+  right: 18%;
+  top: 38%;
+  opacity: 0.15;
+  filter: saturate(0.82) blur(12px) drop-shadow(0 0 10px rgba(78, 159, 255, 0.08));
+  animation-duration: 19s;
+  animation-delay: -7s;
+}
+
+.home-global-decor__item--drop-3 {
+  width: clamp(52px, 4.5vw, 88px);
+  left: 16%;
+  top: 50%;
+  opacity: 0.2;
+  filter: saturate(0.95) blur(4px) drop-shadow(0 0 12px rgba(78, 159, 255, 0.1));
+  animation-duration: 14s;
+  animation-delay: -5s;
+}
+
+.home-global-decor__item--drop-4 {
+  width: clamp(100px, 8vw, 160px);
+  right: 5%;
+  top: 61%;
+  opacity: 0.16;
+  filter: saturate(0.88) blur(10px) drop-shadow(0 0 10px rgba(78, 159, 255, 0.08));
+  animation-duration: 21s;
+  animation-delay: -11s;
+}
+
+.home-global-decor__item--drop-5 {
+  width: clamp(48px, 4vw, 78px);
+  left: 55%;
+  top: 76%;
+  opacity: 0.22;
+  filter: saturate(1) blur(2px) drop-shadow(0 0 12px rgba(78, 159, 255, 0.12));
+  animation-duration: 13s;
+  animation-delay: -4s;
+}
+
+.home-global-decor__item--drop-6 {
+  width: clamp(88px, 7vw, 145px);
+  left: -3%;
+  top: 90%;
+  opacity: 0.14;
+  filter: saturate(0.8) blur(13px) drop-shadow(0 0 10px rgba(78, 159, 255, 0.08));
+  animation-duration: 22s;
+  animation-delay: -12s;
+}
+
+@keyframes pageDecorDrift {
+  0% { translate: 0 0; rotate: -1deg; }
+  100% { translate: 12px -18px; rotate: 2deg; }
+}
+
+[data-theme="light"] .home {
+  background:
+    radial-gradient(circle at 12% 9%, rgba(120, 153, 247, 0.2), transparent 28%),
+    radial-gradient(circle at 88% 26%, rgba(66, 149, 255, 0.16), transparent 25%),
+    radial-gradient(circle at 20% 58%, rgba(120, 153, 247, 0.12), transparent 25%),
+    radial-gradient(circle at 80% 80%, rgba(66, 149, 255, 0.13), transparent 28%),
+    linear-gradient(180deg, #f8f9ff 0%, #eef3ff 30%, #f7f9ff 62%, #ffffff 100%);
+}
+
+[data-theme="light"] .home-global-decor::before {
+  background-image:
+    linear-gradient(rgba(31, 55, 110, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 55, 110, 0.04) 1px, transparent 1px);
+  opacity: 0.62;
+}
+
+[data-theme="light"] .home-global-decor__item {
+  mix-blend-mode: multiply;
+}
+
+[data-theme="light"] .home-global-decor__item--molecule-1,
+[data-theme="light"] .home-global-decor__item--molecule-3,
+[data-theme="light"] .home-global-decor__item--molecule-5 {
+  opacity: 0.1;
+  filter: saturate(0.85) blur(4px);
+}
+
+[data-theme="light"] .home-global-decor__item--molecule-2,
+[data-theme="light"] .home-global-decor__item--molecule-4 {
+  opacity: 0.08;
+  filter: saturate(0.75) blur(9px);
+}
+
+[data-theme="light"] .home-global-decor__item--drop-1,
+[data-theme="light"] .home-global-decor__item--drop-3,
+[data-theme="light"] .home-global-decor__item--drop-5 {
+  opacity: 0.12;
+  filter: saturate(0.9) blur(2px);
+}
+
+[data-theme="light"] .home-global-decor__item--drop-2,
+[data-theme="light"] .home-global-decor__item--drop-4,
+[data-theme="light"] .home-global-decor__item--drop-6 {
+  opacity: 0.08;
+  filter: saturate(0.75) blur(12px);
 }
 
 .hero {
@@ -837,17 +1217,46 @@ function handleHeroPointerLeave() {
   margin: 0 auto;
   padding: 0 clamp(2rem, 3.5vw, 4rem);
   width: 100%;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: center;
-  gap: clamp(1.5rem, 3vw, 4rem);
+  min-height: clamp(640px, calc(100svh - 120px), 820px);
+  display: block;
+}
+
+.hero__container::before {
+  content: '';
+  position: absolute;
+  inset: -8% 0;
+  z-index: 5;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(7, 8, 14, 0.98) 0%,
+      rgba(7, 8, 14, 0.94) 24%,
+      rgba(7, 8, 14, 0.7) 42%,
+      rgba(7, 8, 14, 0.18) 60%,
+      rgba(7, 8, 14, 0) 76%
+    );
+}
+
+[data-theme="light"] .hero__container::before {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(248, 249, 255, 0.96) 0%,
+      rgba(248, 249, 255, 0.88) 28%,
+      rgba(248, 249, 255, 0.56) 46%,
+      rgba(248, 249, 255, 0.18) 64%,
+      rgba(248, 249, 255, 0) 80%
+    );
 }
 
 .hero__content {
   position: relative;
-  z-index: 2;
+  z-index: 10;
   min-width: 0;
+  width: min(48vw, 760px);
   max-width: 760px;
+  padding-top: clamp(3.25rem, 8vh, 6.5rem);
 }
 
 .hero__badge {
@@ -1027,9 +1436,14 @@ function handleHeroPointerLeave() {
   --hero-parallax-x: 0;
   --hero-parallax-y: 0;
   --hero-scroll-progress: 0;
-  position: relative;
-  max-width: 100%;
-  min-height: clamp(590px, 52vw, 730px);
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+  width: 68%;
+  height: 100%;
+  max-width: none;
+  min-height: 100%;
   transform-style: preserve-3d;
   perspective: 1200px;
   isolation: isolate;
@@ -1039,7 +1453,7 @@ function handleHeroPointerLeave() {
 .hero__visual::before {
   content: '';
   position: absolute;
-  inset: 8% 1% 2% 0;
+  inset: 4% 0 1% 6%;
   background:
     radial-gradient(circle at 53% 45%, rgba(27, 107, 255, 0.2), transparent 30%),
     radial-gradient(circle at 51% 82%, rgba(30, 144, 255, 0.24), transparent 24%),
@@ -1053,7 +1467,29 @@ function handleHeroPointerLeave() {
   );
 }
 
+[data-theme="light"] .hero__visual::before {
+  background:
+    radial-gradient(circle at 53% 45%, rgba(46, 119, 255, 0.12), transparent 30%),
+    radial-gradient(circle at 51% 82%, rgba(45, 139, 255, 0.14), transparent 24%),
+    radial-gradient(circle at 74% 30%, rgba(138, 166, 255, 0.14), transparent 32%);
+  opacity: 0.82;
+}
+
+.hero-scene {
+  position: absolute;
+  right: 2%;
+  top: 50%;
+  width: min(100%, 1050px);
+  height: min(100%, 760px);
+  transform: translateY(-50%);
+  transform-style: preserve-3d;
+  pointer-events: none;
+  user-select: none;
+}
+
 .hero-orbits {
+  --hero-orbit-enter-scale: 1;
+  --hero-scene-enter-opacity: 1;
   position: absolute;
   inset: 8% 0 12%;
   transform:
@@ -1449,57 +1885,6 @@ function handleHeroPointerLeave() {
 .hero-molecule span:nth-child(5) { left: 85px; top: 112px; }
 .hero-molecule span:nth-child(5)::after { display: none; }
 
-.glass-cube {
-  position: absolute;
-  width: 86px;
-  aspect-ratio: 1;
-  border-radius: 18px;
-  transform:
-    translate3d(
-      calc(var(--hero-parallax-x) * 32px),
-      calc(var(--hero-parallax-y) * 26px),
-      65px
-    )
-    rotateX(58deg)
-    rotateZ(39deg);
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.52), rgba(77, 166, 255, 0.16) 35%, rgba(8, 35, 90, 0.08) 64%, rgba(255, 255, 255, 0.38)),
-    rgba(58, 130, 255, 0.06);
-  border: 1px solid rgba(142, 199, 255, 0.62);
-  box-shadow:
-    0 0 28px rgba(40, 142, 255, 0.44),
-    inset 0 0 18px rgba(255, 255, 255, 0.28);
-  animation: cubeDrift 12s ease-in-out infinite;
-  z-index: 3;
-}
-
-.glass-cube::before,
-.glass-cube::after {
-  content: '';
-  position: absolute;
-  inset: 15%;
-  border: 1px solid rgba(214, 235, 255, 0.42);
-  border-radius: 10px;
-}
-
-.glass-cube::after {
-  inset: -7% 15% 15% -7%;
-  opacity: 0.45;
-}
-
-.glass-cube--one {
-  right: 3%;
-  top: 14%;
-}
-
-.glass-cube--two {
-  left: 15%;
-  bottom: 25%;
-  width: 112px;
-  animation-duration: 15s;
-  animation-delay: -5s;
-}
-
 .hero-pen {
   display: block;
   width: 100%;
@@ -1584,59 +1969,78 @@ function handleHeroPointerLeave() {
 
 
 .hero-orbits {
-  inset: 13% 7% 24% 5%;
+  --hero-idle-x: 0px;
+  --hero-idle-y: 0px;
+  --hero-idle-rotate: 0deg;
+  inset: auto;
+  right: -6%;
+  top: 23%;
+  width: 72%;
+  height: 46%;
   transform:
     translate3d(
-      calc(var(--hero-parallax-x) * 7px),
-      calc(var(--hero-parallax-y) * 5px),
+      var(--hero-idle-x),
+      var(--hero-idle-y),
       0
-    );
+    )
+    rotate(var(--hero-idle-rotate))
+    scale(calc(var(--hero-orbit-enter-scale) - (var(--hero-scroll-progress) * 0.82)));
+  opacity: var(--hero-scene-enter-opacity);
+  transform-origin: 52% 50%;
+  animation: heroOrbitReveal 1.45s cubic-bezier(0.16, 1, 0.3, 1) 0.16s both;
   z-index: 3;
 }
 
 .hero-orbit-image {
   position: absolute;
   left: 50%;
-  top: 48%;
-  width: min(94%, 650px);
+  top: 50%;
+  width: 100%;
   max-width: none;
   height: auto;
   object-fit: contain;
   transform-origin: center;
-  opacity: 0.48;
+  opacity: 0.64;
   mix-blend-mode: screen;
-  filter: drop-shadow(0 0 16px rgba(35, 148, 255, 0.32));
+  filter: drop-shadow(0 0 8px rgba(70, 130, 255, 0.35));
   animation: orbitAssetDrift 24s ease-in-out infinite;
 }
 
 .hero-orbit-image--back {
-  transform: translate(-50%, -50%) rotate(-7deg) scale(1.02);
-  z-index: 2;
+  transform: translate(-50%, -50%) rotate(-8deg);
+  z-index: 1;
 }
 
-.hero-orbit-image--front {
-  transform: translate(-50%, -50%) rotate(10deg) scale(0.84);
-  opacity: 0.3;
-  z-index: 3;
-  animation-duration: 31s;
-  animation-delay: -7s;
+[data-theme="light"] .hero-orbit-image {
+  opacity: 0.28;
+  mix-blend-mode: multiply;
+  filter:
+    saturate(0.9)
+    drop-shadow(0 0 10px rgba(70, 130, 255, 0.12));
 }
 
 .hero-pen-wrap {
-  left: 49%;
-  top: 3%;
-  width: clamp(288px, 23vw, 370px);
-  height: clamp(520px, 45vw, 650px);
+  --hero-pen-enter-y: 0px;
+  --hero-scene-enter-opacity: 1;
+  --hero-idle-x: 0px;
+  --hero-idle-y: 0px;
+  --hero-idle-rotate: 0deg;
+  left: auto;
+  right: 12%;
+  top: 8%;
+  width: 36%;
+  height: 72%;
   transform:
     translate3d(
-      calc(var(--hero-parallax-x) * 10px),
-      calc(var(--hero-parallax-y) * 8px),
+      var(--hero-idle-x),
+      calc(var(--hero-pen-enter-y) + var(--hero-idle-y) + (var(--hero-scroll-progress) * -330px)),
       80px
     )
-    translateX(-50%)
-    rotate(-9deg);
+    rotate(calc(12deg + var(--hero-idle-rotate)));
+  opacity: var(--hero-scene-enter-opacity);
   transform-origin: 50% 63%;
-  z-index: 6;
+  animation: heroPenDrop 1.35s cubic-bezier(0.16, 1, 0.3, 1) 0.28s both;
+  z-index: 5;
 }
 
 .hero-pen {
@@ -1649,23 +2053,40 @@ function handleHeroPointerLeave() {
   filter:
     drop-shadow(-22px 26px 34px rgba(0, 0, 0, 0.56))
     drop-shadow(0 0 34px rgba(72, 151, 255, 0.24));
+  animation: penLevitate 6.8s ease-in-out infinite;
+  will-change: transform;
+}
+
+[data-theme="light"] .hero-pen {
+  filter:
+    drop-shadow(-16px 22px 26px rgba(38, 54, 96, 0.18))
+    drop-shadow(0 0 28px rgba(72, 151, 255, 0.12));
 }
 
 .hero-platform {
-  left: 8%;
-  right: 8%;
-  bottom: 0;
-  height: 35%;
+  --hero-platform-enter-x: 0px;
+  --hero-scene-enter-opacity: 1;
+  --hero-idle-x: 0px;
+  --hero-idle-y: 0px;
+  --hero-idle-rotate: 0deg;
+  left: auto;
+  right: 4%;
+  bottom: 1%;
+  width: 57%;
+  height: 33%;
   border-radius: 0;
   overflow: visible;
   background: none;
   box-shadow: none;
   transform: translate3d(
-    calc(var(--hero-parallax-x) * -5px),
-    calc(var(--hero-parallax-y) * -4px),
+    calc(var(--hero-platform-enter-x) + var(--hero-idle-x) + (var(--hero-scroll-progress) * 380px)),
+    var(--hero-idle-y),
     0
-  );
-  z-index: 5;
+  )
+  rotate(var(--hero-idle-rotate));
+  opacity: var(--hero-scene-enter-opacity);
+  animation: heroPlatformSlide 1.25s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
+  z-index: 4;
 }
 
 .hero-platform::before {
@@ -1688,56 +2109,135 @@ function handleHeroPointerLeave() {
     saturate(1.12)
     contrast(1.04)
     drop-shadow(0 0 24px rgba(43, 142, 255, 0.28));
+  animation: platformImageFloat 7.8s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+[data-theme="light"] .hero-platform img {
+  opacity: 0.7;
+  mix-blend-mode: multiply;
+  filter:
+    saturate(0.92)
+    contrast(0.96)
+    drop-shadow(0 0 18px rgba(43, 142, 255, 0.12));
 }
 
 .hero-molecule {
+  --hero-object-opacity: 0.9;
+  --hero-land-y: 0px;
+  --hero-land-opacity: 1;
+  --hero-idle-x: 0px;
+  --hero-idle-y: 0px;
+  --hero-idle-rotate: 0deg;
   display: block;
+  position: absolute;
   object-fit: contain;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  user-select: none;
   z-index: 4;
-  opacity: 0.9;
+  opacity: calc(var(--hero-object-opacity) * var(--hero-land-opacity));
   will-change: transform, opacity;
-  transition:
-    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.42s ease;
+  animation: heroObjectLand 1.18s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
+}
+
+.hero-molecule__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  mix-blend-mode: screen;
   filter:
     saturate(1.12)
+    blur(0.6px)
     drop-shadow(0 0 16px rgba(25, 134, 255, 0.36));
+  animation: moleculeFloat 9s ease-in-out infinite;
+  will-change: transform;
 }
 
 .hero-molecule--one {
-  width: clamp(120px, 9vw, 158px);
-  left: 16%;
-  top: 15%;
-  opacity: 0.86;
-  animation-duration: 10.5s;
+  --hero-object-opacity: 0.94;
+  width: 24%;
+  left: 15%;
+  top: 8%;
+  animation-duration: 1.18s;
+  animation-delay: 0.08s;
   transform:
     translate3d(
-      calc(var(--hero-parallax-x) * -10px),
-      calc((var(--hero-parallax-y) * -7px) + (var(--hero-scroll-progress) * -78px)),
+      0,
+      calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -210px)),
       42px
     )
-    rotate(calc(var(--hero-scroll-progress) * -5deg));
+    rotate(calc(-7deg + (var(--hero-scroll-progress) * -4deg)));
+}
+
+.hero-molecule--one .hero-molecule__image {
+  filter:
+    saturate(1.14)
+    blur(0.35px)
+    drop-shadow(0 0 18px rgba(25, 134, 255, 0.36));
+  animation-duration: 10.5s;
 }
 
 .hero-molecule--two {
-  width: clamp(132px, 10vw, 180px);
+  --hero-object-opacity: 0.84;
+  width: 19%;
   left: auto;
-  right: 8%;
-  top: 58%;
-  opacity: 0.92;
-  animation-duration: 12.5s;
-  animation-delay: -4.5s;
+  right: 2%;
+  top: 48%;
+  animation-duration: 1.22s;
+  animation-delay: 0.28s;
   transform:
     translate3d(
-      calc(var(--hero-parallax-x) * -8px),
-      calc((var(--hero-parallax-y) * -6px) + (var(--hero-scroll-progress) * -92px)),
+      0,
+      calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -230px)),
       40px
     )
-    rotate(calc(-7deg + (var(--hero-scroll-progress) * 6deg)));
+    rotate(calc(-8deg + (var(--hero-scroll-progress) * 3deg)));
 }
 
-.glass-cube {
+.hero-molecule--two .hero-molecule__image {
+  filter:
+    saturate(1.12)
+    blur(0.8px)
+    drop-shadow(0 0 16px rgba(25, 134, 255, 0.28));
+  animation-duration: 8.6s;
+}
+
+.hero-molecule--background {
+  --hero-object-opacity: 0.28;
+  width: 11%;
+  left: 37%;
+  top: 22%;
+  z-index: 2;
+  animation-duration: 1.26s;
+  animation-delay: 0.46s;
+  transform:
+    translate3d(
+      0,
+      calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -170px)),
+      10px
+    )
+    rotate(calc(7deg + (var(--hero-scroll-progress) * 2deg)));
+}
+
+.hero-molecule--background .hero-molecule__image {
+  filter:
+    saturate(0.95)
+    blur(8px)
+    drop-shadow(0 0 12px rgba(25, 134, 255, 0.18));
+  animation-duration: 9.4s;
+}
+
+.hero-sphere {
+  --hero-object-opacity: 0.9;
+  --hero-land-y: 0px;
+  --hero-land-opacity: 1;
+  --hero-idle-x: 0px;
+  --hero-idle-y: 0px;
+  --hero-idle-rotate: 0deg;
   display: block;
+  position: absolute;
   height: auto;
   aspect-ratio: auto;
   border: 0;
@@ -1745,60 +2245,242 @@ function handleHeroPointerLeave() {
   background: transparent;
   box-shadow: none;
   object-fit: contain;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  user-select: none;
   z-index: 4;
+  opacity: calc(var(--hero-object-opacity) * var(--hero-land-opacity));
   will-change: transform, opacity;
-  transition:
-    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.42s ease;
-  filter:
-    saturate(1.12)
-    drop-shadow(0 0 16px rgba(62, 157, 255, 0.3));
-  animation: cubeAssetDrift 18s ease-in-out infinite;
+  animation: heroObjectLand 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
 }
 
-.glass-cube::before,
-.glass-cube::after {
+.hero-sphere::before,
+.hero-sphere::after {
   content: none;
 }
 
-.glass-cube--one {
-  width: clamp(70px, 5.4vw, 96px);
-  right: 12%;
-  top: 17%;
-  opacity: 0.9;
-  transform:
-    translate3d(
-      calc(var(--hero-parallax-x) * 14px),
-      calc((var(--hero-parallax-y) * 9px) + (var(--hero-scroll-progress) * -84px)),
-      40px
-    )
-    rotate(calc(8deg + (var(--hero-scroll-progress) * 5deg)));
+.hero-sphere__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  mix-blend-mode: screen;
+  filter:
+    saturate(1.12)
+    blur(1px)
+    drop-shadow(0 0 18px rgba(62, 157, 255, 0.28));
+  animation: sphereAssetDrift 7.4s ease-in-out infinite;
+  will-change: transform;
 }
 
-.glass-cube--two {
-  width: clamp(104px, 7.8vw, 138px);
-  left: 13%;
-  bottom: 28%;
-  opacity: 0.82;
-  animation-duration: 22s;
-  animation-delay: -5s;
+[data-theme="light"] .hero-molecule,
+[data-theme="light"] .hero-sphere {
+  mix-blend-mode: normal;
+}
+
+[data-theme="light"] .hero-molecule__image,
+[data-theme="light"] .hero-sphere__image {
+  mix-blend-mode: multiply;
+}
+
+[data-theme="light"] .hero-molecule {
+  opacity: calc((var(--hero-object-opacity) * 0.38) * var(--hero-land-opacity));
+}
+
+[data-theme="light"] .hero-molecule__image {
+  filter:
+    saturate(0.82)
+    blur(2px)
+    drop-shadow(0 0 10px rgba(25, 134, 255, 0.08));
+}
+
+[data-theme="light"] .hero-sphere {
+  opacity: calc((var(--hero-object-opacity) * 0.42) * var(--hero-land-opacity));
+}
+
+[data-theme="light"] .hero-sphere__image {
+  filter:
+    saturate(0.85)
+    blur(2px)
+    drop-shadow(0 0 10px rgba(62, 157, 255, 0.08));
+}
+
+.hero-sphere--top {
+  --hero-object-opacity: 0.86;
+  width: 5%;
+  left: 30%;
+  top: 20%;
+  z-index: 4;
+  animation-duration: 1.16s;
+  animation-delay: 0.18s;
   transform:
     translate3d(
-      calc(var(--hero-parallax-x) * 18px),
-      calc((var(--hero-parallax-y) * 12px) + (var(--hero-scroll-progress) * -72px)),
+      0,
+      calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -190px)),
+      40px
+    )
+    rotate(calc(3deg + (var(--hero-scroll-progress) * 2deg)));
+}
+
+.hero-sphere--top .hero-sphere__image {
+  filter:
+    saturate(1.08)
+    blur(0.2px)
+    drop-shadow(0 0 18px rgba(82, 157, 255, 0.24));
+  animation-duration: 6.2s;
+}
+
+.hero-sphere--right {
+  --hero-object-opacity: 0.56;
+  width: 10%;
+  right: 2%;
+  top: 18%;
+  z-index: 3;
+  animation-duration: 1.2s;
+  animation-delay: 0.34s;
+  transform:
+    translate3d(
+      0,
+      calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -165px)),
       60px
     )
-    rotate(calc(-12deg + (var(--hero-scroll-progress) * -4deg)));
+    rotate(calc(-5deg + (var(--hero-scroll-progress) * -3deg)));
+}
+
+.hero-sphere--right .hero-sphere__image {
+  filter:
+    saturate(1.02)
+    blur(1.6px)
+    drop-shadow(0 0 20px rgba(82, 157, 255, 0.22));
+  animation-duration: 8.8s;
+}
+
+.hero-sphere--orbit {
+  --hero-object-opacity: 0.68;
+  width: 5.5%;
+  left: 36%;
+  bottom: 30%;
+  z-index: 4;
+  animation-duration: 1.22s;
+  animation-delay: 0.42s;
+  transform:
+    translate3d(
+      0,
+      calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -155px)),
+      38px
+    )
+    rotate(calc(2deg + (var(--hero-scroll-progress) * 2deg)));
+}
+
+.hero-sphere--orbit .hero-sphere__image {
+  filter:
+    saturate(1.1)
+    blur(0.9px)
+    drop-shadow(0 0 16px rgba(82, 157, 255, 0.22));
+  animation-duration: 7.8s;
+}
+
+.hero-sphere--far-left {
+  --hero-object-opacity: 0.24;
+  width: 8%;
+  left: 38%;
+  top: 20%;
+  z-index: 1;
+  animation-duration: 1.25s;
+  animation-delay: 0.52s;
+  transform:
+    translate3d(
+      0,
+      calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -130px)),
+      6px
+    )
+    rotate(calc(-2deg + (var(--hero-scroll-progress) * -2deg)));
+}
+
+.hero-sphere--far-left .hero-sphere__image {
+  filter:
+    saturate(0.82)
+    blur(11px)
+    drop-shadow(0 0 10px rgba(82, 157, 255, 0.12));
+  animation-duration: 9.8s;
+}
+
+.hero-sphere--far-right {
+  --hero-object-opacity: 0.24;
+  width: 13%;
+  right: 1%;
+  bottom: 15%;
+  z-index: 1;
+  animation-duration: 1.28s;
+  animation-delay: 0.64s;
+  transform:
+    translate3d(
+      0,
+      calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -145px)),
+      4px
+    )
+    rotate(calc(4deg + (var(--hero-scroll-progress) * 2deg)));
+}
+
+.hero-sphere--far-right .hero-sphere__image {
+  filter:
+    saturate(0.78)
+    blur(14px)
+    drop-shadow(0 0 10px rgba(82, 157, 255, 0.1));
+  animation-duration: 10s;
+}
+
+@keyframes heroPenDrop {
+  0% {
+    --hero-pen-enter-y: -360px;
+    --hero-scene-enter-opacity: 0;
+  }
+  68% {
+    --hero-pen-enter-y: 18px;
+    --hero-scene-enter-opacity: 1;
+  }
+  100% {
+    --hero-pen-enter-y: 0px;
+    --hero-scene-enter-opacity: 1;
+  }
+}
+
+@keyframes heroPlatformSlide {
+  0% {
+    --hero-platform-enter-x: 420px;
+    --hero-scene-enter-opacity: 0;
+  }
+  70% {
+    --hero-platform-enter-x: -16px;
+    --hero-scene-enter-opacity: 1;
+  }
+  100% {
+    --hero-platform-enter-x: 0px;
+    --hero-scene-enter-opacity: 1;
+  }
+}
+
+@keyframes heroOrbitReveal {
+  0% {
+    --hero-orbit-enter-scale: 0;
+    --hero-scene-enter-opacity: 0;
+  }
+  72% {
+    --hero-orbit-enter-scale: 1.05;
+    --hero-scene-enter-opacity: 1;
+  }
+  100% {
+    --hero-orbit-enter-scale: 1;
+    --hero-scene-enter-opacity: 1;
+  }
 }
 
 @keyframes penLevitate {
   0%, 100% {
-    translate: 0 0;
-    rotate: 0deg;
+    transform: translate3d(0, 0, 0) rotate(0deg);
   }
   50% {
-    translate: 0 -8px;
-    rotate: -0.8deg;
+    transform: translate3d(0, -8px, 0) rotate(-0.8deg);
   }
 }
 
@@ -1808,8 +2490,13 @@ function handleHeroPointerLeave() {
 }
 
 @keyframes orbitAssetDrift {
-  0%, 100% { translate: 0 0; rotate: 0deg; }
-  50% { translate: 0 -5px; rotate: 1.6deg; }
+  0%, 100% { transform: translate(-50%, -50%) rotate(-8deg); }
+  50% { transform: translate(-50%, calc(-50% - 5px)) rotate(-6.4deg); }
+}
+
+@keyframes platformImageFloat {
+  0%, 100% { transform: translateX(-50%) translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translateX(-50%) translate3d(-5px, -6px, 0) rotate(-0.5deg); }
 }
 
 @keyframes platformPulse {
@@ -1823,22 +2510,137 @@ function handleHeroPointerLeave() {
 }
 
 @keyframes moleculeFloat {
-  0%, 100% { translate: 0 0; rotate: 0deg; }
-  50% { translate: 4px -10px; rotate: 3deg; }
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(4px, -10px, 0) rotate(3deg); }
 }
 
-@keyframes cubeDrift {
-  0%, 100% { translate: 0 0; rotate: 0deg; }
-  50% { translate: -8px 16px; rotate: 7deg; }
+@keyframes sphereAssetDrift {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(-5px, 9px, 0) rotate(2.5deg); }
 }
 
-@keyframes cubeAssetDrift {
-  0%, 100% { translate: 0 0; rotate: 0deg; }
-  50% { translate: -4px 8px; rotate: 4deg; }
+@keyframes heroObjectLand {
+  0% {
+    --hero-land-y: -96px;
+    --hero-land-opacity: 0;
+    scale: 0.96;
+  }
+  62% {
+    --hero-land-y: 7px;
+    --hero-land-opacity: 1;
+    scale: 1.015;
+  }
+  100% {
+    --hero-land-y: 0px;
+    --hero-land-opacity: 1;
+    scale: 1;
+  }
 }
 
 .features {
+  position: relative;
   padding: 8rem 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: transparent;
+}
+
+.features > .container,
+.categories-preview > .container {
+  position: relative;
+  z-index: 2;
+}
+
+.section-decor {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+}
+
+.section-decor img {
+  position: absolute;
+  display: block;
+  height: auto;
+  object-fit: contain;
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+
+[data-theme="light"] .section-decor img {
+  mix-blend-mode: multiply;
+}
+
+[data-theme="light"] .section-decor__molecule {
+  opacity: 0.1;
+  filter: saturate(0.82) blur(4px);
+}
+
+[data-theme="light"] .section-decor__drop {
+  opacity: 0.12;
+  filter: saturate(0.86) blur(3px);
+}
+
+.section-decor__molecule {
+  filter:
+    saturate(1.08)
+    drop-shadow(0 0 18px rgba(45, 139, 255, 0.22));
+  animation: sectionDecorFloat 11s ease-in-out infinite alternate;
+}
+
+.section-decor__drop {
+  filter:
+    saturate(1.04)
+    drop-shadow(0 0 20px rgba(67, 154, 255, 0.2));
+  animation: sectionDecorFloatSoft 9s ease-in-out infinite alternate;
+}
+
+.section-decor__molecule--features-main {
+  width: clamp(150px, 14vw, 230px);
+  right: clamp(-80px, -4vw, -34px);
+  top: 8%;
+  opacity: 0.42;
+  transform: rotate(-11deg);
+}
+
+.section-decor__molecule--features-soft {
+  width: clamp(120px, 11vw, 190px);
+  left: clamp(-76px, -4vw, -32px);
+  bottom: 7%;
+  opacity: 0.22;
+  filter:
+    saturate(0.9)
+    blur(7px)
+    drop-shadow(0 0 12px rgba(45, 139, 255, 0.14));
+  animation-duration: 13s;
+  animation-delay: -5s;
+}
+
+.section-decor__drop--features-top {
+  width: clamp(44px, 4.6vw, 74px);
+  left: 46%;
+  top: 11%;
+  opacity: 0.38;
+  filter:
+    saturate(1.05)
+    blur(1.2px)
+    drop-shadow(0 0 16px rgba(67, 154, 255, 0.18));
+  animation-delay: -2s;
+}
+
+.section-decor__drop--features-low {
+  width: clamp(88px, 8vw, 138px);
+  right: 18%;
+  bottom: 0;
+  opacity: 0.18;
+  filter:
+    saturate(0.86)
+    blur(12px)
+    drop-shadow(0 0 10px rgba(67, 154, 255, 0.1));
+  animation-duration: 15s;
+  animation-delay: -7s;
 }
 
 .features-panel {
@@ -2022,7 +2824,86 @@ function handleHeroPointerLeave() {
 }
 
 .categories-preview {
+  position: relative;
   padding: 4rem 0 8rem;
+  overflow: hidden;
+  isolation: isolate;
+  background: transparent;
+}
+
+.section-decor--categories {
+  inset: -6% 0 0;
+}
+
+.section-decor__molecule--categories-main {
+  width: clamp(160px, 15vw, 260px);
+  right: clamp(-46px, -2.4vw, -18px);
+  top: 18%;
+  opacity: 0.4;
+  transform: rotate(9deg);
+  animation-duration: 12s;
+  animation-delay: -3s;
+}
+
+.section-decor__molecule--categories-soft {
+  width: clamp(110px, 10vw, 180px);
+  left: 34%;
+  top: 7%;
+  opacity: 0.2;
+  filter:
+    saturate(0.88)
+    blur(8px)
+    drop-shadow(0 0 12px rgba(45, 139, 255, 0.12));
+  animation-duration: 14s;
+  animation-delay: -6s;
+}
+
+.section-decor__drop--categories-top {
+  width: clamp(50px, 4.8vw, 78px);
+  right: 30%;
+  top: 13%;
+  opacity: 0.36;
+  filter:
+    saturate(1.08)
+    blur(0.8px)
+    drop-shadow(0 0 16px rgba(67, 154, 255, 0.18));
+  animation-delay: -1s;
+}
+
+.section-decor__drop--categories-mid {
+  width: clamp(78px, 7vw, 120px);
+  left: clamp(-44px, -2vw, -18px);
+  top: 42%;
+  opacity: 0.24;
+  filter:
+    saturate(0.9)
+    blur(8px)
+    drop-shadow(0 0 12px rgba(67, 154, 255, 0.1));
+  animation-duration: 13s;
+  animation-delay: -4s;
+}
+
+.section-decor__drop--categories-low {
+  width: clamp(58px, 5.4vw, 90px);
+  right: 43%;
+  bottom: 8%;
+  opacity: 0.32;
+  filter:
+    saturate(1.02)
+    blur(2px)
+    drop-shadow(0 0 14px rgba(67, 154, 255, 0.14));
+  animation-duration: 10s;
+  animation-delay: -7s;
+}
+
+@keyframes sectionDecorFloat {
+  0% { translate: 0 0; rotate: 0deg; }
+  100% { translate: 10px -16px; rotate: 2deg; }
+}
+
+@keyframes sectionDecorFloatSoft {
+  0% { translate: 0 0; rotate: 0deg; }
+  100% { translate: -8px 13px; rotate: -2deg; }
 }
 
 .section-header {
@@ -2604,6 +3485,120 @@ function handleHeroPointerLeave() {
   line-height: 1.6;
 }
 
+.partnership-teaser {
+  position: relative;
+  padding: 2rem 0 6rem;
+}
+
+.partnership-teaser__inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.82fr) auto;
+  gap: 1.4rem;
+  align-items: center;
+  padding: clamp(1.3rem, 2.2vw, 2rem);
+  border: 1px solid rgba(166, 185, 248, 0.2);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(166, 185, 248, 0.14), transparent 28%),
+    radial-gradient(circle at 84% 74%, rgba(52, 138, 255, 0.12), transparent 28%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.partnership-teaser__inner::after {
+  content: '';
+  position: absolute;
+  right: -80px;
+  top: -90px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  border: 1px solid rgba(166, 185, 248, 0.18);
+  box-shadow: inset 0 0 34px rgba(70, 140, 255, 0.14);
+}
+
+.partnership-teaser__copy,
+.partnership-teaser__stats,
+.partnership-teaser__button {
+  position: relative;
+  z-index: 1;
+}
+
+.partnership-teaser__kicker {
+  display: inline-flex;
+  margin-bottom: 0.9rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(166, 185, 248, 0.34);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(166, 185, 248, 0.08);
+}
+
+.partnership-teaser h2 {
+  margin-bottom: 0.7rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 3vw, 3rem);
+  line-height: 1.05;
+}
+
+.partnership-teaser p {
+  max-width: 680px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.partnership-teaser__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.partnership-teaser__stats div {
+  min-height: 108px;
+  padding: 1rem;
+  border: 1px solid rgba(166, 185, 248, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.partnership-teaser__stats strong {
+  display: block;
+  margin-bottom: 0.55rem;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 1.35rem;
+}
+
+.partnership-teaser__stats span {
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.partnership-teaser__button {
+  min-width: 210px;
+  min-height: 58px;
+}
+
+[data-theme="light"] .partnership-teaser__inner {
+  border-color: rgba(69, 96, 179, 0.16);
+  background:
+    radial-gradient(circle at 10% 20%, rgba(86, 126, 255, 0.11), transparent 28%),
+    radial-gradient(circle at 84% 74%, rgba(52, 138, 255, 0.08), transparent 28%),
+    rgba(255, 255, 255, 0.78);
+  box-shadow: 0 24px 70px rgba(47, 62, 112, 0.1);
+}
+
+[data-theme="light"] .partnership-teaser__stats div {
+  background: rgba(255, 255, 255, 0.62);
+}
+
 .promo-banner {
   position: relative;
   padding: 6rem 0;
@@ -2738,6 +3733,169 @@ function handleHeroPointerLeave() {
 
 .promo-link:hover {
   opacity: 1;
+}
+
+.home-faq {
+  position: relative;
+  padding: 1rem 0 7rem;
+}
+
+.home-faq__layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.75fr) minmax(0, 1.25fr);
+  gap: clamp(1.25rem, 3vw, 3rem);
+  align-items: start;
+}
+
+.home-faq__intro {
+  position: sticky;
+  top: 110px;
+  padding: 2rem;
+  border: 1px solid rgba(166, 185, 248, 0.18);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(166, 185, 248, 0.14), transparent 34%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(16px);
+}
+
+.home-faq__kicker {
+  display: inline-flex;
+  margin-bottom: 1rem;
+  padding: 0.35rem 0.68rem;
+  border-radius: 999px;
+  border: 1px solid rgba(166, 185, 248, 0.35);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+}
+
+.home-faq__intro h2 {
+  margin: 0 0 1rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 2.8vw, 2.65rem);
+  line-height: 1.08;
+}
+
+.home-faq__intro p {
+  margin: 0 0 1.4rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.home-faq__manager {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--accent);
+  font-weight: 800;
+  transition: gap 0.25s ease, opacity 0.25s ease;
+}
+
+.home-faq__manager:hover {
+  gap: 0.8rem;
+  opacity: 0.9;
+}
+
+.home-faq__list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.home-faq__item {
+  position: relative;
+  border: 1px solid rgba(166, 185, 248, 0.16);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(166, 185, 248, 0.08), rgba(255, 255, 255, 0.018) 42%),
+    rgba(18, 18, 24, 0.62);
+  overflow: hidden;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.16);
+  transition: border-color 0.3s ease, background 0.3s ease, transform 0.3s ease;
+}
+
+.home-faq__item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(166, 185, 248, 0.32);
+}
+
+.home-faq__item[open] {
+  border-color: rgba(166, 185, 248, 0.42);
+  background:
+    radial-gradient(circle at 92% 12%, rgba(166, 185, 248, 0.13), transparent 30%),
+    linear-gradient(135deg, rgba(166, 185, 248, 0.11), rgba(255, 255, 255, 0.026) 52%),
+    rgba(18, 18, 24, 0.72);
+}
+
+.home-faq__item summary {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+.home-faq__item summary::-webkit-details-marker {
+  display: none;
+}
+
+.home-faq__item summary svg {
+  color: var(--accent);
+  transition: transform 0.25s ease;
+}
+
+.home-faq__item[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.home-faq__answer {
+  padding: 0 1.25rem 1.2rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+.home-faq__answer p {
+  margin: 0;
+}
+
+.home-faq__answer p + p {
+  margin-top: 0.75rem;
+}
+
+.home-faq__answer strong,
+.home-faq__answer a {
+  color: var(--accent);
+}
+
+.home-faq__answer a {
+  font-weight: 800;
+}
+
+[data-theme="light"] .home-faq__intro {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(120, 153, 247, 0.16), transparent 34%),
+    rgba(255, 255, 255, 0.82);
+  box-shadow: 0 24px 70px rgba(33, 55, 110, 0.1);
+}
+
+[data-theme="light"] .home-faq__item {
+  background:
+    linear-gradient(135deg, rgba(120, 153, 247, 0.11), rgba(255, 255, 255, 0.88) 48%),
+    rgba(255, 255, 255, 0.86);
+  box-shadow: 0 14px 40px rgba(33, 55, 110, 0.08);
+}
+
+[data-theme="light"] .home-faq__item[open] {
+  background:
+    radial-gradient(circle at 92% 12%, rgba(120, 153, 247, 0.15), transparent 30%),
+    rgba(255, 255, 255, 0.94);
 }
 
 .author-avatar {
@@ -2903,17 +4061,22 @@ function handleHeroPointerLeave() {
 
 @media (max-width: 1280px) {
   .hero__container {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 1.75rem;
+    min-height: clamp(570px, calc(100svh - 110px), 720px);
   }
 
   .hero__visual {
-    min-height: clamp(500px, 52vw, 590px);
+    width: 70%;
+  }
+
+  .hero-scene {
+    right: 1%;
+    width: min(100%, 900px);
+    height: min(100%, 660px);
   }
 
   .hero__title {
     font-size: clamp(2rem, 3.05vw, 2.7rem);
-    max-width: 540px;
+    max-width: 660px;
   }
 
   .hero__badge {
@@ -2939,15 +4102,16 @@ function handleHeroPointerLeave() {
   }
 
   .hero-pen-wrap {
-    top: 4%;
-    width: clamp(260px, 24vw, 330px);
-    height: clamp(460px, 48vw, 570px);
+    top: 8%;
+    right: 12%;
+    width: 36%;
+    height: 72%;
   }
 
   .hero-platform {
-    left: 5%;
-    right: 5%;
-    height: 34%;
+    right: 4%;
+    width: 57%;
+    height: 33%;
   }
 
   .hero__actions {
@@ -2972,17 +4136,33 @@ function handleHeroPointerLeave() {
   }
 
   .hero__container {
+    display: grid;
     grid-template-columns: 1fr;
     gap: 1.75rem;
     padding: 0 clamp(1.5rem, 5vw, 3rem);
+    min-height: 0;
+  }
+
+  .hero__container::before {
+    content: none;
   }
 
   .hero__visual {
+    position: relative;
     order: 1;
     min-height: clamp(430px, 56vw, 500px);
     width: min(100%, 760px);
+    height: auto;
     justify-self: center;
     margin: 0 auto;
+  }
+
+  .hero-scene {
+    right: 50%;
+    top: 50%;
+    width: min(100%, 760px);
+    height: min(100%, 500px);
+    transform: translate(50%, -50%);
   }
 
   .hero__visual::before {
@@ -3020,43 +4200,68 @@ function handleHeroPointerLeave() {
   }
 
   .hero-orbits {
-    inset: 5% 6% 19%;
+    right: -6%;
+    top: 23%;
+    width: 72%;
+    height: 46%;
   }
 
   .hero-pen-wrap {
-    left: 50%;
-    top: 0;
-    width: clamp(250px, 36vw, 310px);
-    height: clamp(430px, 60vw, 520px);
+    left: auto;
+    right: 12%;
+    top: 8%;
+    width: 36%;
+    height: 72%;
   }
 
   .hero-platform {
-    left: 11%;
-    right: 11%;
-    bottom: -2%;
-    height: 34%;
+    left: auto;
+    right: 4%;
+    width: 57%;
+    bottom: 1%;
+    height: 33%;
   }
 
   .hero-molecule--one {
     left: 15%;
-    top: 10%;
-    width: clamp(110px, 17vw, 140px);
+    top: 8%;
+    width: 24%;
   }
 
   .hero-molecule--two {
+    right: 2%;
+    top: 48%;
+    width: 19%;
+  }
+
+  .hero-sphere--top {
+    left: 39%;
+    top: 15%;
+  }
+
+  .hero-sphere--right {
     right: 9%;
-    top: 57%;
-    width: clamp(120px, 18vw, 150px);
+    top: 20%;
   }
 
-  .glass-cube--one {
-    right: 15%;
-    top: 14%;
+  .hero-molecule--background {
+    left: 36%;
+    top: 34%;
   }
 
-  .glass-cube--two {
-    left: 14%;
-    bottom: 29%;
+  .hero-sphere--orbit {
+    left: 48%;
+    bottom: 27%;
+  }
+
+  .hero-sphere--far-left {
+    left: 25%;
+    top: 21%;
+  }
+
+  .hero-sphere--far-right {
+    right: -8%;
+    bottom: 20%;
   }
 }
 
@@ -3083,10 +4288,16 @@ function handleHeroPointerLeave() {
 
   .hero__container {
     box-sizing: border-box;
+    display: grid;
     grid-template-columns: 1fr;
     gap: 1.1rem;
     padding: 0 clamp(1rem, 4.5vw, 1.35rem);
     min-width: 0;
+    min-height: 0;
+  }
+
+  .hero__container::before {
+    content: none;
   }
 
   .hero__content {
@@ -3097,10 +4308,20 @@ function handleHeroPointerLeave() {
     overflow: hidden;
   }
 
+  .hero-scene {
+    right: 50%;
+    top: 50%;
+    width: min(100%, 430px);
+    height: min(100%, 390px);
+    transform: translate(50%, -50%);
+  }
+
   .hero__visual {
+    position: relative;
     order: 1;
     max-width: 100vw;
     min-height: clamp(315px, 88vw, 390px);
+    height: auto;
     margin: 0 -1rem 0;
     overflow: hidden;
   }
@@ -3111,8 +4332,18 @@ function handleHeroPointerLeave() {
   }
 
   .hero-orbits {
-    inset: 20% -5% 18%;
-    transform: none;
+    right: -4%;
+    top: 25%;
+    width: 86%;
+    height: 40%;
+    transform:
+      translate3d(
+        var(--hero-idle-x),
+        var(--hero-idle-y),
+        0
+      )
+      rotate(var(--hero-idle-rotate))
+      scale(calc(var(--hero-orbit-enter-scale) - (var(--hero-scroll-progress) * 0.82)));
   }
 
   .hero-orbit-image {
@@ -3123,15 +4354,17 @@ function handleHeroPointerLeave() {
   }
 
   .hero-molecule--two,
-  .glass-cube--two,
-  .hero-orbit-image--front {
+  .hero-sphere--right,
+  .hero-sphere--far-left,
+  .hero-sphere--far-right,
+  .hero-molecule--background {
     display: none;
   }
 
   .hero-molecule--one {
-    left: 9%;
-    top: 18%;
-    width: 94px;
+    left: 8%;
+    top: 16%;
+    width: 118px;
     height: auto;
     opacity: 0.78;
   }
@@ -3146,24 +4379,35 @@ function handleHeroPointerLeave() {
     height: 36px;
   }
 
-  .glass-cube--one {
+  .hero-sphere--top {
+    left: auto;
     right: 10%;
-    top: 14%;
-    width: 72px;
-    opacity: 0.7;
+    top: 15%;
+    width: 54px;
+    opacity: 0.72;
+  }
+
+  .hero-sphere--orbit {
+    left: 53%;
+    bottom: 28%;
+    width: 58px;
+    opacity: 0.56;
   }
 
   .hero-pen-wrap {
-    left: 50%;
-    top: -1%;
+    left: auto;
+    right: auto;
+    right: 21%;
+    top: 5%;
     width: clamp(190px, 58vw, 250px);
-    height: min(88vw, 350px);
-    transform: translateX(-50%) rotate(-9deg);
+    height: min(84vw, 340px);
+    transform: rotate(-9deg);
   }
 
   .hero-platform {
     left: -1%;
-    right: -1%;
+    right: 3%;
+    width: 86%;
     bottom: 0;
     height: 35%;
   }
@@ -3274,6 +4518,59 @@ function handleHeroPointerLeave() {
 
   .features {
     padding: 4rem 0;
+  }
+
+  .home-global-decor__item--molecule-2,
+  .home-global-decor__item--molecule-4,
+  .home-global-decor__item--molecule-5,
+  .home-global-decor__item--drop-2,
+  .home-global-decor__item--drop-4,
+  .home-global-decor__item--drop-6 {
+    display: none;
+  }
+
+  .home-global-decor::before {
+    background-size: 72px 72px;
+    opacity: 0.72;
+  }
+
+  .home-global-decor__item--molecule-1 {
+    width: 138px;
+    right: -42px;
+    top: 24%;
+    opacity: 0.16;
+  }
+
+  .home-global-decor__item--molecule-3 {
+    width: 120px;
+    right: -24px;
+    top: 61%;
+    opacity: 0.18;
+  }
+
+  .home-global-decor__item--drop-1,
+  .home-global-decor__item--drop-3,
+  .home-global-decor__item--drop-5 {
+    opacity: 0.16;
+  }
+
+  .section-decor__molecule--features-main,
+  .section-decor__molecule--categories-main {
+    width: 140px;
+    opacity: 0.24;
+  }
+
+  .section-decor__molecule--features-soft,
+  .section-decor__molecule--categories-soft,
+  .section-decor__drop--features-low,
+  .section-decor__drop--categories-mid {
+    display: none;
+  }
+
+  .section-decor__drop--features-top,
+  .section-decor__drop--categories-top,
+  .section-decor__drop--categories-low {
+    opacity: 0.2;
   }
 
   .features-panel,
@@ -3413,6 +4710,30 @@ function handleHeroPointerLeave() {
     font-size: 0.84rem;
   }
 
+  .partnership-teaser {
+    padding: 0 0 3rem;
+  }
+
+  .partnership-teaser__inner {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1.15rem;
+    border-radius: 18px;
+  }
+
+  .partnership-teaser__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .partnership-teaser__stats div {
+    min-height: auto;
+    padding: 0.9rem;
+  }
+
+  .partnership-teaser__button {
+    width: 100%;
+  }
+
   .promo-banner {
     padding: 3rem 0;
     margin: 2rem 0 4rem;
@@ -3437,6 +4758,40 @@ function handleHeroPointerLeave() {
 
   .promo-timer {
     font-size: 0.8rem;
+  }
+
+  .home-faq {
+    padding: 1rem 0 3rem;
+  }
+
+  .home-faq__layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .home-faq__intro {
+    position: relative;
+    top: auto;
+    padding: 1.35rem;
+    border-radius: 20px;
+  }
+
+  .home-faq__intro h2 {
+    font-size: 1.55rem;
+  }
+
+  .home-faq__item {
+    border-radius: 16px;
+  }
+
+  .home-faq__item summary {
+    padding: 1rem;
+    font-size: 0.92rem;
+  }
+
+  .home-faq__answer {
+    padding: 0 1rem 1rem;
+    font-size: 0.86rem;
   }
 
   .newsletter {
@@ -3473,18 +4828,34 @@ function handleHeroPointerLeave() {
   }
 
   .hero__container {
+    display: grid;
     grid-template-columns: 1fr;
     gap: 1.75rem;
     padding: 0 clamp(1.5rem, 5vw, 3rem);
+    min-height: 0;
+  }
+
+  .hero__container::before {
+    content: none;
   }
 
   .hero__visual {
+    position: relative;
     order: 1;
     min-height: clamp(430px, 56vw, 500px);
     width: min(100%, 760px);
+    height: auto;
     justify-self: center;
     margin: 0 auto;
     overflow: hidden;
+  }
+
+  .hero-scene {
+    right: 50%;
+    top: 50%;
+    width: min(100%, 760px);
+    height: min(100%, 500px);
+    transform: translate(50%, -50%);
   }
 
   .hero__visual::before {
@@ -3539,28 +4910,42 @@ function handleHeroPointerLeave() {
   }
 
   .hero-orbits {
-    inset: 5% 6% 19%;
+    right: -6%;
+    top: 23%;
+    width: 72%;
+    height: 46%;
   }
 
-  .hero-orbit-image--front,
   .hero-molecule--two,
-  .glass-cube--two {
+  .hero-molecule--background,
+  .hero-sphere--right,
+  .hero-sphere--orbit,
+  .hero-sphere--far-left,
+  .hero-sphere--far-right {
     display: block;
   }
 
   .hero-pen-wrap {
-    left: 50%;
-    top: 0;
-    width: clamp(250px, 36vw, 310px);
-    height: clamp(430px, 60vw, 520px);
-    transform: translateX(-50%) rotate(-9deg);
+    left: auto;
+    right: 12%;
+    top: 8%;
+    width: 36%;
+    height: 72%;
+    transform:
+      translate3d(
+        var(--hero-idle-x),
+        calc(var(--hero-pen-enter-y) + var(--hero-idle-y) + (var(--hero-scroll-progress) * -330px)),
+        80px
+      )
+      rotate(calc(-9deg + var(--hero-idle-rotate)));
   }
 
   .hero-platform {
-    left: 11%;
-    right: 11%;
-    bottom: -2%;
-    height: 34%;
+    left: auto;
+    right: 4%;
+    width: 57%;
+    bottom: 1%;
+    height: 33%;
   }
 
   .hero-platform img {
@@ -3569,36 +4954,62 @@ function handleHeroPointerLeave() {
 
   .hero-molecule--one {
     left: 15%;
-    top: 10%;
-    width: clamp(110px, 17vw, 140px);
+    top: 8%;
+    width: 24%;
   }
 
   .hero-molecule--two {
+    right: 2%;
+    top: 48%;
+    width: 19%;
+  }
+
+  .hero-sphere--top {
+    left: 39%;
+    top: 15%;
+    width: clamp(50px, 7vw, 70px);
+  }
+
+  .hero-sphere--right {
     right: 9%;
-    top: 57%;
-    width: clamp(120px, 18vw, 150px);
+    top: 20%;
+    width: clamp(86px, 13vw, 118px);
   }
 
-  .glass-cube--one {
-    right: 15%;
-    top: 14%;
-    width: clamp(72px, 10vw, 92px);
+  .hero-sphere--orbit {
+    left: 48%;
+    bottom: 27%;
+    width: clamp(56px, 8vw, 78px);
   }
 
-  .glass-cube--two {
-    left: 14%;
-    bottom: 29%;
-    width: clamp(104px, 15vw, 132px);
+  .hero-sphere--far-left {
+    left: 25%;
+    top: 21%;
+    width: clamp(74px, 10vw, 96px);
+  }
+
+  .hero-sphere--far-right {
+    right: -8%;
+    bottom: 20%;
+    width: clamp(106px, 14vw, 136px);
+  }
+
+  .hero-molecule--background {
+    left: 36%;
+    top: 34%;
+    width: clamp(72px, 10vw, 96px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-pen-wrap,
+  .hero-orbits,
   .hero-orbit,
   .hero-platform::before,
+  .hero-platform,
   .platform-ring,
   .hero-molecule,
-  .glass-cube {
+  .hero-sphere {
     animation: none;
   }
 }
