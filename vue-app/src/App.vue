@@ -1321,10 +1321,15 @@ onBeforeUnmount(() => {
   }
 
   .telegram-fab {
-    width: 52px;
-    height: 52px;
-    right: 14px;
-    bottom: 14px;
+    width: 44px;
+    height: 44px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .telegram-fab svg {
+    width: 20px;
+    height: 20px;
   }
 }
 </style>

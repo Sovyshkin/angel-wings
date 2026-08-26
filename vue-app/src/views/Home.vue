@@ -4267,7 +4267,7 @@ function queueHeroScrollProgress() {
 
 @media (max-width: 768px) {
   .hero {
-    padding: 1.25rem 0 3rem;
+    padding: 0.35rem 0 2.75rem;
     min-height: auto;
     align-items: flex-start;
   }
@@ -4290,7 +4290,7 @@ function queueHeroScrollProgress() {
     box-sizing: border-box;
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1.1rem;
+    gap: 0.2rem;
     padding: 0 clamp(1rem, 4.5vw, 1.35rem);
     min-width: 0;
     min-height: 0;
@@ -4303,39 +4303,41 @@ function queueHeroScrollProgress() {
   .hero__content {
     order: 2;
     width: 100%;
-    max-width: 390px;
+    max-width: 420px;
     justify-self: center;
-    overflow: hidden;
+    overflow: visible;
+    margin-top: -0.45rem;
   }
 
   .hero-scene {
     right: 50%;
-    top: 50%;
+    top: 49%;
     width: min(100%, 430px);
-    height: min(100%, 390px);
+    height: min(100%, 330px);
     transform: translate(50%, -50%);
   }
 
   .hero__visual {
     position: relative;
     order: 1;
-    max-width: 100vw;
-    min-height: clamp(315px, 88vw, 390px);
+    width: calc(100% + 2rem);
+    max-width: none;
+    min-height: clamp(292px, 72vw, 342px);
     height: auto;
-    margin: 0 -1rem 0;
+    margin: 0 -1rem -0.2rem;
     overflow: hidden;
   }
 
   .hero__visual::before {
-    inset: 0 -12% 8%;
+    inset: 0 -10% 0;
     opacity: 0.75;
   }
 
   .hero-orbits {
-    right: -4%;
-    top: 25%;
-    width: 86%;
-    height: 40%;
+    right: -1%;
+    top: 24%;
+    width: 78%;
+    height: 39%;
     transform:
       translate3d(
         var(--hero-idle-x),
@@ -4347,8 +4349,8 @@ function queueHeroScrollProgress() {
   }
 
   .hero-orbit-image {
-    width: 122%;
-    left: 51%;
+    width: 112%;
+    left: 50%;
     top: 52%;
     opacity: 0.36;
   }
@@ -4362,11 +4364,11 @@ function queueHeroScrollProgress() {
   }
 
   .hero-molecule--one {
-    left: 8%;
-    top: 16%;
-    width: 118px;
+    left: 12%;
+    top: 20%;
+    width: 92px;
     height: auto;
-    opacity: 0.78;
+    opacity: 0.58;
   }
 
   .hero-molecule span {
@@ -4381,39 +4383,51 @@ function queueHeroScrollProgress() {
 
   .hero-sphere--top {
     left: auto;
-    right: 10%;
-    top: 15%;
-    width: 54px;
-    opacity: 0.72;
+    right: 18%;
+    top: 18%;
+    width: 48px;
+    opacity: 0.6;
   }
 
   .hero-sphere--orbit {
-    left: 53%;
+    left: 50%;
     bottom: 28%;
-    width: 58px;
-    opacity: 0.56;
+    width: 46px;
+    opacity: 0.42;
   }
 
   .hero-pen-wrap {
     left: auto;
     right: auto;
-    right: 21%;
-    top: 5%;
-    width: clamp(190px, 58vw, 250px);
-    height: min(84vw, 340px);
-    transform: rotate(-9deg);
+    right: 27%;
+    top: 3%;
+    width: clamp(178px, 48vw, 218px);
+    height: clamp(260px, 69vw, 318px);
+    transform:
+      translate3d(
+        var(--hero-idle-x),
+        calc(var(--hero-pen-enter-y) + var(--hero-idle-y) + (var(--hero-scroll-progress) * -230px)),
+        80px
+      )
+      rotate(calc(10deg + var(--hero-idle-rotate)));
   }
 
   .hero-platform {
-    left: -1%;
-    right: 3%;
-    width: 86%;
-    bottom: 0;
-    height: 35%;
+    left: 5%;
+    right: auto;
+    width: 76%;
+    bottom: 1%;
+    height: 34%;
+    transform: translate3d(
+      calc(var(--hero-platform-enter-x) + var(--hero-idle-x) + (var(--hero-scroll-progress) * 250px)),
+      var(--hero-idle-y),
+      0
+    )
+    rotate(var(--hero-idle-rotate));
   }
 
   .hero-platform img {
-    width: 116%;
+    width: 108%;
   }
 
   .floating-elements {
@@ -4425,18 +4439,18 @@ function queueHeroScrollProgress() {
     font-size: clamp(0.58rem, 2.8vw, 0.66rem);
     gap: 0.52rem;
     max-width: 100%;
-    margin-bottom: 1rem;
+    margin-bottom: 0.9rem;
     letter-spacing: 0.055em;
   }
 
   .hero__title {
-    font-size: clamp(1.36rem, 5.9vw, 1.62rem);
+    font-size: clamp(1.5rem, 6.35vw, 1.82rem);
     line-height: 1.08;
-    width: min(100%, 345px);
+    width: min(100%, 370px);
     max-width: 100%;
     overflow-wrap: break-word;
     text-wrap: balance;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.15rem;
   }
 
   .hero-title-break {
@@ -4461,8 +4475,8 @@ function queueHeroScrollProgress() {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
-    max-width: 330px;
-    margin-bottom: 1.35rem;
+    max-width: 100%;
+    margin-bottom: 1.25rem;
   }
 
   .hero-chip {
@@ -4498,7 +4512,7 @@ function queueHeroScrollProgress() {
 
   .hero__actions {
     width: 100%;
-    max-width: 360px;
+    max-width: 100%;
     flex-direction: column;
     gap: 0.62rem;
     margin-bottom: 1.6rem;

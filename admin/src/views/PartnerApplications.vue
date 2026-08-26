@@ -166,6 +166,9 @@ async function fetchApplications() {
     })
     applications.value = data.applications || []
     pendingCount.value = data.pendingCount || 0
+    window.dispatchEvent(new CustomEvent('partner-applications-count', {
+      detail: { pendingCount: pendingCount.value }
+    }))
   } catch (e) {
     alert(e.response?.data?.error || 'Не удалось загрузить заявки')
   } finally {
@@ -188,7 +191,9 @@ async function approveApplication(application) {
       ? data.welcomeEmailSent
         ? 'Партнёр создан, письмо с доступом отправлено.'
         : 'Партнёр создан, но письмо с доступом не отправилось. Проверьте настройки почты.'
-      : 'Пользователь назначен партнёром.'
+      : data.welcomeEmailSent
+        ? 'Пользователь назначен партнёром, письмо об одобрении отправлено.'
+        : 'Пользователь назначен партнёром, но письмо об одобрении не отправилось.'
     alert(note)
     await fetchApplications()
   } catch (e) {
@@ -207,7 +212,10 @@ async function rejectApplication(application) {
 
   processingId.value = application.id
   try {
-    await axios.post(`/api/admin/partner-applications/${application.id}/reject`, { adminNote })
+    const { data } = await axios.post(`/api/admin/partner-applications/${application.id}/reject`, { adminNote })
+    if (!data.rejectionEmailSent) {
+      alert('Заявка отклонена, но письмо об отклонении не отправилось. Проверьте настройки почты.')
+    }
     await fetchApplications()
   } catch (e) {
     alert(e.response?.data?.error || 'Не удалось отклонить заявку')

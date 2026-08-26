@@ -56,6 +56,7 @@
               <path d="M9 15h6M9 18h4"/>
             </svg>
             <span class="nav-text">Заявки</span>
+            <span v-if="pendingApplicationsCount" class="nav-badge">{{ pendingApplicationsCount }}</span>
           </router-link>
           <router-link to="/partner-payouts" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -171,6 +172,7 @@
                 <path d="M9 15h6M9 18h4"/>
               </svg>
               Заявки партнёров
+              <span v-if="pendingApplicationsCount" class="nav-badge nav-badge--mobile">{{ pendingApplicationsCount }}</span>
             </router-link>
             <router-link to="/partner-payouts" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -213,7 +215,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import axios from 'axios'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import { useThemeStore } from '../store/theme'
@@ -223,11 +226,40 @@ const router = useRouter()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const mobileMenuOpen = ref(false)
+const pendingApplicationsCount = ref(0)
+
+async function fetchPendingApplicationsCount() {
+  try {
+    const { data } = await axios.get('/api/admin/partner-applications', {
+      params: { status: 'PENDING', limit: 1 }
+    })
+    pendingApplicationsCount.value = Number(data.pendingCount || 0)
+  } catch (error) {
+    console.error('[ADMIN] failed to fetch partner applications count', error)
+  }
+}
+
+function handlePartnerApplicationsCount(event) {
+  pendingApplicationsCount.value = Number(event?.detail?.pendingCount || 0)
+}
 
 function logout() {
   authStore.logout()
   router.push('/login')
 }
+
+onMounted(() => {
+  fetchPendingApplicationsCount()
+  window.addEventListener('partner-applications-count', handlePartnerApplicationsCount)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('partner-applications-count', handlePartnerApplicationsCount)
+})
+
+watch(() => route.fullPath, () => {
+  fetchPendingApplicationsCount()
+})
 </script>
 
 <style scoped>
@@ -307,6 +339,26 @@ function logout() {
 .nav-item.router-link-active {
   color: var(--accent);
   background: var(--accent-dim);
+}
+
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: #ff6464;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 3px rgba(255, 100, 100, 0.14);
+}
+
+.nav-badge--mobile {
+  margin-left: auto;
 }
 
 .header-actions {

@@ -90,12 +90,22 @@ async function ensurePartnerForUser(tx, userId) {
   })
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 async function sendPartnerWelcomeEmail({ to, name, password, partnerUrl }) {
   const rawName = String(name || 'партнёр')
   const safeName = escapeHtml(rawName)
   const safeEmail = escapeHtml(to)
-  const safePassword = escapeHtml(password)
+  const safePassword = password ? escapeHtml(password) : ''
   const safePartnerUrl = escapeHtml(partnerUrl)
+  const hasPassword = Boolean(password)
 
   return emailService.sendMail({
     to,
@@ -106,9 +116,9 @@ async function sendPartnerWelcomeEmail({ to, name, password, partnerUrl }) {
       'Ваша заявка в партнёрскую программу Angel Wings одобрена.',
       `Личный кабинет партнёра: ${partnerUrl}`,
       `Email для входа: ${to}`,
-      `Временный пароль: ${password}`,
+      hasPassword ? `Временный пароль: ${password}` : 'Используйте ваш текущий пароль от сайта для входа.',
       '',
-      'После входа рекомендуем сменить пароль в профиле.'
+      hasPassword ? 'После входа рекомендуем сменить пароль в профиле.' : 'Партнёрский кабинет уже доступен в вашем аккаунте.'
     ].join('\n'),
     html: `
       <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:28px;background:#f6f7fb;color:#151722">
@@ -119,10 +129,49 @@ async function sendPartnerWelcomeEmail({ to, name, password, partnerUrl }) {
           <div style="background:#f3f5ff;border-radius:18px;padding:20px;margin:0 0 20px;border:1px solid #dfe5ff">
             <p style="margin:0 0 8px;color:#687087;font-size:14px">Email для входа</p>
             <div style="font-size:17px;font-weight:700;color:#22305f;margin-bottom:16px">${safeEmail}</div>
-            <p style="margin:0 0 8px;color:#687087;font-size:14px">Временный пароль</p>
-            <div style="font-family:Menlo,Consolas,monospace;font-size:20px;font-weight:700;letter-spacing:.04em;background:#151722;color:#fff;border-radius:14px;padding:14px 16px">${safePassword}</div>
+            ${hasPassword ? `
+              <p style="margin:0 0 8px;color:#687087;font-size:14px">Временный пароль</p>
+              <div style="font-family:Menlo,Consolas,monospace;font-size:20px;font-weight:700;letter-spacing:.04em;background:#151722;color:#fff;border-radius:14px;padding:14px 16px">${safePassword}</div>
+            ` : `
+              <p style="margin:0;color:#687087;font-size:14px;line-height:1.5">Используйте ваш текущий пароль от сайта. Партнёрский кабинет уже доступен в аккаунте.</p>
+            `}
           </div>
           <a href="${safePartnerUrl}" style="display:block;text-align:center;background:#9fb3ff;color:#10131f;text-decoration:none;font-weight:700;border-radius:16px;padding:16px 20px">Открыть кабинет партнёра</a>
+        </div>
+      </div>
+    `
+  })
+}
+
+async function sendPartnerApplicationRejectedEmail({ to, name, adminNote }) {
+  const rawName = String(name || 'партнёр')
+  const rawNote = String(adminNote || '').trim()
+  const safeName = escapeHtml(rawName)
+  const safeNote = escapeHtml(rawNote)
+
+  return emailService.sendMail({
+    to,
+    subject: 'Статус заявки в партнёрскую программу Angel Wings',
+    text: [
+      `Здравствуйте, ${rawName}!`,
+      '',
+      'Спасибо за интерес к партнёрской программе Angel Wings.',
+      'По итогам проверки сейчас мы не можем принять вашу заявку.',
+      rawNote ? `Комментарий: ${rawNote}` : '',
+      '',
+      'Если появятся новые вводные по формату сотрудничества, вы можете подать заявку повторно позже.'
+    ].filter(Boolean).join('\n'),
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:28px;background:#f6f7fb;color:#151722">
+        <div style="background:#fff;border-radius:24px;padding:30px;border:1px solid #e7e9f2">
+          <div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#8da2ff;font-weight:700;margin-bottom:12px">Angel Wings</div>
+          <h1 style="margin:0 0 14px;font-size:25px;line-height:1.2">Заявка рассмотрена</h1>
+          <p style="margin:0 0 18px;font-size:16px;line-height:1.55">Здравствуйте, ${safeName}! Спасибо за интерес к партнёрской программе.</p>
+          <div style="background:#fff6f6;border-radius:18px;padding:20px;margin:0 0 20px;border:1px solid #ffdada">
+            <p style="margin:0;color:#6f3b3b;font-size:15px;line-height:1.55">По итогам проверки сейчас мы не можем принять вашу заявку.</p>
+            ${safeNote ? `<p style="margin:16px 0 8px;color:#8a5454;font-size:14px">Комментарий</p><div style="font-size:15px;line-height:1.55;color:#151722">${safeNote}</div>` : ''}
+          </div>
+          <p style="margin:0;color:#73788a;font-size:14px;line-height:1.5">Если появятся новые вводные по формату сотрудничества, вы можете подать заявку повторно позже.</p>
         </div>
       </div>
     `
@@ -372,18 +421,16 @@ router.post('/partner-applications/:id/approve', authenticate, requireAdmin, asy
     })
 
     let welcomeEmailSent = false
-    if (createdUser && generatedPassword) {
-      try {
-        await sendPartnerWelcomeEmail({
-          to: result.user.email,
-          name: result.user.name,
-          password: generatedPassword,
-          partnerUrl
-        })
-        welcomeEmailSent = true
-      } catch (emailError) {
-        console.error('[PARTNER_APPLICATION] welcome email failed', emailError?.message || emailError)
-      }
+    try {
+      await sendPartnerWelcomeEmail({
+        to: result.user.email,
+        name: result.user.name,
+        password: createdUser ? generatedPassword : null,
+        partnerUrl
+      })
+      welcomeEmailSent = true
+    } catch (emailError) {
+      console.error('[PARTNER_APPLICATION] approval email failed', emailError?.message || emailError)
     }
 
     res.json({
@@ -436,7 +483,19 @@ router.post('/partner-applications/:id/reject', authenticate, requireAdmin, asyn
       }
     })
 
-    res.json({ application })
+    let rejectionEmailSent = false
+    try {
+      await sendPartnerApplicationRejectedEmail({
+        to: application.email,
+        name: application.name,
+        adminNote
+      })
+      rejectionEmailSent = true
+    } catch (emailError) {
+      console.error('[PARTNER_APPLICATION] rejection email failed', emailError?.message || emailError)
+    }
+
+    res.json({ application, rejectionEmailSent })
   } catch (error) {
     next(error)
   }
