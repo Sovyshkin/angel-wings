@@ -1,17 +1,17 @@
 <template>
   <div class="home">
     <div class="home-global-decor" aria-hidden="true">
-      <img class="home-global-decor__item home-global-decor__item--molecule-1" src="/hero-assets/молекула-1.png" alt="" loading="lazy" decoding="async">
-      <img class="home-global-decor__item home-global-decor__item--molecule-2" src="/hero-assets/молекула-2.png" alt="" loading="lazy" decoding="async">
-      <img class="home-global-decor__item home-global-decor__item--molecule-3" src="/hero-assets/молекула-3.png" alt="" loading="lazy" decoding="async">
-      <img class="home-global-decor__item home-global-decor__item--molecule-4" src="/hero-assets/молекула-1.png" alt="" loading="lazy" decoding="async">
-      <img class="home-global-decor__item home-global-decor__item--molecule-5" src="/hero-assets/молекула-2.png" alt="" loading="lazy" decoding="async">
-      <img class="home-global-decor__item home-global-decor__item--drop-1" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
-      <img class="home-global-decor__item home-global-decor__item--drop-2" src="/hero-assets/капелька-2.png" alt="" loading="lazy" decoding="async">
-      <img class="home-global-decor__item home-global-decor__item--drop-3" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
-      <img class="home-global-decor__item home-global-decor__item--drop-4" src="/hero-assets/капелька-2.png" alt="" loading="lazy" decoding="async">
-      <img class="home-global-decor__item home-global-decor__item--drop-5" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
-      <img class="home-global-decor__item home-global-decor__item--drop-6" src="/hero-assets/капелька-2.png" alt="" loading="lazy" decoding="async">
+      <img class="home-global-decor__item home-global-decor__item--molecule-1" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--molecule-2" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--molecule-3" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--molecule-4" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--molecule-5" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-1" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-2" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-3" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-4" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-5" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-6" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
     </div>
 
     <section class="hero">
@@ -82,46 +82,52 @@
             <div class="hero-orbits">
               <img
                 class="hero-orbit-image hero-orbit-image--back"
-                src="/hero-assets/кольцо.png"
+                src="/hero-assets/кольцо-1300.webp"
                 alt=""
+                width="1300"
+                height="431"
                 loading="eager"
                 decoding="async"
+                fetchpriority="high"
               >
             </div>
 
             <div class="hero-molecule hero-molecule--one">
-              <img class="hero-molecule__image" src="/hero-assets/молекула-1.png" alt="" loading="eager" decoding="async">
+              <img class="hero-molecule__image" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-molecule hero-molecule--two">
-              <img class="hero-molecule__image" src="/hero-assets/молекула-2.png" alt="" loading="eager" decoding="async">
+              <img class="hero-molecule__image" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-molecule hero-molecule--background">
-              <img class="hero-molecule__image" src="/hero-assets/молекула-3.png" alt="" loading="eager" decoding="async">
+              <img class="hero-molecule__image" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
             </div>
 
             <div class="hero-sphere hero-sphere--top">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-1.png" alt="" loading="eager" decoding="async">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--right">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" loading="eager" decoding="async">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--orbit">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-1.png" alt="" loading="eager" decoding="async">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--far-left">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" loading="eager" decoding="async">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--far-right">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" loading="eager" decoding="async">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
             </div>
 
             <div class="hero-pen-wrap">
               <img
                 class="hero-pen"
-                src="/hero-assets/ручка.png"
+                src="/hero-assets/ручка-720.webp"
                 alt=""
+                width="720"
+                height="1080"
                 loading="eager"
                 decoding="async"
+                fetchpriority="high"
               >
             </div>
 
@@ -129,8 +135,11 @@
               <img
                 src="/hero-assets/подставка.png"
                 alt=""
+                width="1672"
+                height="941"
                 loading="eager"
                 decoding="async"
+                fetchpriority="high"
               >
             </div>
           </div>
@@ -140,10 +149,10 @@
 
     <section class="features" id="features" data-aos="fade-up" data-aos-offset="100">
       <div class="section-decor section-decor--features" aria-hidden="true">
-        <img class="section-decor__molecule section-decor__molecule--features-main" src="/hero-assets/молекула-1.png" alt="" loading="lazy" decoding="async">
-        <img class="section-decor__molecule section-decor__molecule--features-soft" src="/hero-assets/молекула-3.png" alt="" loading="lazy" decoding="async">
-        <img class="section-decor__drop section-decor__drop--features-top" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
-        <img class="section-decor__drop section-decor__drop--features-low" src="/hero-assets/капелька-2.png" alt="" loading="lazy" decoding="async">
+        <img class="section-decor__molecule section-decor__molecule--features-main" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__molecule section-decor__molecule--features-soft" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--features-top" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--features-low" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
       </div>
       <div class="container">
         <div class="features-panel" data-aos="fade-up" data-aos-delay="100">
@@ -228,11 +237,11 @@
 
     <section ref="catalogPreview" class="categories-preview" data-aos="fade-left" data-aos-offset="100">
       <div class="section-decor section-decor--categories" aria-hidden="true">
-        <img class="section-decor__molecule section-decor__molecule--categories-main" src="/hero-assets/молекула-2.png" alt="" loading="lazy" decoding="async">
-        <img class="section-decor__molecule section-decor__molecule--categories-soft" src="/hero-assets/молекула-3.png" alt="" loading="lazy" decoding="async">
-        <img class="section-decor__drop section-decor__drop--categories-top" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
-        <img class="section-decor__drop section-decor__drop--categories-mid" src="/hero-assets/капелька-2.png" alt="" loading="lazy" decoding="async">
-        <img class="section-decor__drop section-decor__drop--categories-low" src="/hero-assets/капелька-1.png" alt="" loading="lazy" decoding="async">
+        <img class="section-decor__molecule section-decor__molecule--categories-main" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__molecule section-decor__molecule--categories-soft" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--categories-top" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--categories-mid" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--categories-low" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
       </div>
       <div class="container">
         <div class="section-header" data-aos="fade-up">
@@ -558,7 +567,7 @@
             </a>
           </div>
 
-          <div class="home-faq__list">
+          <div ref="homeFaqList" class="home-faq__list">
             <details class="home-faq__item" open>
               <summary>
                 <span>Как рассчитать щелчки и единицы?</span>
@@ -705,6 +714,7 @@ const cartStore = useCartStore()
 const DISPLAY_CATEGORY_SLUGS = ['longevitiya', 'immunomodulyatory', 'neiropeptide', 'growth']
 const catalogPreview = ref(null)
 const heroVisual = ref(null)
+const homeFaqList = ref(null)
 let catalogObserver = null
 let catalogFallbackTimer = null
 let catalogLoaded = false
@@ -751,6 +761,7 @@ onMounted(() => {
   updateHeroScrollProgress()
   window.addEventListener('scroll', queueHeroScrollProgress, { passive: true })
   window.addEventListener('resize', queueHeroScrollProgress, { passive: true })
+  homeFaqList.value?.addEventListener('click', handleHomeFaqClick)
 
   if ('IntersectionObserver' in window && catalogPreview.value) {
     catalogObserver = new IntersectionObserver((entries) => {
@@ -767,6 +778,7 @@ onBeforeUnmount(() => {
   catalogObserver?.disconnect()
   if (catalogFallbackTimer) window.clearTimeout(catalogFallbackTimer)
   if (heroScrollFrame) window.cancelAnimationFrame(heroScrollFrame)
+  homeFaqList.value?.removeEventListener('click', handleHomeFaqClick)
   window.removeEventListener('scroll', queueHeroScrollProgress)
   window.removeEventListener('resize', queueHeroScrollProgress)
 })
@@ -847,6 +859,82 @@ function getProductWord(count) {
   if (mod10 === 1 && mod100 !== 11) return 'товар'
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'товара'
   return 'товаров'
+}
+
+function handleHomeFaqClick(event) {
+  const summary = event.target.closest('summary')
+  if (!summary || !homeFaqList.value?.contains(summary)) return
+
+  const item = summary.closest('.home-faq__item')
+  if (!item) return
+
+  event.preventDefault()
+  toggleHomeFaqItem(item)
+}
+
+function toggleHomeFaqItem(item) {
+  const answer = item.querySelector('.home-faq__answer')
+  if (!answer) {
+    item.open = !item.open
+    return
+  }
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (reduceMotion) {
+    item.open = !item.open
+    return
+  }
+
+  answer.removeEventListener('transitionend', handleHomeFaqTransitionEnd)
+  window.cancelAnimationFrame(Number(item.dataset.faqAnimationFrame || 0))
+
+  if (item.open) {
+    item.dataset.faqClosing = 'true'
+    answer.style.height = `${answer.scrollHeight}px`
+    answer.style.opacity = '1'
+    answer.style.transform = 'translateY(0)'
+    answer.offsetHeight
+
+    item.dataset.faqAnimationFrame = String(window.requestAnimationFrame(() => {
+      answer.style.height = '0px'
+      answer.style.opacity = '0'
+      answer.style.transform = 'translateY(-6px)'
+      answer.addEventListener('transitionend', handleHomeFaqTransitionEnd)
+    }))
+    return
+  }
+
+  item.open = true
+  answer.style.height = '0px'
+  answer.style.opacity = '0'
+  answer.style.transform = 'translateY(-6px)'
+
+  item.dataset.faqAnimationFrame = String(window.requestAnimationFrame(() => {
+    answer.style.height = `${answer.scrollHeight}px`
+    answer.style.opacity = '1'
+    answer.style.transform = 'translateY(0)'
+    answer.addEventListener('transitionend', handleHomeFaqTransitionEnd)
+  }))
+}
+
+function handleHomeFaqTransitionEnd(event) {
+  if (event.propertyName !== 'height') return
+
+  const answer = event.currentTarget
+  const item = answer.closest('.home-faq__item')
+  if (!item) return
+
+  answer.removeEventListener('transitionend', handleHomeFaqTransitionEnd)
+  delete item.dataset.faqAnimationFrame
+
+  if (item.dataset.faqClosing === 'true') {
+    item.open = false
+    delete item.dataset.faqClosing
+  }
+
+  answer.style.height = ''
+  answer.style.opacity = ''
+  answer.style.transform = ''
 }
 
 function updateHeroScrollProgress() {
@@ -1224,7 +1312,10 @@ function queueHeroScrollProgress() {
 .hero__container::before {
   content: '';
   position: absolute;
-  inset: -8% 0;
+  top: -8%;
+  bottom: -8%;
+  left: calc((100vw - 100%) / -2);
+  right: calc((100vw - 100%) / -2);
   z-index: 5;
   pointer-events: none;
   background:
@@ -2070,10 +2161,10 @@ function queueHeroScrollProgress() {
   --hero-idle-y: 0px;
   --hero-idle-rotate: 0deg;
   left: auto;
-  right: 4%;
-  bottom: 1%;
-  width: 57%;
-  height: 33%;
+  right: 7%;
+  bottom: 0;
+  width: 54%;
+  height: 32%;
   border-radius: 0;
   overflow: visible;
   background: none;
@@ -2100,6 +2191,7 @@ function queueHeroScrollProgress() {
   left: 50%;
   bottom: 0;
   width: 100%;
+  height: auto;
   transform: translateX(-50%);
   opacity: 0.95;
   mix-blend-mode: screen;
@@ -3855,10 +3947,16 @@ function queueHeroScrollProgress() {
 }
 
 .home-faq__answer {
+  box-sizing: border-box;
+  overflow: hidden;
   padding: 0 1.25rem 1.2rem;
   color: var(--text-secondary);
   line-height: 1.7;
   font-size: 0.95rem;
+  transition:
+    height 0.34s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.24s ease,
+    transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .home-faq__answer p {
@@ -4109,9 +4207,9 @@ function queueHeroScrollProgress() {
   }
 
   .hero-platform {
-    right: 4%;
-    width: 57%;
-    height: 33%;
+    right: 7%;
+    width: 54%;
+    height: 32%;
   }
 
   .hero__actions {
@@ -4216,10 +4314,10 @@ function queueHeroScrollProgress() {
 
   .hero-platform {
     left: auto;
-    right: 4%;
-    width: 57%;
+    right: 13%;
+    width: 36%;
     bottom: 1%;
-    height: 33%;
+    height: 23%;
   }
 
   .hero-molecule--one {
@@ -4297,7 +4395,29 @@ function queueHeroScrollProgress() {
   }
 
   .hero__container::before {
-    content: none;
+    content: '';
+    position: absolute;
+    left: -1.5rem;
+    right: -1.5rem;
+    top: clamp(220px, 54vw, 300px);
+    height: clamp(210px, 48vw, 270px);
+    z-index: 7;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(7, 8, 14, 0) 0%,
+        rgba(7, 8, 14, 0.58) 36%,
+        rgba(7, 8, 14, 0.78) 58%,
+        rgba(7, 8, 14, 0.18) 82%,
+        rgba(7, 8, 14, 0) 100%
+      ),
+      linear-gradient(
+        90deg,
+        rgba(10, 22, 48, 0.14) 0%,
+        rgba(7, 8, 14, 0.02) 38%,
+        rgba(7, 8, 14, 0.34) 100%
+      );
   }
 
   .hero__content {
@@ -4325,7 +4445,7 @@ function queueHeroScrollProgress() {
     min-height: clamp(292px, 72vw, 342px);
     height: auto;
     margin: 0 -1rem -0.2rem;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .hero__visual::before {
@@ -4333,8 +4453,31 @@ function queueHeroScrollProgress() {
     opacity: 0.75;
   }
 
+  .hero__visual::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 -5.25rem;
+    z-index: 6;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(7, 8, 14, 0) 38%,
+        rgba(7, 8, 14, 0.32) 64%,
+        rgba(7, 8, 14, 0.82) 86%,
+        rgba(7, 8, 14, 0) 100%
+      ),
+      linear-gradient(
+        90deg,
+        rgba(7, 8, 14, 0.34) 0%,
+        rgba(7, 8, 14, 0.04) 26%,
+        rgba(7, 8, 14, 0) 58%,
+        rgba(7, 8, 14, 0.5) 100%
+      );
+  }
+
   .hero-orbits {
-    right: -1%;
+    right: 6%;
     top: 24%;
     width: 78%;
     height: 39%;
@@ -4397,15 +4540,14 @@ function queueHeroScrollProgress() {
   }
 
   .hero-pen-wrap {
-    left: auto;
+    left: 53%;
     right: auto;
-    right: 27%;
     top: 3%;
     width: clamp(178px, 48vw, 218px);
     height: clamp(260px, 69vw, 318px);
     transform:
       translate3d(
-        var(--hero-idle-x),
+        calc(-50% + var(--hero-idle-x)),
         calc(var(--hero-pen-enter-y) + var(--hero-idle-y) + (var(--hero-scroll-progress) * -230px)),
         80px
       )
@@ -4413,10 +4555,10 @@ function queueHeroScrollProgress() {
   }
 
   .hero-platform {
-    left: 5%;
+    left: 13%;
     right: auto;
     width: 76%;
-    bottom: 1%;
+    bottom: -28%;
     height: 34%;
     transform: translate3d(
       calc(var(--hero-platform-enter-x) + var(--hero-idle-x) + (var(--hero-scroll-progress) * 250px)),

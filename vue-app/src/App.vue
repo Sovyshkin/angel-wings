@@ -298,7 +298,7 @@ const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
 const cursorRoot = ref(null)
 const cursorDotRefs = ref([])
-const cursorDots = Array.from({ length: 14 })
+const cursorDots = Array.from({ length: 8 })
 const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
 const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
 let cursorFrameId = 0
@@ -352,7 +352,7 @@ onMounted(() => {
   captureAttributionFromUrl()
 
   const canUseCustomCursor =
-    window.matchMedia('(pointer: fine)').matches &&
+    window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches &&
     !window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   if (!canUseCustomCursor || !cursorRoot.value) {
@@ -372,6 +372,7 @@ onMounted(() => {
     y: window.innerHeight / 2
   }
   const nativeCursorSelector = '[data-native-cursor]'
+  let cursorStarted = false
 
   const onPointerMove = (event) => {
     if (event.pointerType === 'touch') return
@@ -382,6 +383,11 @@ onMounted(() => {
     mouse.x = event.clientX
     mouse.y = event.clientY
     cursorRoot.value?.classList.add('is-visible')
+
+    if (!cursorStarted) {
+      cursorStarted = true
+      renderCursor()
+    }
   }
 
   const onPointerOver = (event) => {
@@ -443,7 +449,6 @@ onMounted(() => {
     document.removeEventListener('pointerover', onPointerOver)
     document.removeEventListener('pointerout', onPointerOut)
   }
-  renderCursor()
 })
 
 onBeforeUnmount(() => {
@@ -458,7 +463,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
-@media (pointer: fine) and (prefers-reduced-motion: no-preference) {
+@media (min-width: 1024px) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   html.has-goo-cursor,
   html.has-goo-cursor * {
     cursor: none !important;
@@ -518,7 +523,7 @@ onBeforeUnmount(() => {
   background: #11131c;
 }
 
-@media (pointer: coarse), (max-width: 480px), (prefers-reduced-motion: reduce) {
+@media (pointer: coarse), (max-width: 1023px), (prefers-reduced-motion: reduce) {
   .cursor-goo {
     display: none;
   }

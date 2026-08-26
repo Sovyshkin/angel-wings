@@ -2,10 +2,10 @@
   <div class="partnership-page">
     <section class="partnership-hero">
       <div class="partnership-bg" aria-hidden="true">
-        <img class="partnership-bg__molecule partnership-bg__molecule--one" src="/hero-assets/молекула-1.png" alt="">
-        <img class="partnership-bg__molecule partnership-bg__molecule--two" src="/hero-assets/молекула-3.png" alt="">
-        <img class="partnership-bg__drop partnership-bg__drop--one" src="/hero-assets/капелька-1.png" alt="">
-        <img class="partnership-bg__drop partnership-bg__drop--two" src="/hero-assets/капелька-2.png" alt="">
+        <img class="partnership-bg__molecule partnership-bg__molecule--one" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="partnership-bg__molecule partnership-bg__molecule--two" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="partnership-bg__drop partnership-bg__drop--one" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="partnership-bg__drop partnership-bg__drop--two" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
       </div>
 
       <div class="container partnership-hero__grid">

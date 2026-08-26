@@ -9,7 +9,12 @@
             <span class="faq-icon">+</span>
           </button>
 
-          <transition name="faq-expand">
+          <transition
+            name="faq-expand"
+            @enter="enterFaqAnswer"
+            @after-enter="afterEnterFaqAnswer"
+            @leave="leaveFaqAnswer"
+          >
             <div v-if="openIndex === index" class="faq-answer-wrap">
               <p class="faq-answer">{{ item.answer }}</p>
             </div>
@@ -54,6 +59,34 @@ const faqItems = [
 
 function toggle(index) {
   openIndex.value = openIndex.value === index ? -1 : index
+}
+
+function enterFaqAnswer(el) {
+  el.style.height = '0px'
+  el.style.opacity = '0'
+  el.style.transform = 'translateY(-6px)'
+
+  requestAnimationFrame(() => {
+    el.style.height = `${el.scrollHeight}px`
+    el.style.opacity = '1'
+    el.style.transform = 'translateY(0)'
+  })
+}
+
+function afterEnterFaqAnswer(el) {
+  el.style.height = 'auto'
+}
+
+function leaveFaqAnswer(el) {
+  el.style.height = `${el.scrollHeight}px`
+  el.style.opacity = '1'
+  el.style.transform = 'translateY(0)'
+
+  requestAnimationFrame(() => {
+    el.style.height = '0px'
+    el.style.opacity = '0'
+    el.style.transform = 'translateY(-6px)'
+  })
 }
 </script>
 
@@ -109,6 +142,8 @@ function toggle(index) {
 }
 
 .faq-answer-wrap {
+  box-sizing: border-box;
+  overflow: hidden;
   padding: 0 1.25rem 1rem;
 }
 
@@ -120,12 +155,15 @@ function toggle(index) {
 
 .faq-expand-enter-active,
 .faq-expand-leave-active {
-  transition: all 0.25s ease;
+  transition:
+    height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.24s ease,
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .faq-expand-enter-from,
 .faq-expand-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-6px);
 }
 </style>
