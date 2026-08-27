@@ -877,12 +877,12 @@ function updateHeroScrollProgress() {
 
   const range = Math.max(1, rect.height * 0.82)
   const progress = Math.min(1, Math.max(0, -rect.top / range))
-  const roundedProgress = Math.round(progress * 50) / 50
+  const roundedProgress = Math.round(progress * 1000) / 1000
 
-  if (Math.abs(roundedProgress - lastHeroScrollProgress) < 0.019) return
+  if (Math.abs(roundedProgress - lastHeroScrollProgress) < 0.002) return
   lastHeroScrollProgress = roundedProgress
 
-  const next = roundedProgress.toFixed(2)
+  const next = roundedProgress.toFixed(3)
 
   if (next === heroScrollProgress) return
   heroScrollProgress = next
@@ -901,7 +901,7 @@ function queueHeroScrollProgress() {
     heroScrollActive = false
     heroVisual.value?.classList.remove('is-scroll-active')
     homeRoot.value?.classList.remove('is-scroll-active')
-  }, 260)
+  }, 320)
 
   if (heroScrollFrame) return
   heroScrollFrame = window.requestAnimationFrame(updateHeroScrollProgress)
@@ -1010,7 +1010,6 @@ function queueHeroScrollProgress() {
   mix-blend-mode: screen;
   pointer-events: none;
   user-select: none;
-  animation: pageDecorDrift 15s ease-in-out infinite alternate;
 }
 
 .home-global-decor__item--molecule-1 {
@@ -2020,11 +2019,11 @@ function queueHeroScrollProgress() {
   transform:
     translate3d(
       var(--hero-idle-x),
-      var(--hero-idle-y),
+      calc(var(--hero-idle-y) + (var(--hero-scroll-progress) * -140px)),
       0
     )
     rotate(var(--hero-idle-rotate))
-    scale(calc(var(--hero-orbit-enter-scale) - (var(--hero-scroll-progress) * 0.82)));
+    scale(calc(var(--hero-orbit-enter-scale) - (var(--hero-scroll-progress) * 0.18)));
   opacity: var(--hero-scene-enter-opacity);
   transform-origin: 52% 50%;
   animation: heroOrbitReveal 1.45s cubic-bezier(0.16, 1, 0.3, 1) 0.16s both;
@@ -2074,7 +2073,7 @@ function queueHeroScrollProgress() {
   transform:
     translate3d(
       var(--hero-idle-x),
-      calc(var(--hero-pen-enter-y) + var(--hero-idle-y) + (var(--hero-scroll-progress) * -330px)),
+      calc(var(--hero-pen-enter-y) + var(--hero-idle-y) + (var(--hero-scroll-progress) * -260px)),
       80px
     )
     rotate(calc(12deg + var(--hero-idle-rotate)));
@@ -2121,7 +2120,7 @@ function queueHeroScrollProgress() {
   background: none;
   box-shadow: none;
   transform: translate3d(
-    calc(var(--hero-platform-enter-x) + var(--hero-idle-x) + (var(--hero-scroll-progress) * 380px)),
+    calc(var(--hero-platform-enter-x) + var(--hero-idle-x) + (var(--hero-scroll-progress) * 260px)),
     var(--hero-idle-y),
     0
   )
@@ -2181,7 +2180,7 @@ function queueHeroScrollProgress() {
   user-select: none;
   z-index: 4;
   opacity: calc(var(--hero-object-opacity) * var(--hero-land-opacity));
-  will-change: transform, opacity;
+  will-change: transform;
   animation: heroObjectLand 1.18s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
 }
 
@@ -2213,7 +2212,7 @@ function queueHeroScrollProgress() {
       calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -210px)),
       42px
     )
-    rotate(calc(-7deg + (var(--hero-scroll-progress) * -4deg)));
+    rotate(-7deg);
 }
 
 .hero-molecule--one .hero-molecule__image {
@@ -2238,7 +2237,7 @@ function queueHeroScrollProgress() {
       calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -230px)),
       40px
     )
-    rotate(calc(-8deg + (var(--hero-scroll-progress) * 3deg)));
+    rotate(-8deg);
 }
 
 .hero-molecule--two .hero-molecule__image {
@@ -2263,7 +2262,7 @@ function queueHeroScrollProgress() {
       calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -170px)),
       10px
     )
-    rotate(calc(7deg + (var(--hero-scroll-progress) * 2deg)));
+    rotate(7deg);
 }
 
 .hero-molecule--background .hero-molecule__image {
@@ -2295,7 +2294,7 @@ function queueHeroScrollProgress() {
   user-select: none;
   z-index: 4;
   opacity: calc(var(--hero-object-opacity) * var(--hero-land-opacity));
-  will-change: transform, opacity;
+  will-change: transform;
   animation: heroObjectLand 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
 }
 
@@ -2378,7 +2377,7 @@ function queueHeroScrollProgress() {
       calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -190px)),
       40px
     )
-    rotate(calc(3deg + (var(--hero-scroll-progress) * 2deg)));
+    rotate(3deg);
 }
 
 .hero-sphere--top .hero-sphere__image {
@@ -2403,7 +2402,7 @@ function queueHeroScrollProgress() {
       calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -165px)),
       60px
     )
-    rotate(calc(-5deg + (var(--hero-scroll-progress) * -3deg)));
+    rotate(-5deg);
 }
 
 .hero-sphere--right .hero-sphere__image {
@@ -2428,7 +2427,7 @@ function queueHeroScrollProgress() {
       calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -155px)),
       38px
     )
-    rotate(calc(2deg + (var(--hero-scroll-progress) * 2deg)));
+    rotate(2deg);
 }
 
 .hero-sphere--orbit .hero-sphere__image {
@@ -2453,7 +2452,7 @@ function queueHeroScrollProgress() {
       calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -130px)),
       6px
     )
-    rotate(calc(-2deg + (var(--hero-scroll-progress) * -2deg)));
+    rotate(-2deg);
 }
 
 .hero-sphere--far-left .hero-sphere__image {
@@ -2478,7 +2477,7 @@ function queueHeroScrollProgress() {
       calc(var(--hero-land-y) + (var(--hero-scroll-progress) * -145px)),
       4px
     )
-    rotate(calc(4deg + (var(--hero-scroll-progress) * 2deg)));
+    rotate(4deg);
 }
 
 .hero-sphere--far-right .hero-sphere__image {
@@ -2645,14 +2644,12 @@ function queueHeroScrollProgress() {
   filter:
     saturate(1.08)
     drop-shadow(0 0 18px rgba(45, 139, 255, 0.22));
-  animation: sectionDecorFloat 11s ease-in-out infinite alternate;
 }
 
 .section-decor__drop {
   filter:
     saturate(1.04)
     drop-shadow(0 0 20px rgba(67, 154, 255, 0.2));
-  animation: sectionDecorFloatSoft 9s ease-in-out infinite alternate;
 }
 
 .section-decor__molecule--features-main {
@@ -4071,7 +4068,6 @@ function queueHeroScrollProgress() {
   border-radius: 50%;
   filter: blur(80px);
   opacity: 0.15;
-  animation: floatRandom 20s ease-in-out infinite;
 }
 
 .float-shape-1 {
@@ -4462,11 +4458,11 @@ function queueHeroScrollProgress() {
     transform:
       translate3d(
         var(--hero-idle-x),
-        var(--hero-idle-y),
+        calc(var(--hero-idle-y) + (var(--hero-scroll-progress) * -90px)),
         0
       )
       rotate(var(--hero-idle-rotate))
-      scale(calc(var(--hero-orbit-enter-scale) - (var(--hero-scroll-progress) * 0.82)));
+      scale(calc(var(--hero-orbit-enter-scale) - (var(--hero-scroll-progress) * 0.12)));
   }
 
   .hero-orbit-image {
@@ -4526,7 +4522,7 @@ function queueHeroScrollProgress() {
     transform:
       translate3d(
         calc(-50% + var(--hero-idle-x)),
-        calc(var(--hero-pen-enter-y) + var(--hero-idle-y) + (var(--hero-scroll-progress) * -230px)),
+        calc(var(--hero-pen-enter-y) + var(--hero-idle-y) + (var(--hero-scroll-progress) * -165px)),
         80px
       )
       rotate(calc(10deg + var(--hero-idle-rotate)));
@@ -4539,7 +4535,7 @@ function queueHeroScrollProgress() {
     bottom: -28%;
     height: 34%;
     transform: translate3d(
-      calc(var(--hero-platform-enter-x) + var(--hero-idle-x) + (var(--hero-scroll-progress) * 250px)),
+      calc(var(--hero-platform-enter-x) + var(--hero-idle-x) + (var(--hero-scroll-progress) * 170px)),
       var(--hero-idle-y),
       0
     )
@@ -5072,7 +5068,7 @@ function queueHeroScrollProgress() {
     transform:
       translate3d(
         var(--hero-idle-x),
-        calc(var(--hero-pen-enter-y) + var(--hero-idle-y) + (var(--hero-scroll-progress) * -330px)),
+        calc(var(--hero-pen-enter-y) + var(--hero-idle-y) + (var(--hero-scroll-progress) * -220px)),
         80px
       )
       rotate(calc(-9deg + var(--hero-idle-rotate)));
