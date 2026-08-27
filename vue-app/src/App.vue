@@ -303,6 +303,7 @@ const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
 const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
 let cursorFrameId = 0
 let removeCursorMoveListener = null
+let removePageActivityListener = null
 
 const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value
@@ -351,6 +352,21 @@ function captureAttributionFromUrl() {
 onMounted(() => {
   captureAttributionFromUrl()
 
+  const updatePageActivity = () => {
+    const isInactive = document.hidden || !document.hasFocus()
+    document.documentElement.classList.toggle('is-page-inactive', isInactive)
+  }
+
+  updatePageActivity()
+  document.addEventListener('visibilitychange', updatePageActivity)
+  window.addEventListener('blur', updatePageActivity)
+  window.addEventListener('focus', updatePageActivity)
+  removePageActivityListener = () => {
+    document.removeEventListener('visibilitychange', updatePageActivity)
+    window.removeEventListener('blur', updatePageActivity)
+    window.removeEventListener('focus', updatePageActivity)
+  }
+
   const canUseCustomCursor =
     window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches &&
     !window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -374,8 +390,21 @@ onMounted(() => {
   const nativeCursorSelector = '[data-native-cursor]'
   let cursorStarted = false
 
+  const stopCursorLoop = () => {
+    if (cursorFrameId) {
+      window.cancelAnimationFrame(cursorFrameId)
+      cursorFrameId = 0
+    }
+    cursorStarted = false
+  }
+
   const onPointerMove = (event) => {
     if (event.pointerType === 'touch') return
+    if (document.hidden || !document.hasFocus()) {
+      cursorRoot.value?.classList.remove('is-visible')
+      stopCursorLoop()
+      return
+    }
     if (event.target?.closest?.(nativeCursorSelector)) {
       cursorRoot.value?.classList.remove('is-visible')
       return
@@ -407,6 +436,12 @@ onMounted(() => {
   }
 
   const renderCursor = () => {
+    if (document.hidden || !document.hasFocus()) {
+      cursorRoot.value?.classList.remove('is-visible')
+      stopCursorLoop()
+      return
+    }
+
     let x = mouse.x
     let y = mouse.y
 
@@ -444,10 +479,14 @@ onMounted(() => {
   window.addEventListener('pointermove', onPointerMove, { passive: true })
   document.addEventListener('pointerover', onPointerOver, { passive: true })
   document.addEventListener('pointerout', onPointerOut, { passive: true })
+  window.addEventListener('blur', stopCursorLoop)
+  document.addEventListener('visibilitychange', stopCursorLoop)
   removeCursorMoveListener = () => {
     window.removeEventListener('pointermove', onPointerMove)
     document.removeEventListener('pointerover', onPointerOver)
     document.removeEventListener('pointerout', onPointerOut)
+    window.removeEventListener('blur', stopCursorLoop)
+    document.removeEventListener('visibilitychange', stopCursorLoop)
   }
 })
 
@@ -458,7 +497,11 @@ onBeforeUnmount(() => {
   if (removeCursorMoveListener) {
     removeCursorMoveListener()
   }
+  if (removePageActivityListener) {
+    removePageActivityListener()
+  }
   document.documentElement.classList.remove('has-goo-cursor')
+  document.documentElement.classList.remove('is-page-inactive')
 })
 </script>
 
@@ -495,6 +538,16 @@ onBeforeUnmount(() => {
 
 .cursor-goo.is-visible {
   opacity: 1;
+}
+
+html.is-page-inactive .cursor-goo {
+  opacity: 0 !important;
+}
+
+html.is-page-inactive *,
+html.is-page-inactive *::before,
+html.is-page-inactive *::after {
+  animation-play-state: paused !important;
 }
 
 .cursor-goo__filter {
