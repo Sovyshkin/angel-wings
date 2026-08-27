@@ -1,5 +1,5 @@
 <template>
-  <div class="home">
+  <div ref="homeRoot" class="home">
     <div class="home-global-decor" aria-hidden="true">
       <img class="home-global-decor__item home-global-decor__item--molecule-1" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
       <img class="home-global-decor__item home-global-decor__item--molecule-2" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
@@ -712,6 +712,7 @@ import { trackProductEvent } from '../api/analytics'
 const productStore = useProductStore()
 const cartStore = useCartStore()
 const DISPLAY_CATEGORY_SLUGS = ['longevitiya', 'immunomodulyatory', 'neiropeptide', 'growth']
+const homeRoot = ref(null)
 const catalogPreview = ref(null)
 const heroVisual = ref(null)
 let catalogObserver = null
@@ -719,6 +720,8 @@ let catalogFallbackTimer = null
 let catalogLoaded = false
 let heroScrollFrame = null
 let heroScrollProgress = '0'
+let heroScrollIdleTimer = null
+let heroScrollActive = false
 
 const featuredProducts = computed(() => {
   return productStore.products.slice(0, 4)
@@ -776,6 +779,8 @@ onBeforeUnmount(() => {
   catalogObserver?.disconnect()
   if (catalogFallbackTimer) window.clearTimeout(catalogFallbackTimer)
   if (heroScrollFrame) window.cancelAnimationFrame(heroScrollFrame)
+  if (heroScrollIdleTimer) window.clearTimeout(heroScrollIdleTimer)
+  heroScrollActive = false
   window.removeEventListener('scroll', queueHeroScrollProgress)
   window.removeEventListener('resize', queueHeroScrollProgress)
 })
@@ -860,15 +865,18 @@ function getProductWord(count) {
 
 function updateHeroScrollProgress() {
   heroScrollFrame = null
-  if (!heroVisual.value) return
+  if (!heroVisual.value || document.hidden) return
 
   const hero = heroVisual.value.closest('.hero')
   if (!hero) return
 
   const rect = hero.getBoundingClientRect()
+  if (rect.bottom < 0 && heroScrollProgress === '1.00') return
+  if (rect.top > window.innerHeight && heroScrollProgress === '0.00') return
+
   const range = Math.max(1, rect.height * 0.82)
   const progress = Math.min(1, Math.max(0, -rect.top / range))
-  const next = progress.toFixed(3)
+  const next = progress.toFixed(2)
 
   if (next === heroScrollProgress) return
   heroScrollProgress = next
@@ -876,6 +884,19 @@ function updateHeroScrollProgress() {
 }
 
 function queueHeroScrollProgress() {
+  if (!heroScrollActive) {
+    heroScrollActive = true
+    heroVisual.value?.classList.add('is-scroll-active')
+    homeRoot.value?.classList.add('is-scroll-active')
+  }
+
+  if (heroScrollIdleTimer) window.clearTimeout(heroScrollIdleTimer)
+  heroScrollIdleTimer = window.setTimeout(() => {
+    heroScrollActive = false
+    heroVisual.value?.classList.remove('is-scroll-active')
+    homeRoot.value?.classList.remove('is-scroll-active')
+  }, 180)
+
   if (heroScrollFrame) return
   heroScrollFrame = window.requestAnimationFrame(updateHeroScrollProgress)
 }
@@ -983,7 +1004,6 @@ function queueHeroScrollProgress() {
   mix-blend-mode: screen;
   pointer-events: none;
   user-select: none;
-  will-change: transform;
   animation: pageDecorDrift 15s ease-in-out infinite alternate;
 }
 
@@ -1460,6 +1480,7 @@ function queueHeroScrollProgress() {
   perspective: 1200px;
   isolation: isolate;
   pointer-events: none;
+  contain: layout;
 }
 
 .hero__visual::before {
@@ -1497,6 +1518,7 @@ function queueHeroScrollProgress() {
   transform-style: preserve-3d;
   pointer-events: none;
   user-select: none;
+  contain: layout;
 }
 
 .hero-orbits {
@@ -2016,6 +2038,7 @@ function queueHeroScrollProgress() {
   mix-blend-mode: screen;
   filter: drop-shadow(0 0 8px rgba(70, 130, 255, 0.35));
   animation: orbitAssetDrift 24s ease-in-out infinite;
+  backface-visibility: hidden;
 }
 
 .hero-orbit-image--back {
@@ -2067,6 +2090,7 @@ function queueHeroScrollProgress() {
     drop-shadow(0 0 34px rgba(72, 151, 255, 0.24));
   animation: penLevitate 6.8s ease-in-out infinite;
   will-change: transform;
+  backface-visibility: hidden;
 }
 
 [data-theme="light"] .hero-pen {
@@ -2124,6 +2148,7 @@ function queueHeroScrollProgress() {
     drop-shadow(0 0 24px rgba(43, 142, 255, 0.28));
   animation: platformImageFloat 7.8s ease-in-out infinite alternate;
   will-change: transform;
+  backface-visibility: hidden;
 }
 
 [data-theme="light"] .hero-platform img {
@@ -2166,6 +2191,7 @@ function queueHeroScrollProgress() {
     drop-shadow(0 0 16px rgba(25, 134, 255, 0.36));
   animation: moleculeFloat 9s ease-in-out infinite;
   will-change: transform;
+  backface-visibility: hidden;
 }
 
 .hero-molecule--one {
@@ -2284,6 +2310,20 @@ function queueHeroScrollProgress() {
     drop-shadow(0 0 18px rgba(62, 157, 255, 0.28));
   animation: sphereAssetDrift 7.4s ease-in-out infinite;
   will-change: transform;
+  backface-visibility: hidden;
+}
+
+.home.is-scroll-active .home-global-decor__item,
+.home.is-scroll-active .orb,
+.home.is-scroll-active .section-decor img,
+.home.is-scroll-active .float-shape,
+.hero__visual.is-scroll-active .hero-pen,
+.hero__visual.is-scroll-active .hero-platform::before,
+.hero__visual.is-scroll-active .hero-platform img,
+.hero__visual.is-scroll-active .hero-orbit-image,
+.hero__visual.is-scroll-active .hero-molecule__image,
+.hero__visual.is-scroll-active .hero-sphere__image {
+  animation-play-state: paused;
 }
 
 [data-theme="light"] .hero-molecule,
@@ -2579,7 +2619,6 @@ function queueHeroScrollProgress() {
   height: auto;
   object-fit: contain;
   mix-blend-mode: screen;
-  will-change: transform;
 }
 
 [data-theme="light"] .section-decor img {
