@@ -567,7 +567,7 @@
             </a>
           </div>
 
-          <div ref="homeFaqList" class="home-faq__list">
+          <div class="home-faq__list">
             <details class="home-faq__item" open>
               <summary>
                 <span>Как рассчитать щелчки и единицы?</span>
@@ -714,7 +714,6 @@ const cartStore = useCartStore()
 const DISPLAY_CATEGORY_SLUGS = ['longevitiya', 'immunomodulyatory', 'neiropeptide', 'growth']
 const catalogPreview = ref(null)
 const heroVisual = ref(null)
-const homeFaqList = ref(null)
 let catalogObserver = null
 let catalogFallbackTimer = null
 let catalogLoaded = false
@@ -761,7 +760,6 @@ onMounted(() => {
   updateHeroScrollProgress()
   window.addEventListener('scroll', queueHeroScrollProgress, { passive: true })
   window.addEventListener('resize', queueHeroScrollProgress, { passive: true })
-  homeFaqList.value?.addEventListener('click', handleHomeFaqClick)
 
   if ('IntersectionObserver' in window && catalogPreview.value) {
     catalogObserver = new IntersectionObserver((entries) => {
@@ -778,7 +776,6 @@ onBeforeUnmount(() => {
   catalogObserver?.disconnect()
   if (catalogFallbackTimer) window.clearTimeout(catalogFallbackTimer)
   if (heroScrollFrame) window.cancelAnimationFrame(heroScrollFrame)
-  homeFaqList.value?.removeEventListener('click', handleHomeFaqClick)
   window.removeEventListener('scroll', queueHeroScrollProgress)
   window.removeEventListener('resize', queueHeroScrollProgress)
 })
@@ -859,82 +856,6 @@ function getProductWord(count) {
   if (mod10 === 1 && mod100 !== 11) return 'товар'
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'товара'
   return 'товаров'
-}
-
-function handleHomeFaqClick(event) {
-  const summary = event.target.closest('summary')
-  if (!summary || !homeFaqList.value?.contains(summary)) return
-
-  const item = summary.closest('.home-faq__item')
-  if (!item) return
-
-  event.preventDefault()
-  toggleHomeFaqItem(item)
-}
-
-function toggleHomeFaqItem(item) {
-  const answer = item.querySelector('.home-faq__answer')
-  if (!answer) {
-    item.open = !item.open
-    return
-  }
-
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduceMotion) {
-    item.open = !item.open
-    return
-  }
-
-  answer.removeEventListener('transitionend', handleHomeFaqTransitionEnd)
-  window.cancelAnimationFrame(Number(item.dataset.faqAnimationFrame || 0))
-
-  if (item.open) {
-    item.dataset.faqClosing = 'true'
-    answer.style.height = `${answer.scrollHeight}px`
-    answer.style.opacity = '1'
-    answer.style.transform = 'translateY(0)'
-    answer.offsetHeight
-
-    item.dataset.faqAnimationFrame = String(window.requestAnimationFrame(() => {
-      answer.style.height = '0px'
-      answer.style.opacity = '0'
-      answer.style.transform = 'translateY(-6px)'
-      answer.addEventListener('transitionend', handleHomeFaqTransitionEnd)
-    }))
-    return
-  }
-
-  item.open = true
-  answer.style.height = '0px'
-  answer.style.opacity = '0'
-  answer.style.transform = 'translateY(-6px)'
-
-  item.dataset.faqAnimationFrame = String(window.requestAnimationFrame(() => {
-    answer.style.height = `${answer.scrollHeight}px`
-    answer.style.opacity = '1'
-    answer.style.transform = 'translateY(0)'
-    answer.addEventListener('transitionend', handleHomeFaqTransitionEnd)
-  }))
-}
-
-function handleHomeFaqTransitionEnd(event) {
-  if (event.propertyName !== 'height') return
-
-  const answer = event.currentTarget
-  const item = answer.closest('.home-faq__item')
-  if (!item) return
-
-  answer.removeEventListener('transitionend', handleHomeFaqTransitionEnd)
-  delete item.dataset.faqAnimationFrame
-
-  if (item.dataset.faqClosing === 'true') {
-    item.open = false
-    delete item.dataset.faqClosing
-  }
-
-  answer.style.height = ''
-  answer.style.opacity = ''
-  answer.style.transform = ''
 }
 
 function updateHeroScrollProgress() {
@@ -3949,14 +3870,26 @@ function queueHeroScrollProgress() {
 .home-faq__answer {
   box-sizing: border-box;
   overflow: hidden;
-  padding: 0 1.25rem 1.2rem;
+  max-height: 0;
+  padding: 0 1.25rem;
   color: var(--text-secondary);
   line-height: 1.7;
   font-size: 0.95rem;
+  opacity: 0;
+  transform: translate3d(0, -6px, 0);
   transition:
-    height 0.34s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.24s ease,
-    transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height 0.42s cubic-bezier(0.16, 1, 0.3, 1),
+    padding-bottom 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.22s ease,
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: max-height, opacity, transform;
+}
+
+.home-faq__item[open] .home-faq__answer {
+  max-height: 520px;
+  padding-bottom: 1.2rem;
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 .home-faq__answer p {
@@ -4946,8 +4879,12 @@ function queueHeroScrollProgress() {
   }
 
   .home-faq__answer {
-    padding: 0 1rem 1rem;
+    padding: 0 1rem;
     font-size: 0.86rem;
+  }
+
+  .home-faq__item[open] .home-faq__answer {
+    padding-bottom: 1rem;
   }
 
   .newsletter {
