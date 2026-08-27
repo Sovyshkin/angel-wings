@@ -325,3 +325,19 @@ model PartnerPayment {
 
   @@map("partner_payments")
 }
+
+model Dealer {
+  id        Int      @id @default(autoincrement())
+  city      String
+  phone     String?
+  address   String?
+  telegram  String?
+  instagram String?
+  max       String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, city])
+  @@map("dealers")
+}

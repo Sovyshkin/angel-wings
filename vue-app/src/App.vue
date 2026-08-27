@@ -39,6 +39,7 @@
         <nav class="header__nav">
           <router-link to="/" class="nav-link">Главная</router-link>
           <router-link to="/catalog" class="nav-link">Каталог</router-link>
+          <router-link to="/dealers" class="nav-link">Дилеры</router-link>
           <router-link to="/partnership" class="nav-link">Партнерам</router-link>
         </nav>
         <div class="header__actions">
@@ -127,6 +128,15 @@
           </svg>
           Партнерам
         </router-link>
+        <router-link to="/dealers" class="nav-link" @click="closeMobileMenu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 21h18"/>
+            <path d="M5 21V7l8-4 6 4v14"/>
+            <path d="M9 9h1M9 13h1M14 9h1M14 13h1"/>
+            <path d="M10 21v-4h4v4"/>
+          </svg>
+          Дилеры
+        </router-link>
         <router-link v-if="authStore.isAuthenticated" to="/profile" class="nav-link" @click="closeMobileMenu">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
@@ -213,6 +223,7 @@
               <li><router-link to="/delivery-payment">Доставка и оплата</router-link></li>
               <li><router-link to="/guarantees">Гарантии</router-link></li>
               <li><router-link to="/faq">Частые вопросы</router-link></li>
+              <li><router-link to="/dealers">Дилеры</router-link></li>
               <li><router-link to="/partnership">Партнёрство</router-link></li>
               <li><router-link to="/contact">Контакты</router-link></li>
               <li><a href="/certificate-pts-105445.pdf" target="_blank" rel="noopener">Сертификат</a></li>

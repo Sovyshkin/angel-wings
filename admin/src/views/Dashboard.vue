@@ -64,6 +64,15 @@
             </svg>
             <span class="nav-text">Выплаты</span>
           </router-link>
+          <router-link to="/dealers" class="nav-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 21h18"/>
+              <path d="M5 21V7l8-4 6 4v14"/>
+              <path d="M9 9h1M9 13h1M14 9h1M14 13h1"/>
+              <path d="M10 21v-4h4v4"/>
+            </svg>
+            <span class="nav-text">Дилеры</span>
+          </router-link>
           <router-link to="/promo-codes" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
@@ -179,6 +188,15 @@
                 <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M7 15h4"/>
               </svg>
               Выплаты
+            </router-link>
+            <router-link to="/dealers" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 21h18"/>
+                <path d="M5 21V7l8-4 6 4v14"/>
+                <path d="M9 9h1M9 13h1M14 9h1M14 13h1"/>
+                <path d="M10 21v-4h4v4"/>
+              </svg>
+              Дилеры
             </router-link>
             <router-link to="/promo-codes" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

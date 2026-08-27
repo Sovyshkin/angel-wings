@@ -30,6 +30,7 @@ const routes = [
       { path: 'partner-applications', name: 'PartnerApplications', component: () => import('../views/PartnerApplications.vue') },
       { path: 'partners/:id', name: 'PartnerDetail', component: () => import('../views/PartnerDetail.vue') },
       { path: 'partner-payouts', name: 'PartnerPayouts', component: () => import('../views/PartnerPayouts.vue') },
+      { path: 'dealers', name: 'AdminDealers', component: () => import('../views/Dealers.vue') },
       { path: 'promo-codes', name: 'PromoCodes', component: () => import('../views/PromoCodes.vue') },
       { path: 'email-campaigns', name: 'EmailCampaigns', component: () => import('../views/EmailCampaigns.vue') },
       { path: 'cdek', name: 'Cdek', component: () => import('../views/Cdek.vue') }

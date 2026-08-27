@@ -14,6 +14,8 @@ import partnerApplicationsRoutes from './routes/partnerApplications.js'
 import partnerCabinetRoutes from './routes/partnerCabinet.js'
 import deliveryRoutes from './routes/delivery.js'
 import analyticsRoutes from './routes/analytics.js'
+import dealerRoutes from './routes/dealers.js'
+import adminDealerRoutes from './routes/adminDealers.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { uploadDir } from './utils/fileUpload.js'
 
@@ -48,10 +50,12 @@ app.use('/api/payment', paymentRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/admin/analytics', analyticsRoutes)
 app.use('/api/admin/partners', partnerRoutes)
+app.use('/api/admin/dealers', adminDealerRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/partner-applications', partnerApplicationsRoutes)
 app.use('/api/partner', partnerCabinetRoutes)
 app.use('/api/delivery', deliveryRoutes)
+app.use('/api/dealers', dealerRoutes)
 
 app.use(errorHandler)
 
