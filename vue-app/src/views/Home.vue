@@ -722,6 +722,7 @@ let heroScrollFrame = null
 let heroScrollProgress = '0'
 let heroScrollIdleTimer = null
 let heroScrollActive = false
+let lastHeroScrollProgress = -1
 
 const featuredProducts = computed(() => {
   return productStore.products.slice(0, 4)
@@ -876,7 +877,12 @@ function updateHeroScrollProgress() {
 
   const range = Math.max(1, rect.height * 0.82)
   const progress = Math.min(1, Math.max(0, -rect.top / range))
-  const next = progress.toFixed(2)
+  const roundedProgress = Math.round(progress * 50) / 50
+
+  if (Math.abs(roundedProgress - lastHeroScrollProgress) < 0.019) return
+  lastHeroScrollProgress = roundedProgress
+
+  const next = roundedProgress.toFixed(2)
 
   if (next === heroScrollProgress) return
   heroScrollProgress = next
@@ -895,7 +901,7 @@ function queueHeroScrollProgress() {
     heroScrollActive = false
     heroVisual.value?.classList.remove('is-scroll-active')
     homeRoot.value?.classList.remove('is-scroll-active')
-  }, 180)
+  }, 260)
 
   if (heroScrollFrame) return
   heroScrollFrame = window.requestAnimationFrame(updateHeroScrollProgress)

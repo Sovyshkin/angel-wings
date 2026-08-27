@@ -304,6 +304,8 @@ const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'u
 let cursorFrameId = 0
 let removeCursorMoveListener = null
 let removePageActivityListener = null
+let cursorScrollIdleTimer = null
+let cursorPausedByScroll = false
 
 const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value
@@ -398,8 +400,26 @@ onMounted(() => {
     cursorStarted = false
   }
 
+  const pauseCursorForScroll = () => {
+    cursorPausedByScroll = true
+    cursorRoot.value?.classList.remove('is-visible')
+    document.documentElement.classList.add('is-page-scrolling')
+    stopCursorLoop()
+
+    if (cursorScrollIdleTimer) window.clearTimeout(cursorScrollIdleTimer)
+    cursorScrollIdleTimer = window.setTimeout(() => {
+      cursorPausedByScroll = false
+      document.documentElement.classList.remove('is-page-scrolling')
+    }, 240)
+  }
+
   const onPointerMove = (event) => {
     if (event.pointerType === 'touch') return
+    mouse.x = event.clientX
+    mouse.y = event.clientY
+
+    if (cursorPausedByScroll) return
+
     if (document.hidden || !document.hasFocus()) {
       cursorRoot.value?.classList.remove('is-visible')
       stopCursorLoop()
@@ -409,8 +429,6 @@ onMounted(() => {
       cursorRoot.value?.classList.remove('is-visible')
       return
     }
-    mouse.x = event.clientX
-    mouse.y = event.clientY
     cursorRoot.value?.classList.add('is-visible')
 
     if (!cursorStarted) {
@@ -477,16 +495,19 @@ onMounted(() => {
   }
 
   window.addEventListener('pointermove', onPointerMove, { passive: true })
+  window.addEventListener('scroll', pauseCursorForScroll, { passive: true })
   document.addEventListener('pointerover', onPointerOver, { passive: true })
   document.addEventListener('pointerout', onPointerOut, { passive: true })
   window.addEventListener('blur', stopCursorLoop)
   document.addEventListener('visibilitychange', stopCursorLoop)
   removeCursorMoveListener = () => {
     window.removeEventListener('pointermove', onPointerMove)
+    window.removeEventListener('scroll', pauseCursorForScroll)
     document.removeEventListener('pointerover', onPointerOver)
     document.removeEventListener('pointerout', onPointerOut)
     window.removeEventListener('blur', stopCursorLoop)
     document.removeEventListener('visibilitychange', stopCursorLoop)
+    if (cursorScrollIdleTimer) window.clearTimeout(cursorScrollIdleTimer)
   }
 })
 
@@ -502,6 +523,7 @@ onBeforeUnmount(() => {
   }
   document.documentElement.classList.remove('has-goo-cursor')
   document.documentElement.classList.remove('is-page-inactive')
+  document.documentElement.classList.remove('is-page-scrolling')
 })
 </script>
 
@@ -542,6 +564,11 @@ onBeforeUnmount(() => {
 
 html.is-page-inactive .cursor-goo {
   opacity: 0 !important;
+}
+
+html.is-page-scrolling .cursor-goo {
+  opacity: 0 !important;
+  filter: none;
 }
 
 html.is-page-inactive *,
