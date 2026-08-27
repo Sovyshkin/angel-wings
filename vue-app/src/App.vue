@@ -1209,9 +1209,17 @@ html.is-page-inactive *::after {
   pointer-events: auto;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1068px) {
   .app {
     --header-height: 64px;
+  }
+
+  .header__nav {
+    display: none;
+  }
+
+  .auth-btn span {
+    display: none;
   }
 
   .mobile-menu-btn {
@@ -1317,14 +1325,6 @@ html.is-page-inactive *::after {
 }
 
 @media (max-width: 768px) {
-  .header__nav {
-    display: none;
-  }
-
-  .auth-btn span {
-    display: none;
-  }
-
   .header__container {
     padding: 0 0.75rem;
     gap: 0.5rem;

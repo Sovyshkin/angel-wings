@@ -8,7 +8,7 @@
             Официальные точки
           </span>
           <h1>Дилеры Angel Wings</h1>
-          <p>Найдите ближайшего представителя и выберите удобный канал связи. В карточках показаны только те контакты, которые заполнены администратором.</p>
+          <p>Найдите ближайшего представителя и выберите удобный канал связи.</p>
         </div>
 
         <div class="dealers-search">
@@ -94,7 +94,10 @@
                 :rel="item.href ? 'noopener noreferrer' : undefined"
                 :aria-label="item.label"
               >
-                <span class="dealer-social__icon" :class="`dealer-social__icon--${item.type}`" v-html="item.icon"></span>
+                <span class="dealer-social__icon" :class="`dealer-social__icon--${item.type}`">
+                  <img v-if="item.image" :src="item.image" :alt="item.label" width="18" height="18" loading="lazy" decoding="async">
+                  <span v-else v-html="item.icon"></span>
+                </span>
                 <span>{{ item.text }}</span>
               </component>
             </div>
@@ -121,8 +124,7 @@ const search = ref('')
 
 const icons = {
   telegram: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.8 4.4 3.7 10.6c-1.1.4-1.1 1.1-.2 1.4l4.1 1.3 1.6 5c.2.6.3.8.7.8.4 0 .6-.2.9-.5l2.1-2 4.4 3.2c.8.4 1.3.2 1.5-.8l2.7-12.8c.3-1.1-.4-1.6-1.7-1.1Zm-2.4 3-8.3 7.5-.3 3.1-1.4-4.6 10-6Z"/></svg>',
-  instagram: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>',
-  max: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4" width="19" height="16" rx="5" fill="currentColor" opacity=".18"/><path d="M6.7 15V9h1.4l1.8 2.5L11.7 9h1.4v6h-1.5v-3.4l-1.3 1.8h-.8l-1.3-1.8V15H6.7Zm7.6 0 2.1-6h1.6l2.1 6h-1.6l-.3-1h-2.1l-.3 1h-1.5Zm2.2-2.2h1.3l-.6-2-.7 2Z" fill="currentColor"/></svg>'
+  instagram: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>'
 }
 
 const filteredDealers = computed(() => {
@@ -171,7 +173,7 @@ function socialLinks(dealer) {
       label: 'MAX',
       text: dealer.max,
       href: socialHref('max', dealer.max),
-      icon: icons.max
+      image: '/social-icons/max.png'
     }
   ].filter(Boolean)
 }
@@ -198,7 +200,7 @@ onMounted(fetchDealers)
 .dealers-page {
   position: relative;
   min-height: 100vh;
-  padding: 6.5rem 0 5rem;
+  padding: 4.6rem 0 5rem;
   overflow: hidden;
 }
 
@@ -227,9 +229,10 @@ onMounted(fetchDealers)
 
 .dealers-hero__container {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
-  align-items: end;
-  gap: 2rem;
+  grid-template-columns: minmax(0, 0.86fr) minmax(360px, 0.64fr);
+  align-items: center;
+  gap: clamp(2rem, 4vw, 4.5rem);
+  min-height: clamp(360px, 42vw, 560px);
 }
 
 .dealers-hero__copy {
@@ -278,11 +281,26 @@ onMounted(fetchDealers)
 }
 
 .dealers-search {
+  position: relative;
+  align-self: center;
+  transform: translateY(1.7rem);
   padding: 1.1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+  background:
+    linear-gradient(135deg, rgba(166, 185, 248, 0.12), transparent 42%),
+    color-mix(in srgb, var(--bg-card) 82%, transparent);
   backdrop-filter: blur(14px);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.2);
+}
+
+.dealers-search::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid rgba(166, 185, 248, 0.18);
+  pointer-events: none;
 }
 
 .dealers-search label {
@@ -321,7 +339,7 @@ onMounted(fetchDealers)
 }
 
 .dealers-section {
-  margin-top: 3rem;
+  margin-top: clamp(1.2rem, 3vw, 2.4rem);
 }
 
 .dealers-grid {
@@ -481,8 +499,14 @@ onMounted(fetchDealers)
 }
 
 .dealer-social__icon--max {
-  background: rgba(55, 134, 255, 0.14);
-  color: #6ea6ff;
+  background: rgba(70, 130, 255, 0.12);
+}
+
+.dealer-social__icon img {
+  width: 1.2rem;
+  height: 1.2rem;
+  display: block;
+  object-fit: contain;
 }
 
 .dealers-state {
@@ -528,6 +552,20 @@ onMounted(fetchDealers)
 }
 
 @media (max-width: 1024px) {
+  .dealers-page {
+    padding-top: 3.8rem;
+  }
+
+  .dealers-hero__container {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    min-height: 430px;
+    gap: 1.5rem;
+  }
+
+  .dealers-search {
+    transform: none;
+  }
+
   .dealers-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -535,12 +573,14 @@ onMounted(fetchDealers)
 
 @media (max-width: 768px) {
   .dealers-page {
-    padding: 5.5rem 0 3.5rem;
+    padding: 4.8rem 0 3.5rem;
   }
 
   .dealers-hero__container {
     grid-template-columns: 1fr;
     align-items: stretch;
+    min-height: 0;
+    gap: 1.5rem;
   }
 
   .dealers-hero h1 {
