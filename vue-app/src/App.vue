@@ -39,6 +39,7 @@
         <nav class="header__nav">
           <router-link to="/" class="nav-link">Главная</router-link>
           <router-link to="/catalog" class="nav-link">Каталог</router-link>
+          <router-link to="/partnership" class="nav-link">Партнерам</router-link>
         </nav>
         <div class="header__actions">
           <button class="theme-toggle" @click="themeStore.toggle()" :title="themeStore.isDark ? 'Светлая тема' : 'Тёмная тема'">
@@ -114,6 +115,17 @@
             <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
           </svg>
           Каталог
+        </router-link>
+        <router-link to="/partnership" class="nav-link" @click="closeMobileMenu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 00-8 0v2"/>
+            <circle cx="12" cy="7" r="4"/>
+            <path d="M22 21v-2a4 4 0 00-3-3.87"/>
+            <path d="M16 3.13a4 4 0 010 7.75"/>
+            <path d="M2 21v-2a4 4 0 013-3.87"/>
+            <path d="M8 3.13a4 4 0 000 7.75"/>
+          </svg>
+          Партнерам
         </router-link>
         <router-link v-if="authStore.isAuthenticated" to="/profile" class="nav-link" @click="closeMobileMenu">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

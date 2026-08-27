@@ -510,7 +510,7 @@
             </div>
             <div>
               <strong>ЛК</strong>
-              <span>Баланс, выплаты и статистика</span>
+              <span>Баланс, баллы и статистика</span>
             </div>
           </div>
           <router-link to="/partnership" class="btn btn-primary partnership-teaser__button">

@@ -47,6 +47,21 @@
       </div>
     </Transition>
 
+    <Transition name="modal">
+      <div v-if="paymentRedirecting" class="payment-redirect-overlay" role="status" aria-live="polite">
+        <div class="payment-redirect-card">
+          <div class="payment-redirect-spinner" aria-hidden="true"></div>
+          <h3>Переходим к оплате</h3>
+          <p>Создаем защищенную платежную страницу. Это может занять несколько секунд.</p>
+          <div class="payment-redirect-steps">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Login Required Modal -->
     <Transition name="modal">
       <div v-if="showLoginModal" class="login-modal-overlay" @click.self="showLoginModal = false">
@@ -968,13 +983,13 @@
               </ul>
             </div>
 
-            <button class="btn btn-primary btn-submit" @click="placeOrder" :disabled="ordering">
-              <svg v-if="!ordering" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="btn btn-primary btn-submit" @click="placeOrder" :disabled="ordering || paymentRedirecting">
+              <svg v-if="!ordering && !paymentRedirecting" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
                 <polyline points="22 4 12 14.01 9 11.01"/>
               </svg>
-              <span v-if="ordering" class="spinner"></span>
-              {{ ordering ? 'Оформляем...' : 'Оформить заказ' }}
+              <span v-if="ordering || paymentRedirecting" class="spinner"></span>
+              {{ paymentRedirecting ? 'Открываем оплату...' : (ordering ? 'Оформляем...' : 'Оформить заказ') }}
             </button>
           </div>
 
@@ -990,13 +1005,13 @@
               </ul>
             </div>
 
-            <button class="btn btn-primary btn-submit" @click="placeOrder" :disabled="ordering || loadingAdditionOrder || !cartStore.items.length">
-              <svg v-if="!ordering" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="btn btn-primary btn-submit" @click="placeOrder" :disabled="ordering || paymentRedirecting || loadingAdditionOrder || !cartStore.items.length">
+              <svg v-if="!ordering && !paymentRedirecting" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
                 <polyline points="22 4 12 14.01 9 11.01"/>
               </svg>
-              <span v-if="ordering" class="spinner"></span>
-              {{ ordering ? 'Оформляем дозаказ...' : additionSubmitLabel }}
+              <span v-if="ordering || paymentRedirecting" class="spinner"></span>
+              {{ paymentRedirecting ? 'Открываем оплату...' : (ordering ? 'Оформляем дозаказ...' : additionSubmitLabel) }}
             </button>
           </div>
         </div>
@@ -1118,6 +1133,7 @@ const partnerBalanceError = ref('')
 const partnerBonusAmount = ref('')
 const validatingPromo = ref(false)
 const ordering = ref(false)
+const paymentRedirecting = ref(false)
 const validationErrors = ref([])
 const orderComplete = ref(false)
 const orderError = ref(null)
@@ -1999,6 +2015,7 @@ async function continuePendingOrderPayment() {
   }
 
   continuingPendingOrder.value = true
+  paymentRedirecting.value = true
   pendingPaymentError.value = ''
   showCheckoutSupportNotice.value = false
 
@@ -2020,12 +2037,16 @@ async function continuePendingOrderPayment() {
     }
 
     pendingPaymentError.value = data?.error || 'Не удалось открыть оплату. Попробуйте ещё раз.'
+    paymentRedirecting.value = false
     showCheckoutSupport()
   } catch (error) {
     pendingPaymentError.value = error.response?.data?.error || 'Не удалось открыть оплату. Попробуйте ещё раз.'
+    paymentRedirecting.value = false
     showCheckoutSupport()
   } finally {
-    continuingPendingOrder.value = false
+    if (!paymentRedirecting.value) {
+      continuingPendingOrder.value = false
+    }
   }
 }
 
@@ -2414,6 +2435,7 @@ async function placeOrder() {
       const paymentAmount = Math.max(0, Number(data?.meta?.paymentAmount || 0))
 
       if (data?.meta?.requiresOnlinePayment && paymentAmount > 0) {
+        paymentRedirecting.value = true
         const paymentResponse = await axios.post('/api/payment/create', {
           orderId: additionOrder.value.id,
           amount: paymentAmount,
@@ -2427,6 +2449,8 @@ async function placeOrder() {
           window.location.href = paymentResponse.data.paymentUrl
           return
         }
+
+        paymentRedirecting.value = false
       }
 
       clearCheckoutRequestGuard()
@@ -2567,6 +2591,7 @@ async function placeOrder() {
           amount: createdOrderTotal,
           clientRequestId: orderData.clientRequestId
         })
+        paymentRedirecting.value = true
         await continuePendingOrderPayment()
         return
       }
@@ -2684,6 +2709,7 @@ async function placeOrder() {
 
     // Create Tochka payment link
     try {
+      paymentRedirecting.value = true
       const paymentResponse = await axios.post('/api/payment/create', {
         orderId: lastOrderId.value,
         amount: createdOrderTotal,
@@ -2702,6 +2728,8 @@ async function placeOrder() {
         window.location.href = paymentResponse.data.paymentUrl
         return // Don't clear cart - user will return from payment
       }
+
+      paymentRedirecting.value = false
     } catch (e) {
       console.error('Payment creation error:', e)
       // Payment failed but order was created - show warning
@@ -2712,6 +2740,7 @@ async function placeOrder() {
       })
       orderError.value = 'Заказ создан, но не удалось открыть оплату. Закройте это окно и нажмите «Оплатить заказ» в корзине.'
       showCheckoutSupport()
+      paymentRedirecting.value = false
       ordering.value = false
       return
     }
@@ -2727,8 +2756,11 @@ async function placeOrder() {
   } catch (e) {
     orderError.value = e.response?.data?.error || e.response?.data?.message || e.message || 'Ошибка оформления заказа'
     showCheckoutSupport()
+    paymentRedirecting.value = false
   } finally {
-    ordering.value = false
+    if (!paymentRedirecting.value) {
+      ordering.value = false
+    }
   }
 }
 
@@ -4595,6 +4627,103 @@ onUnmounted(() => {
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+}
+
+.payment-redirect-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(166, 185, 248, 0.18), transparent 34%),
+    rgba(5, 6, 12, 0.86);
+  backdrop-filter: blur(10px);
+}
+
+.payment-redirect-card {
+  width: min(100%, 420px);
+  padding: 2.4rem 2rem;
+  border: 1px solid rgba(166, 185, 248, 0.24);
+  border-radius: 22px;
+  background:
+    linear-gradient(145deg, rgba(166, 185, 248, 0.08), transparent 38%),
+    var(--bg-card);
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.payment-redirect-spinner {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 1.25rem;
+  border-radius: 50%;
+  border: 3px solid rgba(166, 185, 248, 0.18);
+  border-top-color: var(--accent);
+  box-shadow: 0 0 28px rgba(166, 185, 248, 0.24);
+  animation: checkoutSpin 0.9s linear infinite;
+}
+
+.payment-redirect-card h3 {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  margin-bottom: 0.7rem;
+}
+
+.payment-redirect-card p {
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0 auto 1.2rem;
+}
+
+.payment-redirect-steps {
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
+.payment-redirect-steps span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.35;
+  animation: checkoutPulse 1.2s ease-in-out infinite;
+}
+
+.payment-redirect-steps span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.payment-redirect-steps span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  display: inline-block;
+  flex: 0 0 auto;
+  animation: checkoutSpin 0.8s linear infinite;
+}
+
+@keyframes checkoutSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes checkoutPulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
 }
 
 .order-success-card {
