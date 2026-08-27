@@ -502,9 +502,24 @@ onMounted(fetchDealers)
   background: rgba(70, 130, 255, 0.12);
 }
 
+.dealer-social__icon > span {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.dealer-social__icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .dealer-social__icon img {
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 1.24rem;
+  height: 1.24rem;
   display: block;
   object-fit: contain;
 }
