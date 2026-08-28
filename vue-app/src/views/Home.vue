@@ -549,7 +549,7 @@
       </div>
     </section>
 
-    <section class="home-faq" data-aos="fade-up" data-aos-offset="100">
+    <section id="faq" class="home-faq" data-aos="fade-up" data-aos-offset="100">
       <div class="container">
         <div class="home-faq__layout">
           <div class="home-faq__intro">

@@ -40,6 +40,7 @@
           <router-link to="/" class="nav-link">Главная</router-link>
           <router-link to="/catalog" class="nav-link">Каталог</router-link>
           <router-link to="/dealers" class="nav-link">Дилеры</router-link>
+          <router-link to="/#faq" class="nav-link">FAQ</router-link>
           <router-link to="/partnership" class="nav-link">Партнерам</router-link>
         </nav>
         <div class="header__actions">
@@ -136,6 +137,14 @@
             <path d="M10 21v-4h4v4"/>
           </svg>
           Дилеры
+        </router-link>
+        <router-link to="/#faq" class="nav-link" @click="closeMobileMenu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 115.82 1c0 2-3 2-3 4"/>
+            <path d="M12 17h.01"/>
+          </svg>
+          FAQ
         </router-link>
         <router-link v-if="authStore.isAuthenticated" to="/profile" class="nav-link" @click="closeMobileMenu">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -488,8 +497,8 @@ onMounted(() => {
 
     dots.forEach((dot, index) => {
       const element = cursorDotRefs.value[index]
-      const easing = index === 0 ? 0.86 : 0.72
-      const maxSegmentDistance = 5
+      const easing = index === 0 ? 0.74 : 0.56
+      const maxSegmentDistance = 8
 
       dot.x += (x - dot.x) * easing
       dot.y += (y - dot.y) * easing
@@ -578,7 +587,8 @@ onBeforeUnmount(() => {
   overflow: hidden;
   filter: url("#cursor-goo-filter");
   mix-blend-mode: difference;
-  transition: opacity 0.18s ease;
+  transition: opacity 0.16s ease;
+  contain: strict;
 }
 
 .cursor-goo.is-visible {
@@ -615,7 +625,9 @@ html.is-page-inactive *::after {
   height: 26px;
   border-radius: 50%;
   background: #fff;
+  box-shadow: none;
   will-change: transform;
+  transform: translate3d(-100px, -100px, 0);
 }
 
 [data-theme="light"] .cursor-goo {
@@ -624,6 +636,7 @@ html.is-page-inactive *::after {
 
 [data-theme="light"] .cursor-goo span {
   background: #11131c;
+  box-shadow: none;
 }
 
 @media (pointer: coarse), (max-width: 1023px), (prefers-reduced-motion: reduce) {
