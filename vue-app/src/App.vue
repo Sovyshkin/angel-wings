@@ -1222,7 +1222,7 @@ html.is-page-inactive *::after {
   pointer-events: auto;
 }
 
-@media (max-width: 1068px) {
+@media (max-width: 1107px) {
   .app {
     --header-height: 64px;
   }

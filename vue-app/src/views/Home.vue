@@ -549,9 +549,9 @@
       </div>
     </section>
 
-    <section id="faq" class="home-faq" data-aos="fade-up" data-aos-offset="100">
+    <section class="home-faq" data-aos="fade-up" data-aos-offset="100">
       <div class="container">
-        <div class="home-faq__layout">
+        <div id="faq" class="home-faq__layout">
           <div class="home-faq__intro">
             <span class="home-faq__kicker">FAQ</span>
             <h2>Частые вопросы по ручкам и хранению</h2>
