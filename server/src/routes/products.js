@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
 import { generateUniqueSlug } from '../utils/slug.js'
+import { deleteProductForAdmin } from '../utils/productDeletion.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -304,34 +305,10 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
 
 router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const productId = parseInt(req.params.id)
-
-    await prisma.product.delete({
-      where: { id: productId }
-    })
-
-    res.json({ message: 'Product deleted', deleted: true })
+    const productId = parseInt(req.params.id, 10)
+    const result = await deleteProductForAdmin(prisma, productId)
+    res.json(result)
   } catch (error) {
-    // Product is referenced by order_items: keep order history and soft-delete product instead.
-    if (error?.code === 'P2003') {
-      try {
-        const productId = parseInt(req.params.id)
-        const product = await prisma.product.update({
-          where: { id: productId },
-          data: { active: false, featured: false }
-        })
-
-        return res.json({
-          message: 'Товар связан с заказами и не может быть удалён физически. Товар скрыт из каталога.',
-          deleted: false,
-          deactivated: true,
-          productId: product.id
-        })
-      } catch (fallbackError) {
-        return next(fallbackError)
-      }
-    }
-
     next(error)
   }
 })

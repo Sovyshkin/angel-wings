@@ -177,7 +177,7 @@ async function fetchProducts() {
 async function deleteProduct(id) {
   if (!confirm('Удалить этот товар?')) return
   try {
-    await axios.delete(`${API_URL}/${id}`)
+    const { data } = await axios.delete(`${API_URL}/${id}`)
     const nextTotal = Math.max(0, total.value - 1)
     const nextLastPage = Math.max(1, Math.ceil(nextTotal / PRODUCTS_PER_PAGE))
     if (currentPage.value > nextLastPage) {
@@ -185,8 +185,11 @@ async function deleteProduct(id) {
     } else {
       await fetchProducts()
     }
+    if (data?.deactivated) {
+      alert(data.message)
+    }
   } catch (e) {
-    alert('Ошибка удаления')
+    alert(e.response?.data?.error || 'Ошибка удаления')
   }
 }
 

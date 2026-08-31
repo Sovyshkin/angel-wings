@@ -11,6 +11,7 @@ import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { sendCloudKassirIncomeReceiptOnPaidTransition } from '../utils/cloudKassirReceipt.js'
+import { deleteProductForAdmin } from '../utils/productDeletion.js'
 import emailService from '../services/email.js'
 
 const router = Router()
@@ -1322,10 +1323,9 @@ router.get('/products/:id', authenticate, requireAdmin, async (req, res, next) =
 
 router.delete('/products/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    await prisma.product.delete({
-      where: { id: parseInt(req.params.id) }
-    })
-    res.json({ message: 'Товар удалён' })
+    const productId = parseInt(req.params.id, 10)
+    const result = await deleteProductForAdmin(prisma, productId)
+    res.json(result)
   } catch (error) {
     next(error)
   }
