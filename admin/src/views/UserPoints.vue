@@ -1,9 +1,15 @@
 <template>
   <div class="points-admin-page">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">Баллы</h1>
-        <p class="page-subtitle">Начисление бонусных баллов пользователям</p>
+    <div class="points-hero">
+      <div class="points-hero__content">
+        <span class="points-hero__eyebrow">Бонусная система</span>
+        <h1>Баллы Angel Wings</h1>
+        <p>Начисляйте баллы точечно, по сегментам или всей базе с предварительной проверкой аудитории.</p>
+      </div>
+      <div class="points-hero__metric">
+        <span>до</span>
+        <strong>1 000 000</strong>
+        <small>баллов за операцию</small>
       </div>
     </div>
 
@@ -571,6 +577,108 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.points-admin-page {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.points-hero {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 1.25rem;
+  overflow: hidden;
+  padding: 1.25rem;
+  border: 1px solid rgba(166, 185, 248, 0.14);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 8% 10%, rgba(166, 185, 248, 0.2), transparent 30%),
+    radial-gradient(circle at 92% 18%, rgba(64, 184, 255, 0.12), transparent 24%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.014)),
+    var(--bg-card);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.22);
+}
+
+.points-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(166, 185, 248, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(166, 185, 248, 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(90deg, #000, transparent 72%);
+}
+
+.points-hero__content,
+.points-hero__metric {
+  position: relative;
+  z-index: 1;
+}
+
+.points-hero__content {
+  max-width: 820px;
+}
+
+.points-hero__eyebrow {
+  display: inline-flex;
+  margin-bottom: 0.65rem;
+  padding: 0.38rem 0.7rem;
+  border: 1px solid rgba(166, 185, 248, 0.26);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: rgba(166, 185, 248, 0.08);
+}
+
+.points-hero h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.1rem, 4.2vw, 4.9rem);
+  line-height: 0.95;
+  letter-spacing: 0;
+}
+
+.points-hero p {
+  max-width: 720px;
+  margin: 0.75rem 0 0;
+  color: var(--text-secondary);
+  font-size: clamp(1rem, 1.2vw, 1.25rem);
+  line-height: 1.5;
+}
+
+.points-hero__metric {
+  display: grid;
+  align-content: center;
+  min-width: 240px;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(166, 185, 248, 0.18);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(166, 185, 248, 0.16), rgba(166, 185, 248, 0.045));
+}
+
+.points-hero__metric span,
+.points-hero__metric small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.points-hero__metric strong {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: clamp(1.55rem, 2.2vw, 2.25rem);
+  line-height: 1.1;
+}
+
 .points-admin-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 390px;
@@ -1094,7 +1202,8 @@ onMounted(async () => {
 }
 
 [data-theme="light"] .points-form-card,
-[data-theme="light"] .points-info-card {
+[data-theme="light"] .points-info-card,
+[data-theme="light"] .points-hero {
   background:
     radial-gradient(circle at 8% 0%, rgba(86, 115, 215, 0.12), transparent 28%),
     linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(247, 248, 255, 0.86)),
@@ -1124,6 +1233,14 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 
+  .points-hero {
+    flex-direction: column;
+  }
+
+  .points-hero__metric {
+    min-width: 0;
+  }
+
   .points-info-card {
     position: static;
   }
@@ -1145,7 +1262,8 @@ onMounted(async () => {
   }
 
   .points-form-card,
-  .points-info-card {
+  .points-info-card,
+  .points-hero {
     padding: 1rem;
   }
 }
