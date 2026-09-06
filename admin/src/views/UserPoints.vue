@@ -9,14 +9,35 @@
 
     <div class="points-admin-grid">
       <section class="card points-form-card">
-        <div class="points-mode" role="tablist" aria-label="Кому начислить баллы">
-          <button :class="{ active: form.scope === 'user' }" type="button" @click="setScope('user')">Одному</button>
-          <button :class="{ active: form.scope === 'segment' }" type="button" @click="setScope('segment')">По фильтру</button>
-          <button :class="{ active: form.scope === 'all' }" type="button" @click="setScope('all')">Всем</button>
+        <div class="points-card-head">
+          <span class="points-card-head__label">Мастер начисления</span>
+          <h2>Кому начисляем баллы?</h2>
+          <p>Выберите одного пользователя, готовый сегмент или всю базу. Для массовых операций сначала появится предпросмотр.</p>
         </div>
 
-        <div v-if="form.scope === 'user'" class="form-group">
-          <label class="form-label">Пользователь</label>
+        <div class="points-mode" role="tablist" aria-label="Кому начислить баллы">
+          <button :class="{ active: form.scope === 'user' }" type="button" @click="setScope('user')">
+            <span>01</span>
+            <strong>Одному</strong>
+            <small>Точный поиск по аккаунту</small>
+          </button>
+          <button :class="{ active: form.scope === 'segment' }" type="button" @click="setScope('segment')">
+            <span>02</span>
+            <strong>По фильтру</strong>
+            <small>Группа по покупкам и датам</small>
+          </button>
+          <button :class="{ active: form.scope === 'all' }" type="button" @click="setScope('all')">
+            <span>03</span>
+            <strong>Всем</strong>
+            <small>Вся пользовательская база</small>
+          </button>
+        </div>
+
+        <div v-if="form.scope === 'user'" class="form-group recipient-card">
+          <div class="section-title">
+            <span>Получатель</span>
+            <strong>Найдите аккаунт</strong>
+          </div>
           <div class="user-search">
             <input
               v-model="search"
@@ -188,37 +209,46 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Количество баллов</label>
-          <input
-            v-model="form.amount"
-            type="number"
-            min="1"
-            max="1000000"
-            step="1"
-            class="input"
-            placeholder="Например, 500"
-          >
+        <div class="credit-panel">
+          <div class="section-title">
+            <span>Начисление</span>
+            <strong>Баллы и сообщение</strong>
+          </div>
+
+          <div class="credit-grid">
+            <label class="form-group points-amount-field">
+              <span class="form-label">Количество баллов</span>
+              <input
+                v-model="form.amount"
+                type="number"
+                min="1"
+                max="1000000"
+                step="1"
+                class="input"
+                placeholder="500"
+              >
+            </label>
+
+            <label class="form-group">
+              <span class="form-label">Сообщение для пользователя</span>
+              <textarea
+                v-model="form.message"
+                class="input"
+                rows="4"
+                maxlength="500"
+                placeholder="Например: Благодарим за заказ, начислили бонусные баллы."
+              ></textarea>
+            </label>
+          </div>
+
+          <div v-if="error" class="error-message">{{ error }}</div>
+          <div v-if="success" class="success-message">{{ success }}</div>
+
+          <button class="btn btn-primary points-submit" :disabled="submitting || !canSubmit" @click="submitCredit">
+            <span v-if="submitting" class="mini-spinner"></span>
+            {{ submitting ? 'Начисляем...' : submitLabel }}
+          </button>
         </div>
-
-        <div class="form-group">
-          <label class="form-label">Сообщение для пользователя</label>
-          <textarea
-            v-model="form.message"
-            class="input"
-            rows="4"
-            maxlength="500"
-            placeholder="Например: Благодарим за заказ, начислили бонусные баллы."
-          ></textarea>
-        </div>
-
-        <div v-if="error" class="error-message">{{ error }}</div>
-        <div v-if="success" class="success-message">{{ success }}</div>
-
-        <button class="btn btn-primary points-submit" :disabled="submitting || !canSubmit" @click="submitCredit">
-          <span v-if="submitting" class="mini-spinner"></span>
-          {{ submitting ? 'Начисляем...' : submitLabel }}
-        </button>
       </section>
 
       <aside class="card points-info-card">
@@ -543,40 +573,203 @@ onMounted(async () => {
 <style scoped>
 .points-admin-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 1.5rem;
   align-items: start;
 }
 
 .points-form-card,
 .points-info-card {
-  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+  padding: 1.5rem;
+  border-color: rgba(166, 185, 248, 0.16);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(166, 185, 248, 0.16), transparent 28%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015)),
+    var(--bg-card);
+}
+
+.points-form-card::before,
+.points-info-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(166, 185, 248, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(166, 185, 248, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(180deg, #000, transparent 72%);
+}
+
+.points-form-card > *,
+.points-info-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.points-card-head {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1rem 1.1rem;
+  border: 1px solid rgba(166, 185, 248, 0.18);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 10%, rgba(166, 185, 248, 0.18), transparent 30%),
+    rgba(10, 10, 16, 0.36);
+}
+
+.points-card-head__label,
+.section-title span {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.points-card-head h2 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2vw, 2rem);
+  line-height: 1.05;
+}
+
+.points-card-head p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.section-title strong {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 900;
 }
 
 .points-mode {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-  padding: 0.35rem;
-  margin-bottom: 1.25rem;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--bg-secondary);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .points-mode button {
-  border: 0;
-  border-radius: 10px;
-  padding: 0.8rem 1rem;
-  background: transparent;
+  display: grid;
+  gap: 0.35rem;
+  min-height: 112px;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015)),
+    rgba(0, 0, 0, 0.12);
   color: var(--text-secondary);
-  font-weight: 800;
+  text-align: left;
   cursor: pointer;
+  transition: var(--transition);
+}
+
+.points-mode button span {
+  width: fit-content;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid rgba(166, 185, 248, 0.22);
+  border-radius: 999px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.points-mode button strong {
+  color: var(--text-primary);
+  font-size: 1.02rem;
+  font-weight: 900;
+}
+
+.points-mode button small {
+  color: var(--text-muted);
+  line-height: 1.35;
 }
 
 .points-mode button.active {
-  background: var(--accent);
-  color: #fff;
+  border-color: rgba(166, 185, 248, 0.75);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.35), transparent 34%),
+    linear-gradient(145deg, rgba(166, 185, 248, 0.94), rgba(118, 143, 231, 0.72));
+  box-shadow: 0 18px 45px rgba(89, 119, 223, 0.24);
+  transform: translateY(-2px);
+}
+
+.points-mode button.active span {
+  border-color: rgba(10, 10, 16, 0.18);
+  color: #11131d;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.points-mode button.active strong,
+.points-mode button.active small {
+  color: #10121b;
+}
+
+.recipient-card,
+.credit-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    rgba(0, 0, 0, 0.12);
+}
+
+.credit-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.credit-grid {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.34fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.form-label {
+  margin-bottom: 0.45rem;
+}
+
+.input {
+  border-color: rgba(255, 255, 255, 0.105);
+  border-radius: 14px;
+  background: rgba(5, 5, 10, 0.44);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.input:focus {
+  border-color: rgba(166, 185, 248, 0.7);
+  background: rgba(8, 8, 14, 0.68);
+  box-shadow:
+    0 0 0 3px rgba(166, 185, 248, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+.points-amount-field .input {
+  min-height: 96px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 2rem;
+  font-weight: 900;
 }
 
 .user-search {
@@ -605,7 +798,7 @@ onMounted(async () => {
   padding: 0.85rem;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--bg-secondary);
+  background: rgba(255, 255, 255, 0.035);
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
@@ -638,7 +831,8 @@ onMounted(async () => {
   padding: 0.9rem 1rem;
   border: 1px solid rgba(152, 177, 255, 0.36);
   border-radius: 14px;
-  background: rgba(152, 177, 255, 0.08);
+  background:
+    linear-gradient(135deg, rgba(152, 177, 255, 0.16), rgba(152, 177, 255, 0.05));
 }
 
 .selected-user span,
@@ -656,7 +850,7 @@ onMounted(async () => {
 .segment-workspace {
   display: grid;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin: 1rem 0;
 }
 
 .segment-header {
@@ -666,10 +860,11 @@ onMounted(async () => {
   gap: 1rem;
   padding: 1rem;
   border: 1px solid rgba(152, 177, 255, 0.22);
-  border-radius: 16px;
+  border-radius: 18px;
   background:
-    radial-gradient(circle at 0% 0%, rgba(152, 177, 255, 0.16), transparent 34%),
-    var(--bg-secondary);
+    radial-gradient(circle at 0% 0%, rgba(152, 177, 255, 0.24), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(10, 10, 16, 0.34);
 }
 
 .segment-header h2 {
@@ -702,8 +897,10 @@ onMounted(async () => {
   min-height: 104px;
   padding: 0.9rem;
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--bg-secondary);
+  border-radius: 16px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    rgba(0, 0, 0, 0.12);
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
@@ -721,8 +918,12 @@ onMounted(async () => {
 
 .segment-option.active {
   border-color: rgba(152, 177, 255, 0.7);
-  background: rgba(152, 177, 255, 0.12);
-  box-shadow: 0 0 0 1px rgba(152, 177, 255, 0.18) inset;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(166, 185, 248, 0.22), transparent 36%),
+    rgba(152, 177, 255, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(152, 177, 255, 0.18) inset,
+    0 14px 34px rgba(0, 0, 0, 0.18);
 }
 
 .segment-params {
@@ -730,8 +931,9 @@ onMounted(async () => {
   gap: 0.85rem;
   padding: 1rem;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
 }
 
 .params-row,
@@ -748,15 +950,19 @@ onMounted(async () => {
 }
 
 .preview-card {
-  padding: 1rem;
-  border: 1px solid rgba(34, 197, 94, 0.28);
-  border-radius: 16px;
-  background: rgba(34, 197, 94, 0.08);
+  padding: 1.15rem;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 92% 12%, rgba(34, 197, 94, 0.22), transparent 32%),
+    linear-gradient(145deg, rgba(34, 197, 94, 0.12), rgba(166, 185, 248, 0.055));
 }
 
 .preview-card.muted {
   border-color: var(--border);
-  background: var(--bg-secondary);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    rgba(0, 0, 0, 0.12);
 }
 
 .preview-main {
@@ -774,7 +980,8 @@ onMounted(async () => {
 .preview-main strong {
   color: var(--accent);
   font-family: var(--font-mono);
-  font-size: 1.8rem;
+  font-size: clamp(2rem, 5vw, 3.15rem);
+  line-height: 1;
 }
 
 .preview-status {
@@ -798,8 +1005,8 @@ onMounted(async () => {
   min-width: 180px;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.12);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.18);
   font-weight: 800;
 }
 
@@ -822,12 +1029,25 @@ onMounted(async () => {
 
 .points-submit {
   width: 100%;
-  margin-top: 0.5rem;
+  min-height: 64px;
+  margin-top: 0.25rem;
+  border-radius: 18px;
+  color: #10121b;
+  font-size: 1rem;
+  font-weight: 900;
+  box-shadow: 0 18px 45px rgba(89, 119, 223, 0.2);
+}
+
+.points-submit:disabled {
+  opacity: 0.48;
+  transform: none;
+  box-shadow: none;
 }
 
 .points-info-card {
   position: sticky;
   top: 1rem;
+  padding: 1.65rem;
 }
 
 .points-info-card__eyebrow {
@@ -840,6 +1060,8 @@ onMounted(async () => {
 
 .points-info-card h2 {
   margin: 0.5rem 0 0.75rem;
+  font-size: 1.6rem;
+  line-height: 1.15;
 }
 
 .points-info-card p,
@@ -856,12 +1078,45 @@ onMounted(async () => {
 }
 
 .success-message {
-  margin-bottom: 1rem;
   padding: 0.875rem 1rem;
   border-radius: 12px;
   background: rgba(34, 197, 94, 0.12);
   color: #22c55e;
   font-weight: 700;
+}
+
+.error-message {
+  padding: 0.875rem 1rem;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  font-weight: 800;
+}
+
+[data-theme="light"] .points-form-card,
+[data-theme="light"] .points-info-card {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(86, 115, 215, 0.12), transparent 28%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(247, 248, 255, 0.86)),
+    var(--bg-card);
+}
+
+[data-theme="light"] .points-card-head,
+[data-theme="light"] .recipient-card,
+[data-theme="light"] .credit-panel,
+[data-theme="light"] .segment-header,
+[data-theme="light"] .segment-params,
+[data-theme="light"] .segment-option,
+[data-theme="light"] .preview-card.muted {
+  background: rgba(255, 255, 255, 0.76);
+}
+
+[data-theme="light"] .input {
+  background: rgba(255, 255, 255, 0.84);
+}
+
+[data-theme="light"] .preview-users span {
+  background: rgba(255, 255, 255, 0.64);
 }
 
 @media (max-width: 1100px) {
@@ -878,7 +1133,8 @@ onMounted(async () => {
   .points-mode,
   .segment-list,
   .params-row,
-  .lookup-field {
+  .lookup-field,
+  .credit-grid {
     grid-template-columns: 1fr;
   }
 
@@ -886,6 +1142,11 @@ onMounted(async () => {
   .preview-main {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .points-form-card,
+  .points-info-card {
+    padding: 1rem;
   }
 }
 </style>
