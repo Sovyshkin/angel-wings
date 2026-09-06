@@ -45,6 +45,11 @@
           <strong>{{ formatCurrency(stats.avgOrderValue) }}</strong>
           <small>По успешным заказам</small>
         </article>
+        <article class="stat-card stat-card--points">
+          <span>Баллы</span>
+          <strong>{{ Number(user.pointsBalance || 0).toLocaleString('ru-RU') }}</strong>
+          <small>Доступно к списанию</small>
+        </article>
         <article class="stat-card" :class="{ warning: stats.returnedOrders > 0 || stats.cancelledOrders > 0 }">
           <span>Проблемные</span>
           <strong>{{ (stats.returnedOrders || 0) + (stats.cancelledOrders || 0) }}</strong>
@@ -113,6 +118,7 @@
               <div><span>Доставка</span><strong>{{ order.deliveryTariffName || 'Не указана' }}</strong></div>
               <div><span>Город</span><strong>{{ order.deliveryCity || '—' }}</strong></div>
               <div><span>Промокод</span><strong>{{ order.promoCode?.code || '—' }}</strong></div>
+              <div><span>Баллы</span><strong>{{ Number(order.userPointsUsed || 0).toLocaleString('ru-RU') }}</strong></div>
             </div>
 
             <div class="order-items">
@@ -310,7 +316,7 @@ onMounted(fetchUser)
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -328,6 +334,11 @@ onMounted(fetchUser)
 
 .stat-card--accent {
   border-color: rgba(159, 181, 255, 0.38);
+}
+
+.stat-card--points {
+  border-color: rgba(152, 177, 255, 0.42);
+  background: linear-gradient(135deg, rgba(152, 177, 255, 0.12), var(--bg-card));
 }
 
 .stat-card.warning {

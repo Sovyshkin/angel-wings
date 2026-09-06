@@ -374,6 +374,10 @@
               <span>Оплата из прибыли партнёра</span>
               <span>-{{ partnerBonusToUse.toLocaleString() }} ₽</span>
             </div>
+            <div v-if="userPointsToUse > 0 && !isOrderAdditionMode" class="summary-row summary-row-discount summary-row-discount--points">
+              <span>Списано баллов</span>
+              <span>-{{ userPointsToUse.toLocaleString('ru-RU') }} ₽</span>
+            </div>
           </div>
 
           <!-- Delivery Details Card -->
@@ -892,6 +896,35 @@
               <p v-if="partnerBalanceError" class="promo-code-status promo-code-status--error">{{ partnerBalanceError }}</p>
             </div>
 
+            <div v-if="authStore.isAuthenticated && userPointsBalance > 0" class="promo-code-card user-points-card">
+              <label class="promo-code-label" for="user-points-input">Списать баллы</label>
+              <div class="promo-code-controls">
+                <input
+                  id="user-points-input"
+                  v-model="userPointsAmount"
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="input promo-code-input"
+                  placeholder="0"
+                  @input="normalizeUserPointsInput"
+                >
+                <button
+                  v-if="userPointsToUse > 0"
+                  type="button"
+                  class="promo-code-clear"
+                  @click="userPointsAmount = ''"
+                >
+                  Сбросить
+                </button>
+              </div>
+              <p class="promo-code-hint">
+                Доступно: <strong>{{ userPointsBalance.toLocaleString('ru-RU') }} баллов</strong>.
+                1 балл = 1 ₽, можно списать до полной суммы заказа.
+              </p>
+              <p v-if="userPointsError" class="promo-code-status promo-code-status--error">{{ userPointsError }}</p>
+            </div>
+
             <div v-if="deliveryType === 'courier'" class="payment-method-card">
               <div class="payment-method-header">
                 <span class="payment-method-eyebrow">Оплата</span>
@@ -1131,6 +1164,9 @@ const partnerBalanceAvailable = ref(0)
 const partnerBalanceLoading = ref(false)
 const partnerBalanceError = ref('')
 const partnerBonusAmount = ref('')
+const userPointsBalance = ref(0)
+const userPointsAmount = ref('')
+const userPointsError = ref('')
 const validatingPromo = ref(false)
 const ordering = ref(false)
 const paymentRedirecting = ref(false)
@@ -1239,7 +1275,7 @@ const additionSubmitLabel = computed(() => {
   return additionQuote.value?.paymentMode === 'cash_on_delivery' ? 'Добавить к заказу' : 'Добавить и оплатить'
 })
 const visibleTotal = computed(() => {
-  return isOrderAdditionMode.value ? additionPaymentAmount.value : totalAfterPartnerBonus.value
+  return isOrderAdditionMode.value ? additionPaymentAmount.value : totalAfterUserPoints.value
 })
 const pendingUnpaidOrderAmountLabel = computed(() => {
   const amount = Number(pendingUnpaidOrder.value?.amount || 0)
@@ -1424,6 +1460,21 @@ function normalizePartnerBonusInput() {
   partnerBonusAmount.value = String(Math.min(numeric, maxAllowed))
 }
 
+function normalizeUserPointsInput() {
+  const raw = String(userPointsAmount.value || '')
+  if (!raw.trim()) {
+    userPointsAmount.value = ''
+    return
+  }
+
+  const numeric = Math.max(0, Math.floor(Number(raw.replace(/[^\d]/g, '')) || 0))
+  const maxAllowed = Math.min(
+    Math.max(0, Number(userPointsBalance.value || 0)),
+    Math.max(0, Number(totalAfterPartnerBonus.value || 0))
+  )
+  userPointsAmount.value = String(Math.min(numeric, maxAllowed))
+}
+
 function clearPromoCode() {
   promoCode.value = ''
   promoDiscountPreview.value = 0
@@ -1527,6 +1578,25 @@ async function fetchPartnerBalance() {
     partnerBalanceError.value = error?.response?.data?.error || 'Не удалось получить партнёрский баланс'
   } finally {
     partnerBalanceLoading.value = false
+  }
+}
+
+async function fetchUserPoints() {
+  if (!authStore.isAuthenticated) {
+    userPointsBalance.value = 0
+    userPointsAmount.value = ''
+    userPointsError.value = ''
+    return
+  }
+
+  try {
+    const { data } = await axios.get('/api/points/summary')
+    userPointsBalance.value = Math.max(0, Number(data?.balance || 0))
+    normalizeUserPointsInput()
+  } catch (error) {
+    userPointsBalance.value = 0
+    userPointsAmount.value = ''
+    userPointsError.value = error?.response?.data?.error || 'Не удалось получить баланс баллов'
   }
 }
 
@@ -2116,6 +2186,19 @@ const totalAfterPartnerBonus = computed(() => {
   return Math.max(0, totalWithPromo.value - partnerBonusToUse.value)
 })
 
+const userPointsToUse = computed(() => {
+  const requested = Math.max(0, Math.floor(Number(userPointsAmount.value) || 0))
+  const maxAllowed = Math.min(
+    Math.max(0, Number(userPointsBalance.value || 0)),
+    Math.max(0, Number(totalAfterPartnerBonus.value || 0))
+  )
+  return Math.min(requested, maxAllowed)
+})
+
+const totalAfterUserPoints = computed(() => {
+  return Math.max(0, totalAfterPartnerBonus.value - userPointsToUse.value)
+})
+
 const isFormValid = computed(() => {
   if (isOrderAdditionMode.value) {
     return Boolean(additionOrder.value?.id) && cartStore.items.length > 0
@@ -2315,6 +2398,10 @@ function buildCheckoutSupportText() {
 
   if (partnerBonusToUse.value > 0) {
     lines.push(`Списано баллов партнера: ${formatSupportMoney(partnerBonusToUse.value)}`)
+  }
+
+  if (userPointsToUse.value > 0) {
+    lines.push(`Списано пользовательских баллов: ${formatSupportMoney(userPointsToUse.value)}`)
   }
 
   lines.push(`Итого к оплате на сайте: ${formatSupportMoney(visibleTotal.value)}`)
@@ -2558,6 +2645,10 @@ async function placeOrder() {
       orderData.partnerBonusAmount = partnerBonusToUse.value
     }
 
+    if (userPointsToUse.value > 0) {
+      orderData.userPointsAmount = userPointsToUse.value
+    }
+
     const normalizedPromoCode = String(promoCode.value || '').trim().toUpperCase()
     if (normalizedPromoCode) {
       orderData.promoCode = normalizedPromoCode
@@ -2603,9 +2694,19 @@ async function placeOrder() {
       coupon: normalizedPromoCode
     })
     const actualPartnerBonusUsed = Math.max(0, Number(data?.meta?.partnerBonusUsed || 0))
+    const actualUserPointsUsed = Math.max(0, Number(data?.meta?.userPointsUsed || 0))
     if (actualPartnerBonusUsed > 0) {
       partnerBalanceAvailable.value = Math.max(0, partnerBalanceAvailable.value - actualPartnerBonusUsed)
       partnerBonusAmount.value = ''
+    }
+    if (actualUserPointsUsed > 0) {
+      userPointsBalance.value = Math.max(0, userPointsBalance.value - actualUserPointsUsed)
+      userPointsAmount.value = ''
+      authStore.user = {
+        ...authStore.user,
+        pointsBalance: userPointsBalance.value
+      }
+      localStorage.setItem('peptidi_user', JSON.stringify(authStore.user))
     }
     if (data?.meta?.partnerNotice) {
       alert(data.meta.partnerNotice)
@@ -2617,7 +2718,7 @@ async function placeOrder() {
         const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
         const declaredGoodsTotal = Math.max(
           0,
-          createdOrderTotal + actualPartnerBonusUsed
+          createdOrderTotal + actualPartnerBonusUsed + actualUserPointsUsed
         )
         const baseGoodsTotal = Math.max(0, Number(cartStore.total) || 0)
         const targetCents = Math.round(declaredGoodsTotal * 100)
@@ -2770,6 +2871,7 @@ onMounted(async () => {
   await productStore.fetchCategories()
   prefillFromProfile()
   await fetchPartnerBalance()
+  await fetchUserPoints()
   await loadOrderAdditionContext()
 
   const savedDelivery = cartStore.delivery || {}
@@ -2925,6 +3027,10 @@ watch(totalWithPromo, () => {
   }
 })
 
+watch(totalAfterPartnerBonus, () => {
+  normalizeUserPointsInput()
+})
+
 watch(() => authStore.isAuthenticated, (isAuthenticated) => {
   if (!isAuthenticated) {
     promoDiscountPreview.value = 0
@@ -2932,12 +3038,14 @@ watch(() => authStore.isAuthenticated, (isAuthenticated) => {
       setPromoFeedback('info', 'Войдите в аккаунт, чтобы применить промокод')
     }
     fetchPartnerBalance()
+    fetchUserPoints()
     return
   }
   if (promoCodeNormalized.value) {
     schedulePromoValidation(100)
   }
   fetchPartnerBalance()
+  fetchUserPoints()
 })
 
 onUnmounted(() => {
@@ -3682,6 +3790,11 @@ onUnmounted(() => {
   background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(34, 197, 94, 0.03));
 }
 
+.user-points-card {
+  border-color: rgba(152, 177, 255, 0.36);
+  background: linear-gradient(135deg, rgba(152, 177, 255, 0.12), rgba(35, 50, 92, 0.08));
+}
+
 .promo-code-label {
   display: block;
   margin-bottom: 0.45rem;
@@ -3801,6 +3914,11 @@ onUnmounted(() => {
 .summary-row-discount--partner span:first-child,
 .summary-row-discount--partner span:last-child {
   color: #16a34a;
+}
+
+.summary-row-discount--points span:first-child,
+.summary-row-discount--points span:last-child {
+  color: var(--accent);
 }
 
 .total-value {

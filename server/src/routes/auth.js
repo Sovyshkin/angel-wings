@@ -22,6 +22,7 @@ function getPublicUser(user) {
     role: user.role,
     phone: user.phone,
     address: user.address,
+    pointsBalance: Math.max(0, Number(user.pointsBalance || 0)),
     emailVerified: user.emailVerified
   }
 }
@@ -569,7 +570,8 @@ router.put('/me', authenticate, async (req, res, next) => {
         name: true,
         role: true,
         phone: true,
-        address: true
+        address: true,
+        pointsBalance: true
       }
     })
     

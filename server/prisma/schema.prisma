@@ -15,6 +15,7 @@ model User {
   role                        String                  @default("USER")
   phone                       String?
   address                     String?
+  pointsBalance               Int                      @default(0)
   emailVerified               Boolean                 @default(true)
   createdAt                   DateTime                @default(now())
   updatedAt                   DateTime                @updatedAt
@@ -25,6 +26,8 @@ model User {
   reviewedPartnerApplications PartnerApplication[]    @relation("PartnerApplicationReviewer")
   productAnalyticsEvents      ProductAnalyticsEvent[]
   emailVerificationCodes      EmailVerificationCode[]
+  pointTransactions           UserPointTransaction[]   @relation("UserPointTransactions")
+  createdPointTransactions    UserPointTransaction[]   @relation("UserPointTransactionsCreated")
 
   @@map("users")
 }
@@ -137,6 +140,7 @@ model Order {
   notes               String?
   promoCodeId         Int?
   discountAmount      Float?
+  userPointsUsed      Int                @default(0)
   // Delivery info
   deliveryTariffCode  Int?
   deliveryTariffName  String?
@@ -148,6 +152,7 @@ model Order {
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   commission          PartnerCommission?
+  pointTransactions   UserPointTransaction[]
 
   @@map("orders")
 }
@@ -180,6 +185,28 @@ model ProductAnalyticsEvent {
   @@index([productId, event, createdAt])
   @@index([sessionId, createdAt])
   @@map("product_analytics_events")
+}
+
+model UserPointTransaction {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  user           User      @relation("UserPointTransactions", fields: [userId], references: [id], onDelete: Cascade)
+  amount         Int
+  balanceAfter   Int
+  type           String
+  message        String?
+  orderId        Int?
+  order          Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  batchId        String?
+  createdById    Int?
+  createdBy      User?     @relation("UserPointTransactionsCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  seenAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, seenAt])
+  @@index([batchId])
+  @@map("user_point_transactions")
 }
 
 model CdekBox {

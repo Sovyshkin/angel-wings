@@ -44,6 +44,7 @@
               <th>Email</th>
               <th>Телефон</th>
               <th>Роль</th>
+              <th>Баллы</th>
               <th>Заказов</th>
               <th></th>
             </tr>
@@ -61,6 +62,7 @@
                   <option value="PARTNER">Партнёр</option>
                 </select>
               </td>
+              <td class="cell-points">{{ Number(user.pointsBalance || 0).toLocaleString('ru-RU') }}</td>
               <td class="cell-orders">{{ user._count?.orders || 0 }}</td>
               <td class="row-actions">
                 <div class="row-actions__inner">
@@ -124,6 +126,12 @@
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
               <span>{{ user._count?.orders || 0 }} заказов</span>
+            </div>
+            <div class="user-card__row">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="9"/><path d="M12 7v10M8 11h8"/>
+              </svg>
+              <span>{{ Number(user.pointsBalance || 0).toLocaleString('ru-RU') }} баллов</span>
             </div>
           </div>
           <div class="user-card__actions">
@@ -447,7 +455,7 @@ watch(search, scheduleSearch)
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 700px;
+  min-width: 820px;
 }
 
 .data-table th,
@@ -514,6 +522,12 @@ watch(search, scheduleSearch)
 
 .cell-orders {
   font-family: var(--font-body);
+}
+
+.cell-points {
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-weight: 800;
 }
 
 .row-actions {

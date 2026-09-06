@@ -223,6 +223,54 @@
               </div>
             </div>
           </div>
+
+          <div v-if="activeTab === 'points'" class="tab-content">
+            <div v-if="unseenPointCredits.length" class="points-award-banner">
+              <div>
+                <span class="points-award-banner__eyebrow">Баллы начислены</span>
+                <strong>+{{ unseenPointCreditsTotal.toLocaleString('ru-RU') }} баллов</strong>
+                <p>{{ unseenPointCredits[0]?.message || 'Баллы уже доступны для списания в корзине.' }}</p>
+              </div>
+              <button class="btn btn-secondary" @click="markPointCreditsSeen">Понятно</button>
+            </div>
+
+            <div class="section-card points-overview">
+              <div>
+                <span class="points-overview__label">Доступно</span>
+                <strong>{{ pointsBalance.toLocaleString('ru-RU') }}</strong>
+                <p>1 балл = 1 ₽. Баллы можно списать при оформлении заказа.</p>
+              </div>
+              <router-link to="/cart" class="btn btn-primary">Перейти в корзину</router-link>
+            </div>
+
+            <div class="section-card">
+              <h2 class="section-title">История баллов</h2>
+              <div v-if="pointsLoading" class="empty-state">
+                <div class="spinner"></div>
+                <p>Загружаем историю...</p>
+              </div>
+              <div v-else-if="pointTransactions.length === 0" class="empty-state">
+                <p>Истории баллов пока нет</p>
+              </div>
+              <div v-else class="points-history">
+                <article
+                  v-for="transaction in pointTransactions"
+                  :key="transaction.id"
+                  class="points-history__item"
+                  :class="{ 'points-history__item--credit': transaction.amount > 0 }"
+                >
+                  <div>
+                    <strong>{{ getPointTransactionTitle(transaction) }}</strong>
+                    <span>{{ transaction.message || getPointTransactionFallback(transaction) }}</span>
+                  </div>
+                  <div class="points-history__meta">
+                    <b>{{ transaction.amount > 0 ? '+' : '' }}{{ transaction.amount.toLocaleString('ru-RU') }}</b>
+                    <small>{{ formatDateTime(transaction.createdAt) }}</small>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </div>
           
           <div v-if="activeTab === 'settings'" class="tab-content">
             <div class="section-card">
@@ -304,10 +352,15 @@ const expandedOrderId = ref(null)
 const partnerTabAvailable = ref(authStore.user?.role === 'ADMIN')
 const payingOrderId = ref(null)
 const paymentErrorByOrderId = ref({})
+const pointsBalance = ref(Math.max(0, Number(authStore.user?.pointsBalance || 0)))
+const pointTransactions = ref([])
+const unseenPointCredits = ref([])
+const pointsLoading = ref(false)
 
 const tabs = [
   { id: 'info', label: 'Мои данные', icon: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
   { id: 'orders', label: 'Заказы', icon: '<path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>' },
+  { id: 'points', label: 'Баллы', icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v10M8 11h8"/>' },
   { id: 'partner', label: 'Партнёрский кабинет', icon: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>', role: 'PARTNER' },
   { id: 'settings', label: 'Настройки', icon: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>' }
 ]
@@ -331,6 +384,10 @@ const visibleTabs = computed(() => {
     if (tab.role === 'PARTNER') return partnerTabAvailable.value
     return true
   })
+})
+
+const unseenPointCreditsTotal = computed(() => {
+  return unseenPointCredits.value.reduce((sum, transaction) => sum + Math.max(0, Number(transaction.amount || 0)), 0)
 })
 
 async function resolvePartnerTabAvailability() {
@@ -410,6 +467,48 @@ function getPaymentStatusTone(status) {
   if (normalized === 'CASH_ON_DELIVERY') return 'payment-status--cash'
   if (normalized === 'FAILED') return 'payment-status--failed'
   return 'payment-status--pending'
+}
+
+function getPointTransactionTitle(transaction) {
+  if (transaction.type === 'ORDER_REFUND') return `Возврат по заказу #${transaction.orderId || '—'}`
+  if (transaction.amount > 0) return 'Начисление баллов'
+  if (transaction.type === 'ORDER_SPEND') return `Списание в заказе #${transaction.orderId || '—'}`
+  return 'Операция с баллами'
+}
+
+function getPointTransactionFallback(transaction) {
+  if (transaction.type === 'ORDER_REFUND') return 'Баллы вернулись после отмены или возврата заказа'
+  if (transaction.amount > 0) return 'Баллы начислены администратором'
+  return 'Баллы списаны при оформлении заказа'
+}
+
+async function loadPoints() {
+  pointsLoading.value = true
+  try {
+    const { data } = await axios.get('/api/points/summary')
+    pointsBalance.value = Math.max(0, Number(data?.balance || 0))
+    pointTransactions.value = data?.transactions || []
+    unseenPointCredits.value = data?.unseenCredits || []
+    authStore.user = {
+      ...authStore.user,
+      pointsBalance: pointsBalance.value
+    }
+    localStorage.setItem('peptidi_user', JSON.stringify(authStore.user))
+  } catch (error) {
+    console.error('Failed to load points:', error)
+  } finally {
+    pointsLoading.value = false
+  }
+}
+
+async function markPointCreditsSeen() {
+  const ids = unseenPointCredits.value.map(transaction => transaction.id)
+  unseenPointCredits.value = []
+  try {
+    await axios.post('/api/points/seen', { ids })
+  } catch (error) {
+    console.error('Failed to mark points as seen:', error)
+  }
 }
 
 function canPayOrder(order) {
@@ -568,6 +667,7 @@ onMounted(async () => {
   }
 
   loadOrders()
+  loadPoints()
 })
 </script>
 
@@ -618,6 +718,112 @@ onMounted(async () => {
   font-size: 1.25rem;
   font-weight: 700;
   border-radius: 14px;
+}
+
+.points-award-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(152, 177, 255, 0.45);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(152, 177, 255, 0.24), transparent 34%),
+    linear-gradient(135deg, rgba(28, 42, 78, 0.92), rgba(14, 17, 28, 0.96));
+  box-shadow: 0 18px 48px rgba(38, 86, 220, 0.18);
+}
+
+.points-award-banner__eyebrow,
+.points-overview__label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.points-award-banner strong {
+  display: block;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  line-height: 1;
+}
+
+.points-award-banner p,
+.points-overview p {
+  margin: 0.5rem 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.points-overview {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.points-overview strong {
+  display: block;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: clamp(2.4rem, 8vw, 4.5rem);
+  line-height: 0.95;
+}
+
+.points-history {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.points-history__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-secondary);
+}
+
+.points-history__item strong,
+.points-history__item span,
+.points-history__meta {
+  display: block;
+}
+
+.points-history__item span {
+  margin-top: 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.points-history__meta {
+  min-width: 120px;
+  text-align: right;
+}
+
+.points-history__meta b {
+  color: #ef4444;
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+}
+
+.points-history__item--credit .points-history__meta b {
+  color: #22c55e;
+}
+
+.points-history__meta small {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
 }
 
 .user-info h3 {

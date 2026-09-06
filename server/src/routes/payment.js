@@ -19,6 +19,7 @@ const PAYMENT_SYNC_ORDER_SELECT = {
   total: true,
   discountAmount: true,
   partnerBonusAmount: true,
+  userPointsUsed: true,
   deliveryPrice: true,
   deliveryTariffName: true,
   deliveryPickupPoint: true,

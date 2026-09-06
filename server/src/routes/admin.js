@@ -12,6 +12,7 @@ import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { sendCloudKassirIncomeReceiptOnPaidTransition } from '../utils/cloudKassirReceipt.js'
 import { deleteProductForAdmin } from '../utils/productDeletion.js'
+import { refundUserPointsForOrder } from '../utils/userPoints.js'
 import emailService from '../services/email.js'
 
 const router = Router()
@@ -296,6 +297,7 @@ router.get('/users', authenticate, requireAdmin, async (req, res, next) => {
           name: true,
           role: true,
           phone: true,
+          pointsBalance: true,
           createdAt: true,
           _count: { select: { orders: true } }
         },
@@ -518,6 +520,7 @@ router.get('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
         role: true,
         phone: true,
         address: true,
+        pointsBalance: true,
         createdAt: true,
         partner: {
           select: {
@@ -648,6 +651,7 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
           name: true,
           role: true,
           phone: true,
+          pointsBalance: true,
           createdAt: true
         }
       })
@@ -778,6 +782,7 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
           name: true,
           role: true,
           phone: true,
+          pointsBalance: true,
           createdAt: true,
           _count: { select: { orders: true } }
         }
@@ -1126,14 +1131,37 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
       return res.status(400).json({ error: 'Некорректный статус заказа' })
     }
 
-    const order = await prisma.order.update({
-      where: { id: parseInt(req.params.id) },
-      data: {
-        status: normalizedStatus,
-        cancelReason: normalizedStatus === 'CANCELLED'
-          ? (String(cancelReason || 'other').trim() || 'other')
-          : null
+    const orderId = parseInt(req.params.id, 10)
+    const order = await prisma.$transaction(async (tx) => {
+      const previousOrder = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { id: true, userId: true, status: true, userPointsUsed: true }
+      })
+
+      if (!previousOrder) {
+        throw Object.assign(new Error('Заказ не найден'), { status: 404 })
       }
+
+      const updatedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: normalizedStatus,
+          cancelReason: normalizedStatus === 'CANCELLED'
+            ? (String(cancelReason || 'other').trim() || 'other')
+            : null
+        }
+      })
+
+      const wasFinalNegativeStatus = ['CANCELLED', 'RETURNED'].includes(String(previousOrder.status || '').toUpperCase())
+      const isFinalNegativeStatus = ['CANCELLED', 'RETURNED'].includes(normalizedStatus)
+      if (!wasFinalNegativeStatus && isFinalNegativeStatus) {
+        await refundUserPointsForOrder(tx, {
+          order: previousOrder,
+          createdById: req.user.id
+        })
+      }
+
+      return updatedOrder
     })
 
     res.json({ order })

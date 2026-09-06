@@ -26,6 +26,7 @@ const routes = [
       { path: 'orders', name: 'AdminOrders', component: () => import('../views/Orders.vue') },
       { path: 'users', name: 'AdminUsers', component: () => import('../views/Users.vue') },
       { path: 'users/:id', name: 'AdminUserDetail', component: () => import('../views/UserDetail.vue') },
+      { path: 'user-points', name: 'AdminUserPoints', component: () => import('../views/UserPoints.vue') },
       { path: 'partners', name: 'AdminPartners', component: () => import('../views/Partners.vue') },
       { path: 'partner-applications', name: 'PartnerApplications', component: () => import('../views/PartnerApplications.vue') },
       { path: 'partners/:id', name: 'PartnerDetail', component: () => import('../views/PartnerDetail.vue') },

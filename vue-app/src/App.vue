@@ -22,6 +22,19 @@
         :ref="el => setCursorDotRef(el, index)"
       ></span>
     </div>
+    <div v-if="pointsToast" class="points-toast" role="status" aria-live="polite">
+      <div>
+        <span>Баллы начислены</span>
+        <strong>+{{ pointsToast.amount.toLocaleString('ru-RU') }} баллов</strong>
+        <p>{{ pointsToast.message || 'Баллы уже доступны для списания в корзине.' }}</p>
+      </div>
+      <router-link to="/profile?tab=points" class="points-toast__link" @click="dismissPointsToast">Открыть</router-link>
+      <button class="points-toast__close" @click="dismissPointsToast" aria-label="Закрыть уведомление">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
     <header class="header">
       <div class="header__container">
         <router-link to="/" class="header__logo">
@@ -319,6 +332,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import axios from 'axios'
 import { useCartStore } from './store/cart'
 import { useThemeStore } from './store/theme'
 import { useAuthStore } from './store/auth'
@@ -331,6 +345,7 @@ const mobileMenuOpen = ref(false)
 const cursorRoot = ref(null)
 const cursorDotRefs = ref([])
 const cursorDots = Array.from({ length: 8 })
+const pointsToast = ref(null)
 const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
 const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
 let cursorFrameId = 0
@@ -383,8 +398,41 @@ function captureAttributionFromUrl() {
   }
 }
 
+async function checkPointNotifications() {
+  if (!authStore.isAuthenticated) {
+    pointsToast.value = null
+    return
+  }
+
+  try {
+    const { data } = await axios.get('/api/points/summary')
+    const unseenCredits = data?.unseenCredits || []
+    const total = unseenCredits.reduce((sum, transaction) => sum + Math.max(0, Number(transaction.amount || 0)), 0)
+    if (total <= 0) return
+
+    pointsToast.value = {
+      ids: unseenCredits.map(transaction => transaction.id),
+      amount: total,
+      message: unseenCredits[0]?.message || ''
+    }
+  } catch {
+    pointsToast.value = null
+  }
+}
+
+async function dismissPointsToast() {
+  const ids = pointsToast.value?.ids || []
+  pointsToast.value = null
+  try {
+    await axios.post('/api/points/seen', { ids })
+  } catch {
+    // Уведомление не должно мешать работе сайта.
+  }
+}
+
 onMounted(() => {
   captureAttributionFromUrl()
+  checkPointNotifications()
 
   const updatePageActivity = () => {
     const isInactive = document.hidden || !document.hasFocus()
@@ -543,6 +591,10 @@ onMounted(() => {
   }
 })
 
+watch(() => authStore.isAuthenticated, () => {
+  checkPointNotifications()
+})
+
 onBeforeUnmount(() => {
   if (cursorFrameId) {
     window.cancelAnimationFrame(cursorFrameId)
@@ -593,6 +645,93 @@ onBeforeUnmount(() => {
 
 .cursor-goo.is-visible {
   opacity: 1;
+}
+
+.points-toast {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 6rem;
+  z-index: 10000;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.85rem;
+  width: min(430px, calc(100vw - 2rem));
+  padding: 1rem;
+  border: 1px solid rgba(152, 177, 255, 0.42);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(152, 177, 255, 0.26), transparent 34%),
+    rgba(15, 18, 30, 0.94);
+  color: #fff;
+  box-shadow: 0 24px 70px rgba(16, 56, 180, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+.points-toast span {
+  display: block;
+  color: #9fb5ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.points-toast strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+.points-toast p {
+  margin: 0.25rem 0 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.points-toast__link,
+.points-toast__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.points-toast__link {
+  min-height: 42px;
+  padding: 0 0.9rem;
+  background: #9fb5ff;
+  color: #050814;
+  font-weight: 800;
+}
+
+.points-toast__close {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .points-toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: 5.25rem;
+    grid-template-columns: 1fr auto;
+  }
+
+  .points-toast__link {
+    grid-column: 1 / 2;
+  }
+
+  .points-toast__close {
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+  }
 }
 
 html.is-page-inactive .cursor-goo {

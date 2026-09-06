@@ -8,6 +8,7 @@ import yandexGeocoder from '../services/yandexGeocoder.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { decryptMarketingPayload } from '../utils/marketingToken.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
+import { normalizePointAmount, spendUserPoints } from '../utils/userPoints.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -509,6 +510,7 @@ router.post('/', authenticate, async (req, res, next) => {
       delivery,
       paymentMethod,
       partnerBonusAmount,
+      userPointsAmount,
       clientRequestId,
       attribution,
       utm
@@ -546,7 +548,9 @@ router.post('/', authenticate, async (req, res, next) => {
         return res.status(200).json({
           order: existingOrder,
           meta: {
-            duplicate: true
+            duplicate: true,
+            userPointsUsed: Math.max(0, Number(existingOrder.userPointsUsed || 0)),
+            partnerBonusUsed: Math.max(0, Number(existingOrder.partnerBonusAmount || 0))
           }
         })
       }
@@ -664,7 +668,9 @@ router.post('/', authenticate, async (req, res, next) => {
 
     let discountAmount = 0
     const requestedPartnerBonusAmount = Math.max(0, Number(partnerBonusAmount) || 0)
+    const requestedUserPointsAmount = normalizePointAmount(userPointsAmount)
     let partnerBonusUsed = 0
+    let userPointsUsed = 0
     let appliedPromoCode = null
     let promoCodeId = null
     let partnerId = null
@@ -815,7 +821,15 @@ router.post('/', authenticate, async (req, res, next) => {
         })
       }
 
-      const totalDiscountAmount = promoDiscountAmount + partnerBonusUsed
+      const subtotalAfterPartnerBonus = Math.max(0, subtotalAfterPromo - partnerBonusUsed)
+      if (requestedUserPointsAmount > 0) {
+        userPointsUsed = Math.min(requestedUserPointsAmount, subtotalAfterPartnerBonus)
+        if (userPointsUsed <= 0) {
+          throw createClientError('Баллы нельзя списать на этот заказ')
+        }
+      }
+
+      const totalDiscountAmount = promoDiscountAmount + partnerBonusUsed + userPointsUsed
       const finalOrderTotal = Math.max(0, itemsSubtotal + sitePaidDeliveryPrice - totalDiscountAmount)
       const orderCreateData = {
         customerName,
@@ -829,6 +843,7 @@ router.post('/', authenticate, async (req, res, next) => {
         promoCodeId,
         discountAmount: totalDiscountAmount,
         partnerBonusAmount: partnerBonusUsed,
+        userPointsUsed,
         partnerId,
         ...orderAttribution,
         clientRequestId: normalizedClientRequestId && clientRequestIdPersistenceAvailable
@@ -885,6 +900,14 @@ router.post('/', authenticate, async (req, res, next) => {
         }
       }
 
+      if (userPointsUsed > 0) {
+        await spendUserPoints(tx, {
+          userId: actualUserId,
+          amount: userPointsUsed,
+          orderId: createdOrder.id
+        })
+      }
+
       return createdOrder
     })
 
@@ -929,6 +952,7 @@ router.post('/', authenticate, async (req, res, next) => {
       meta: {
         ...(partnerLockNotice ? { partnerNotice: partnerLockNotice } : {}),
         partnerBonusUsed,
+        userPointsUsed,
         paymentMethod: isCashOnDelivery ? 'cash_on_delivery' : 'online'
       }
     })
