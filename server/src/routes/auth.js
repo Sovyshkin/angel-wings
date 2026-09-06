@@ -12,6 +12,7 @@ const router = Router()
 const prisma = new PrismaClient()
 const EMAIL_CODE_TTL_MINUTES = Number(process.env.EMAIL_CODE_TTL_MINUTES || 15)
 const PASSWORD_RESET_TTL_MINUTES = Number(process.env.PASSWORD_RESET_TTL_MINUTES || 30)
+const SESSION_TOKEN_TTL = process.env.SESSION_TOKEN_TTL || '30d'
 
 function getPublicUser(user) {
   return {
@@ -26,7 +27,7 @@ function getPublicUser(user) {
 }
 
 function createSessionToken(userId) {
-  return jwt.sign({ userId, purpose: 'session' }, process.env.JWT_SECRET, { expiresIn: '7d' })
+  return jwt.sign({ userId, purpose: 'session' }, process.env.JWT_SECRET, { expiresIn: SESSION_TOKEN_TTL })
 }
 
 function getClientUrl() {
