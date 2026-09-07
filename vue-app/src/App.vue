@@ -36,7 +36,7 @@
       </div>
       <router-link to="/profile?tab=points" class="points-toast__link" @click="dismissPointsToast">Открыть</router-link>
       <button class="points-toast__close" @click="dismissPointsToast" aria-label="Закрыть уведомление">
-        <img src="/orthodox-cross-close.png" alt="">
+          <img src="/orthodox-cross-close-mask.png" alt="">
       </button>
     </div>
     <header class="header">
@@ -743,8 +743,8 @@ onBeforeUnmount(() => {
   background: currentColor;
   opacity: 0.92;
   filter: drop-shadow(0 0 8px rgba(159, 181, 255, 0.28));
-  mask: url('/orthodox-cross-close.png') center / contain no-repeat;
-  -webkit-mask: url('/orthodox-cross-close.png') center / contain no-repeat;
+  mask: url('/orthodox-cross-close-mask.png') center / contain no-repeat;
+  -webkit-mask: url('/orthodox-cross-close-mask.png') center / contain no-repeat;
 }
 
 .points-toast__close:hover {

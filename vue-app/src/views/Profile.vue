@@ -236,7 +236,7 @@
                 <p>{{ unseenPointCredits[0]?.message || 'Баллы уже доступны для списания в корзине.' }}</p>
               </div>
               <button class="points-award-banner__close" @click="markPointCreditsSeen" aria-label="Закрыть уведомление о баллах">
-                <img src="/orthodox-cross-close.png" alt="">
+                    <img src="/orthodox-cross-close-mask.png" alt="">
               </button>
             </div>
 
@@ -803,8 +803,8 @@ onMounted(async () => {
   background: currentColor;
   opacity: 0.92;
   filter: drop-shadow(0 0 8px rgba(152, 177, 255, 0.28));
-  mask: url('/orthodox-cross-close.png') center / contain no-repeat;
-  -webkit-mask: url('/orthodox-cross-close.png') center / contain no-repeat;
+  mask: url('/orthodox-cross-close-mask.png') center / contain no-repeat;
+  -webkit-mask: url('/orthodox-cross-close-mask.png') center / contain no-repeat;
 }
 
 .points-award-banner__close:hover {
