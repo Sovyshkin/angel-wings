@@ -234,15 +234,37 @@
         
         <div class="toggle-group">
           <label class="toggle">
-            <input type="checkbox" v-model="form.featured">
+            <input type="checkbox" v-model="form.featured" @change="handleFeaturedToggle">
             <span class="toggle-slider"></span>
-            <span class="toggle-label">Рекомендуемый товар</span>
+            <span class="toggle-label">Популярный товар</span>
           </label>
+        </div>
+
+        <div v-if="form.featured" class="featured-position-panel">
+          <div class="featured-position-heading">
+            <div>
+              <span class="featured-position-label">Позиция в блоке</span>
+              <small>На главной странице показывается максимум 4 товара</small>
+            </div>
+            <span class="featured-position-value">№ {{ form.featuredPosition }}</span>
+          </div>
+          <div class="featured-position-options" role="radiogroup" aria-label="Позиция популярного товара">
+            <label
+              v-for="position in 4"
+              :key="position"
+              class="featured-position-option"
+              :class="{ active: form.featuredPosition === position }"
+            >
+              <input v-model.number="form.featuredPosition" type="radio" :value="position">
+              <span>{{ position }}</span>
+            </label>
+          </div>
+          <small class="field-hint">Если позиция уже занята, этот товар заменит предыдущий в выбранном месте.</small>
         </div>
         
         <div class="toggle-group">
           <label class="toggle">
-            <input type="checkbox" v-model="form.active">
+            <input type="checkbox" v-model="form.active" @change="handleActiveToggle">
             <span class="toggle-slider"></span>
             <span class="toggle-label">Активен (видим на сайте)</span>
           </label>
@@ -290,6 +312,7 @@ const form = ref({
   specs: {},
   country: '',
   featured: false,
+  featuredPosition: 1,
   active: true,
   image: null
 })
@@ -342,6 +365,7 @@ async function fetchProduct() {
     specs: p.specs || {},
     country: p.country || '',
     featured: p.featured,
+    featuredPosition: p.featuredPosition || 1,
     active: p.active,
     image: p.image
   }
@@ -434,6 +458,16 @@ function applyDosagesTotalToStock() {
   form.value.stock = dosageTotal.value
 }
 
+function handleFeaturedToggle() {
+  if (form.value.featured && ![1, 2, 3, 4].includes(Number(form.value.featuredPosition))) {
+    form.value.featuredPosition = 1
+  }
+}
+
+function handleActiveToggle() {
+  if (!form.value.active) form.value.featured = false
+}
+
 function specsToJson() {
   const obj = {}
   specsArray.value.forEach(s => {
@@ -481,6 +515,7 @@ async function handleSubmit() {
     if (form.value.repeatCycleDays) formData.append('repeatCycleDays', form.value.repeatCycleDays)
     formData.append('specs', specsToJson())
     formData.append('featured', form.value.featured)
+    formData.append('featuredPosition', form.value.featuredPosition)
     formData.append('active', form.value.active)
     if (form.value.country) formData.append('country', form.value.country)
     if (form.value.categoryId) formData.append('categories', JSON.stringify([form.value.categoryId]))
@@ -763,6 +798,90 @@ onMounted(() => {
 
 .toggle-label {
   font-size: 0.9375rem;
+}
+
+.featured-position-panel {
+  margin: 0.25rem 0 1.25rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-secondary));
+}
+
+.featured-position-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.featured-position-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.featured-position-heading small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.featured-position-label {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.featured-position-value {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.featured-position-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.featured-position-option {
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.featured-position-option:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.featured-position-option.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.featured-position-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.featured-position-panel .field-hint {
+  margin-top: 0.75rem;
 }
 
 .form-actions {

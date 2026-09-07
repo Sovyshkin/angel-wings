@@ -755,7 +755,7 @@ async function loadCatalogPreview() {
   if (catalogFallbackTimer) window.clearTimeout(catalogFallbackTimer)
 
   await Promise.all([
-    productStore.fetchProducts('', { limit: 4 }),
+    productStore.fetchProducts('', { featured: true, limit: 4 }),
     productStore.fetchCategories()
   ])
 }

@@ -21,7 +21,7 @@ export const useProductStore = defineStore('products', () => {
       }
       const { data } = await axios.get(`${API_URL}/products`, { params })
       products.value = data.products || []
-      totalProducts.value = Number(data.total || products.value.length)
+      totalProducts.value = Number(data.catalogTotal ?? data.total ?? products.value.length)
     } catch (e) {
       error.value = e.message
       products.value = []

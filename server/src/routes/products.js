@@ -58,9 +58,35 @@ function parsePackageDimension(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
 }
 
+function parseFeaturedSettings(featured, featuredPosition, active) {
+  const isActive = active !== 'false'
+  const isFeatured = featured === 'true'
+
+  if (isFeatured && !isActive) {
+    const error = new Error('Популярный товар должен быть активен')
+    error.status = 400
+    throw error
+  }
+
+  if (!isFeatured) {
+    return { featured: false, featuredPosition: null }
+  }
+
+  const position = parseInt(featuredPosition, 10)
+  if (!Number.isInteger(position) || position < 1 || position > 4) {
+    const error = new Error('Выберите позицию популярного товара от 1 до 4')
+    error.status = 400
+    throw error
+  }
+
+  return { featured: true, featuredPosition: position }
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const { category, search, featured, limit = 100, offset = 0 } = req.query
+    const parsedLimit = Math.max(1, parseInt(limit, 10) || 100)
+    const parsedOffset = Math.max(0, parseInt(offset, 10) || 0)
     
     const where = { active: true }
     
@@ -81,7 +107,7 @@ router.get('/', async (req, res, next) => {
       where.featured = true
     }
     
-const [products, total] = await Promise.all([
+    const [products, total, catalogTotal] = await Promise.all([
       prisma.product.findMany({
         where,
         include: {
@@ -89,11 +115,16 @@ const [products, total] = await Promise.all([
             select: { id: true, name: true, slug: true }
           }
         },
-        take: parseInt(limit),
-        skip: parseInt(offset),
-        orderBy: { createdAt: 'desc' }
+        take: featured === 'true' ? Math.min(parsedLimit, 4) : parsedLimit,
+        skip: parsedOffset,
+        orderBy: featured === 'true'
+          ? [{ featuredPosition: 'asc' }, { createdAt: 'desc' }]
+          : { createdAt: 'desc' }
       }),
-      prisma.product.count({ where })
+      prisma.product.count({ where }),
+      featured === 'true'
+        ? prisma.product.count({ where: { active: true } })
+        : Promise.resolve(null)
     ])
 
     const parsedProducts = products.map(p => {
@@ -105,7 +136,7 @@ const [products, total] = await Promise.all([
       }
     })
 
-    res.json({ products: parsedProducts, total })
+    res.json({ products: parsedProducts, total, catalogTotal: catalogTotal ?? total })
   } catch (error) {
     next(error)
   }
@@ -144,7 +175,7 @@ router.post('/', authenticate, requireAdmin, upload.fields([
   { name: 'images', maxCount: 12 }
 ]), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, active, country } = req.body
+    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, featuredPosition, active, country } = req.body
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const galleryImages = galleryFiles.map(file => `/uploads/${file.filename}`)
@@ -162,32 +193,42 @@ router.post('/', authenticate, requireAdmin, upload.fields([
     if (parsedRepeatCycleDays !== null && (!Number.isFinite(parsedRepeatCycleDays) || parsedRepeatCycleDays <= 0)) {
       return res.status(400).json({ error: 'Цикл повторного заказа должен быть больше 0 дней' })
     }
+    const featuredSettings = parseFeaturedSettings(featured, featuredPosition, active)
 
-    const product = await prisma.product.create({
-      data: {
-        title,
-        slug,
-        description,
-        price: parseFloat(price),
-        comparePrice: comparePrice ? parseFloat(comparePrice) : null,
-        costPrice: Math.max(0, parseFloat(costPrice) || 0),
-        sku,
-        stock: parseInt(stock) || 0,
-        weight: parsedWeight,
-        packageLength: parsePackageDimension(packageLength),
-        packageWidth: parsePackageDimension(packageWidth),
-        packageHeight: parsePackageDimension(packageHeight),
-        repeatCycleDays: parsedRepeatCycleDays,
-        country: country || null,
-        specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
-        image: mainImage,
-        images: JSON.stringify(galleryImages),
-        featured: featured === 'true',
-        active: active !== 'false',
-        categories: categories ? {
-          connect: JSON.parse(categories).map(id => ({ id: parseInt(id) }))
-        } : undefined
+    const product = await prisma.$transaction(async (tx) => {
+      if (featuredSettings.featured) {
+        await tx.product.updateMany({
+          where: { featuredPosition: featuredSettings.featuredPosition },
+          data: { featured: false, featuredPosition: null }
+        })
       }
+
+      return tx.product.create({
+        data: {
+          title,
+          slug,
+          description,
+          price: parseFloat(price),
+          comparePrice: comparePrice ? parseFloat(comparePrice) : null,
+          costPrice: Math.max(0, parseFloat(costPrice) || 0),
+          sku,
+          stock: parseInt(stock) || 0,
+          weight: parsedWeight,
+          packageLength: parsePackageDimension(packageLength),
+          packageWidth: parsePackageDimension(packageWidth),
+          packageHeight: parsePackageDimension(packageHeight),
+          repeatCycleDays: parsedRepeatCycleDays,
+          country: country || null,
+          specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
+          image: mainImage,
+          images: JSON.stringify(galleryImages),
+          ...featuredSettings,
+          active: active !== 'false',
+          categories: categories ? {
+            connect: JSON.parse(categories).map(id => ({ id: parseInt(id) }))
+          } : undefined
+        }
+      })
     })
     
     res.status(201).json({ product })
@@ -201,7 +242,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
   { name: 'images', maxCount: 12 }
 ]), async (req, res, next) => {
   try {
-    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, active, country, existingImages, removeMainImage } = req.body
+    const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, featuredPosition, active, country, existingImages, removeMainImage } = req.body
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const persistedImages = parseImagesField(existingImages)
@@ -218,6 +259,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
     if (parsedRepeatCycleDays !== null && (!Number.isFinite(parsedRepeatCycleDays) || parsedRepeatCycleDays <= 0)) {
       return res.status(400).json({ error: 'Цикл повторного заказа должен быть больше 0 дней' })
     }
+    const featuredSettings = parseFeaturedSettings(featured, featuredPosition, active)
 
     const updateData = {
       title,
@@ -234,7 +276,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
       repeatCycleDays: parsedRepeatCycleDays,
       country: country || null,
       specs: specs ? (typeof specs === 'string' ? specs : JSON.stringify(specs)) : '{}',
-      featured: featured === 'true',
+      ...featuredSettings,
       active: active !== 'false'
     }
     
@@ -248,9 +290,22 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
       }
     }
     
-    const product = await prisma.product.update({
-      where: { id: parseInt(req.params.id) },
-      data: updateData
+    const productId = parseInt(req.params.id, 10)
+    const product = await prisma.$transaction(async (tx) => {
+      if (featuredSettings.featured) {
+        await tx.product.updateMany({
+          where: {
+            featuredPosition: featuredSettings.featuredPosition,
+            id: { not: productId }
+          },
+          data: { featured: false, featuredPosition: null }
+        })
+      }
+
+      return tx.product.update({
+        where: { id: productId },
+        data: updateData
+      })
     })
 
     // If product is used in active orders, reflect current product data in those order positions.

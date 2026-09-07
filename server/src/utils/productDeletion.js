@@ -12,7 +12,7 @@ export async function deleteProductForAdmin(prisma, productId) {
   if (orderItemsCount > 0) {
     const product = await prisma.product.update({
       where: { id: productId },
-      data: { active: false, featured: false }
+      data: { active: false, featured: false, featuredPosition: null }
     })
 
     return {

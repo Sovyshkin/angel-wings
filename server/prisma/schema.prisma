@@ -103,8 +103,9 @@ model Product {
   image           String?
   images          String                  @default("[]")
   specs           String                  @default("{}")
-  featured        Boolean                 @default(false)
-  active          Boolean                 @default(true)
+  featured         Boolean                 @default(false)
+  featuredPosition Int?                    @unique
+  active           Boolean                 @default(true)
   categories      Category[]              @relation("ProductCategories")
   orderItems      OrderItem[]
   analyticsEvents ProductAnalyticsEvent[]
