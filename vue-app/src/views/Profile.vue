@@ -788,26 +788,43 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.07);
+  background: transparent;
+  color: var(--text-primary);
   cursor: pointer;
   transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease;
 }
 
+.points-award-banner__close::before {
+  content: '';
+  width: 25px;
+  height: 25px;
+  background: currentColor;
+  opacity: 0.92;
+  filter: drop-shadow(0 0 8px rgba(152, 177, 255, 0.28));
+  mask: url('/orthodox-cross-close.png') center / contain no-repeat;
+  -webkit-mask: url('/orthodox-cross-close.png') center / contain no-repeat;
+}
+
 .points-award-banner__close:hover {
   border-color: rgba(152, 177, 255, 0.5);
-  background: rgba(152, 177, 255, 0.15);
+  background: rgba(152, 177, 255, 0.08);
   transform: translateY(-1px) rotate(4deg) scale(1.04);
 }
 
 .points-award-banner__close img {
-  width: 23px;
-  height: 23px;
-  object-fit: contain;
-  filter: invert(1) drop-shadow(0 0 8px rgba(152, 177, 255, 0.28));
-  opacity: 0.92;
-  pointer-events: none;
+  display: none;
+}
+
+[data-theme="light"] .points-award-banner__close {
+  border-color: rgba(5, 8, 20, 0.12);
+  color: #050814;
+}
+
+[data-theme="light"] .points-award-banner__close:hover {
+  border-color: rgba(55, 88, 170, 0.28);
+  background: rgba(55, 88, 170, 0.08);
 }
 
 @keyframes pointsAwardIn {
