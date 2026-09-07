@@ -225,13 +225,19 @@
           </div>
 
           <div v-if="activeTab === 'points'" class="tab-content">
-            <div v-if="unseenPointCredits.length" class="points-award-banner">
+            <div
+              v-if="unseenPointCredits.length"
+              class="points-award-banner"
+              :class="{ 'points-award-banner--closing': pointsAwardClosing }"
+            >
               <div>
                 <span class="points-award-banner__eyebrow">Баллы начислены</span>
                 <strong>+{{ unseenPointCreditsTotal.toLocaleString('ru-RU') }} баллов</strong>
                 <p>{{ unseenPointCredits[0]?.message || 'Баллы уже доступны для списания в корзине.' }}</p>
               </div>
-              <button class="btn btn-secondary" @click="markPointCreditsSeen">Понятно</button>
+              <button class="points-award-banner__close" @click="markPointCreditsSeen" aria-label="Закрыть уведомление о баллах">
+                <img src="/orthodox-cross-close.png" alt="">
+              </button>
             </div>
 
             <div class="section-card points-overview">
@@ -356,6 +362,7 @@ const pointsBalance = ref(Math.max(0, Number(authStore.user?.pointsBalance || 0)
 const pointTransactions = ref([])
 const unseenPointCredits = ref([])
 const pointsLoading = ref(false)
+const pointsAwardClosing = ref(false)
 
 const tabs = [
   { id: 'info', label: 'Мои данные', icon: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
@@ -503,7 +510,12 @@ async function loadPoints() {
 
 async function markPointCreditsSeen() {
   const ids = unseenPointCredits.value.map(transaction => transaction.id)
+  if (pointsAwardClosing.value) return
+  pointsAwardClosing.value = true
+  await new Promise(resolve => setTimeout(resolve, 260))
   unseenPointCredits.value = []
+  pointsAwardClosing.value = false
+  if (!ids.length) return
   try {
     await axios.post('/api/points/seen', { ids })
   } catch (error) {
@@ -733,6 +745,14 @@ onMounted(async () => {
     radial-gradient(circle at 12% 20%, rgba(152, 177, 255, 0.24), transparent 34%),
     linear-gradient(135deg, rgba(28, 42, 78, 0.92), rgba(14, 17, 28, 0.96));
   box-shadow: 0 18px 48px rgba(38, 86, 220, 0.18);
+  transform-origin: 96% 50%;
+  animation: pointsAwardIn 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.points-award-banner--closing {
+  pointer-events: none;
+  animation: pointsAwardOut 0.26s cubic-bezier(0.72, 0, 0.24, 1) both;
 }
 
 .points-award-banner__eyebrow,
@@ -759,6 +779,61 @@ onMounted(async () => {
   margin: 0.5rem 0 0;
   color: var(--text-secondary);
   line-height: 1.5;
+}
+
+.points-award-banner__close {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+  transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+
+.points-award-banner__close:hover {
+  border-color: rgba(152, 177, 255, 0.5);
+  background: rgba(152, 177, 255, 0.15);
+  transform: translateY(-1px) rotate(4deg) scale(1.04);
+}
+
+.points-award-banner__close img {
+  width: 23px;
+  height: 23px;
+  object-fit: contain;
+  filter: invert(1) drop-shadow(0 0 8px rgba(152, 177, 255, 0.28));
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+@keyframes pointsAwardIn {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, -8px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes pointsAwardOut {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+  }
+  55% {
+    opacity: 0.7;
+    transform: translate3d(10px, -2px, 0) rotate(1.5deg) scale(1.015);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(28px, -8px, 0) rotate(4deg) scale(0.9);
+  }
 }
 
 .points-overview {

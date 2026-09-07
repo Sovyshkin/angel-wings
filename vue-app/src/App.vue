@@ -22,7 +22,13 @@
         :ref="el => setCursorDotRef(el, index)"
       ></span>
     </div>
-    <div v-if="pointsToast" class="points-toast" role="status" aria-live="polite">
+    <div
+      v-if="pointsToast"
+      class="points-toast"
+      :class="{ 'points-toast--closing': pointsToastClosing }"
+      role="status"
+      aria-live="polite"
+    >
       <div>
         <span>Баллы начислены</span>
         <strong>+{{ pointsToast.amount.toLocaleString('ru-RU') }} баллов</strong>
@@ -30,9 +36,7 @@
       </div>
       <router-link to="/profile?tab=points" class="points-toast__link" @click="dismissPointsToast">Открыть</router-link>
       <button class="points-toast__close" @click="dismissPointsToast" aria-label="Закрыть уведомление">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
+        <img src="/orthodox-cross-close.png" alt="">
       </button>
     </div>
     <header class="header">
@@ -346,6 +350,7 @@ const cursorRoot = ref(null)
 const cursorDotRefs = ref([])
 const cursorDots = Array.from({ length: 8 })
 const pointsToast = ref(null)
+const pointsToastClosing = ref(false)
 const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
 const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
 let cursorFrameId = 0
@@ -415,6 +420,7 @@ async function checkPointNotifications() {
       amount: total,
       message: unseenCredits[0]?.message || ''
     }
+    pointsToastClosing.value = false
   } catch {
     pointsToast.value = null
   }
@@ -422,7 +428,12 @@ async function checkPointNotifications() {
 
 async function dismissPointsToast() {
   const ids = pointsToast.value?.ids || []
+  if (pointsToastClosing.value) return
+  pointsToastClosing.value = true
+  await new Promise(resolve => setTimeout(resolve, 260))
   pointsToast.value = null
+  pointsToastClosing.value = false
+  if (!ids.length) return
   try {
     await axios.post('/api/points/seen', { ids })
   } catch {
@@ -666,6 +677,14 @@ onBeforeUnmount(() => {
   color: #fff;
   box-shadow: 0 24px 70px rgba(16, 56, 180, 0.28);
   backdrop-filter: blur(18px);
+  transform-origin: 92% 50%;
+  animation: pointsToastIn 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.points-toast--closing {
+  pointer-events: none;
+  animation: pointsToastOut 0.26s cubic-bezier(0.72, 0, 0.24, 1) both;
 }
 
 .points-toast span {
@@ -714,6 +733,48 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
   cursor: pointer;
+  transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+
+.points-toast__close:hover {
+  border-color: rgba(159, 181, 255, 0.48);
+  background: rgba(159, 181, 255, 0.14);
+  transform: translateY(-1px) rotate(4deg) scale(1.04);
+}
+
+.points-toast__close img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: invert(1) drop-shadow(0 0 8px rgba(159, 181, 255, 0.28));
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+@keyframes pointsToastIn {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, 10px, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes pointsToastOut {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+  }
+  55% {
+    opacity: 0.72;
+    transform: translate3d(8px, -2px, 0) rotate(1.5deg) scale(1.025);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(26px, 8px, 0) rotate(4deg) scale(0.88);
+  }
 }
 
 @media (max-width: 640px) {
