@@ -24,6 +24,7 @@ model User {
   partnerUser                 PartnerUser?
   partnerApplications         PartnerApplication[]    @relation("PartnerApplicationUser")
   reviewedPartnerApplications PartnerApplication[]    @relation("PartnerApplicationReviewer")
+  handledContactRequests      ContactRequest[]        @relation("ContactRequestHandler")
   productAnalyticsEvents      ProductAnalyticsEvent[]
   emailVerificationCodes      EmailVerificationCode[]
   pointTransactions           UserPointTransaction[]   @relation("UserPointTransactions")
@@ -284,6 +285,26 @@ model PartnerApplication {
   @@index([status, createdAt])
   @@index([email])
   @@map("partner_applications")
+}
+
+model ContactRequest {
+  id          Int       @id @default(autoincrement())
+  name        String
+  email       String
+  phone       String?
+  goal        String?
+  message     String
+  status      String    @default("NEW")
+  adminNote   String?
+  handledById Int?
+  handledBy   User?     @relation("ContactRequestHandler", fields: [handledById], references: [id], onDelete: SetNull)
+  handledAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+  @@map("contact_requests")
 }
 
 model PromoCode {

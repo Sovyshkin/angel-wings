@@ -97,6 +97,10 @@
               </svg>
               Сообщение отправлено! Мы свяжемся с вами в ближайшее время.
             </div>
+
+            <div v-if="submitError" class="error-message">
+              {{ submitError }}
+            </div>
           </form>
         </div>
 
@@ -175,6 +179,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import axios from 'axios'
 
 const form = reactive({
   name: '',
@@ -192,6 +197,7 @@ const errors = reactive({
 
 const isSubmitting = ref(false)
 const submitSuccess = ref(false)
+const submitError = ref('')
 
 function validate() {
   let valid = true
@@ -224,12 +230,25 @@ async function handleSubmit() {
   if (!validate()) return
 
   isSubmitting.value = true
-  await new Promise(resolve => setTimeout(resolve, 1500))
-  isSubmitting.value = false
-  submitSuccess.value = true
-  
-  Object.keys(form).forEach(key => form[key] = '')
-  setTimeout(() => { submitSuccess.value = false }, 5000)
+  submitError.value = ''
+  submitSuccess.value = false
+
+  try {
+    await axios.post('/api/contact-requests', {
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      goal: form.goal,
+      message: form.message
+    })
+    submitSuccess.value = true
+    Object.keys(form).forEach(key => form[key] = '')
+    setTimeout(() => { submitSuccess.value = false }, 5000)
+  } catch (error) {
+    submitError.value = error?.response?.data?.error || 'Не удалось отправить сообщение. Попробуйте ещё раз.'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -323,6 +342,16 @@ async function handleSubmit() {
 .error-text {
   font-size: 0.75rem;
   color: var(--danger);
+}
+
+.error-message {
+  padding: 1rem;
+  background: rgba(255, 100, 100, 0.12);
+  border: 1px solid rgba(255, 100, 100, 0.28);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .textarea {

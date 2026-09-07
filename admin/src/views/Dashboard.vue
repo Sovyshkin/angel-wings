@@ -192,7 +192,7 @@
                 <path d="M14 2v6h6"/>
                 <path d="M9 15h6M9 18h4"/>
               </svg>
-              Заявки партнёров
+              Заявки
               <span v-if="pendingApplicationsCount" class="nav-badge nav-badge--mobile">{{ pendingApplicationsCount }}</span>
             </router-link>
             <router-link to="/partner-payouts" class="nav-link" @click="mobileMenuOpen = false">
@@ -260,17 +260,28 @@ const pendingApplicationsCount = ref(0)
 
 async function fetchPendingApplicationsCount() {
   try {
-    const { data } = await axios.get('/api/admin/partner-applications', {
-      params: { status: 'PENDING', limit: 1 }
-    })
-    pendingApplicationsCount.value = Number(data.pendingCount || 0)
+    const [partnerResult, contactResult] = await Promise.allSettled([
+      axios.get('/api/admin/partner-applications', {
+        params: { status: 'PENDING', limit: 1 }
+      }),
+      axios.get('/api/admin/contact-requests', {
+        params: { status: 'NEW', limit: 1 }
+      })
+    ])
+    const partnerCount = partnerResult.status === 'fulfilled' ? Number(partnerResult.value.data.pendingCount || 0) : 0
+    const contactCount = contactResult.status === 'fulfilled' ? Number(contactResult.value.data.newCount || 0) : 0
+    pendingApplicationsCount.value = partnerCount + contactCount
   } catch (error) {
-    console.error('[ADMIN] failed to fetch partner applications count', error)
+    console.error('[ADMIN] failed to fetch applications count', error)
   }
 }
 
 function handlePartnerApplicationsCount(event) {
-  pendingApplicationsCount.value = Number(event?.detail?.pendingCount || 0)
+  pendingApplicationsCount.value = Number(
+    event?.detail?.totalCount ?? (
+      Number(event?.detail?.pendingCount || 0) + Number(event?.detail?.contactCount || 0)
+    )
+  )
 }
 
 function logout() {

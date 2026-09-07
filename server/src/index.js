@@ -18,6 +18,8 @@ import dealerRoutes from './routes/dealers.js'
 import adminDealerRoutes from './routes/adminDealers.js'
 import pointsRoutes from './routes/points.js'
 import adminPointsRoutes from './routes/adminPoints.js'
+import contactRequestsRoutes from './routes/contactRequests.js'
+import adminContactRequestsRoutes from './routes/adminContactRequests.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { uploadDir } from './utils/fileUpload.js'
 
@@ -54,8 +56,10 @@ app.use('/api/admin/analytics', analyticsRoutes)
 app.use('/api/admin/partners', partnerRoutes)
 app.use('/api/admin/dealers', adminDealerRoutes)
 app.use('/api/admin/points', adminPointsRoutes)
+app.use('/api/admin/contact-requests', adminContactRequestsRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/partner-applications', partnerApplicationsRoutes)
+app.use('/api/contact-requests', contactRequestsRoutes)
 app.use('/api/partner', partnerCabinetRoutes)
 app.use('/api/delivery', deliveryRoutes)
 app.use('/api/dealers', dealerRoutes)

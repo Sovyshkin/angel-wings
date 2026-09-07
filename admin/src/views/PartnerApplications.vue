@@ -2,10 +2,10 @@
   <div class="partner-applications-page">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Заявки партнёров</h1>
-        <p class="page-subtitle">Проверка кандидатов и назначение партнёрского доступа</p>
+        <h1 class="page-title">Заявки</h1>
+        <p class="page-subtitle">{{ requestType === 'contact' ? 'Обращения с контактной формы сайта' : 'Проверка кандидатов и назначение партнёрского доступа' }}</p>
       </div>
-      <div class="status-tabs">
+      <div v-if="requestType === 'partner'" class="status-tabs">
         <button
           v-for="tab in tabs"
           :key="tab.value"
@@ -17,9 +17,34 @@
           <span v-if="tab.value === 'PENDING' && pendingCount">{{ pendingCount }}</span>
         </button>
       </div>
+      <div v-else class="status-tabs">
+        <button
+          v-for="tab in contactTabs"
+          :key="tab.value"
+          type="button"
+          :class="{ active: contactStatus === tab.value }"
+          @click="setContactStatus(tab.value)"
+        >
+          {{ tab.label }}
+          <span v-if="tab.value === 'NEW' && newContactCount">{{ newContactCount }}</span>
+        </button>
+      </div>
     </div>
 
-    <div class="logic-panel card">
+    <div class="request-type-tabs card">
+      <button type="button" :class="{ active: requestType === 'contact' }" @click="setRequestType('contact')">
+        <span>С сайта</span>
+        <strong>Контактные обращения</strong>
+        <small v-if="newContactCount">Новых: {{ newContactCount }}</small>
+      </button>
+      <button type="button" :class="{ active: requestType === 'partner' }" @click="setRequestType('partner')">
+        <span>Партнёрство</span>
+        <strong>Заявки партнёров</strong>
+        <small v-if="pendingCount">На рассмотрении: {{ pendingCount }}</small>
+      </button>
+    </div>
+
+    <div v-if="requestType === 'partner'" class="logic-panel card">
       <div>
         <span class="logic-panel__eyebrow">Логика назначения</span>
         <h2>Что происходит при принятии заявки</h2>
@@ -31,13 +56,98 @@
       </div>
     </div>
 
-    <div v-if="loading" class="loading-state">
+    <div v-if="activeLoading" class="loading-state">
       <div class="spinner"></div>
     </div>
 
-    <div v-else-if="!applications.length" class="empty-state card">
+    <div v-else-if="requestType === 'contact' && !contactRequests.length" class="empty-state card">
+      <h3>Заявок нет</h3>
+      <p>В выбранном статусе пока нет обращений с контактной формы.</p>
+    </div>
+
+    <div v-else-if="requestType === 'partner' && !applications.length" class="empty-state card">
       <h3>Заявок нет</h3>
       <p>В выбранном статусе пока нет заявок на партнёрство.</p>
+    </div>
+
+    <div v-else-if="requestType === 'contact'" class="contact-requests-list">
+      <article v-for="request in contactRequests" :key="request.id" class="contact-request-card card">
+        <div class="contact-request-card__head">
+          <div>
+            <div class="application-id">Обращение #{{ request.id }}</div>
+            <h3>{{ request.name }}</h3>
+            <p>{{ request.email }}</p>
+          </div>
+          <span class="application-status" :class="`application-status--${request.status.toLowerCase().replace('_', '-')}`">
+            {{ getContactStatusLabel(request.status) }}
+          </span>
+        </div>
+
+        <div class="application-meta">
+          <div v-if="request.phone">
+            <span>Телефон</span>
+            <a :href="`tel:${request.phone}`">{{ request.phone }}</a>
+          </div>
+          <div v-if="request.goal">
+            <span>Тема</span>
+            <strong>{{ getGoalLabel(request.goal) }}</strong>
+          </div>
+          <div>
+            <span>Дата обращения</span>
+            <strong>{{ formatDate(request.createdAt) }}</strong>
+          </div>
+          <div v-if="request.handledBy">
+            <span>Обработал</span>
+            <strong>{{ request.handledBy.name || request.handledBy.email }}</strong>
+          </div>
+        </div>
+
+        <div class="application-details">
+          <div>
+            <span>Сообщение</span>
+            <p>{{ request.message }}</p>
+          </div>
+        </div>
+
+        <div v-if="request.adminNote" class="admin-note">
+          <span>Комментарий администратора</span>
+          <p>{{ request.adminNote }}</p>
+        </div>
+
+        <div class="application-actions">
+          <textarea
+            v-model="contactNotes[request.id]"
+            rows="2"
+            placeholder="Комментарий администратора или результат обработки"
+          ></textarea>
+          <div>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              :disabled="contactProcessingId === request.id"
+              @click="updateContactRequest(request, 'ARCHIVED')"
+            >
+              В архив
+            </button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              :disabled="contactProcessingId === request.id"
+              @click="updateContactRequest(request, 'IN_PROGRESS')"
+            >
+              В работе
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="contactProcessingId === request.id"
+              @click="updateContactRequest(request, 'DONE')"
+            >
+              {{ contactProcessingId === request.id ? 'Сохраняем...' : 'Закрыть заявку' }}
+            </button>
+          </div>
+        </div>
+      </article>
     </div>
 
     <div v-else class="applications-list">
@@ -141,7 +251,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
 
 const tabs = [
@@ -152,11 +262,28 @@ const tabs = [
 ]
 
 const applications = ref([])
+const contactRequests = ref([])
 const loading = ref(true)
+const contactLoading = ref(true)
+const requestType = ref('contact')
 const status = ref('PENDING')
+const contactStatus = ref('NEW')
 const pendingCount = ref(0)
+const newContactCount = ref(0)
 const processingId = ref(null)
+const contactProcessingId = ref(null)
 const adminNotes = reactive({})
+const contactNotes = reactive({})
+
+const contactTabs = [
+  { label: 'Новые', value: 'NEW' },
+  { label: 'В работе', value: 'IN_PROGRESS' },
+  { label: 'Закрытые', value: 'DONE' },
+  { label: 'Архив', value: 'ARCHIVED' },
+  { label: 'Все', value: 'ALL' }
+]
+
+const activeLoading = computed(() => requestType.value === 'contact' ? contactLoading.value : loading.value)
 
 async function fetchApplications() {
   loading.value = true
@@ -166,9 +293,7 @@ async function fetchApplications() {
     })
     applications.value = data.applications || []
     pendingCount.value = data.pendingCount || 0
-    window.dispatchEvent(new CustomEvent('partner-applications-count', {
-      detail: { pendingCount: pendingCount.value }
-    }))
+    dispatchRequestsCount()
   } catch (e) {
     alert(e.response?.data?.error || 'Не удалось загрузить заявки')
   } finally {
@@ -176,9 +301,69 @@ async function fetchApplications() {
   }
 }
 
+async function fetchContactRequests() {
+  contactLoading.value = true
+  try {
+    const { data } = await axios.get('/api/admin/contact-requests', {
+      params: { status: contactStatus.value, limit: 100 }
+    })
+    contactRequests.value = data.requests || []
+    newContactCount.value = data.newCount || 0
+    contactRequests.value.forEach((request) => {
+      if (request.adminNote && !contactNotes[request.id]) {
+        contactNotes[request.id] = request.adminNote
+      }
+    })
+    dispatchRequestsCount()
+  } catch (e) {
+    alert(e.response?.data?.error || 'Не удалось загрузить обращения')
+  } finally {
+    contactLoading.value = false
+  }
+}
+
+function dispatchRequestsCount() {
+  window.dispatchEvent(new CustomEvent('partner-applications-count', {
+    detail: {
+      pendingCount: pendingCount.value,
+      contactCount: newContactCount.value,
+      totalCount: pendingCount.value + newContactCount.value
+    }
+  }))
+}
+
+function setRequestType(type) {
+  requestType.value = type
+  if (type === 'contact') {
+    fetchContactRequests()
+  } else {
+    fetchApplications()
+  }
+}
+
 function setStatus(nextStatus) {
   status.value = nextStatus
   fetchApplications()
+}
+
+function setContactStatus(nextStatus) {
+  contactStatus.value = nextStatus
+  fetchContactRequests()
+}
+
+async function updateContactRequest(request, nextStatus) {
+  contactProcessingId.value = request.id
+  try {
+    await axios.patch(`/api/admin/contact-requests/${request.id}`, {
+      status: nextStatus,
+      adminNote: contactNotes[request.id] || ''
+    })
+    await fetchContactRequests()
+  } catch (e) {
+    alert(e.response?.data?.error || 'Не удалось обновить обращение')
+  } finally {
+    contactProcessingId.value = null
+  }
 }
 
 async function approveApplication(application) {
@@ -233,6 +418,27 @@ function getStatusLabel(value) {
   return labels[value] || value
 }
 
+function getContactStatusLabel(value) {
+  const labels = {
+    NEW: 'Новая',
+    IN_PROGRESS: 'В работе',
+    DONE: 'Закрыта',
+    ARCHIVED: 'Архив'
+  }
+  return labels[value] || value
+}
+
+function getGoalLabel(value) {
+  const labels = {
+    consult: 'Консультация по продуктам',
+    order: 'Оформление заказа',
+    support: 'Техническая поддержка',
+    partnership: 'Сотрудничество',
+    other: 'Другое'
+  }
+  return labels[value] || value
+}
+
 function formatDate(value) {
   if (!value) return '-'
   return new Intl.DateTimeFormat('ru-RU', {
@@ -250,7 +456,9 @@ function getTelegramUrl(value) {
   return `https://t.me/${normalized.replace(/^@/, '')}`
 }
 
-onMounted(fetchApplications)
+onMounted(async () => {
+  await Promise.all([fetchContactRequests(), fetchApplications()])
+})
 </script>
 
 <style scoped>
@@ -304,6 +512,53 @@ onMounted(fetchApplications)
   font-size: 0.78rem;
 }
 
+.request-type-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  padding: 0.75rem;
+}
+
+.request-type-tabs button {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 112px;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
+    var(--bg-secondary);
+  color: var(--text-secondary);
+  text-align: left;
+  transition: var(--transition);
+}
+
+.request-type-tabs button.active {
+  border-color: rgba(166, 185, 248, 0.72);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(166, 185, 248, 0.24), transparent 34%),
+    rgba(166, 185, 248, 0.11);
+}
+
+.request-type-tabs span {
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.request-type-tabs strong {
+  color: var(--text-primary);
+  font-size: 1.1rem;
+}
+
+.request-type-tabs small {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
 .logic-panel {
   display: grid;
   grid-template-columns: 0.42fr 1fr;
@@ -340,21 +595,25 @@ onMounted(fetchApplications)
   line-height: 1.5;
 }
 
-.applications-list {
+.applications-list,
+.contact-requests-list {
   display: grid;
   gap: 1rem;
 }
 
-.application-card {
+.application-card,
+.contact-request-card {
   padding: 1.25rem;
   overflow: visible;
 }
 
-.application-card:hover {
+.application-card:hover,
+.contact-request-card:hover {
   transform: none;
 }
 
-.application-card__head {
+.application-card__head,
+.contact-request-card__head {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
@@ -367,12 +626,14 @@ onMounted(fetchApplications)
   font-size: 0.8rem;
 }
 
-.application-card h3 {
+.application-card h3,
+.contact-request-card h3 {
   margin-bottom: 0.2rem;
   font-size: 1.25rem;
 }
 
-.application-card__head p {
+.application-card__head p,
+.contact-request-card__head p {
   color: var(--text-secondary);
 }
 
@@ -397,6 +658,26 @@ onMounted(fetchApplications)
 .application-status--rejected {
   color: var(--danger);
   background: rgba(255, 100, 100, 0.12);
+}
+
+.application-status--new {
+  color: #f7c948;
+  background: rgba(247, 201, 72, 0.14);
+}
+
+.application-status--in-progress {
+  color: var(--accent);
+  background: rgba(166, 185, 248, 0.14);
+}
+
+.application-status--done {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.application-status--archived {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .application-meta,
@@ -507,7 +788,8 @@ onMounted(fetchApplications)
   }
 
   .logic-panel,
-  .logic-panel__steps {
+  .logic-panel__steps,
+  .request-type-tabs {
     grid-template-columns: 1fr;
   }
 
