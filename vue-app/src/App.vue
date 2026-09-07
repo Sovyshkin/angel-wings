@@ -230,17 +230,31 @@
           <strong>Angel Wings Chat</strong>
           <p>Общение, новости и ответы команды в закрытом Telegram-чате.</p>
 
-          <a
-            class="telegram-chat-card__join"
-            href="https://t.me/+G8SAtpWBSFAzZDcy"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="m21.6 3.4-3.1 14.8c-.2 1-.9 1.2-1.8.7L12 15.4l-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.8 8.8-7.9c.4-.3-.1-.5-.6-.2L6.3 12.1l-4.7-1.5c-1-.3-1-1 .2-1.5L20.2 2c.9-.3 1.6.2 1.4 1.4Z"/>
-            </svg>
-            Вступить в чат
-          </a>
+          <div class="telegram-chat-card__actions">
+            <a
+              class="telegram-chat-card__join telegram-chat-card__join--chat"
+              href="https://t.me/+G8SAtpWBSFAzZDcy"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="m21.6 3.4-3.1 14.8c-.2 1-.9 1.2-1.8.7L12 15.4l-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.8 8.8-7.9c.4-.3-.1-.5-.6-.2L6.3 12.1l-4.7-1.5c-1-.3-1-1 .2-1.5L20.2 2c.9-.3 1.6.2 1.4 1.4Z"/>
+              </svg>
+              Вступить в чат
+            </a>
+            <a
+              class="telegram-chat-card__join telegram-chat-card__join--channel"
+              href="https://t.me/+UwZu11Bt55FhNTIy"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-4 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/>
+                <path d="M8 9h8M8 13h5"/>
+              </svg>
+              Вступить в канал
+            </a>
+          </div>
         </aside>
       </Transition>
 
@@ -1643,6 +1657,23 @@ html.is-page-inactive *::after {
   transition: background 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
 }
 
+.telegram-chat-card__actions {
+  display: grid;
+  gap: 9px;
+}
+
+.telegram-chat-card__join--chat {
+  background: linear-gradient(135deg, rgba(80, 137, 255, 0.24), rgba(111, 147, 244, 0.1));
+}
+
+.telegram-chat-card__join--channel {
+  min-height: 42px;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.025);
+  color: rgba(248, 249, 255, 0.78);
+  font-size: 0.88rem;
+}
+
 .telegram-chat-card__join:hover {
   border-color: #a6b9f8;
   background: rgba(111, 147, 244, 0.22);
@@ -1688,6 +1719,12 @@ html.is-page-inactive *::after {
   border-color: rgba(66, 103, 199, 0.38);
   background: rgba(84, 124, 224, 0.1);
   color: #172342;
+}
+
+[data-theme="light"] .telegram-chat-card__join--channel {
+  border-color: rgba(31, 48, 88, 0.16);
+  background: rgba(31, 48, 88, 0.035);
+  color: rgba(23, 35, 66, 0.78);
 }
 
 .telegram-card-enter-active,
