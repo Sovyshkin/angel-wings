@@ -196,18 +196,69 @@
     <main class="main">
       <router-view />
     </main>
-    <a
-      class="telegram-fab"
-      href="https://t.me/+UwZu11Bt55FhNTIy"
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Написать в Telegram"
-      title="Написать в Telegram"
-    >
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.03-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.37.09 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
-      </svg>
-    </a>
+    <div ref="telegramWidget" class="telegram-widget">
+      <Transition name="telegram-card">
+        <aside
+          v-if="telegramChatOpen"
+          id="telegram-chat-card"
+          class="telegram-chat-card"
+          aria-label="Чат Angel Wings"
+        >
+          <button
+            type="button"
+            class="telegram-chat-card__close"
+            aria-label="Закрыть"
+            @click="closeTelegramChat"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+
+          <div class="telegram-chat-card__avatar-wrap">
+            <img
+              src="/telegram-chat-avatar.webp"
+              alt="Angel Wings Chat"
+              class="telegram-chat-card__avatar"
+              width="96"
+              height="96"
+            >
+            <span class="telegram-chat-card__status" aria-hidden="true"></span>
+          </div>
+
+          <span class="telegram-chat-card__eyebrow">Официальное сообщество</span>
+          <strong>Angel Wings Chat</strong>
+          <p>Общение, новости и ответы команды в закрытом Telegram-чате.</p>
+
+          <a
+            class="telegram-chat-card__join"
+            href="https://t.me/+G8SAtpWBSFAzZDcy"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="m21.6 3.4-3.1 14.8c-.2 1-.9 1.2-1.8.7L12 15.4l-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.8 8.8-7.9c.4-.3-.1-.5-.6-.2L6.3 12.1l-4.7-1.5c-1-.3-1-1 .2-1.5L20.2 2c.9-.3 1.6.2 1.4 1.4Z"/>
+            </svg>
+            Вступить в чат
+          </a>
+        </aside>
+      </Transition>
+
+      <button
+        type="button"
+        class="telegram-fab"
+        :class="{ 'telegram-fab--open': telegramChatOpen }"
+        :aria-expanded="telegramChatOpen"
+        aria-controls="telegram-chat-card"
+        aria-label="Открыть чат Angel Wings"
+        title="Чат Angel Wings"
+        @click="toggleTelegramChat"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.03-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.37.09 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+        </svg>
+      </button>
+    </div>
     <footer class="footer">
       <div class="footer__container">
         <div class="footer__grid">
@@ -351,6 +402,8 @@ const cursorDotRefs = ref([])
 const cursorDots = Array.from({ length: 8 })
 const pointsToast = ref(null)
 const pointsToastClosing = ref(false)
+const telegramWidget = ref(null)
+const telegramChatOpen = ref(false)
 const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
 const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
 let cursorFrameId = 0
@@ -358,6 +411,7 @@ let removeCursorMoveListener = null
 let removePageActivityListener = null
 let cursorScrollIdleTimer = null
 let cursorPausedByScroll = false
+let removeTelegramWidgetListeners = null
 
 const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value
@@ -365,6 +419,14 @@ const toggleMobileMenu = () => {
 
 const closeMobileMenu = () => {
   mobileMenuOpen.value = false
+}
+
+const toggleTelegramChat = () => {
+  telegramChatOpen.value = !telegramChatOpen.value
+}
+
+const closeTelegramChat = () => {
+  telegramChatOpen.value = false
 }
 
 watch(mobileMenuOpen, (isOpen) => {
@@ -444,6 +506,21 @@ async function dismissPointsToast() {
 onMounted(() => {
   captureAttributionFromUrl()
   checkPointNotifications()
+
+  const closeTelegramOnOutsideInteraction = (event) => {
+    if (telegramChatOpen.value && !telegramWidget.value?.contains(event.target)) {
+      closeTelegramChat()
+    }
+  }
+  const closeTelegramOnEscape = (event) => {
+    if (event.key === 'Escape') closeTelegramChat()
+  }
+  document.addEventListener('pointerdown', closeTelegramOnOutsideInteraction)
+  document.addEventListener('keydown', closeTelegramOnEscape)
+  removeTelegramWidgetListeners = () => {
+    document.removeEventListener('pointerdown', closeTelegramOnOutsideInteraction)
+    document.removeEventListener('keydown', closeTelegramOnEscape)
+  }
 
   const updatePageActivity = () => {
     const isInactive = document.hidden || !document.hasFocus()
@@ -615,6 +692,9 @@ onBeforeUnmount(() => {
   }
   if (removePageActivityListener) {
     removePageActivityListener()
+  }
+  if (removeTelegramWidgetListeners) {
+    removeTelegramWidgetListeners()
   }
   document.documentElement.classList.remove('has-goo-cursor')
   document.documentElement.classList.remove('is-page-inactive')
@@ -1397,10 +1477,18 @@ html.is-page-inactive *::after {
   min-height: calc(100vh - var(--header-height));
 }
 
-.telegram-fab {
+.telegram-widget {
   position: fixed;
   right: 22px;
   bottom: 22px;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.telegram-fab {
   width: 58px;
   height: 58px;
   border-radius: 50%;
@@ -1411,7 +1499,7 @@ html.is-page-inactive *::after {
   background: linear-gradient(145deg, #33a8ff 0%, #1f85ff 100%);
   border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow: 0 16px 36px rgba(32, 118, 255, 0.45);
-  z-index: 95;
+  cursor: pointer;
   transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
   animation: telegramPulse 2.4s ease-in-out infinite;
 }
@@ -1424,6 +1512,193 @@ html.is-page-inactive *::after {
 
 .telegram-fab:active {
   transform: translateY(0) scale(0.98);
+}
+
+.telegram-fab--open {
+  animation: none;
+  box-shadow: 0 14px 32px rgba(32, 118, 255, 0.5), 0 0 0 7px rgba(51, 168, 255, 0.12);
+}
+
+.telegram-chat-card {
+  position: relative;
+  width: min(350px, calc(100vw - 32px));
+  padding: 22px;
+  border: 1px solid rgba(166, 185, 248, 0.28);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(103, 145, 255, 0.2), transparent 38%),
+    rgba(15, 18, 30, 0.97);
+  color: #f8f9ff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38), 0 8px 24px rgba(32, 118, 255, 0.14);
+  text-align: center;
+  transform-origin: calc(100% - 28px) 100%;
+}
+
+.telegram-chat-card::after {
+  content: '';
+  position: absolute;
+  right: 20px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  border-right: 1px solid rgba(166, 185, 248, 0.28);
+  border-bottom: 1px solid rgba(166, 185, 248, 0.28);
+  background: #0f121e;
+  transform: rotate(45deg);
+}
+
+.telegram-chat-card__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(248, 249, 255, 0.58);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.telegram-chat-card__close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  transform: rotate(6deg);
+}
+
+.telegram-chat-card__avatar-wrap {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  margin: 0 auto 14px;
+  padding: 3px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #dbe5ff, #79a0ff 56%, #258eff);
+  box-shadow: 0 10px 28px rgba(57, 125, 255, 0.28);
+}
+
+.telegram-chat-card__avatar {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 3px solid #101421;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.telegram-chat-card__status {
+  position: absolute;
+  right: 2px;
+  bottom: 5px;
+  width: 14px;
+  height: 14px;
+  border: 3px solid #101421;
+  border-radius: 50%;
+  background: #39d98a;
+}
+
+.telegram-chat-card__eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: #9fb7ff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.telegram-chat-card strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.25;
+}
+
+.telegram-chat-card p {
+  max-width: 270px;
+  margin: 9px auto 17px;
+  color: rgba(232, 235, 247, 0.68);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.telegram-chat-card__join {
+  position: relative;
+  z-index: 1;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid rgba(159, 183, 255, 0.62);
+  border-radius: 10px;
+  background: rgba(111, 147, 244, 0.12);
+  color: #f8f9ff;
+  font-weight: 800;
+  text-decoration: none;
+  transition: background 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
+}
+
+.telegram-chat-card__join:hover {
+  border-color: #a6b9f8;
+  background: rgba(111, 147, 244, 0.22);
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .telegram-chat-card {
+  border-color: rgba(67, 96, 170, 0.2);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(107, 145, 246, 0.18), transparent 38%),
+    rgba(255, 255, 255, 0.98);
+  color: #101522;
+  box-shadow: 0 24px 70px rgba(38, 55, 98, 0.18), 0 8px 24px rgba(65, 110, 220, 0.1);
+}
+
+[data-theme="light"] .telegram-chat-card::after {
+  border-color: rgba(67, 96, 170, 0.2);
+  background: #fff;
+}
+
+[data-theme="light"] .telegram-chat-card__close {
+  color: rgba(16, 21, 34, 0.5);
+}
+
+[data-theme="light"] .telegram-chat-card__close:hover {
+  color: #101522;
+  background: rgba(34, 65, 140, 0.08);
+}
+
+[data-theme="light"] .telegram-chat-card__avatar {
+  border-color: #fff;
+}
+
+[data-theme="light"] .telegram-chat-card__status {
+  border-color: #fff;
+}
+
+[data-theme="light"] .telegram-chat-card p {
+  color: rgba(30, 39, 63, 0.68);
+}
+
+[data-theme="light"] .telegram-chat-card__join {
+  border-color: rgba(66, 103, 199, 0.38);
+  background: rgba(84, 124, 224, 0.1);
+  color: #172342;
+}
+
+.telegram-card-enter-active,
+.telegram-card-leave-active {
+  transition: opacity 0.24s ease, transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.telegram-card-enter-from,
+.telegram-card-leave-to {
+  opacity: 0;
+  transform: translate3d(10px, 14px, 0) scale(0.92);
 }
 
 @keyframes telegramPulse {
@@ -1657,16 +1932,52 @@ html.is-page-inactive *::after {
     flex-wrap: wrap;
   }
 
+  .telegram-widget {
+    right: 12px;
+    bottom: 12px;
+    gap: 10px;
+  }
+
   .telegram-fab {
     width: 44px;
     height: 44px;
-    right: 12px;
-    bottom: 12px;
   }
 
   .telegram-fab svg {
     width: 20px;
     height: 20px;
+  }
+
+  .telegram-chat-card {
+    width: min(320px, calc(100vw - 24px));
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .telegram-chat-card__avatar-wrap {
+    width: 68px;
+    height: 68px;
+    margin-bottom: 12px;
+  }
+
+  .telegram-chat-card strong {
+    font-size: 1.1rem;
+  }
+
+  .telegram-chat-card p {
+    margin-bottom: 14px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .telegram-fab {
+    animation: none;
+  }
+
+  .telegram-card-enter-active,
+  .telegram-card-leave-active {
+    transition-duration: 0.01ms;
   }
 }
 </style>

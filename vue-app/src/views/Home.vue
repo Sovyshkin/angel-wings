@@ -443,7 +443,20 @@
           <div class="cta__content">
             <h2>Нужна консультация?</h2>
             <p>Наши специалисты помогут подобрать оптимальный комплекс пептидов для ваших целей</p>
-            <router-link to="/contact" class="btn btn-primary">Связаться с нами</router-link>
+            <div class="cta__actions">
+              <router-link to="/contact" class="btn btn-primary">Связаться с нами</router-link>
+              <a
+                href="https://t.me/+G8SAtpWBSFAzZDcy"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn cta__chat-btn"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="m21.6 3.4-3.1 14.8c-.2 1-.9 1.2-1.8.7L12 15.4l-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.8 8.8-7.9c.4-.3-.1-.5-.6-.2L6.3 12.1l-4.7-1.5c-1-.3-1-1 .2-1.5L20.2 2c.9-.3 1.6.2 1.4 1.4Z"/>
+                </svg>
+                Вступить в чат
+              </a>
+            </div>
           </div>
           <div class="cta__decoration">
             <div class="molecule">
@@ -3428,6 +3441,31 @@ function queueHeroScrollProgress() {
   margin-bottom: 2rem;
 }
 
+.cta__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.cta__chat-btn {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 1px solid rgba(166, 185, 248, 0.38);
+  background: rgba(166, 185, 248, 0.07);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.cta__chat-btn:hover {
+  border-color: rgba(166, 185, 248, 0.72);
+  background: rgba(166, 185, 248, 0.14);
+  color: var(--accent);
+}
+
 .cta__decoration {
   position: absolute;
   right: 5rem;
@@ -4817,6 +4855,15 @@ function queueHeroScrollProgress() {
   .cta__content p {
     font-size: 1rem;
     margin-bottom: 1.5rem;
+  }
+
+  .cta__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cta__actions .btn {
+    width: 100%;
   }
 
   .benefits {
