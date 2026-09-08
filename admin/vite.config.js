@@ -4,7 +4,9 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [vue()],
-  base: './',
+  // Admin is served from the root of admin.angel-wings.ru. Absolute asset URLs
+  // keep bundles loadable when a Vue history route is refreshed directly.
+  base: '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
