@@ -325,41 +325,52 @@ app.post('/telegram/orders', requireRelayAuth, async (req, res) => {
     textLength: text.length
   }))
 
-  res.status(202).json({ ok: true, queued: true })
+  try {
+    const response = await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, payload, {
+      timeout: Number(process.env.TELEGRAM_SEND_TIMEOUT_MS || 30000),
+      headers: { 'Content-Type': 'application/json' },
+      httpsAgent: telegramAgent,
+      validateStatus: () => true
+    })
 
-  setImmediate(async () => {
-    try {
-      const response = await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, payload, {
-        timeout: Number(process.env.TELEGRAM_SEND_TIMEOUT_MS || 30000),
-        headers: { 'Content-Type': 'application/json' },
-        httpsAgent: telegramAgent,
-        validateStatus: () => true
+    const data = response?.data && typeof response.data === 'object' ? response.data : {}
+    console.log('[RELAY] Telegram response', JSON.stringify({
+      orderId,
+      httpStatus: response?.status || null,
+      ok: data?.ok,
+      messageId: data?.result?.message_id || null,
+      description: data?.description || null
+    }))
+
+    if (Number(response?.status || 0) >= 400 || data?.ok === false) {
+      console.error('[RELAY] Telegram send failed', JSON.stringify({
+        orderId,
+        telegramStatus: response?.status || null,
+        error: data?.description || 'Telegram sendMessage failed'
+      }))
+      return res.status(502).json({
+        ok: false,
+        error: data?.description || 'Telegram sendMessage failed',
+        telegramStatus: response?.status || null
       })
-
-      const data = response?.data && typeof response.data === 'object' ? response.data : {}
-      console.log('[RELAY] Telegram response', JSON.stringify({
-        orderId,
-        httpStatus: response?.status || null,
-        ok: data?.ok,
-        messageId: data?.result?.message_id || null,
-        description: data?.description || null
-      }))
-
-      if (Number(response?.status || 0) >= 400 || data?.ok === false) {
-        console.error('[RELAY] Telegram send failed', JSON.stringify({
-          orderId,
-          telegramStatus: response?.status || null,
-          error: data?.description || 'Telegram sendMessage failed'
-        }))
-      }
-    } catch (error) {
-      console.error('[RELAY] Telegram network error', JSON.stringify({
-        orderId,
-        message: error?.message || null,
-        code: error?.cause?.code || error?.code || null
-      }))
     }
-  })
+
+    return res.json({
+      ok: true,
+      messageId: data?.result?.message_id || null
+    })
+  } catch (error) {
+    console.error('[RELAY] Telegram network error', JSON.stringify({
+      orderId,
+      message: error?.message || null,
+      code: error?.cause?.code || error?.code || null
+    }))
+    return res.status(503).json({
+      ok: false,
+      error: 'Telegram network error',
+      message: error?.message || null
+    })
+  }
 })
 
 app.use((req, res) => {

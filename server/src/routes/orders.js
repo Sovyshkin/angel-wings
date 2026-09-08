@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import cdek from '../services/cdek.js'
 import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
-import { notifyOrderToTelegram } from '../services/telegram.js'
+import { enqueueOrderTelegramNotification } from '../services/telegramQueue.js'
 import yandexGeocoder from '../services/yandexGeocoder.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { decryptMarketingPayload } from '../utils/marketingToken.js'
@@ -925,6 +925,8 @@ router.post('/', authenticate, async (req, res, next) => {
         })
       }
 
+      await enqueueOrderTelegramNotification(createdOrder.id, tx)
+
       return createdOrder
     })
 
@@ -954,15 +956,12 @@ router.post('/', authenticate, async (req, res, next) => {
 
     await syncPartnerCommissionForOrder(prisma, order.id)
 
-    console.log('[TELEGRAM] Order detected, preparing notification', JSON.stringify({
+    console.log('[TELEGRAM_QUEUE] Order queued', JSON.stringify({
       orderId: order.id,
       deliveryType: normalizedDeliveryType || null,
       paymentMethod: isCashOnDelivery ? 'cash_on_delivery' : 'online',
       hasAddress: Boolean(order.shippingAddress || order.deliveryPickupName)
     }))
-    notifyOrderToTelegram(order).catch((error) => {
-      console.error('[TELEGRAM] Order notification error:', error?.message || error, error?.stack || '')
-    })
 
     res.status(201).json({
       order,

@@ -140,7 +140,9 @@ function getPositiveInt(value, fallback) {
 }
 
 async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId }) {
-  const maxAttempts = getPositiveInt(process.env.TELEGRAM_RELAY_RETRY_ATTEMPTS, 4)
+  // Durable retries are handled by telegramQueue. Keep this request bounded so one
+  // unavailable relay cannot block the worker for several minutes.
+  const maxAttempts = getPositiveInt(process.env.TELEGRAM_RELAY_RETRY_ATTEMPTS, 1)
   const baseDelayMs = getPositiveInt(process.env.TELEGRAM_RELAY_RETRY_DELAY_MS, 2500)
   const timeoutMs = getPositiveInt(process.env.TELEGRAM_RELAY_TIMEOUT_MS, 30000)
   const relayBody = JSON.stringify(relayPayload)
@@ -203,6 +205,10 @@ async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId
       }
     }
 
+    if (attempt >= maxAttempts) {
+      break
+    }
+
     const delayMs = baseDelayMs * attempt
     console.warn('[TELEGRAM] relay retry scheduled', JSON.stringify({
       orderId,
@@ -261,7 +267,11 @@ export async function notifyCourierOrderToTelegram(order) {
       orderId: order?.id || null
     })
 
-    return { ok: true, relay: true }
+    return {
+      ok: true,
+      relay: true,
+      messageId: response?.data?.messageId || null
+    }
   }
 
   if (!token || !chatId) {
@@ -329,7 +339,7 @@ export async function notifyCourierOrderToTelegram(order) {
     orderId: order?.id || null,
     messageId: data?.result?.message_id || null
   }))
-  return { ok: true }
+  return { ok: true, messageId: data?.result?.message_id || null }
 }
 
 export const notifyOrderToTelegram = notifyCourierOrderToTelegram

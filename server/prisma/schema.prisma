@@ -209,8 +209,28 @@ model Order {
   recoveryProcessingAt   DateTime?
   commission             PartnerCommission?
   pointTransactions      UserPointTransaction[]
+  telegramNotification   TelegramNotification?
 
   @@map("orders")
+}
+
+model TelegramNotification {
+  id                Int       @id @default(autoincrement())
+  orderId           Int       @unique
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status            String    @default("PENDING")
+  attempts          Int       @default(0)
+  maxAttempts       Int       @default(12)
+  nextAttemptAt     DateTime  @default(now())
+  processingAt      DateTime?
+  sentAt            DateTime?
+  telegramMessageId Int?
+  lastError         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@map("telegram_notifications")
 }
 
 model OrderItem {

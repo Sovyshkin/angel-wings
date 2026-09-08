@@ -6,8 +6,9 @@
 
 1. Клиент оформляет заказ на `angel-wings.ru`.
 2. Основной backend создаёт заказ и собирает текст уведомления.
-3. Основной backend отправляет `POST /telegram/orders` на этот relay.
-4. Relay отправляет сообщение в Telegram-группу от имени бота.
+3. Отдельный Telegram-worker берёт задачу из постоянной очереди в SQLite и отправляет `POST /telegram/orders` на этот relay.
+4. Relay ждёт фактический ответ Telegram и только после успешной отправки возвращает `ok: true`.
+5. При сетевой ошибке задача остаётся в очереди и автоматически повторяется с увеличивающейся задержкой.
 
 ## Переменные окружения relay-сервера
 
@@ -52,6 +53,22 @@ EMAIL_RELAY_TIMEOUT_MS="20000"
 ```
 
 После этого `TELEGRAM_BOT_TOKEN` и SMTP-пароль на основном сервере не нужны: секреты внешних сервисов хранятся на немецком relay.
+
+Очередь и worker на основном сервере настраиваются так:
+
+```bash
+cd /var/www/angel-wings/server
+npm run db:generate
+npm run db:telegram-queue
+pm2 startOrRestart ecosystem.telegram.config.cjs --update-env
+pm2 save
+```
+
+Существующий заказ можно безопасно поставить в очередь вручную:
+
+```bash
+npm run telegram:enqueue -- 402
+```
 
 ## Запуск на немецком сервере
 
