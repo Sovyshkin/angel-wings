@@ -4,20 +4,26 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 export const authenticate = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' })
-    }
-    
-    const token = authHeader.split(' ')[1]
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+  const authHeader = req.headers.authorization
 
-    // Short-lived email challenges are not API session tokens.
-    if (decoded.purpose && decoded.purpose !== 'session') {
-      return res.status(401).json({ error: 'Invalid token' })
-    }
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'No token provided' })
+  }
+
+  const token = authHeader.split(' ')[1]
+  let decoded
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET)
+  } catch {
+    return res.status(401).json({ error: 'Invalid token' })
+  }
+
+  // Short-lived email challenges are not API session tokens.
+  if (decoded.purpose && decoded.purpose !== 'session') {
+    return res.status(401).json({ error: 'Invalid token' })
+  }
+
+  try {
     
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -31,7 +37,7 @@ export const authenticate = async (req, res, next) => {
     req.user = user
     next()
   } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' })
+    next(error)
   }
 }
 

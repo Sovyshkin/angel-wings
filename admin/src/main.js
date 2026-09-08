@@ -15,7 +15,15 @@ app.use(router)
 axios.interceptors.response.use(
   response => response,
   error => {
-    if (error?.response?.status === 401) {
+    const status = error?.response?.status
+    const reason = String(error?.response?.data?.error || error?.response?.data?.message || '').toLowerCase()
+    const sessionIsInvalid = status === 401 && [
+      'invalid token',
+      'no token provided',
+      'user not found'
+    ].some(message => reason.includes(message))
+
+    if (sessionIsInvalid) {
       const authStore = useAuthStore(pinia)
       authStore.logout()
 
