@@ -75,10 +75,13 @@ model RecoveryEmailLog {
   status      String    @default("PENDING")
   error       String?
   sentAt      DateTime?
+  scheduledFor DateTime?
+  processingAt DateTime?
   createdAt   DateTime  @default(now())
 
   @@unique([type, targetId, fingerprint])
   @@index([createdAt])
+  @@index([status, scheduledFor])
   @@map("recovery_email_logs")
 }
 

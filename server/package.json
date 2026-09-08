@@ -7,10 +7,12 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
+    "worker:recovery": "node src/recovery-worker.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:recovery-worker": "node scripts/apply-recovery-worker-schema.mjs",
     "db:seed": "node prisma/seed.js",
     "admin:set-email": "node scripts/change-admin-email.mjs",
     "import:products": "node import-products.js",

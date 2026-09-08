@@ -259,7 +259,7 @@ async function scheduleTestEmail() {
     })
     const time = new Date(data.test.scheduledAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     recoveryMessageType.value = 'success'
-    recoveryMessage.value = `Тест для ${data.test.recipient} поставлен в очередь на ${time}. Не перезапускайте backend до отправки.`
+    recoveryMessage.value = `Тест для ${data.test.recipient} сохранён в очереди на ${time}. Перезапуск основного backend не повлияет на отправку.`
     await loadRecoverySettings()
   } catch (error) {
     recoveryMessageType.value = 'error'

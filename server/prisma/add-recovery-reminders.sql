@@ -42,8 +42,11 @@ CREATE TABLE recovery_email_logs (
   status TEXT NOT NULL DEFAULT 'PENDING',
   error TEXT,
   sentAt DATETIME,
+  scheduledFor DATETIME,
+  processingAt DATETIME,
   createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE UNIQUE INDEX recovery_email_logs_type_targetId_fingerprint_key ON recovery_email_logs(type, targetId, fingerprint);
 CREATE INDEX recovery_email_logs_createdAt_idx ON recovery_email_logs(createdAt);
+CREATE INDEX recovery_email_logs_status_scheduledFor_idx ON recovery_email_logs(status, scheduledFor);
