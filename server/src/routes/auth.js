@@ -23,7 +23,8 @@ function getPublicUser(user) {
     phone: user.phone,
     address: user.address,
     pointsBalance: Math.max(0, Number(user.pointsBalance || 0)),
-    emailVerified: user.emailVerified
+    emailVerified: user.emailVerified,
+    marketingConsent: Boolean(user.marketingConsentAt && !user.marketingUnsubscribedAt)
   }
 }
 
@@ -135,7 +136,7 @@ async function createOrReuseLoginCode(user) {
 
 router.post('/register', async (req, res, next) => {
   try {
-    const { password, name, phone } = req.body
+    const { password, name, phone, marketingConsent } = req.body
     const email = normalizeEmail(req.body.email)
 
     const passwordError = validateBasicPassword(password)
@@ -154,7 +155,8 @@ router.post('/register', async (req, res, next) => {
         password: hashedPassword,
         name,
         phone,
-        emailVerified: false
+        emailVerified: false,
+        marketingConsentAt: marketingConsent === true ? new Date() : null
       },
       select: {
         id: true,
@@ -163,6 +165,8 @@ router.post('/register', async (req, res, next) => {
         phone: true,
         role: true,
         emailVerified: true,
+        marketingConsentAt: true,
+        marketingUnsubscribedAt: true,
         createdAt: true
       }
     })
@@ -554,7 +558,7 @@ router.post('/reset-password', async (req, res, next) => {
 })
 
 router.get('/me', authenticate, async (req, res) => {
-  res.json({ user: req.user })
+  res.json({ user: getPublicUser(req.user) })
 })
 
 router.put('/me', authenticate, async (req, res, next) => {
@@ -571,11 +575,14 @@ router.put('/me', authenticate, async (req, res, next) => {
         role: true,
         phone: true,
         address: true,
-        pointsBalance: true
+        pointsBalance: true,
+        emailVerified: true,
+        marketingConsentAt: true,
+        marketingUnsubscribedAt: true
       }
     })
     
-    res.json({ user })
+    res.json({ user: getPublicUser(user) })
   } catch (error) {
     next(error)
   }

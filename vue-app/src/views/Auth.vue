@@ -69,6 +69,11 @@
             <label>Телефон</label>
             <input v-model="form.phone" type="tel" class="input" placeholder="+7 (999) 999-99-99">
           </div>
+
+          <label v-if="!isLogin" class="marketing-consent">
+            <input v-model="form.marketingConsent" type="checkbox">
+            <span>Получать полезные письма и напоминания о товарах, оставленных в корзине <small>(необязательно)</small></span>
+          </label>
           
           <div v-if="error" class="error-message">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -158,7 +163,8 @@ const form = ref({
   email: '',
   password: '',
   confirmPassword: '',
-  phone: ''
+  phone: '',
+  marketingConsent: false
 })
 
 function toggleMode() {
@@ -169,7 +175,7 @@ function toggleMode() {
   verificationCode.value = ''
   verificationPurpose.value = 'email_verification'
   loginChallengeToken.value = ''
-  form.value = { name: '', email: '', password: '', confirmPassword: '', phone: '' }
+  form.value = { name: '', email: '', password: '', confirmPassword: '', phone: '', marketingConsent: false }
 }
 
 async function handleSubmit() {
@@ -197,8 +203,10 @@ async function handleSubmit() {
         name: form.value.name,
         email: form.value.email,
         password: form.value.password,
-        phone: form.value.phone
+        phone: form.value.phone,
+        marketingConsent: form.value.marketingConsent
       })
+      localStorage.setItem('peptidi_marketing_consent', form.value.marketingConsent ? 'true' : 'false')
       if (result?.requiresEmailVerification) {
         pendingEmail.value = result.email || form.value.email
         verificationPurpose.value = 'email_verification'
@@ -345,6 +353,28 @@ async function resendCode() {
 
 .forgot-password-link:hover {
   text-decoration: underline;
+}
+
+.marketing-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: .7rem;
+  color: var(--text-secondary);
+  font-size: .84rem;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.marketing-consent input {
+  width: 17px;
+  height: 17px;
+  margin-top: .1rem;
+  accent-color: var(--accent);
+  flex: none;
+}
+
+.marketing-consent small {
+  color: var(--text-muted);
 }
 
 .password-input {

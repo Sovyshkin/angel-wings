@@ -15,8 +15,10 @@ model User {
   role                        String                  @default("USER")
   phone                       String?
   address                     String?
-  pointsBalance               Int                      @default(0)
+  pointsBalance               Int                     @default(0)
   emailVerified               Boolean                 @default(true)
+  marketingConsentAt          DateTime?
+  marketingUnsubscribedAt     DateTime?
   createdAt                   DateTime                @default(now())
   updatedAt                   DateTime                @updatedAt
   orders                      Order[]
@@ -27,10 +29,57 @@ model User {
   handledContactRequests      ContactRequest[]        @relation("ContactRequestHandler")
   productAnalyticsEvents      ProductAnalyticsEvent[]
   emailVerificationCodes      EmailVerificationCode[]
-  pointTransactions           UserPointTransaction[]   @relation("UserPointTransactions")
-  createdPointTransactions    UserPointTransaction[]   @relation("UserPointTransactionsCreated")
+  pointTransactions           UserPointTransaction[]  @relation("UserPointTransactions")
+  createdPointTransactions    UserPointTransaction[]  @relation("UserPointTransactionsCreated")
+  recoveryCart                RecoveryCart?
 
   @@map("users")
+}
+
+model RecoverySettings {
+  id                    Int      @id @default(1)
+  cartEnabled           Boolean  @default(true)
+  cartDelayHours        Int      @default(24)
+  unpaidOrderEnabled    Boolean  @default(true)
+  unpaidOrderDelayHours Int      @default(3)
+  updatedAt             DateTime @updatedAt
+
+  @@map("recovery_settings")
+}
+
+model RecoveryCart {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email          String
+  items          String    @default("[]")
+  cartHash       String
+  active         Boolean   @default(true)
+  lastActivityAt DateTime  @default(now())
+  reminderSentAt DateTime?
+  processingAt   DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([active, lastActivityAt, reminderSentAt])
+  @@map("recovery_carts")
+}
+
+model RecoveryEmailLog {
+  id          Int       @id @default(autoincrement())
+  type        String
+  targetId    String
+  fingerprint String
+  recipient   String
+  subject     String
+  status      String    @default("PENDING")
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([type, targetId, fingerprint])
+  @@index([createdAt])
+  @@map("recovery_email_logs")
 }
 
 model EmailVerificationCode {
@@ -85,76 +134,78 @@ model Category {
 }
 
 model Product {
-  id              Int                     @id @default(autoincrement())
-  title           String
-  slug            String                  @unique
-  description     String
-  price           Float
-  comparePrice    Float?
-  costPrice       Float                   @default(0)
-  sku             String?                 @unique
-  stock           Int                     @default(0)
-  weight          Int                     @default(0) // Вес в граммах
-  packageLength   Int                     @default(0) // Длина упаковки в см
-  packageWidth    Int                     @default(0) // Ширина упаковки в см
-  packageHeight   Int                     @default(0) // Высота упаковки в см
-  repeatCycleDays Int? // Через сколько дней клиенту пора повторить курс
-  country         String?
-  image           String?
-  images          String                  @default("[]")
-  specs           String                  @default("{}")
+  id               Int                     @id @default(autoincrement())
+  title            String
+  slug             String                  @unique
+  description      String
+  price            Float
+  comparePrice     Float?
+  costPrice        Float                   @default(0)
+  sku              String?                 @unique
+  stock            Int                     @default(0)
+  weight           Int                     @default(0) // Вес в граммах
+  packageLength    Int                     @default(0) // Длина упаковки в см
+  packageWidth     Int                     @default(0) // Ширина упаковки в см
+  packageHeight    Int                     @default(0) // Высота упаковки в см
+  repeatCycleDays  Int? // Через сколько дней клиенту пора повторить курс
+  country          String?
+  image            String?
+  images           String                  @default("[]")
+  specs            String                  @default("{}")
   featured         Boolean                 @default(false)
   featuredPosition Int?                    @unique
   active           Boolean                 @default(true)
-  categories      Category[]              @relation("ProductCategories")
-  orderItems      OrderItem[]
-  analyticsEvents ProductAnalyticsEvent[]
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  categories       Category[]              @relation("ProductCategories")
+  orderItems       OrderItem[]
+  analyticsEvents  ProductAnalyticsEvent[]
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
 
   @@map("products")
 }
 
 model Order {
-  id                  Int                @id @default(autoincrement())
-  clientRequestId     String?            @unique
-  userId              Int?
-  user                User?              @relation(fields: [userId], references: [id])
-  partnerId           Int?
-  status              String             @default("PENDING")
-  cancelReason        String?
-  paymentStatus       String?            @default("PENDING")
-  paymentId           String?
-  total               Float
-  partnerBonusAmount  Float?             @default(0)
-  acquiringFee        Float?
-  deliveryCost        Float?
-  utmSource           String?
-  utmMedium           String?
-  utmCampaign         String?
-  utmContent          String?
-  utmTerm             String?
-  items               OrderItem[]
-  customerName        String
-  customerEmail       String
-  customerPhone       String
-  shippingAddress     String?
-  notes               String?
-  promoCodeId         Int?
-  discountAmount      Float?
-  userPointsUsed      Int                @default(0)
+  id                     Int                    @id @default(autoincrement())
+  clientRequestId        String?                @unique
+  userId                 Int?
+  user                   User?                  @relation(fields: [userId], references: [id])
+  partnerId              Int?
+  status                 String                 @default("PENDING")
+  cancelReason           String?
+  paymentStatus          String?                @default("PENDING")
+  paymentId              String?
+  total                  Float
+  partnerBonusAmount     Float?                 @default(0)
+  acquiringFee           Float?
+  deliveryCost           Float?
+  utmSource              String?
+  utmMedium              String?
+  utmCampaign            String?
+  utmContent             String?
+  utmTerm                String?
+  items                  OrderItem[]
+  customerName           String
+  customerEmail          String
+  customerPhone          String
+  shippingAddress        String?
+  notes                  String?
+  promoCodeId            Int?
+  discountAmount         Float?
+  userPointsUsed         Int                    @default(0)
   // Delivery info
-  deliveryTariffCode  Int?
-  deliveryTariffName  String?
-  deliveryPrice       Float?
-  deliveryCity        String?
-  deliveryPickupPoint String?
-  deliveryPickupName  String?
-  cdekOrderUuid       String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  commission          PartnerCommission?
-  pointTransactions   UserPointTransaction[]
+  deliveryTariffCode     Int?
+  deliveryTariffName     String?
+  deliveryPrice          Float?
+  deliveryCity           String?
+  deliveryPickupPoint    String?
+  deliveryPickupName     String?
+  cdekOrderUuid          String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  recoveryReminderSentAt DateTime?
+  recoveryProcessingAt   DateTime?
+  commission             PartnerCommission?
+  pointTransactions      UserPointTransaction[]
 
   @@map("orders")
 }
@@ -190,20 +241,20 @@ model ProductAnalyticsEvent {
 }
 
 model UserPointTransaction {
-  id             Int       @id @default(autoincrement())
-  userId         Int
-  user           User      @relation("UserPointTransactions", fields: [userId], references: [id], onDelete: Cascade)
-  amount         Int
-  balanceAfter   Int
-  type           String
-  message        String?
-  orderId        Int?
-  order          Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  batchId        String?
-  createdById    Int?
-  createdBy      User?     @relation("UserPointTransactionsCreated", fields: [createdById], references: [id], onDelete: SetNull)
-  seenAt         DateTime?
-  createdAt      DateTime  @default(now())
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  user         User      @relation("UserPointTransactions", fields: [userId], references: [id], onDelete: Cascade)
+  amount       Int
+  balanceAfter Int
+  type         String
+  message      String?
+  orderId      Int?
+  order        Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  batchId      String?
+  createdById  Int?
+  createdBy    User?     @relation("UserPointTransactionsCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  seenAt       DateTime?
+  createdAt    DateTime  @default(now())
 
   @@index([userId, createdAt])
   @@index([userId, seenAt])

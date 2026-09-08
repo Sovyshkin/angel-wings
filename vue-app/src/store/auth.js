@@ -4,6 +4,12 @@ import axios from 'axios'
 
 const API_URL = '/api'
 
+function persistMarketingConsent(user) {
+  if (typeof user?.marketingConsent === 'boolean') {
+    localStorage.setItem('peptidi_marketing_consent', user.marketingConsent ? 'true' : 'false')
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(JSON.parse(localStorage.getItem('peptidi_user') || 'null'))
   const token = ref(localStorage.getItem('peptidi_token') || '')
@@ -23,6 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = data.user
       token.value = data.token
       localStorage.setItem('peptidi_user', JSON.stringify(data.user))
+      persistMarketingConsent(data.user)
       localStorage.setItem('peptidi_token', data.token)
       axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
       return data
@@ -73,6 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = data.user
       token.value = data.token
       localStorage.setItem('peptidi_user', JSON.stringify(data.user))
+      persistMarketingConsent(data.user)
       localStorage.setItem('peptidi_token', data.token)
       axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
       return data
@@ -96,6 +104,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     if (user.value) {
       localStorage.setItem('peptidi_user', JSON.stringify(user.value))
+      persistMarketingConsent(user.value)
     } else {
       localStorage.removeItem('peptidi_user')
     }
@@ -111,6 +120,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = data.user
     token.value = data.token
     localStorage.setItem('peptidi_user', JSON.stringify(data.user))
+    persistMarketingConsent(data.user)
     localStorage.setItem('peptidi_token', data.token)
     axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
     return data
@@ -143,6 +153,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = ''
     localStorage.removeItem('peptidi_user')
     localStorage.removeItem('peptidi_token')
+    localStorage.removeItem('peptidi_marketing_consent')
     delete axios.defaults.headers.common['Authorization']
   }
 
@@ -150,6 +161,7 @@ export const useAuthStore = defineStore('auth', () => {
     const { data: updated } = await axios.put(`${API_URL}/auth/me`, data)
     user.value = updated.user
     localStorage.setItem('peptidi_user', JSON.stringify(updated.user))
+    persistMarketingConsent(updated.user)
   }
 
   async function fetchUser() {
@@ -158,6 +170,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { data } = await axios.get(`${API_URL}/auth/me`)
       user.value = data.user
       localStorage.setItem('peptidi_user', JSON.stringify(data.user))
+      persistMarketingConsent(data.user)
     } catch (e) {
       logout()
     }

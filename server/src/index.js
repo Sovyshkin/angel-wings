@@ -20,6 +20,8 @@ import pointsRoutes from './routes/points.js'
 import adminPointsRoutes from './routes/adminPoints.js'
 import contactRequestsRoutes from './routes/contactRequests.js'
 import adminContactRequestsRoutes from './routes/adminContactRequests.js'
+import { recoveryRouter, adminRecoveryRouter } from './routes/recovery.js'
+import { startRecoveryWorker } from './services/recovery.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { uploadDir } from './utils/fileUpload.js'
 
@@ -64,6 +66,8 @@ app.use('/api/partner', partnerCabinetRoutes)
 app.use('/api/delivery', deliveryRoutes)
 app.use('/api/dealers', dealerRoutes)
 app.use('/api/points', pointsRoutes)
+app.use('/api/recovery', recoveryRouter)
+app.use('/api/admin/recovery', adminRecoveryRouter)
 
 app.use(errorHandler)
 
@@ -71,4 +75,5 @@ const PORT = process.env.PORT || 3000
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
+  startRecoveryWorker()
 })

@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import axios from 'axios'
 import { pushAddToCart, pushRemoveFromCart } from '../utils/ecommerce'
 
 export const useCartStore = defineStore('cart', () => {
   const CHECKOUT_REQUEST_KEY = 'peptidi_checkout_request_guard'
   const items = ref(JSON.parse(localStorage.getItem('peptidi_cart') || '[]'))
   const lastAddedId = ref(null)
+  let recoverySyncTimer = null
   
   // Delivery info
   const delivery = ref(JSON.parse(localStorage.getItem('peptidi_delivery') || '{}'))
@@ -104,12 +106,44 @@ export const useCartStore = defineStore('cart', () => {
   
   function save() {
     localStorage.setItem('peptidi_cart', JSON.stringify(items.value))
+    scheduleRecoverySync()
+  }
+
+  function getMarketingConsent() {
+    return localStorage.getItem('peptidi_marketing_consent') === 'true'
+  }
+
+  async function syncRecovery() {
+    if (!localStorage.getItem('peptidi_token')) return
+    try {
+      await axios.put('/api/recovery/cart', {
+        marketingConsent: getMarketingConsent(),
+        items: items.value.map(item => ({
+          productId: item.id,
+          quantity: item.quantity,
+          selectedDosage: item.selectedDosage || null
+        }))
+      })
+    } catch (error) {
+      console.warn('[RECOVERY] cart sync failed', error?.response?.data?.error || error?.message)
+    }
+  }
+
+  function scheduleRecoverySync() {
+    if (recoverySyncTimer) clearTimeout(recoverySyncTimer)
+    recoverySyncTimer = setTimeout(syncRecovery, 700)
+  }
+
+  function setMarketingConsent(value) {
+    localStorage.setItem('peptidi_marketing_consent', value === true ? 'true' : 'false')
+    scheduleRecoverySync()
   }
   
   return { 
     items, total, totalWithDelivery, count, totalWeight, 
     lastAddedId, delivery, deliveryPrice, deliveryMethods,
     addItem, removeItem, updateQuantity, clear, 
-    setDelivery, setDeliveryPrice, setDeliveryMethods, saveDelivery
+    setDelivery, setDeliveryPrice, setDeliveryMethods, saveDelivery,
+    syncRecovery, setMarketingConsent
   }
 })

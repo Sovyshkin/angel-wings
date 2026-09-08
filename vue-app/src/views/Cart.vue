@@ -1151,7 +1151,7 @@ const customer = ref({ name: '', phone: '', email: '', comment: '' })
 const consents = ref({
   rememberContacts: true,
   acceptOffer: true,
-  acceptMarketing: true,
+  acceptMarketing: localStorage.getItem('peptidi_marketing_consent') === 'true',
   acceptPrivacy: true,
   acceptResearchTerms: true
 })
@@ -2637,6 +2637,7 @@ async function placeOrder() {
         : (deliveryType.value === 'self_pickup' ? SELF_PICKUP_ADDRESS : (selectedPickupPoint.value?.address || null)),
       notes: customer.value.comment,
       paymentMethod: deliveryType.value === 'courier' ? paymentMethod.value : 'online',
+      marketingConsent: consents.value.acceptMarketing,
       delivery: deliveryData,
       attribution: getStoredAttribution()
     }
@@ -2866,6 +2867,7 @@ async function placeOrder() {
 }
 
 onMounted(async () => {
+  await cartStore.syncRecovery()
   refreshPendingUnpaidOrder()
   captureAttributionFromUrl()
   await productStore.fetchCategories()
@@ -2951,6 +2953,12 @@ watch(
     if (!validationErrors.value.length) return
     validationErrors.value = getValidationErrors()
   }
+)
+
+watch(
+  () => consents.value.acceptMarketing,
+  value => cartStore.setMarketingConsent(value),
+  { immediate: true }
 )
 
 watch(deliveryType, (nextType) => {

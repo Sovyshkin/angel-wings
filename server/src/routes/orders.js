@@ -512,6 +512,7 @@ router.post('/', authenticate, async (req, res, next) => {
       partnerBonusAmount,
       userPointsAmount,
       clientRequestId,
+      marketingConsent,
       attribution,
       utm
     } = req.body
@@ -677,6 +678,15 @@ router.post('/', authenticate, async (req, res, next) => {
     let partnerLockNotice = null
 
     const actualUserId = req.user?.id || userId || null
+
+    if (actualUserId && typeof marketingConsent === 'boolean') {
+      await prisma.user.update({
+        where: { id: actualUserId },
+        data: marketingConsent === true
+          ? { marketingConsentAt: new Date(), marketingUnsubscribedAt: null }
+          : { marketingConsentAt: null }
+      })
+    }
 
     const existingBinding = actualUserId
       ? await prisma.partnerUser.findUnique({
@@ -905,6 +915,13 @@ router.post('/', authenticate, async (req, res, next) => {
           userId: actualUserId,
           amount: userPointsUsed,
           orderId: createdOrder.id
+        })
+      }
+
+      if (actualUserId) {
+        await tx.recoveryCart.updateMany({
+          where: { userId: actualUserId },
+          data: { active: false, processingAt: null }
         })
       }
 
