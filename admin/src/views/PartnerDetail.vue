@@ -190,6 +190,119 @@
         </div>
       </div>
 
+      <div class="section balance-history-section">
+        <div class="section-heading-row">
+          <div>
+            <span class="section-kicker">Финансовый журнал</span>
+            <h2 class="section-title section-title--flush">История баланса</h2>
+            <p class="section-description">Все начисления, списания, комиссии и заявки на вывод в одной ленте.</p>
+          </div>
+          <div class="history-balance-card">
+            <span>Доступно сейчас</span>
+            <strong>{{ formatCurrency(historyBalance?.availableBalance ?? partner.balance?.availableBalance ?? 0) }}</strong>
+          </div>
+        </div>
+
+        <div class="history-panel card">
+          <div class="history-toolbar">
+            <div class="history-filters" role="tablist" aria-label="Фильтр истории баланса">
+              <button
+                v-for="filter in historyFilters"
+                :key="filter.value"
+                type="button"
+                :class="['history-filter', { 'history-filter--active': historyDirection === filter.value }]"
+                :aria-selected="historyDirection === filter.value"
+                role="tab"
+                @click="setHistoryDirection(filter.value)"
+              >
+                {{ filter.label }}
+              </button>
+            </div>
+            <span v-if="!historyLoading" class="history-count">{{ historyTotal }} {{ transactionWord(historyTotal) }}</span>
+          </div>
+
+          <div v-if="historyLoading && !balanceHistory.length" class="history-state">
+            <div class="spinner"></div>
+            <span>Загружаем операции...</span>
+          </div>
+          <div v-else-if="historyError && !balanceHistory.length" class="history-state history-state--error">
+            <span>{{ historyError }}</span>
+            <button type="button" class="btn btn-secondary btn-sm" @click="fetchBalanceHistory(true)">Повторить</button>
+          </div>
+          <template v-else-if="balanceHistory.length">
+            <div class="history-table-wrap">
+              <table class="data-table history-table">
+                <thead>
+                  <tr>
+                    <th>Дата</th>
+                    <th>Операция</th>
+                    <th>Статус</th>
+                    <th>Изменение</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="transaction in balanceHistory" :key="transaction.id">
+                    <td class="history-date">{{ formatDateTime(transaction.createdAt) }}</td>
+                    <td>
+                      <div class="history-operation">
+                        <span :class="['history-marker', `history-marker--${transaction.direction.toLowerCase()}`]">
+                          {{ transaction.direction === 'INCOME' ? '+' : transaction.direction === 'OUTCOME' ? '−' : '·' }}
+                        </span>
+                        <div>
+                          <strong>{{ transaction.title }}</strong>
+                          <p v-if="transaction.description">{{ transaction.description }}</p>
+                          <small v-if="transaction.actor">Администратор: {{ transaction.actor.name || transaction.actor.email }}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span :class="['history-status', historyStatusClass(transaction.status)]">{{ historyStatusLabel(transaction.status) }}</span></td>
+                    <td :class="['history-amount', `history-amount--${transaction.direction.toLowerCase()}`]">
+                      {{ formatTransactionAmount(transaction) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="history-mobile-list">
+              <article v-for="transaction in balanceHistory" :key="`history-mobile-${transaction.id}`" class="history-mobile-card">
+                <div class="history-mobile-card__top">
+                  <span :class="['history-marker', `history-marker--${transaction.direction.toLowerCase()}`]">
+                    {{ transaction.direction === 'INCOME' ? '+' : transaction.direction === 'OUTCOME' ? '−' : '·' }}
+                  </span>
+                  <div>
+                    <strong>{{ transaction.title }}</strong>
+                    <time>{{ formatDateTime(transaction.createdAt) }}</time>
+                  </div>
+                  <span :class="['history-amount', `history-amount--${transaction.direction.toLowerCase()}`]">{{ formatTransactionAmount(transaction) }}</span>
+                </div>
+                <p v-if="transaction.description">{{ transaction.description }}</p>
+                <div class="history-mobile-card__footer">
+                  <span :class="['history-status', historyStatusClass(transaction.status)]">{{ historyStatusLabel(transaction.status) }}</span>
+                  <small v-if="transaction.actor">{{ transaction.actor.name || transaction.actor.email }}</small>
+                </div>
+              </article>
+            </div>
+
+            <div v-if="historyHasMore || historyLoading || historyError" class="history-footer">
+              <span v-if="historyError" class="history-inline-error">{{ historyError }}</span>
+              <button
+                v-if="historyHasMore"
+                type="button"
+                class="btn btn-secondary history-more"
+                :disabled="historyLoading"
+                @click="fetchBalanceHistory(false)"
+              >
+                {{ historyLoading ? 'Загружаем...' : 'Показать ещё' }}
+              </button>
+            </div>
+          </template>
+          <div v-else class="history-state">
+            <span>Операций по выбранному фильтру пока нет.</span>
+          </div>
+        </div>
+      </div>
+
       <div class="section">
         <h2 class="section-title">Привязанные пользователи</h2>
         <div v-if="partner.users?.length" class="table-wrapper card">
@@ -372,6 +485,20 @@ const debitForm = ref({
   amount: '',
   comment: ''
 })
+const HISTORY_PAGE_SIZE = 25
+const historyFilters = [
+  { value: 'ALL', label: 'Все операции' },
+  { value: 'INCOME', label: 'Начисления' },
+  { value: 'OUTCOME', label: 'Списания' }
+]
+const balanceHistory = ref([])
+const historyBalance = ref(null)
+const historyDirection = ref('ALL')
+const historyTotal = ref(0)
+const historyHasMore = ref(false)
+const historyLoading = ref(false)
+const historyError = ref('')
+let historyRequestId = 0
 
 const hasAvailableBalance = computed(() => Number(partner.value?.balance?.availableBalance || 0) > 0)
 
@@ -396,6 +523,49 @@ async function fetchPartner() {
   } finally {
     loading.value = false
   }
+}
+
+async function fetchBalanceHistory(reset = false) {
+  if (historyLoading.value && !reset) return
+
+  const requestId = ++historyRequestId
+
+  if (reset) {
+    balanceHistory.value = []
+    historyTotal.value = 0
+    historyHasMore.value = false
+  }
+
+  historyLoading.value = true
+  historyError.value = ''
+  try {
+    const offset = reset ? 0 : balanceHistory.value.length
+    const { data } = await axios.get(`${API_URL}/${route.params.id}/transactions`, {
+      params: {
+        direction: historyDirection.value,
+        limit: HISTORY_PAGE_SIZE,
+        offset
+      }
+    })
+    if (requestId !== historyRequestId) return
+    balanceHistory.value = reset
+      ? data.transactions || []
+      : [...balanceHistory.value, ...(data.transactions || [])]
+    historyTotal.value = Number(data.total || 0)
+    historyHasMore.value = Boolean(data.hasMore)
+    historyBalance.value = data.balance || null
+  } catch (e) {
+    if (requestId !== historyRequestId) return
+    historyError.value = e?.response?.data?.error || 'Не удалось загрузить историю баланса'
+  } finally {
+    if (requestId === historyRequestId) historyLoading.value = false
+  }
+}
+
+function setHistoryDirection(direction) {
+  if (historyDirection.value === direction) return
+  historyDirection.value = direction
+  fetchBalanceHistory(true)
 }
 
 async function updatePercentage() {
@@ -454,7 +624,7 @@ async function grantPartnerCredit() {
     creditSuccess.value = data.emailSent
       ? 'Баллы начислены, письмо партнёру отправлено.'
       : 'Баллы начислены. Письмо не отправилось, почтовый сервис временно недоступен.'
-    await fetchPartner()
+    await Promise.all([fetchPartner(), fetchBalanceHistory(true)])
   } catch (e) {
     creditError.value = e?.response?.data?.error || 'Не удалось начислить баллы'
   } finally {
@@ -496,7 +666,7 @@ async function debitPartnerBalance(mode = 'amount') {
     debitForm.value.amount = ''
     debitForm.value.comment = ''
     debitSuccess.value = mode === 'reset' ? 'Баланс партнёра обнулён.' : 'Баллы списаны.'
-    await fetchPartner()
+    await Promise.all([fetchPartner(), fetchBalanceHistory(true)])
   } catch (e) {
     debitError.value = e?.response?.data?.error || 'Не удалось списать баллы'
   } finally {
@@ -524,6 +694,55 @@ function formatDate(date) {
   })
 }
 
+function formatDateTime(date) {
+  return new Date(date).toLocaleString('ru-RU', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function formatTransactionAmount(transaction) {
+  const amount = formatCurrency(transaction.amount || 0)
+  if (transaction.direction === 'INCOME') return `+${amount}`
+  if (transaction.direction === 'OUTCOME') return `−${amount}`
+  return amount
+}
+
+function historyStatusLabel(status) {
+  const labels = {
+    COMPLETED: 'Завершено',
+    PAID: 'Выполнено',
+    ADMIN_CREDITED: 'Начислено',
+    ADMIN_DEBITED: 'Списано',
+    SPENT_ON_ORDER: 'Оплачено',
+    PAYOUT_REQUESTED: 'Ожидает вывода',
+    PAYOUT_APPROVED: 'Выведено',
+    PAYOUT_REJECTED: 'Отклонено',
+    PENDING: 'В обработке'
+  }
+  return labels[status] || status
+}
+
+function historyStatusClass(status) {
+  if (['COMPLETED', 'PAID', 'ADMIN_CREDITED', 'ADMIN_DEBITED', 'SPENT_ON_ORDER', 'PAYOUT_APPROVED'].includes(status)) {
+    return 'history-status--complete'
+  }
+  if (status === 'PAYOUT_REJECTED') return 'history-status--rejected'
+  return 'history-status--pending'
+}
+
+function transactionWord(count) {
+  const value = Math.abs(Number(count)) % 100
+  const digit = value % 10
+  if (value > 10 && value < 20) return 'операций'
+  if (digit === 1) return 'операция'
+  if (digit >= 2 && digit <= 4) return 'операции'
+  return 'операций'
+}
+
 function getStatusClass(status) {
   const classes = {
     PENDING: 'badge-warning',
@@ -546,7 +765,10 @@ function getStatusLabel(status) {
   return labels[status] || status
 }
 
-onMounted(fetchPartner)
+onMounted(() => {
+  fetchPartner()
+  fetchBalanceHistory(true)
+})
 </script>
 
 <style scoped>
@@ -715,6 +937,265 @@ onMounted(fetchPartner)
   color: #fff;
   background: rgba(239, 68, 68, 0.22);
   border-color: rgba(239, 68, 68, 0.45);
+}
+
+.balance-history-section {
+  position: relative;
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.section-kicker {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #8fa6f7;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.section-title--flush {
+  margin-bottom: 0.35rem !important;
+}
+
+.section-description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.history-balance-card {
+  min-width: 220px;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid rgba(143, 166, 247, 0.3);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(143, 166, 247, 0.24), transparent 48%),
+    #171b26;
+}
+
+.history-balance-card span {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #949caf;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.history-balance-card strong {
+  color: #b5c5ff;
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-panel {
+  overflow: hidden;
+  padding: 0;
+}
+
+.history-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-filters {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+}
+
+.history-filter {
+  border: 0;
+  border-radius: 9px;
+  padding: 0.55rem 0.8rem;
+  color: var(--text-secondary);
+  background: transparent;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.history-filter:hover {
+  color: var(--text-primary);
+}
+
+.history-filter--active {
+  color: #111522;
+  background: #9fb4ff;
+  box-shadow: 0 4px 14px rgba(86, 111, 201, 0.24);
+}
+
+.history-count {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.history-table-wrap {
+  overflow-x: auto;
+}
+
+.history-table th:first-child,
+.history-table td:first-child {
+  width: 160px;
+}
+
+.history-table th:last-child,
+.history-table td:last-child {
+  width: 150px;
+  text-align: right;
+}
+
+.history-date {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.history-operation {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.history-operation strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.history-operation p {
+  max-width: 520px;
+  margin: 0.22rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.history-operation small {
+  display: block;
+  margin-top: 0.28rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.history-marker {
+  display: inline-flex;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.history-marker--income {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.13);
+}
+
+.history-marker--outcome {
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.13);
+}
+
+.history-marker--neutral {
+  color: #aeb7ca;
+  background: rgba(148, 163, 184, 0.13);
+}
+
+.history-amount {
+  font-size: 0.92rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.history-amount--income { color: #4ade80; }
+.history-amount--outcome { color: #fb7185; }
+.history-amount--neutral { color: var(--text-muted); }
+
+.history-status {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.history-status--complete {
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.24);
+  background: rgba(34, 197, 94, 0.09);
+}
+
+.history-status--pending {
+  color: #fde68a;
+  border-color: rgba(234, 179, 8, 0.24);
+  background: rgba(234, 179, 8, 0.09);
+}
+
+.history-status--rejected {
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.24);
+  background: rgba(244, 63, 94, 0.09);
+}
+
+.history-state {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 2rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.history-state--error,
+.history-inline-error {
+  color: #fca5a5;
+}
+
+.history-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.history-more {
+  min-width: 180px;
+  justify-content: center;
+}
+
+.history-mobile-list {
+  display: none;
 }
 
 .section {
@@ -966,6 +1447,86 @@ onMounted(fetchPartner)
 
   .debit-actions {
     grid-template-columns: 1fr;
+  }
+
+  .section-heading-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .history-balance-card {
+    min-width: 0;
+  }
+
+  .history-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .history-filters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .history-filter {
+    padding-inline: 0.4rem;
+  }
+
+  .history-count {
+    text-align: right;
+  }
+
+  .history-table-wrap {
+    display: none;
+  }
+
+  .history-mobile-list {
+    display: grid;
+  }
+
+  .history-mobile-card {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .history-mobile-card__top {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.75rem;
+  }
+
+  .history-mobile-card__top strong {
+    display: block;
+    font-size: 0.86rem;
+    line-height: 1.35;
+  }
+
+  .history-mobile-card__top time {
+    display: block;
+    margin-top: 0.18rem;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+  }
+
+  .history-mobile-card > p {
+    margin: 0.7rem 0 0 2.8rem;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .history-mobile-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0.75rem 0 0 2.8rem;
+  }
+
+  .history-mobile-card__footer small {
+    color: var(--text-muted);
+    text-align: right;
   }
 }
 </style>

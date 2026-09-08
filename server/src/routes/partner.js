@@ -624,6 +624,133 @@ router.post('/:id/debits', authenticate, requireAdmin, async (req, res, next) =>
   }
 })
 
+router.get('/:id/transactions', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const partnerId = parseInt(req.params.id, 10)
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25))
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0)
+    const direction = String(req.query.direction || 'ALL').trim().toUpperCase()
+
+    if (!Number.isFinite(partnerId)) {
+      return res.status(400).json({ error: 'Некорректный ID партнёра' })
+    }
+    if (!['ALL', 'INCOME', 'OUTCOME'].includes(direction)) {
+      return res.status(400).json({ error: 'Некорректный фильтр истории' })
+    }
+
+    const partner = await prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { id: true }
+    })
+    if (!partner) {
+      return res.status(404).json({ error: 'Партнёр не найден' })
+    }
+
+    const includeCommissions = direction !== 'OUTCOME'
+    const paymentWhere = {
+      partnerId,
+      ...(direction === 'INCOME'
+        ? { type: 'ADMIN_CREDIT' }
+        : direction === 'OUTCOME'
+          ? { NOT: { type: 'ADMIN_CREDIT' }, status: { not: 'PAYOUT_REJECTED' } }
+          : {})
+    }
+    const fetchLimit = offset + limit
+
+    const [commissions, commissionCount, payments, paymentCount, balance] = await Promise.all([
+      includeCommissions
+        ? prisma.partnerCommission.findMany({
+            where: { partnerId, order: { paymentStatus: 'PAID' } },
+            include: { order: { select: { id: true, customerName: true, total: true } } },
+            orderBy: { createdAt: 'desc' },
+            take: fetchLimit
+          })
+        : [],
+      includeCommissions
+        ? prisma.partnerCommission.count({ where: { partnerId, order: { paymentStatus: 'PAID' } } })
+        : 0,
+      prisma.partnerPayment.findMany({
+        where: paymentWhere,
+        orderBy: { createdAt: 'desc' },
+        take: fetchLimit
+      }),
+      prisma.partnerPayment.count({ where: paymentWhere }),
+      calculatePartnerBalance(prisma, partnerId)
+    ])
+
+    const actorIds = [...new Set(payments.map(payment => payment.processedBy).filter(Boolean))]
+    const actors = actorIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: actorIds } },
+          select: { id: true, name: true, email: true }
+        })
+      : []
+    const actorsById = new Map(actors.map(actor => [actor.id, actor]))
+
+    const transactions = [
+      ...commissions.map(commission => ({
+        id: `commission-${commission.id}`,
+        sourceId: commission.id,
+        type: 'COMMISSION',
+        direction: 'INCOME',
+        status: 'COMPLETED',
+        amount: commission.amount,
+        title: `Комиссия по заказу #${commission.orderId}`,
+        description: commission.order?.customerName || null,
+        order: commission.order,
+        actor: null,
+        createdAt: commission.createdAt,
+        processedAt: commission.createdAt
+      })),
+      ...payments.map(payment => {
+        const details = parsePaymentDetails(payment.details)
+        const isRejected = payment.status === 'PAYOUT_REJECTED'
+        const paymentDirection = payment.type === 'ADMIN_CREDIT'
+          ? 'INCOME'
+          : isRejected ? 'NEUTRAL' : 'OUTCOME'
+        const title = payment.type === 'ADMIN_CREDIT'
+          ? 'Начисление баллов администратором'
+          : payment.type === 'ADMIN_DEBIT'
+            ? 'Списание баллов администратором'
+            : payment.type === 'ORDER_SPEND' || payment.status === 'SPENT_ON_ORDER'
+              ? 'Оплата заказа баллами'
+              : isRejected
+                ? 'Заявка на вывод отклонена'
+                : payment.status === 'PAYOUT_REQUESTED' || payment.status === 'PENDING'
+                  ? 'Баллы зарезервированы для вывода'
+                  : 'Вывод партнёрских баллов'
+
+        return {
+          id: `payment-${payment.id}`,
+          sourceId: payment.id,
+          type: payment.type || 'PAYOUT',
+          direction: paymentDirection,
+          status: payment.status,
+          amount: payment.amount,
+          title,
+          description: payment.comment || details?.comment || null,
+          order: null,
+          actor: payment.processedBy ? actorsById.get(payment.processedBy) || null : null,
+          createdAt: payment.createdAt,
+          processedAt: payment.processedAt || payment.paidAt
+        }
+      })
+    ]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(offset, offset + limit)
+
+    const total = commissionCount + paymentCount
+    res.json({
+      transactions,
+      total,
+      hasMore: offset + transactions.length < total,
+      balance
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/stats/partner', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const [partnersCount, promoCodesCount, activeBindings, totalCommissions] = await Promise.all([
