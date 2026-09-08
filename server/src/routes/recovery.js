@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import jwt from 'jsonwebtoken'
 import { Router } from 'express'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
-import { getRecoverySettings, recoveryPrisma as prisma, runRecoverySweep } from '../services/recovery.js'
+import { getRecoverySettings, recoveryPrisma as prisma, runRecoverySweep, scheduleRecoveryTestEmail } from '../services/recovery.js'
 
 export const recoveryRouter = Router()
 export const adminRecoveryRouter = Router()
@@ -90,6 +90,19 @@ adminRecoveryRouter.put('/settings', authenticate, requireAdmin, async (req, res
 adminRecoveryRouter.post('/run', authenticate, requireAdmin, async (req, res, next) => {
   try {
     res.json({ ok: true, result: await runRecoverySweep() })
+  } catch (error) {
+    next(error)
+  }
+})
+
+adminRecoveryRouter.post('/test-email', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const test = await scheduleRecoveryTestEmail({
+      email: req.body?.email,
+      source: String(req.body?.source || 'AUTO').toUpperCase(),
+      delayMinutes: 1
+    })
+    res.status(202).json({ ok: true, test })
   } catch (error) {
     next(error)
   }

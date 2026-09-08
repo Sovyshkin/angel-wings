@@ -65,12 +65,27 @@
           <div v-if="!recoveryLogs.length" class="activity-empty">Писем пока не было</div>
           <div v-else class="activity-list">
             <div v-for="item in recoveryLogs.slice(0, 5)" :key="item.id" class="activity-row">
-              <div><strong>{{ item.type === 'CART' ? 'Корзина' : 'Неоплаченный заказ' }}</strong><small>{{ item.recipient }}</small></div>
+              <div><strong>{{ getRecoveryTypeLabel(item.type) }}</strong><small>{{ item.recipient }}</small></div>
               <span :class="['activity-status', item.status.toLowerCase()]">{{ item.status === 'SENT' ? 'Отправлено' : item.status === 'FAILED' ? 'Ошибка' : 'В работе' }}</span>
             </div>
           </div>
         </article>
       </div>
+      <form class="test-email-bar" @submit.prevent="scheduleTestEmail">
+        <div class="test-email-copy">
+          <span class="test-email-icon">T+1</span>
+          <div><strong>Тестовое персональное письмо</strong><small>Уйдёт только на указанный адрес через одну минуту и не изменит настоящую цепочку.</small></div>
+        </div>
+        <select v-model="testEmailSource" aria-label="Источник тестового письма">
+          <option value="AUTO">Корзина или заказ автоматически</option>
+          <option value="CART">Активная корзина</option>
+          <option value="UNPAID_ORDER">Неоплаченный заказ</option>
+        </select>
+        <input v-model.trim="testEmail" type="email" placeholder="email@example.com" required>
+        <button class="btn btn-secondary" type="submit" :disabled="testEmailScheduling">
+          {{ testEmailScheduling ? 'Ставим в очередь…' : 'Отправить через 1 минуту' }}
+        </button>
+      </form>
       <div v-if="recoveryMessage" :class="['notice', recoveryMessageType]">{{ recoveryMessage }}</div>
     </section>
 
@@ -170,6 +185,9 @@ const recoveryRunning = ref(false)
 const recoveryMessage = ref('')
 const recoveryMessageType = ref('success')
 const recoveryLogs = ref([])
+const testEmail = ref('')
+const testEmailSource = ref('AUTO')
+const testEmailScheduling = ref(false)
 const recoverySettings = ref({
   cartEnabled: true,
   cartDelayHours: 24,
@@ -231,6 +249,26 @@ async function runRecoveryNow() {
   }
 }
 
+async function scheduleTestEmail() {
+  testEmailScheduling.value = true
+  recoveryMessage.value = ''
+  try {
+    const { data } = await axios.post('/api/admin/recovery/test-email', {
+      email: testEmail.value,
+      source: testEmailSource.value
+    })
+    const time = new Date(data.test.scheduledAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    recoveryMessageType.value = 'success'
+    recoveryMessage.value = `Тест для ${data.test.recipient} поставлен в очередь на ${time}. Не перезапускайте backend до отправки.`
+    await loadRecoverySettings()
+  } catch (error) {
+    recoveryMessageType.value = 'error'
+    recoveryMessage.value = error.response?.data?.error || 'Не удалось поставить тестовое письмо в очередь.'
+  } finally {
+    testEmailScheduling.value = false
+  }
+}
+
 async function sendCampaign() {
   message.value = ''
   loading.value = true
@@ -286,6 +324,16 @@ function formatDate(value) {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+function getRecoveryTypeLabel(type) {
+  const labels = {
+    CART: 'Корзина',
+    UNPAID_ORDER: 'Неоплаченный заказ',
+    TEST_CART: 'Тест · корзина',
+    TEST_UNPAID_ORDER: 'Тест · заказ'
+  }
+  return labels[type] || type
 }
 
 onMounted(() => Promise.all([loadCampaigns(), loadRecoverySettings()]))
@@ -407,6 +455,27 @@ onMounted(() => Promise.all([loadCampaigns(), loadRecoverySettings()]))
 .activity-status.failed { color: #ff7d7d; }
 .activity-empty { display: grid; place-items: center; height: 150px; color: var(--text-secondary); border: 1px dashed var(--border); border-radius: 15px; }
 .recovery-console > .notice { margin-top: 1rem; }
+
+.test-email-bar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(210px, .65fr) minmax(220px, .7fr) auto;
+  gap: .75rem;
+  align-items: center;
+  margin-top: 1rem;
+  padding: .85rem;
+  border: 1px dashed rgba(165, 184, 255, .36);
+  border-radius: 18px;
+  background: rgba(165, 184, 255, .045);
+}
+
+.test-email-copy { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.test-email-copy div { display: grid; gap: .2rem; }
+.test-email-copy strong { font-size: .88rem; }
+.test-email-copy small { color: var(--text-secondary); line-height: 1.35; }
+.test-email-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 13px; background: var(--accent); color: #11131a; font: 900 .76rem var(--font-mono); }
+.test-email-bar input,
+.test-email-bar select { min-width: 0; padding: .78rem .85rem; border: 1px solid var(--border); border-radius: 13px; background: var(--bg-input); color: var(--text-primary); font: inherit; }
+.test-email-bar .btn { white-space: nowrap; }
 
 .campaign-card {
   background: var(--bg-card);
@@ -607,5 +676,6 @@ onMounted(() => Promise.all([loadCampaigns(), loadRecoverySettings()]))
   .recovery-console__heading { align-items: flex-start; flex-direction: column; }
   .recovery-grid { grid-template-columns: 1fr; }
   .recovery-actions { width: 100%; flex-wrap: wrap; }
+  .test-email-bar { grid-template-columns: 1fr; }
 }
 </style>

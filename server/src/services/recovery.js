@@ -298,6 +298,86 @@ export async function runRecoverySweep() {
   return { carts: cartsSent, orders: ordersSent }
 }
 
+export async function scheduleRecoveryTestEmail({ email, source = 'AUTO', delayMinutes = 1 }) {
+  const recipient = String(email || '').trim().toLowerCase()
+  if (!recipient || !recipient.includes('@')) {
+    const error = new Error('Укажите корректный email для теста')
+    error.status = 400
+    throw error
+  }
+  if (!emailService.isConfigured()) {
+    const error = new Error('Отправка почты не настроена на сервере')
+    error.status = 503
+    throw error
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: recipient }, select: { id: true, name: true } })
+  if (!user) {
+    const error = new Error('Пользователь с таким email не найден')
+    error.status = 404
+    throw error
+  }
+
+  const normalizedSource = ['CART', 'UNPAID_ORDER'].includes(source) ? source : 'AUTO'
+  let cart = null
+  let order = null
+  if (normalizedSource !== 'UNPAID_ORDER') {
+    cart = await prisma.recoveryCart.findUnique({ where: { userId: user.id } })
+    if (!cart?.active || !JSON.parse(cart.items || '[]').length) cart = null
+  }
+  if (!cart && normalizedSource !== 'CART') {
+    order = await prisma.order.findFirst({
+      where: { userId: user.id, status: 'PENDING', paymentStatus: 'PENDING' },
+      include: { items: { include: { product: { include: { categories: { select: { name: true, slug: true } } } } } } },
+      orderBy: { createdAt: 'desc' }
+    })
+  }
+  if (!cart && !order) {
+    const error = new Error(normalizedSource === 'CART' ? 'У пользователя нет активной синхронизированной корзины' : 'Не найдена активная корзина или неоплаченный заказ')
+    error.status = 404
+    throw error
+  }
+
+  const type = cart ? 'TEST_CART' : 'TEST_UNPAID_ORDER'
+  const targetId = String(cart?.id || order.id)
+  const fingerprint = `test-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`
+  const scheduledAt = new Date(Date.now() + Math.max(1, Number(delayMinutes) || 1) * 60 * 1000)
+  const log = await prisma.recoveryEmailLog.create({
+    data: { type, targetId, fingerprint, recipient, subject: 'Тестовое письмо готовится', status: 'SCHEDULED' }
+  })
+
+  const timer = setTimeout(async () => {
+    try {
+      let items
+      let total
+      let message
+      if (cart) {
+        const current = await prisma.recoveryCart.findUnique({ where: { id: cart.id } })
+        items = await hydrateCartItems(JSON.parse(current?.items || cart.items || '[]'))
+        total = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+        message = buildEmail({ name: user.name, items, total, mode: 'CART', userId: user.id })
+      } else {
+        items = order.items.map(item => ({
+          productId: item.productId, title: item.product.title, description: item.product.description,
+          image: item.product.image, price: Number(item.price), quantity: item.quantity,
+          selectedDosage: item.dosage, categories: item.product.categories
+        }))
+        message = buildEmail({ name: order.customerName, items, total: order.total, mode: 'UNPAID_ORDER', userId: user.id, orderId: order.id })
+      }
+      message.subject = `[Тест] ${message.subject}`
+      await prisma.recoveryEmailLog.update({ where: { id: log.id }, data: { status: 'SENDING', subject: message.subject } })
+      await emailService.sendMail({ to: recipient, ...message })
+      await prisma.recoveryEmailLog.update({ where: { id: log.id }, data: { status: 'SENT', sentAt: new Date() } })
+    } catch (error) {
+      console.error('[RECOVERY] test email failed', error)
+      await prisma.recoveryEmailLog.update({ where: { id: log.id }, data: { status: 'FAILED', error: String(error.message || error).slice(0, 1000) } }).catch(() => {})
+    }
+  }, scheduledAt.getTime() - Date.now())
+  timer.unref?.()
+
+  return { id: log.id, recipient, source: cart ? 'CART' : 'UNPAID_ORDER', scheduledAt }
+}
+
 let recoveryTimer = null
 export function startRecoveryWorker() {
   if (String(process.env.RECOVERY_WORKER_ENABLED || 'true').toLowerCase() === 'false' || recoveryTimer) return
