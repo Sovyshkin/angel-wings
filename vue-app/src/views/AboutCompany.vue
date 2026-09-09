@@ -131,7 +131,6 @@
     <section class="about-section about-section--standard">
       <div class="container">
         <div class="standard-panel reveal-block">
-          <div class="standard-panel__glow" aria-hidden="true"></div>
           <div class="standard-panel__copy">
             <span class="section-number">03 / Стандарт Angel Wings</span>
             <h2>Доверие начинается<br><em>с прозрачности</em></h2>
@@ -150,6 +149,7 @@
           </div>
 
           <div class="standard-panel__mark" aria-hidden="true">
+            <div class="standard-panel__glow"></div>
             <span class="standard-panel__mark-ring"></span>
             <img src="/logo-192.webp" alt="">
             <small>Angel Wings</small>
@@ -419,7 +419,7 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 .hero-backdrop__monogram {
   position: absolute;
   top: 2%;
-  right: -2%;
+  left: 50%;
   color: transparent;
   font-family: var(--font-display);
   font-size: clamp(18rem, 38vw, 42rem);
@@ -428,7 +428,8 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   letter-spacing: -0.09em;
   opacity: 0.08;
   -webkit-text-stroke: 1px #9eb7ff;
-  transform: translate3d(0, 0, 0);
+  transform: translate3d(-50%, 0, 0);
+  transform-origin: center;
   animation: editorialDrift 12s ease-in-out infinite;
 }
 
@@ -484,11 +485,31 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 
 .section-heading {
   display: grid;
-  grid-template-columns: minmax(0, 0.35fr) minmax(0, 1fr) minmax(280px, 0.7fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.65fr);
+  grid-template-areas:
+    "number number"
+    "title copy";
   align-items: end;
-  gap: 2rem;
+  column-gap: clamp(3rem, 8vw, 9rem);
+  row-gap: clamp(1.7rem, 3vw, 2.7rem);
   margin-bottom: clamp(3rem, 6vw, 5rem);
 }
+
+.section-heading > .section-number {
+  grid-area: number;
+  width: 100%;
+}
+
+.section-heading > .section-number::after {
+  content: '';
+  width: min(12vw, 150px);
+  height: 1px;
+  margin-left: 0.5rem;
+  background: rgba(158, 183, 255, 0.24);
+}
+
+.section-heading > h2 { grid-area: title; margin: 0; max-width: 860px; }
+.section-heading > p { grid-area: copy; max-width: 460px; margin: 0 0 0.35rem; }
 
 .section-heading h2,
 .journey-intro h2,
@@ -541,22 +562,52 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 .journey-list { margin: 0; padding: 0; list-style: none; }
 
 .journey-step {
+  position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-columns: 55px minmax(0, 1fr) 34px;
   gap: 1.2rem;
   align-items: start;
   padding: 2rem 0;
   border-bottom: 1px solid var(--border);
-  transition: padding 0.35s ease, border-color 0.35s ease;
+  transition: border-color 0.7s ease;
+}
+
+.journey-step::before {
+  content: '';
+  position: absolute;
+  inset: 5px -1rem;
+  z-index: -1;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(158, 183, 255, 0.085), rgba(158, 183, 255, 0.018) 70%, transparent);
+  opacity: 0;
+  transform: translateX(-10px) scaleX(0.985);
+  transform-origin: left center;
+  transition:
+    opacity 0.6s ease,
+    transform 0.78s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .journey-step:first-child { border-top: 1px solid var(--border); }
-.journey-step:hover { padding-left: 0.8rem; border-color: rgba(158, 183, 255, 0.42); }
-.journey-step__number { color: var(--about-accent); font-family: var(--font-mono); font-size: 0.68rem; }
+.journey-step__number {
+  color: var(--about-accent);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  transition: transform 0.72s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.journey-step > div { transition: transform 0.72s cubic-bezier(0.16, 1, 0.3, 1); }
 .journey-step h3 { margin-bottom: 0.55rem; font-family: var(--font-display); font-size: clamp(1.25rem, 2vw, 1.65rem); }
-.journey-step p { max-width: 560px; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.65; }
-.journey-step svg { color: var(--text-muted); transition: color 0.3s ease, transform 0.3s ease; }
-.journey-step:hover svg { color: var(--about-accent); transform: translateX(5px); }
+.journey-step p { max-width: 560px; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.65; transition: color 0.6s ease; }
+.journey-step svg { color: var(--text-muted); transition: color 0.6s ease, transform 0.72s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@media (hover: hover) and (pointer: fine) {
+  .journey-step:hover { border-color: rgba(158, 183, 255, 0.42); }
+  .journey-step:hover::before { opacity: 1; transform: translateX(0) scaleX(1); }
+  .journey-step:hover .journey-step__number { transform: translateX(4px); }
+  .journey-step:hover > div { transform: translateX(8px); }
+  .journey-step:hover p { color: color-mix(in srgb, var(--text-secondary) 78%, var(--text-primary)); }
+  .journey-step:hover svg { color: var(--about-accent); transform: translateX(7px); }
+}
 
 .standard-panel {
   position: relative;
@@ -576,10 +627,27 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   box-shadow: 0 40px 100px rgba(0, 0, 0, 0.22);
 }
 
-.standard-panel__glow { position: absolute; width: 380px; height: 380px; right: 3%; top: 50%; border: 1px solid rgba(158, 183, 255, 0.14); border-radius: 50%; transform: translateY(-50%); }
+.standard-panel__glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 180%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(158, 183, 255, 0.14);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
 .standard-panel__glow::before,
-.standard-panel__glow::after { content: ''; position: absolute; inset: 14%; border: 1px solid rgba(158, 183, 255, 0.12); border-radius: 50%; animation: ringRotate 14s linear infinite; }
-.standard-panel__glow::after { inset: 31%; border-style: dashed; animation-direction: reverse; animation-duration: 10s; }
+.standard-panel__glow::after {
+  content: '';
+  position: absolute;
+  border: 1px solid rgba(158, 183, 255, 0.12);
+  border-radius: 50%;
+  animation: ringRotate 14s linear infinite;
+}
+.standard-panel__glow::before { inset: 22%; }
+.standard-panel__glow::after { inset: 36%; border-style: dashed; animation-direction: reverse; animation-duration: 10s; }
 .standard-panel__copy { position: relative; z-index: 2; max-width: 720px; }
 .standard-panel h2 { margin: 1.5rem 0; }
 .standard-panel__copy > p { max-width: 640px; color: rgba(230, 236, 255, 0.68); }
@@ -601,7 +669,7 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 }
 .standard-panel__mark-ring {
   position: absolute;
-  inset: 0;
+  inset: 14%;
   border: 1px solid rgba(158, 183, 255, 0.27);
   border-radius: 50%;
   animation: ringRotate 20s linear infinite;
@@ -625,7 +693,7 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   box-shadow: 0 22px 60px rgba(33, 84, 214, 0.32);
   transition: transform 1.05s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.9s ease;
 }
-.standard-panel__mark small { position: absolute; bottom: 8%; font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(225, 232, 255, 0.58); }
+.standard-panel__mark small { position: absolute; left: 50%; bottom: 8%; font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(225, 232, 255, 0.58); transform: translateX(-50%); white-space: nowrap; }
 
 @media (hover: hover) and (pointer: fine) {
   .standard-panel__mark:hover { transform: translateY(-5px) scale(1.018); }
@@ -668,7 +736,10 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   22% { opacity: 1; }
   58%, 100% { transform: translateY(100%); opacity: 0; }
 }
-@keyframes editorialDrift { 50% { transform: translate3d(-10px, 6px, 0); opacity: 0.22; } }
+@keyframes editorialDrift {
+  0%, 100% { transform: translate3d(-50%, 0, 0) scale(1); }
+  50% { transform: translate3d(-50%, 6px, 0) scale(1.015); opacity: 0.16; }
+}
 @keyframes scrollLine { 0% { transform: translateX(-110%); } 60%, 100% { transform: translateX(210%); } }
 @keyframes statusPulse { 70% { box-shadow: 0 0 0 9px rgba(98, 212, 157, 0); } 100% { box-shadow: 0 0 0 0 rgba(98, 212, 157, 0); } }
 @keyframes ringRotate { to { transform: rotate(360deg); } }
@@ -676,8 +747,7 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 @media (max-width: 1050px) {
   .about-hero__title { font-size: clamp(3.5rem, 7.5vw, 5.25rem); }
   .about-hero__support { grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr); gap: 3rem; }
-  .section-heading { grid-template-columns: 1fr 1.2fr; }
-  .section-heading p { grid-column: 2; }
+  .section-heading { grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.7fr); column-gap: 3rem; }
 }
 
 @media (max-width: 768px) {
@@ -694,12 +764,14 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   .about-button { width: 100%; }
   .about-hero__signals { gap: 0.45rem; }
   .about-hero__signals strong { font-size: 0.61rem; line-height: 1.35; }
-  .hero-backdrop__monogram { top: 18%; right: -18%; font-size: clamp(17rem, 80vw, 26rem); }
+  .hero-backdrop__monogram { top: 18%; font-size: clamp(17rem, 80vw, 26rem); }
   .hero-backdrop__geometry { right: -16%; width: 75vw; }
   .about-hero__scroll { display: none; }
 
   .about-section { padding: 4.5rem 0; }
   .section-heading { display: block; margin-bottom: 2rem; }
+  .section-heading > .section-number { width: auto; }
+  .section-heading > .section-number::after { width: 46px; }
   .section-heading h2,
   .journey-intro h2,
   .standard-panel h2 { margin: 1.2rem 0; font-size: clamp(2.15rem, 10vw, 3.2rem); }
@@ -712,7 +784,6 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   .journey-layout { grid-template-columns: 1fr; gap: 2.5rem; }
   .journey-intro { position: static; }
   .journey-step { grid-template-columns: 36px minmax(0, 1fr) 22px; gap: 0.75rem; padding: 1.5rem 0; }
-  .journey-step:hover { padding-left: 0; }
   .journey-step h3 { font-size: 1.15rem; }
   .journey-step p { font-size: 0.82rem; }
 
@@ -742,5 +813,11 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   }
   .about-intro,
   .reveal-block { opacity: 1; transform: none; transition: none; }
+  .journey-step,
+  .journey-step::before,
+  .journey-step__number,
+  .journey-step > div,
+  .journey-step p,
+  .journey-step svg { transition: none; }
 }
 </style>
