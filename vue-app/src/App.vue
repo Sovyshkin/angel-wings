@@ -55,6 +55,7 @@
         </router-link>
         <nav class="header__nav">
           <router-link to="/" class="nav-link">Главная</router-link>
+          <router-link to="/about" class="nav-link">О нас</router-link>
           <router-link to="/catalog" class="nav-link">Каталог</router-link>
           <router-link to="/dealers" class="nav-link">Дилеры</router-link>
           <router-link to="/#faq" class="nav-link">FAQ</router-link>
@@ -128,6 +129,13 @@
             <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
           </svg>
           Главная
+        </router-link>
+        <router-link to="/about" class="nav-link" @click="closeMobileMenu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 16v-4M12 8h.01"/>
+          </svg>
+          О нас
         </router-link>
         <router-link to="/catalog" class="nav-link" @click="closeMobileMenu">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -986,12 +994,12 @@ html.is-page-inactive *::after {
 .header__container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0 clamp(1rem, 2.25vw, 2rem);
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: var(--header-height);
-  gap: 1rem;
+  gap: clamp(0.75rem, 1.5vw, 1.5rem);
 }
 
 .header__logo {
@@ -1004,8 +1012,8 @@ html.is-page-inactive *::after {
 }
 
 .header-logo {
-  height: 100px;
-  width: auto;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
   flex-shrink: 0;
 }
@@ -1020,38 +1028,20 @@ html.is-page-inactive *::after {
 .logo-text {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.25rem;
-  letter-spacing: 0.2em;
+  font-size: clamp(1rem, 1.3vw, 1.18rem);
+  letter-spacing: 0.18em;
   color: var(--text-primary);
   transition: color 0.4s ease;
   white-space: nowrap;
 }
 
-.header-logo {
-  height: 100px;
-  width: auto;
-  object-fit: contain;
-}
-
-.logo-icon {
-  color: var(--accent);
-  transition: color 0.4s ease;
-  width: 24px;
-  height: 24px;
-}
-
-.logo-text {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.25rem;
-  letter-spacing: 0.2em;
-  color: var(--text-primary);
-  transition: color 0.4s ease;
-}
-
 .header__nav {
   display: flex;
-  gap: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.15rem, 2.1vw, 2.25rem);
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .nav-link {
@@ -1073,6 +1063,7 @@ html.is-page-inactive *::after {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .theme-toggle {
@@ -1765,7 +1756,7 @@ html.is-page-inactive *::after {
   pointer-events: auto;
 }
 
-@media (max-width: 1107px) {
+@media (max-width: 1199px) {
   .app {
     --header-height: 64px;
   }
@@ -1807,8 +1798,8 @@ html.is-page-inactive *::after {
   .mobile-menu__nav {
     display: flex;
     flex-direction: column;
-    padding: 1rem;
-    gap: 0.5rem;
+    padding: 0.75rem clamp(0.75rem, 2.5vw, 1.25rem) calc(1rem + env(safe-area-inset-bottom));
+    gap: 0.375rem;
     background: var(--bg-card);
     border-radius: 0 0 20px 20px;
     min-height: calc(100dvh - var(--header-height));
@@ -1818,8 +1809,9 @@ html.is-page-inactive *::after {
     display: flex;
     align-items: center;
     gap: 0.875rem;
-    padding: 1rem 1.25rem;
-    font-size: 1rem;
+    min-height: 52px;
+    padding: 0.8rem 1rem;
+    font-size: 0.94rem;
     font-weight: 500;
     border-radius: 12px;
     background: var(--bg-secondary);
@@ -1828,7 +1820,7 @@ html.is-page-inactive *::after {
     width: 100%;
     text-align: left;
     border: none;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0;
   }
 
   .mobile-menu__nav .nav-link:hover {
@@ -1884,7 +1876,7 @@ html.is-page-inactive *::after {
   .header__container {
     padding: 0 0.75rem;
     gap: 0.5rem;
-    height: 64px;
+    height: var(--header-height);
   }
 
   .header__logo {
@@ -1960,12 +1952,20 @@ html.is-page-inactive *::after {
 }
 
 @media (max-width: 640px) {
+  .app {
+    --header-height: 60px;
+  }
+
   .header__container {
-    height: 60px;
+    height: var(--header-height);
   }
 
   .mobile-menu {
-    top: 56px;
+    top: var(--header-height);
+  }
+
+  .mobile-menu__nav {
+    min-height: calc(100dvh - var(--header-height));
   }
 
   .footer__grid {
@@ -2019,6 +2019,35 @@ html.is-page-inactive *::after {
   .telegram-chat-card p {
     margin-bottom: 14px;
     font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .header__container {
+    padding-inline: 0.625rem;
+  }
+
+  .header-logo {
+    width: 52px;
+    height: 52px;
+  }
+
+  .header__actions {
+    gap: 0.25rem;
+  }
+
+  .auth-btn,
+  .mobile-cart-btn,
+  .mobile-menu-btn {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .mobile-menu__nav .nav-link {
+    min-height: 48px;
+    padding-block: 0.7rem;
   }
 }
 
