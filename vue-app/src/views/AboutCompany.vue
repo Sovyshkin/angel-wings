@@ -531,6 +531,8 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 .principles-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
 
 .principle-card {
+  --principle-number-stroke: rgba(158, 183, 255, 0.2);
+  --principle-number-fill: rgba(158, 183, 255, 0.025);
   position: relative;
   min-height: 330px;
   display: flex;
@@ -544,14 +546,38 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 }
 
 .principle-card:hover { transform: translateY(-8px); border-color: rgba(158, 183, 255, 0.45); }
-.principle-card__top { display: flex; align-items: center; justify-content: space-between; color: var(--about-accent); }
-.principle-card__top > span { font-family: var(--font-mono); font-size: 0.68rem; }
-.principle-card__top div { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid rgba(158, 183, 255, 0.22); border-radius: 12px; }
+.principle-card__top { position: relative; z-index: 2; min-height: 112px; display: flex; align-items: flex-start; justify-content: space-between; color: var(--about-accent); }
+.principle-card__top > span {
+  position: absolute;
+  top: -0.6rem;
+  left: -0.2rem;
+  z-index: -1;
+  color: var(--principle-number-fill);
+  font-family: var(--font-display);
+  font-size: clamp(6rem, 9vw, 9rem);
+  font-weight: 800;
+  line-height: 0.82;
+  letter-spacing: -0.09em;
+  -webkit-text-stroke: 1px var(--principle-number-stroke);
+  user-select: none;
+  pointer-events: none;
+  transform-origin: left top;
+  transition: color 0.7s ease, -webkit-text-stroke-color 0.7s ease, transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.principle-card__top div { position: relative; z-index: 2; width: 42px; height: 42px; display: grid; place-items: center; margin-left: auto; border: 1px solid rgba(158, 183, 255, 0.22); border-radius: 12px; background: color-mix(in srgb, var(--bg-primary) 76%, transparent); backdrop-filter: blur(8px); }
 .principle-card__top :deep(svg) { width: 20px; fill: none; stroke: currentColor; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; }
-.principle-card h3 { margin: auto 0 1rem; font-family: var(--font-display); font-size: clamp(1.35rem, 2vw, 1.85rem); }
-.principle-card p { color: var(--text-secondary); font-size: 0.88rem; line-height: 1.7; }
+.principle-card h3 { position: relative; z-index: 2; margin: auto 0 1rem; font-family: var(--font-display); font-size: clamp(1.35rem, 2vw, 1.85rem); }
+.principle-card p { position: relative; z-index: 2; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.7; }
 .principle-card > i { position: absolute; width: 150px; height: 150px; right: -75px; bottom: -75px; border: 1px solid rgba(158, 183, 255, 0.13); border-radius: 50%; transition: transform 0.6s ease; }
 .principle-card:hover > i { transform: scale(1.35); }
+
+@media (hover: hover) and (pointer: fine) {
+  .principle-card:hover .principle-card__top > span {
+    color: rgba(158, 183, 255, 0.055);
+    -webkit-text-stroke-color: rgba(158, 183, 255, 0.38);
+    transform: translate3d(7px, -4px, 0) scale(1.025);
+  }
+}
 
 .about-section--journey { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .journey-layout { display: grid; grid-template-columns: minmax(300px, 0.7fr) minmax(0, 1fr); gap: clamp(3rem, 8vw, 9rem); }
@@ -727,7 +753,11 @@ onBeforeUnmount(() => revealObserver?.disconnect())
     linear-gradient(120deg, #fafbff, #edf2fd 72%, #f8faff);
 }
 [data-theme="light"] .hero-backdrop__monogram { -webkit-text-stroke-color: #5278df; }
-[data-theme="light"] .principle-card { background: linear-gradient(145deg, rgba(94, 130, 224, 0.1), rgba(255, 255, 255, 0.5) 48%, transparent); }
+[data-theme="light"] .principle-card {
+  --principle-number-stroke: rgba(49, 93, 204, 0.2);
+  --principle-number-fill: rgba(49, 93, 204, 0.025);
+  background: linear-gradient(145deg, rgba(94, 130, 224, 0.1), rgba(255, 255, 255, 0.5) 48%, transparent);
+}
 [data-theme="light"] .about-button--primary { color: #fff; }
 
 @keyframes introReveal { to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -788,7 +818,7 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   .journey-step p { font-size: 0.82rem; }
 
   .standard-panel { min-height: auto; grid-template-columns: 1fr; padding: 2rem 1.25rem; border-radius: 24px; }
-  .standard-panel__mark { grid-row: 1; width: 190px; }
+  .standard-panel__mark { grid-row: 1; width: 190px; margin-top: 3rem; }
   .standard-panel__actions { align-items: stretch; flex-direction: column; }
   .standard-link { justify-content: center; min-height: 42px; }
 
