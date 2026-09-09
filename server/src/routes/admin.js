@@ -1088,13 +1088,6 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
             data: { paymentStatus: normalized }
           })
           await syncPartnerCommissionForOrder(prisma, order.id)
-          await sendCloudKassirIncomeReceiptOnPaidTransition(
-            prisma,
-            order.id,
-            order.paymentStatus,
-            normalized,
-            'admin-orders-auto-sync'
-          )
           return { id: order.id, paymentStatus: normalized }
         })
       )

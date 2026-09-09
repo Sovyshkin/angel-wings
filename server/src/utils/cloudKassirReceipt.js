@@ -38,8 +38,8 @@ export async function sendCloudKassirIncomeReceiptForOrder(prisma, orderId, sour
     'admin-orders-auto-sync'
   ].includes(String(source || ''))
 
-  if ((order.paymentId || isTochkaReceiptSource) && process.env.CLOUDKASSIR_SEND_STANDALONE_FOR_TOCHKA !== 'true') {
-    console.warn('[CLOUDKASSIR] standalone receipt skipped: Tochka payment already includes receipt', JSON.stringify({
+  if (order.paymentId || isTochkaReceiptSource) {
+    console.warn('[CLOUDKASSIR] standalone receipt skipped: fiscalization is delegated to Tochka', JSON.stringify({
       orderId,
       paymentId: order.paymentId || null,
       source

@@ -297,6 +297,7 @@ class TochkaService {
         customerCode,
         hasMerchantId: Boolean(merchantId),
         hasReceipt: Boolean(receipt),
+        fiscalizationProvider: receipt ? 'tochka' : null,
         receiptItemsCount: receipt?.Items?.length || 0,
         hasReceiptEmail: Boolean(receipt?.Client?.email),
         paymentLinkId: requestData.Data.paymentLinkId,

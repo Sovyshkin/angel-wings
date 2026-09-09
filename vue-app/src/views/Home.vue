@@ -4407,29 +4407,7 @@ function queueHeroScrollProgress() {
   }
 
   .hero__container::before {
-    content: '';
-    position: absolute;
-    left: -1.5rem;
-    right: -1.5rem;
-    top: clamp(220px, 54vw, 300px);
-    height: clamp(210px, 48vw, 270px);
-    z-index: 7;
-    pointer-events: none;
-    background:
-      linear-gradient(
-        180deg,
-        rgba(7, 8, 14, 0) 0%,
-        rgba(7, 8, 14, 0.58) 36%,
-        rgba(7, 8, 14, 0.78) 58%,
-        rgba(7, 8, 14, 0.18) 82%,
-        rgba(7, 8, 14, 0) 100%
-      ),
-      linear-gradient(
-        90deg,
-        rgba(10, 22, 48, 0.14) 0%,
-        rgba(7, 8, 14, 0.02) 38%,
-        rgba(7, 8, 14, 0.34) 100%
-      );
+    content: none;
   }
 
   .hero__content {
@@ -4466,26 +4444,7 @@ function queueHeroScrollProgress() {
   }
 
   .hero__visual::after {
-    content: '';
-    position: absolute;
-    inset: 0 0 -5.25rem;
-    z-index: 6;
-    pointer-events: none;
-    background:
-      linear-gradient(
-        180deg,
-        rgba(7, 8, 14, 0) 38%,
-        rgba(7, 8, 14, 0.32) 64%,
-        rgba(7, 8, 14, 0.82) 86%,
-        rgba(7, 8, 14, 0) 100%
-      ),
-      linear-gradient(
-        90deg,
-        rgba(7, 8, 14, 0.34) 0%,
-        rgba(7, 8, 14, 0.04) 26%,
-        rgba(7, 8, 14, 0) 58%,
-        rgba(7, 8, 14, 0.5) 100%
-      );
+    content: none;
   }
 
   .hero-orbits {
