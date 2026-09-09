@@ -82,7 +82,9 @@
             :style="{ '--delay': `${index * 90}ms` }"
           >
             <div class="principle-card__top">
-              <span>{{ String(index + 1).padStart(2, '0') }}</span>
+              <span class="principle-card__number" aria-hidden="true">
+                <span>0</span><span :class="{ 'principle-card__digit--three': index === 2 }">{{ index + 1 }}</span>
+              </span>
               <div v-html="principle.icon"></div>
             </div>
             <h3>{{ principle.title }}</h3>
@@ -547,11 +549,13 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 
 .principle-card:hover { transform: translateY(-8px); border-color: rgba(158, 183, 255, 0.45); }
 .principle-card__top { position: relative; z-index: 2; min-height: 112px; display: flex; align-items: flex-start; justify-content: space-between; color: var(--about-accent); }
-.principle-card__top > span {
+.principle-card__number {
   position: absolute;
   top: -0.6rem;
   left: -0.2rem;
   z-index: -1;
+  display: inline-flex;
+  align-items: flex-start;
   color: var(--principle-number-fill);
   font-family: var(--font-display);
   font-size: clamp(6rem, 9vw, 9rem);
@@ -565,6 +569,8 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   transform-origin: left top;
   transition: color 0.7s ease, -webkit-text-stroke-color 0.7s ease, transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
 }
+.principle-card__number > span { display: inline-block; }
+.principle-card__digit--three { transform: translateY(0.05em) scaleY(0.7); transform-origin: center top; }
 .principle-card__top div { position: relative; z-index: 2; width: 42px; height: 42px; display: grid; place-items: center; margin-left: auto; border: 1px solid rgba(158, 183, 255, 0.22); border-radius: 12px; background: color-mix(in srgb, var(--bg-primary) 76%, transparent); backdrop-filter: blur(8px); }
 .principle-card__top :deep(svg) { width: 20px; fill: none; stroke: currentColor; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; }
 .principle-card h3 { position: relative; z-index: 2; margin: auto 0 1rem; font-family: var(--font-display); font-size: clamp(1.35rem, 2vw, 1.85rem); }
@@ -573,7 +579,7 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 .principle-card:hover > i { transform: scale(1.35); }
 
 @media (hover: hover) and (pointer: fine) {
-  .principle-card:hover .principle-card__top > span {
+  .principle-card:hover .principle-card__number {
     color: rgba(158, 183, 255, 0.055);
     -webkit-text-stroke-color: rgba(158, 183, 255, 0.38);
     transform: translate3d(7px, -4px, 0) scaleX(0.72) scale(1.025);
