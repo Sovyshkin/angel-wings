@@ -2,6 +2,11 @@
   <main class="about-page">
     <section class="about-hero">
       <div class="about-grid" aria-hidden="true"></div>
+      <div class="about-hero__backdrop" aria-hidden="true">
+        <div class="hero-backdrop__scan"></div>
+        <span class="hero-backdrop__monogram">AW</span>
+        <div class="hero-backdrop__geometry"></div>
+      </div>
       <div class="container about-hero__container">
         <div class="about-hero__copy">
           <div class="about-eyebrow about-intro about-intro--1">
@@ -14,62 +19,40 @@
             <em>Сервис — по-человечески.</em>
           </h1>
 
-          <p class="about-hero__lead about-intro about-intro--3">
-            Мы развиваем профессиональную среду для выбора исследовательской пептидной продукции —
-            с понятной информацией, аккуратной логистикой и поддержкой на каждом этапе заказа.
-          </p>
-
-          <div class="about-hero__actions about-intro about-intro--4">
-            <RouterLink to="/catalog" class="about-button about-button--primary">
-              Перейти в каталог
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </RouterLink>
-            <a href="/pharmaceutical-license.pdf" target="_blank" rel="noopener" class="about-button about-button--ghost">
-              Посмотреть документы
-            </a>
-          </div>
-
-          <div class="about-hero__signals about-intro about-intro--5" aria-label="Принципы компании">
+          <div class="about-hero__support">
             <div>
-              <span class="signal-index">01</span>
-              <strong>Точная информация</strong>
+              <p class="about-hero__lead about-intro about-intro--3">
+                Мы развиваем профессиональную среду для выбора исследовательской пептидной продукции —
+                с понятной информацией, аккуратной логистикой и поддержкой на каждом этапе заказа.
+              </p>
+
+              <div class="about-hero__actions about-intro about-intro--4">
+                <RouterLink to="/catalog" class="about-button about-button--primary">
+                  Перейти в каталог
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg>
+                </RouterLink>
+                <a href="/pharmaceutical-license.pdf" target="_blank" rel="noopener" class="about-button about-button--ghost">
+                  Посмотреть документы
+                </a>
+              </div>
             </div>
-            <div>
-              <span class="signal-index">02</span>
-              <strong>Контроль процессов</strong>
+
+            <div class="about-hero__signals about-intro about-intro--5" aria-label="Принципы компании">
+              <div>
+                <span class="signal-index">01</span>
+                <strong>Точная информация</strong>
+              </div>
+              <div>
+                <span class="signal-index">02</span>
+                <strong>Контроль процессов</strong>
+              </div>
+              <div>
+                <span class="signal-index">03</span>
+                <strong>Живая поддержка</strong>
+              </div>
             </div>
-            <div>
-              <span class="signal-index">03</span>
-              <strong>Живая поддержка</strong>
-            </div>
-          </div>
-        </div>
-
-        <div class="about-hero__editorial about-intro about-intro--visual" aria-hidden="true">
-          <div class="editorial-scan"></div>
-          <div class="editorial-meta">
-            <span>Company profile</span>
-            <span>AW / 001</span>
-          </div>
-
-          <div class="editorial-monogram">AW</div>
-
-          <div class="editorial-statement">
-            <span>Наша позиция</span>
-            <strong>Сложное должно<br>быть понятным.</strong>
-          </div>
-
-          <div class="editorial-axis">
-            <div><i></i><span>Точность</span><small>01</small></div>
-            <div><i></i><span>Прозрачность</span><small>02</small></div>
-            <div><i></i><span>Поддержка</span><small>03</small></div>
-          </div>
-
-          <div class="editorial-footer">
-            <strong>Angel Wings</strong>
-            <span>Инфраструктура осознанного выбора</span>
           </div>
         </div>
       </div>
@@ -284,10 +267,7 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 }
 
 .about-hero__container {
-  display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(430px, 1.08fr);
-  align-items: center;
-  gap: clamp(2rem, 5vw, 7rem);
+  width: 100%;
 }
 
 .about-hero__copy { position: relative; z-index: 4; }
@@ -313,15 +293,17 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 }
 
 .about-hero__title {
-  max-width: 760px;
-  margin: 1.6rem 0 1.5rem;
+  max-width: 1380px;
+  margin: 1.6rem 0 0;
   font-family: var(--font-display);
-  font-size: clamp(3.25rem, 5.6vw, 6.8rem);
+  font-size: clamp(4rem, 7.4vw, 8rem);
   font-weight: 700;
-  line-height: 0.94;
+  line-height: 0.9;
   letter-spacing: -0.055em;
   text-wrap: balance;
 }
+
+.about-hero__title em { display: inline-block; white-space: nowrap; }
 
 .about-hero__title em,
 .section-heading h2 em,
@@ -337,6 +319,14 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   color: var(--text-secondary);
   font-size: clamp(1rem, 1.25vw, 1.22rem);
   line-height: 1.75;
+}
+
+.about-hero__support {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(420px, 0.72fr);
+  align-items: end;
+  gap: clamp(3rem, 10vw, 10rem);
+  margin-top: clamp(3rem, 6vh, 5rem);
 }
 
 .about-hero__actions {
@@ -388,55 +378,36 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
-  margin-top: clamp(3rem, 7vh, 5.5rem);
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
+  margin-top: 0;
 }
 
-.about-hero__signals > div { display: grid; gap: 0.35rem; }
+.about-hero__signals > div { display: grid; gap: 0.55rem; padding-top: 1rem; border-top: 1px solid rgba(158, 183, 255, 0.24); }
 .signal-index { color: var(--about-accent); font-family: var(--font-mono); font-size: 0.65rem; }
 .about-hero__signals strong { color: var(--text-secondary); font-size: 0.74rem; font-weight: 600; }
 
-.about-hero__editorial {
-  position: relative;
-  min-height: min(62vw, 660px);
-  overflow: hidden;
-  isolation: isolate;
-  border: 1px solid rgba(158, 183, 255, 0.22);
-  background:
-    radial-gradient(circle at 72% 34%, rgba(71, 118, 236, 0.2), transparent 34%),
-    linear-gradient(145deg, rgba(20, 29, 52, 0.94), rgba(7, 10, 18, 0.98) 72%);
-  clip-path: polygon(0 0, calc(100% - 48px) 0, 100% 48px, 100% 100%, 48px 100%, 0 calc(100% - 48px));
-  box-shadow: 0 38px 90px rgba(0, 0, 0, 0.25);
-}
-
-.about-hero__editorial::before {
-  content: '';
+.about-hero__backdrop {
   position: absolute;
   inset: 0;
-  z-index: -2;
-  opacity: 0.48;
-  background-image:
-    linear-gradient(rgba(158, 183, 255, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(158, 183, 255, 0.07) 1px, transparent 1px);
-  background-size: 54px 54px;
-  mask-image: linear-gradient(135deg, black, transparent 82%);
+  z-index: -3;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 82% 25%, rgba(71, 118, 236, 0.2), transparent 34%),
+    linear-gradient(120deg, rgba(7, 10, 18, 0.98), rgba(14, 24, 49, 0.95) 72%, rgba(9, 14, 27, 0.98));
 }
 
-.about-hero__editorial::after {
+.about-hero__backdrop::after {
   content: '';
   position: absolute;
-  width: 42%;
+  width: min(38vw, 560px);
   aspect-ratio: 1;
-  right: -16%;
-  bottom: -12%;
-  z-index: -1;
+  right: -9%;
+  bottom: -22%;
   border: 1px solid rgba(158, 183, 255, 0.14);
   transform: rotate(45deg);
-  box-shadow: 0 0 0 52px rgba(158, 183, 255, 0.025), 0 0 0 104px rgba(158, 183, 255, 0.018);
+  box-shadow: 0 0 0 70px rgba(158, 183, 255, 0.025), 0 0 0 140px rgba(158, 183, 255, 0.018);
 }
 
-.editorial-scan {
+.hero-backdrop__scan {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -445,94 +416,36 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   animation: editorialScan 8s cubic-bezier(0.45, 0, 0.55, 1) infinite 1.2s;
 }
 
-.editorial-meta,
-.editorial-footer {
+.hero-backdrop__monogram {
   position: absolute;
-  left: clamp(1.4rem, 4vw, 2.5rem);
-  right: clamp(1.4rem, 4vw, 2.5rem);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: rgba(219, 228, 255, 0.58);
-  font-family: var(--font-mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.editorial-meta { top: 2rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(158, 183, 255, 0.16); }
-
-.editorial-monogram {
-  position: absolute;
-  top: 7%;
-  right: -3%;
+  top: 2%;
+  right: -2%;
   color: transparent;
   font-family: var(--font-display);
-  font-size: clamp(10rem, 22vw, 19rem);
+  font-size: clamp(18rem, 38vw, 42rem);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.09em;
-  opacity: 0.16;
+  opacity: 0.08;
   -webkit-text-stroke: 1px #9eb7ff;
   transform: translate3d(0, 0, 0);
-  animation: editorialDrift 8s ease-in-out infinite;
+  animation: editorialDrift 12s ease-in-out infinite;
 }
 
-.editorial-statement {
+.hero-backdrop__geometry {
   position: absolute;
-  left: clamp(1.4rem, 5vw, 3.25rem);
-  top: 28%;
-  z-index: 2;
+  right: 6%;
+  bottom: 16%;
+  width: min(34vw, 500px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(158, 183, 255, 0.34));
+  box-shadow: 0 -72px 0 rgba(158, 183, 255, 0.09), 0 72px 0 rgba(158, 183, 255, 0.09);
 }
 
-.editorial-statement > span {
-  display: block;
-  margin-bottom: 1rem;
-  color: #8faeff;
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.editorial-statement strong {
-  color: #f4f7ff;
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 4.1vw, 4rem);
-  font-weight: 650;
-  line-height: 1.03;
-  letter-spacing: -0.045em;
-}
-
-.editorial-axis {
-  position: absolute;
-  left: clamp(1.4rem, 4vw, 2.5rem);
-  right: clamp(1.4rem, 4vw, 2.5rem);
-  bottom: 19%;
-  display: grid;
-  gap: 0.55rem;
-}
-
-.editorial-axis > div {
-  display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-  color: rgba(226, 233, 255, 0.7);
-  font-size: 0.72rem;
-}
-
-.editorial-axis i { width: 5px; height: 5px; border-radius: 50%; background: #77e0ad; box-shadow: 0 0 0 0 rgba(119, 224, 173, 0.4); animation: editorialPulse 2.8s ease-out infinite; }
-.editorial-axis > div:nth-child(2) i { animation-delay: 0.55s; }
-.editorial-axis > div:nth-child(3) i { animation-delay: 1.1s; }
-.editorial-axis span { display: flex; align-items: center; gap: 0.8rem; }
-.editorial-axis span::after { content: ''; height: 1px; flex: 1; background: rgba(158, 183, 255, 0.12); }
-.editorial-axis small { color: #8faeff; font-family: var(--font-mono); font-size: 0.58rem; }
-
-.editorial-footer { bottom: 2rem; align-items: flex-end; }
-.editorial-footer strong { color: #f4f7ff; font-family: var(--font-display); font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; }
-.editorial-footer span { max-width: 190px; text-align: right; line-height: 1.5; }
+.hero-backdrop__geometry::before,
+.hero-backdrop__geometry::after { content: ''; position: absolute; right: 0; width: 7px; height: 7px; border-radius: 50%; background: #85a6ff; box-shadow: 0 0 18px rgba(87, 133, 255, 0.8); }
+.hero-backdrop__geometry::before { top: -75px; }
+.hero-backdrop__geometry::after { top: 69px; }
 
 .about-hero__scroll {
   position: absolute;
@@ -559,8 +472,6 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 .about-intro--3 { animation-delay: 0.24s; }
 .about-intro--4 { animation-delay: 0.34s; }
 .about-intro--5 { animation-delay: 0.44s; }
-.about-intro--visual { animation-delay: 0.18s; transform: translateY(25px) scale(0.97); }
-
 .about-section { position: relative; padding: clamp(5.5rem, 10vw, 10rem) 0; }
 
 .about-section--manifesto::before {
@@ -742,19 +653,12 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 
 [data-theme="light"] .about-page { --about-accent: #5278df; --about-accent-strong: #315dcc; }
 [data-theme="light"] .about-grid { opacity: 0.62; background-image: linear-gradient(rgba(50, 82, 160, 0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(50, 82, 160, 0.055) 1px, transparent 1px); }
-[data-theme="light"] .about-hero__editorial {
-  border-color: rgba(64, 96, 177, 0.2);
+[data-theme="light"] .about-hero__backdrop {
   background:
-    radial-gradient(circle at 72% 34%, rgba(92, 131, 230, 0.2), transparent 34%),
-    linear-gradient(145deg, #f8faff, #e8eefb 72%);
-  box-shadow: 0 38px 90px rgba(55, 76, 125, 0.14);
+    radial-gradient(circle at 82% 25%, rgba(92, 131, 230, 0.18), transparent 34%),
+    linear-gradient(120deg, #fafbff, #edf2fd 72%, #f8faff);
 }
-[data-theme="light"] .about-hero__editorial::before { opacity: 0.72; }
-[data-theme="light"] .editorial-meta,
-[data-theme="light"] .editorial-footer { color: rgba(37, 54, 94, 0.58); }
-[data-theme="light"] .editorial-statement strong,
-[data-theme="light"] .editorial-footer strong { color: #151b2a; }
-[data-theme="light"] .editorial-axis > div { color: rgba(30, 45, 78, 0.72); }
+[data-theme="light"] .hero-backdrop__monogram { -webkit-text-stroke-color: #5278df; }
 [data-theme="light"] .principle-card { background: linear-gradient(145deg, rgba(94, 130, 224, 0.1), rgba(255, 255, 255, 0.5) 48%, transparent); }
 [data-theme="light"] .about-button--primary { color: #fff; }
 
@@ -765,14 +669,13 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   58%, 100% { transform: translateY(100%); opacity: 0; }
 }
 @keyframes editorialDrift { 50% { transform: translate3d(-10px, 6px, 0); opacity: 0.22; } }
-@keyframes editorialPulse { 70% { box-shadow: 0 0 0 7px rgba(119, 224, 173, 0); } 100% { box-shadow: 0 0 0 0 rgba(119, 224, 173, 0); } }
 @keyframes scrollLine { 0% { transform: translateX(-110%); } 60%, 100% { transform: translateX(210%); } }
 @keyframes statusPulse { 70% { box-shadow: 0 0 0 9px rgba(98, 212, 157, 0); } 100% { box-shadow: 0 0 0 0 rgba(98, 212, 157, 0); } }
 @keyframes ringRotate { to { transform: rotate(360deg); } }
 
 @media (max-width: 1050px) {
-  .about-hero__container { grid-template-columns: minmax(0, 1fr) minmax(360px, 0.85fr); gap: 1.5rem; }
-  .about-hero__title { font-size: clamp(3rem, 6vw, 5rem); }
+  .about-hero__title { font-size: clamp(3.5rem, 7.5vw, 5.25rem); }
+  .about-hero__support { grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr); gap: 3rem; }
   .section-heading { grid-template-columns: 1fr 1.2fr; }
   .section-heading p { grid-column: 2; }
 }
@@ -783,19 +686,17 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   .about-hero__container { display: flex; flex-direction: column; gap: 0.5rem; }
   .about-hero__copy { width: 100%; }
   .about-eyebrow { font-size: 0.61rem; }
-  .about-hero__title { margin: 1.15rem 0; font-size: clamp(2.55rem, 12.5vw, 4rem); line-height: 0.98; }
+  .about-hero__title { margin: 1.15rem 0 0; font-size: clamp(2.75rem, 12.5vw, 4.6rem); line-height: 0.94; }
+  .about-hero__title em { white-space: normal; }
+  .about-hero__support { grid-template-columns: 1fr; gap: 2.5rem; margin-top: 2.25rem; }
   .about-hero__lead { font-size: 0.92rem; line-height: 1.65; }
   .about-hero__actions { display: grid; grid-template-columns: 1fr; }
   .about-button { width: 100%; }
-  .about-hero__signals { gap: 0.45rem; margin-top: 2.1rem; }
+  .about-hero__signals { gap: 0.45rem; }
   .about-hero__signals strong { font-size: 0.61rem; line-height: 1.35; }
-  .about-hero__editorial { width: 100%; min-height: 480px; margin-top: 2.75rem; clip-path: polygon(0 0, calc(100% - 32px) 0, 100% 32px, 100% 100%, 32px 100%, 0 calc(100% - 32px)); }
-  .editorial-monogram { top: 15%; font-size: clamp(10rem, 56vw, 14rem); }
-  .editorial-statement { top: 27%; }
-  .editorial-statement strong { font-size: clamp(2rem, 10vw, 3.2rem); }
-  .editorial-axis { bottom: 20%; }
+  .hero-backdrop__monogram { top: 18%; right: -18%; font-size: clamp(17rem, 80vw, 26rem); }
+  .hero-backdrop__geometry { right: -16%; width: 75vw; }
   .about-hero__scroll { display: none; }
-  .about-intro--visual { animation-delay: 0.05s; }
 
   .about-section { padding: 4.5rem 0; }
   .section-heading { display: block; margin-bottom: 2rem; }
@@ -826,13 +727,9 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 }
 
 @media (max-width: 420px) {
-  .about-hero__editorial { min-height: 430px; }
-  .about-hero__title { font-size: 2.55rem; }
+  .about-hero__title { font-size: clamp(2.6rem, 12.2vw, 3.2rem); }
   .about-hero__signals { grid-template-columns: 1fr; }
   .about-hero__signals > div { grid-template-columns: 24px 1fr; align-items: center; }
-  .editorial-meta { top: 1.4rem; }
-  .editorial-footer { bottom: 1.4rem; }
-  .editorial-footer span { max-width: 135px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
