@@ -570,7 +570,7 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   transition: color 0.7s ease, -webkit-text-stroke-color 0.7s ease, transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .principle-card__number > span { display: inline-block; }
-.principle-card__digit--three { transform: translateY(0.05em) scaleY(0.7); transform-origin: center top; }
+.principle-card__digit--three { transform: translateY(0.05em) scaleY(0.764); transform-origin: center top; }
 .principle-card__top div { position: relative; z-index: 2; width: 42px; height: 42px; display: grid; place-items: center; margin-left: auto; border: 1px solid rgba(158, 183, 255, 0.22); border-radius: 12px; background: color-mix(in srgb, var(--bg-primary) 76%, transparent); backdrop-filter: blur(8px); }
 .principle-card__top :deep(svg) { width: 20px; fill: none; stroke: currentColor; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; }
 .principle-card h3 { position: relative; z-index: 2; margin: auto 0 1rem; font-family: var(--font-display); font-size: clamp(1.35rem, 2vw, 1.85rem); }
