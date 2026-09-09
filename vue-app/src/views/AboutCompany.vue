@@ -561,6 +561,7 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   -webkit-text-stroke: 1px var(--principle-number-stroke);
   user-select: none;
   pointer-events: none;
+  transform: scaleX(0.72);
   transform-origin: left top;
   transition: color 0.7s ease, -webkit-text-stroke-color 0.7s ease, transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -575,7 +576,7 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   .principle-card:hover .principle-card__top > span {
     color: rgba(158, 183, 255, 0.055);
     -webkit-text-stroke-color: rgba(158, 183, 255, 0.38);
-    transform: translate3d(7px, -4px, 0) scale(1.025);
+    transform: translate3d(7px, -4px, 0) scaleX(0.72) scale(1.025);
   }
 }
 
