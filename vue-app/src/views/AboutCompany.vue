@@ -11,6 +11,7 @@
         ref="heroMolecule"
         class="about-hero__molecule"
         aria-hidden="true"
+        @pointerenter="prepareMoleculePointer"
         @pointermove="handleMoleculePointerMove"
         @pointerleave="resetMoleculePerspective"
       >
@@ -195,6 +196,9 @@ let revealObserver = null
 let moleculeObserver = null
 let moleculePointerFrame = null
 let moleculeIntroFrame = null
+let moleculePointerRect = null
+let moleculePointerX = 0
+let moleculePointerY = 0
 const heroMolecule = ref(null)
 
 const principles = [
@@ -264,21 +268,29 @@ onMounted(() => {
   moleculeObserver.observe(molecule)
 })
 
+function prepareMoleculePointer(event) {
+  if (event.pointerType && event.pointerType !== 'mouse') return
+  const molecule = heroMolecule.value
+  if (!molecule || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+  moleculePointerRect = molecule.getBoundingClientRect()
+  molecule.classList.add('is-pointer-active')
+}
+
 function handleMoleculePointerMove(event) {
   if (event.pointerType && event.pointerType !== 'mouse') return
   const molecule = heroMolecule.value
   if (!molecule || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-  const rect = molecule.getBoundingClientRect()
-  const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2
-  const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2
+  const latestEvent = event.getCoalescedEvents?.().at(-1) || event
+  const rect = moleculePointerRect || molecule.getBoundingClientRect()
+  moleculePointerX = ((latestEvent.clientX - rect.left) / rect.width - 0.5) * 2
+  moleculePointerY = ((latestEvent.clientY - rect.top) / rect.height - 0.5) * 2
 
-  if (moleculePointerFrame) window.cancelAnimationFrame(moleculePointerFrame)
+  if (moleculePointerFrame) return
   moleculePointerFrame = window.requestAnimationFrame(() => {
-    molecule.style.setProperty('--molecule-tilt-x', `${(-y * 2.4).toFixed(2)}deg`)
-    molecule.style.setProperty('--molecule-tilt-y', `${(x * 3.2).toFixed(2)}deg`)
-    molecule.style.setProperty('--molecule-highlight-x', `${(50 + x * 12).toFixed(2)}%`)
-    molecule.style.setProperty('--molecule-highlight-y', `${(45 + y * 10).toFixed(2)}%`)
+    molecule.style.setProperty('--molecule-tilt-x', `${(-moleculePointerY * 2.4).toFixed(2)}deg`)
+    molecule.style.setProperty('--molecule-tilt-y', `${(moleculePointerX * 3.2).toFixed(2)}deg`)
     moleculePointerFrame = null
   })
 }
@@ -286,10 +298,10 @@ function handleMoleculePointerMove(event) {
 function resetMoleculePerspective() {
   const molecule = heroMolecule.value
   if (!molecule) return
+  moleculePointerRect = null
+  molecule.classList.remove('is-pointer-active')
   molecule.style.setProperty('--molecule-tilt-x', '0deg')
   molecule.style.setProperty('--molecule-tilt-y', '0deg')
-  molecule.style.setProperty('--molecule-highlight-x', '50%')
-  molecule.style.setProperty('--molecule-highlight-y', '45%')
 }
 
 onBeforeUnmount(() => {
@@ -408,7 +420,12 @@ onBeforeUnmount(() => {
   height: 100%;
   transform-style: preserve-3d;
   transform: rotateX(var(--molecule-tilt-x)) rotateY(var(--molecule-tilt-y));
-  transition: transform 1200ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+  transition: transform 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.about-hero__molecule.is-pointer-active .about-hero__molecule-frame {
+  transition: none;
 }
 
 .about-hero__molecule-float {
