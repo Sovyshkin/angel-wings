@@ -1105,7 +1105,7 @@ function queueHeroScrollProgress() {
   right: -4%;
   top: 18%;
   opacity: 0.22;
-  filter: saturate(0.96) blur(5px) drop-shadow(0 0 14px rgba(44, 133, 255, 0.14));
+  filter: saturate(0.96) drop-shadow(0 0 14px rgba(44, 133, 255, 0.14));
 }
 
 .home-global-decor__item--molecule-2 {
@@ -1116,7 +1116,7 @@ function queueHeroScrollProgress() {
   left: -5%;
   top: 33%;
   opacity: 0.18;
-  filter: saturate(0.9) blur(8px) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
+  filter: saturate(0.9) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
   animation-duration: 18s;
   animation-delay: -6s;
 }
@@ -1129,7 +1129,7 @@ function queueHeroScrollProgress() {
   right: 13%;
   top: 47%;
   opacity: 0.26;
-  filter: saturate(1.05) blur(2px) drop-shadow(0 0 16px rgba(44, 133, 255, 0.16));
+  filter: saturate(1.05) drop-shadow(0 0 16px rgba(44, 133, 255, 0.16));
   animation-duration: 13s;
   animation-delay: -3s;
 }
@@ -1142,7 +1142,7 @@ function queueHeroScrollProgress() {
   left: 8%;
   top: 68%;
   opacity: 0.16;
-  filter: saturate(0.88) blur(9px) drop-shadow(0 0 12px rgba(44, 133, 255, 0.1));
+  filter: saturate(0.88) drop-shadow(0 0 12px rgba(44, 133, 255, 0.1));
   animation-duration: 20s;
   animation-delay: -10s;
 }
@@ -1155,7 +1155,7 @@ function queueHeroScrollProgress() {
   right: -3%;
   top: 84%;
   opacity: 0.2;
-  filter: saturate(0.98) blur(5px) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
+  filter: saturate(0.98) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
   animation-duration: 17s;
   animation-delay: -8s;
 }
@@ -1168,7 +1168,7 @@ function queueHeroScrollProgress() {
   right: 31%;
   top: 58%;
   opacity: 0.24;
-  filter: saturate(1.02) blur(3px) drop-shadow(0 0 15px rgba(44, 133, 255, 0.14));
+  filter: saturate(1.02) drop-shadow(0 0 15px rgba(44, 133, 255, 0.14));
   animation-duration: 15s;
   animation-delay: -5s;
 }
@@ -1181,7 +1181,7 @@ function queueHeroScrollProgress() {
   left: -4%;
   top: 76%;
   opacity: 0.2;
-  filter: saturate(0.92) blur(6px) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
+  filter: saturate(0.92) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
   animation-duration: 19s;
   animation-delay: -9s;
 }
@@ -1194,7 +1194,7 @@ function queueHeroScrollProgress() {
   right: 9%;
   top: 92%;
   opacity: 0.23;
-  filter: saturate(0.98) blur(4px) drop-shadow(0 0 15px rgba(44, 133, 255, 0.13));
+  filter: saturate(0.98) drop-shadow(0 0 15px rgba(44, 133, 255, 0.13));
   animation-duration: 17s;
   animation-delay: -12s;
 }
@@ -1296,14 +1296,14 @@ function queueHeroScrollProgress() {
 [data-theme="light"] .home-global-decor__item--molecule-6,
 [data-theme="light"] .home-global-decor__item--molecule-8 {
   opacity: 0.1;
-  filter: saturate(0.85) blur(4px);
+  filter: saturate(0.85);
 }
 
 [data-theme="light"] .home-global-decor__item--molecule-2,
 [data-theme="light"] .home-global-decor__item--molecule-4,
 [data-theme="light"] .home-global-decor__item--molecule-7 {
   opacity: 0.08;
-  filter: saturate(0.75) blur(9px);
+  filter: saturate(0.75);
 }
 
 [data-theme="light"] .home-global-decor__item--drop-1,
@@ -2340,7 +2340,6 @@ function queueHeroScrollProgress() {
   mix-blend-mode: screen;
   filter:
     saturate(1.12)
-    blur(0.6px)
     drop-shadow(0 0 16px rgba(25, 134, 255, 0.36));
   animation: moleculeFloat 9s ease-in-out infinite;
   will-change: transform;
@@ -2366,7 +2365,6 @@ function queueHeroScrollProgress() {
 .hero-molecule--one .hero-molecule__image {
   filter:
     saturate(1.14)
-    blur(0.35px)
     drop-shadow(0 0 18px rgba(25, 134, 255, 0.36));
   animation-duration: 10.5s;
 }
@@ -2391,7 +2389,6 @@ function queueHeroScrollProgress() {
 .hero-molecule--two .hero-molecule__image {
   filter:
     saturate(1.12)
-    blur(0.8px)
     drop-shadow(0 0 16px rgba(25, 134, 255, 0.28));
   animation-duration: 8.6s;
 }
@@ -2416,7 +2413,6 @@ function queueHeroScrollProgress() {
 .hero-molecule--background .hero-molecule__image {
   filter:
     saturate(0.95)
-    blur(8px)
     drop-shadow(0 0 12px rgba(25, 134, 255, 0.18));
   animation-duration: 9.4s;
 }
@@ -2496,7 +2492,6 @@ function queueHeroScrollProgress() {
 [data-theme="light"] .hero-molecule__image {
   filter:
     saturate(0.82)
-    blur(2px)
     drop-shadow(0 0 10px rgba(25, 134, 255, 0.08));
 }
 
@@ -2780,7 +2775,7 @@ function queueHeroScrollProgress() {
 
 [data-theme="light"] .section-decor__molecule {
   opacity: 0.1;
-  filter: saturate(0.82) blur(4px);
+  filter: saturate(0.82);
 }
 
 [data-theme="light"] .section-decor__drop {
@@ -2817,7 +2812,6 @@ function queueHeroScrollProgress() {
   opacity: 0.22;
   filter:
     saturate(0.9)
-    blur(7px)
     drop-shadow(0 0 12px rgba(45, 139, 255, 0.14));
   animation-duration: 13s;
   animation-delay: -5s;
@@ -3059,7 +3053,6 @@ function queueHeroScrollProgress() {
   opacity: 0.2;
   filter:
     saturate(0.88)
-    blur(8px)
     drop-shadow(0 0 12px rgba(45, 139, 255, 0.12));
   animation-duration: 14s;
   animation-delay: -6s;
