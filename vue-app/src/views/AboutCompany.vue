@@ -7,6 +7,20 @@
         <span class="hero-backdrop__monogram">AW</span>
         <div class="hero-backdrop__geometry"></div>
       </div>
+      <div
+        ref="heroMolecule"
+        class="about-hero__molecule"
+        aria-hidden="true"
+        @pointermove="handleMoleculePointerMove"
+        @pointerleave="resetMoleculePerspective"
+      >
+        <div class="about-hero__molecule-glow"></div>
+        <div class="about-hero__molecule-frame">
+          <div class="about-hero__molecule-float">
+            <img src="/about-assets/molecule-water-shell.png" alt="" width="1254" height="1254" decoding="async" fetchpriority="high">
+          </div>
+        </div>
+      </div>
       <div class="container about-hero__container">
         <div class="about-hero__copy">
           <div class="about-eyebrow about-intro about-intro--1">
@@ -175,9 +189,13 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 let revealObserver = null
+let moleculeObserver = null
+let moleculePointerFrame = null
+let moleculeIntroFrame = null
+const heroMolecule = ref(null)
 
 const principles = [
   {
@@ -206,8 +224,24 @@ const journey = [
 
 onMounted(() => {
   const blocks = document.querySelectorAll('.reveal-block')
-  if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const supportsObserver = 'IntersectionObserver' in window
+  const molecule = heroMolecule.value
+
+  if (molecule) {
+    if (reducedMotion) {
+      molecule.classList.add('is-intro-ready')
+    } else {
+      moleculeIntroFrame = window.requestAnimationFrame(() => {
+        molecule.classList.add('is-intro-ready')
+        moleculeIntroFrame = null
+      })
+    }
+  }
+
+  if (!supportsObserver || reducedMotion) {
     blocks.forEach(block => block.classList.add('is-visible'))
+    if (molecule && !reducedMotion) molecule.classList.add('is-motion-active')
     return
   }
 
@@ -220,9 +254,50 @@ onMounted(() => {
   }, { threshold: 0.16, rootMargin: '0px 0px -7% 0px' })
 
   blocks.forEach(block => revealObserver.observe(block))
+
+  if (!molecule) return
+
+  moleculeObserver = new IntersectionObserver(([entry]) => {
+    molecule.classList.toggle('is-motion-active', entry.isIntersecting)
+  }, { threshold: 0.08 })
+
+  moleculeObserver.observe(molecule)
 })
 
-onBeforeUnmount(() => revealObserver?.disconnect())
+function handleMoleculePointerMove(event) {
+  if (event.pointerType && event.pointerType !== 'mouse') return
+  const molecule = heroMolecule.value
+  if (!molecule || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+  const rect = molecule.getBoundingClientRect()
+  const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2
+  const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2
+
+  if (moleculePointerFrame) window.cancelAnimationFrame(moleculePointerFrame)
+  moleculePointerFrame = window.requestAnimationFrame(() => {
+    molecule.style.setProperty('--molecule-tilt-x', `${(-y * 2.4).toFixed(2)}deg`)
+    molecule.style.setProperty('--molecule-tilt-y', `${(x * 3.2).toFixed(2)}deg`)
+    molecule.style.setProperty('--molecule-highlight-x', `${(50 + x * 12).toFixed(2)}%`)
+    molecule.style.setProperty('--molecule-highlight-y', `${(45 + y * 10).toFixed(2)}%`)
+    moleculePointerFrame = null
+  })
+}
+
+function resetMoleculePerspective() {
+  const molecule = heroMolecule.value
+  if (!molecule) return
+  molecule.style.setProperty('--molecule-tilt-x', '0deg')
+  molecule.style.setProperty('--molecule-tilt-y', '0deg')
+  molecule.style.setProperty('--molecule-highlight-x', '50%')
+  molecule.style.setProperty('--molecule-highlight-y', '45%')
+}
+
+onBeforeUnmount(() => {
+  revealObserver?.disconnect()
+  moleculeObserver?.disconnect()
+  if (moleculePointerFrame) window.cancelAnimationFrame(moleculePointerFrame)
+  if (moleculeIntroFrame) window.cancelAnimationFrame(moleculeIntroFrame)
+})
 </script>
 
 <style scoped>
@@ -246,13 +321,18 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 .about-hero::before {
   content: '';
   position: absolute;
-  width: min(66vw, 960px);
-  aspect-ratio: 1;
-  right: -15%;
-  top: -24%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(54, 112, 255, 0.17), transparent 67%);
-  filter: blur(8px);
+  width: min(54vw, 780px);
+  height: min(62vh, 680px);
+  right: -5%;
+  top: 10%;
+  border-radius: 43% 57% 46% 54% / 55% 42% 58% 45%;
+  background:
+    radial-gradient(ellipse at 36% 34%, rgba(121, 181, 255, 0.2), transparent 29%),
+    radial-gradient(ellipse at 69% 61%, rgba(42, 104, 255, 0.2), transparent 39%),
+    radial-gradient(ellipse at 42% 76%, rgba(50, 133, 255, 0.1), transparent 32%);
+  filter: blur(48px);
+  opacity: 0.86;
+  transform: rotate(-13deg) scale(1.08);
   z-index: -2;
 }
 
@@ -273,6 +353,88 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 }
 
 .about-hero__copy { position: relative; z-index: 4; }
+
+@media (min-width: 1120px) {
+  .about-hero__copy {
+    max-width: min(49vw, 700px);
+  }
+}
+
+.about-hero__molecule {
+  --molecule-tilt-x: 0deg;
+  --molecule-tilt-y: 0deg;
+  --molecule-highlight-x: 50%;
+  --molecule-highlight-y: 45%;
+  position: absolute;
+  z-index: 2;
+  width: min(41vw, 580px);
+  aspect-ratio: 1;
+  right: clamp(2rem, 8vw, 11rem);
+  top: clamp(4.5rem, 13vh, 9.5rem);
+  pointer-events: auto;
+  perspective: 1300px;
+  transform: translateZ(0);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.about-hero__molecule.is-intro-ready {
+  animation: moleculeSceneReveal 1.45s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
+}
+
+@media (min-width: 1120px) {
+  .about-hero__molecule {
+    right: clamp(-4rem, -2vw, -1rem);
+  }
+}
+
+.about-hero__molecule-glow {
+  position: absolute;
+  inset: 8% -12% 6% -18%;
+  z-index: -1;
+  border-radius: 43% 57% 46% 54% / 52% 40% 60% 48%;
+  opacity: 0.48;
+  background:
+    radial-gradient(ellipse at var(--molecule-highlight-x) var(--molecule-highlight-y), rgba(211, 240, 255, 0.26), transparent 18%),
+    radial-gradient(ellipse at 71% 46%, rgba(39, 128, 255, 0.21), transparent 34%),
+    radial-gradient(ellipse at 28% 72%, rgba(48, 102, 238, 0.16), transparent 30%);
+  filter: blur(68px);
+  transform: rotate(-19deg) scale(1.16);
+  transition: background-position 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.about-hero__molecule-frame {
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--molecule-tilt-x)) rotateY(var(--molecule-tilt-y));
+  transition: transform 1200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.about-hero__molecule-float {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.about-hero__molecule.is-motion-active .about-hero__molecule-float {
+  animation: moleculeWaterHover 10.5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+}
+
+.about-hero__molecule img {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: none;
+  transform: translateZ(16px);
+  -webkit-user-drag: none;
+  user-select: none;
+}
 
 .about-eyebrow,
 .section-number {
@@ -295,14 +457,14 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 }
 
 .about-hero__title {
-  max-width: 1380px;
+  max-width: 700px;
   margin: 1.6rem 0 0;
   font-family: var(--font-display);
-  font-size: clamp(4rem, 7.4vw, 8rem);
+  font-size: clamp(3.4rem, 4.4vw, 4.7rem);
   font-weight: 700;
-  line-height: 0.9;
-  letter-spacing: -0.055em;
-  text-wrap: balance;
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+  text-wrap: pretty;
 }
 
 .about-hero__title em { display: inline-block; white-space: nowrap; }
@@ -329,6 +491,14 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   align-items: end;
   gap: clamp(3rem, 10vw, 10rem);
   margin-top: clamp(3rem, 6vh, 5rem);
+}
+
+@media (min-width: 1120px) {
+  .about-hero__support {
+    grid-template-columns: 1fr;
+    gap: 2.6rem;
+    margin-top: 2.8rem;
+  }
 }
 
 .about-hero__actions {
@@ -393,7 +563,8 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   z-index: -3;
   overflow: hidden;
   background:
-    radial-gradient(circle at 82% 25%, rgba(71, 118, 236, 0.2), transparent 34%),
+    radial-gradient(ellipse 34% 47% at 76% 31%, rgba(71, 118, 236, 0.15), transparent 76%),
+    radial-gradient(ellipse 25% 35% at 92% 68%, rgba(37, 97, 218, 0.09), transparent 78%),
     linear-gradient(120deg, rgba(7, 10, 18, 0.98), rgba(14, 24, 49, 0.95) 72%, rgba(9, 14, 27, 0.98));
 }
 
@@ -756,7 +927,8 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 [data-theme="light"] .about-grid { opacity: 0.62; background-image: linear-gradient(rgba(50, 82, 160, 0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(50, 82, 160, 0.055) 1px, transparent 1px); }
 [data-theme="light"] .about-hero__backdrop {
   background:
-    radial-gradient(circle at 82% 25%, rgba(92, 131, 230, 0.18), transparent 34%),
+    radial-gradient(ellipse 34% 47% at 76% 31%, rgba(92, 131, 230, 0.14), transparent 76%),
+    radial-gradient(ellipse 25% 35% at 92% 68%, rgba(71, 120, 220, 0.08), transparent 78%),
     linear-gradient(120deg, #fafbff, #edf2fd 72%, #f8faff);
 }
 [data-theme="light"] .hero-backdrop__monogram { -webkit-text-stroke-color: #5278df; }
@@ -777,6 +949,26 @@ onBeforeUnmount(() => revealObserver?.disconnect())
   0%, 100% { transform: translate3d(-50%, 0, 0) scale(1); }
   50% { transform: translate3d(-50%, 6px, 0) scale(1.015); opacity: 0.16; }
 }
+@keyframes moleculeSceneReveal {
+  0% {
+    opacity: 0;
+    transform: translate3d(44px, 42px, -56px) scale(0.88);
+  }
+  64% {
+    opacity: 1;
+    transform: translate3d(-4px, -3px, 0) scale(1.018);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+@keyframes moleculeWaterHover {
+  0%, 100% { transform: translate3d(0, 0, 0) rotateZ(-0.35deg) scale(1); }
+  28% { transform: translate3d(5px, -12px, 20px) rotateZ(0.3deg) scale(1.012); }
+  58% { transform: translate3d(-4px, -22px, 8px) rotateZ(0.55deg) scale(1.018); }
+  80% { transform: translate3d(-7px, -9px, 15px) rotateZ(-0.18deg) scale(1.008); }
+}
 @keyframes scrollLine { 0% { transform: translateX(-110%); } 60%, 100% { transform: translateX(210%); } }
 @keyframes statusPulse { 70% { box-shadow: 0 0 0 9px rgba(98, 212, 157, 0); } 100% { box-shadow: 0 0 0 0 rgba(98, 212, 157, 0); } }
 @keyframes ringRotate { to { transform: rotate(360deg); } }
@@ -784,12 +976,14 @@ onBeforeUnmount(() => revealObserver?.disconnect())
 @media (max-width: 1050px) {
   .about-hero__title { font-size: clamp(3.5rem, 7.5vw, 5.25rem); }
   .about-hero__support { grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr); gap: 3rem; }
+  .about-hero__molecule { width: min(39vw, 430px); right: 2rem; top: 9rem; opacity: 0.88; }
   .section-heading { grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.7fr); column-gap: 3rem; }
 }
 
 @media (max-width: 768px) {
   .about-hero { min-height: auto; padding: 2.2rem 0 4.5rem; }
   .about-grid { background-size: 48px 48px; }
+  .about-hero__molecule { width: min(72vw, 330px); right: -10vw; top: 1rem; opacity: 0.38; }
   .about-hero__container { display: flex; flex-direction: column; gap: 0.5rem; }
   .about-hero__copy { width: 100%; }
   .about-eyebrow { font-size: 0.61rem; }
@@ -848,6 +1042,9 @@ onBeforeUnmount(() => revealObserver?.disconnect())
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
   }
+  .about-hero__molecule-frame,
+  .about-hero__molecule-float { transform: none !important; transition: none; }
+  .about-hero__molecule { opacity: 1; transform: none !important; }
   .about-intro,
   .reveal-block { opacity: 1; transform: none; transition: none; }
   .journey-step,
