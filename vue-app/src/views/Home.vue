@@ -736,6 +736,7 @@ let heroScrollProgress = '0'
 let heroScrollIdleTimer = null
 let heroScrollActive = false
 let lastHeroScrollProgress = -1
+let lastMoleculeScrollY = -1
 
 const featuredProducts = computed(() => {
   return productStore.products.slice(0, 4)
@@ -879,7 +880,10 @@ function getProductWord(count) {
 
 function updateHeroScrollProgress() {
   heroScrollFrame = null
-  if (!heroVisual.value || document.hidden) return
+  if (document.hidden) return
+
+  updateBackgroundMoleculeParallax()
+  if (!heroVisual.value) return
 
   const hero = heroVisual.value.closest('.hero')
   if (!hero) return
@@ -900,6 +904,30 @@ function updateHeroScrollProgress() {
   if (next === heroScrollProgress) return
   heroScrollProgress = next
   heroVisual.value.style.setProperty('--hero-scroll-progress', next)
+}
+
+function updateBackgroundMoleculeParallax() {
+  if (!homeRoot.value) return
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    homeRoot.value.style.setProperty('--molecule-parallax-up', '0px')
+    homeRoot.value.style.setProperty('--molecule-parallax-up-soft', '0px')
+    homeRoot.value.style.setProperty('--molecule-parallax-down', '0px')
+    return
+  }
+
+  const scrollY = Math.max(0, window.scrollY || window.pageYOffset || 0)
+  if (Math.abs(scrollY - lastMoleculeScrollY) < 1) return
+  lastMoleculeScrollY = scrollY
+
+  const maxShift = Math.min(520, Math.max(280, window.innerHeight * 0.52))
+  const up = Math.max(-maxShift, scrollY * -0.14)
+  const upSoft = Math.max(-maxShift * 0.72, scrollY * -0.085)
+  const down = Math.min(maxShift * 0.62, scrollY * 0.065)
+
+  homeRoot.value.style.setProperty('--molecule-parallax-up', `${up.toFixed(1)}px`)
+  homeRoot.value.style.setProperty('--molecule-parallax-up-soft', `${upSoft.toFixed(1)}px`)
+  homeRoot.value.style.setProperty('--molecule-parallax-down', `${down.toFixed(1)}px`)
 }
 
 function queueHeroScrollProgress() {
@@ -978,6 +1006,9 @@ function queueHeroScrollProgress() {
 }
 
 .home {
+  --molecule-parallax-up: 0px;
+  --molecule-parallax-up-soft: 0px;
+  --molecule-parallax-down: 0px;
   position: relative;
   padding-bottom: 0;
   overflow-x: hidden;
@@ -1025,7 +1056,14 @@ function queueHeroScrollProgress() {
   user-select: none;
 }
 
+.home-global-decor__item[class*="--molecule-"],
+.section-decor__molecule {
+  translate: 0 var(--molecule-shift, 0px);
+  will-change: translate;
+}
+
 .home-global-decor__item--molecule-1 {
+  --molecule-shift: var(--molecule-parallax-up);
   width: clamp(150px, 12vw, 240px);
   right: -4%;
   top: 18%;
@@ -1034,6 +1072,7 @@ function queueHeroScrollProgress() {
 }
 
 .home-global-decor__item--molecule-2 {
+  --molecule-shift: var(--molecule-parallax-down);
   width: clamp(170px, 14vw, 280px);
   left: -5%;
   top: 33%;
@@ -1044,6 +1083,7 @@ function queueHeroScrollProgress() {
 }
 
 .home-global-decor__item--molecule-3 {
+  --molecule-shift: var(--molecule-parallax-up-soft);
   width: clamp(120px, 10vw, 200px);
   right: 13%;
   top: 47%;
@@ -1054,6 +1094,7 @@ function queueHeroScrollProgress() {
 }
 
 .home-global-decor__item--molecule-4 {
+  --molecule-shift: var(--molecule-parallax-down);
   width: clamp(150px, 13vw, 260px);
   left: 8%;
   top: 68%;
@@ -1064,6 +1105,7 @@ function queueHeroScrollProgress() {
 }
 
 .home-global-decor__item--molecule-5 {
+  --molecule-shift: var(--molecule-parallax-up);
   width: clamp(150px, 12vw, 245px);
   right: -3%;
   top: 84%;
@@ -2666,6 +2708,7 @@ function queueHeroScrollProgress() {
 }
 
 .section-decor__molecule--features-main {
+  --molecule-shift: var(--molecule-parallax-up);
   width: clamp(150px, 14vw, 230px);
   right: clamp(-80px, -4vw, -34px);
   top: 8%;
@@ -2674,6 +2717,7 @@ function queueHeroScrollProgress() {
 }
 
 .section-decor__molecule--features-soft {
+  --molecule-shift: var(--molecule-parallax-down);
   width: clamp(120px, 11vw, 190px);
   left: clamp(-76px, -4vw, -32px);
   bottom: 7%;
@@ -2904,6 +2948,7 @@ function queueHeroScrollProgress() {
 }
 
 .section-decor__molecule--categories-main {
+  --molecule-shift: var(--molecule-parallax-up-soft);
   width: clamp(160px, 15vw, 260px);
   right: clamp(-46px, -2.4vw, -18px);
   top: 18%;
@@ -2914,6 +2959,7 @@ function queueHeroScrollProgress() {
 }
 
 .section-decor__molecule--categories-soft {
+  --molecule-shift: var(--molecule-parallax-down);
   width: clamp(110px, 10vw, 180px);
   left: 34%;
   top: 7%;
