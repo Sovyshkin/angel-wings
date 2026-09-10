@@ -926,10 +926,10 @@ function updateBackgroundMoleculeParallax() {
   if (Math.abs(scrollY - lastMoleculeScrollY) < 1) return
   lastMoleculeScrollY = scrollY
 
-  const maxShift = Math.min(520, Math.max(280, window.innerHeight * 0.52))
-  const up = Math.max(-maxShift, scrollY * -0.14)
-  const upSoft = Math.max(-maxShift * 0.72, scrollY * -0.085)
-  const down = Math.min(maxShift * 0.62, scrollY * 0.065)
+  const maxShift = Math.min(760, Math.max(420, window.innerHeight * 0.78))
+  const up = Math.max(-maxShift, scrollY * -0.24)
+  const upSoft = Math.max(-maxShift * 0.74, scrollY * -0.145)
+  const down = Math.min(maxShift * 0.64, scrollY * 0.12)
 
   homeRoot.value.style.setProperty('--molecule-parallax-up', `${up.toFixed(1)}px`)
   homeRoot.value.style.setProperty('--molecule-parallax-up-soft', `${upSoft.toFixed(1)}px`)
@@ -1085,8 +1085,8 @@ function queueHeroScrollProgress() {
 .home-global-decor__item[class*="--molecule-"],
 .section-decor__molecule {
   --molecule-base-rotate: 0deg;
-  --molecule-idle-x: 10px;
-  --molecule-idle-y: -18px;
+  --molecule-idle-x: 26px;
+  --molecule-idle-y: -38px;
   translate: 0 var(--molecule-shift, 0px);
   transform: rotate(var(--molecule-base-rotate));
   will-change: translate, transform;
@@ -1094,13 +1094,13 @@ function queueHeroScrollProgress() {
 
 .home-global-decor__item[class*="--molecule-"].is-ambient-active,
 .section-decor__molecule.is-ambient-active {
-  animation: ambientMoleculeFloat 16s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+  animation: ambientMoleculeFloat 10s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
 }
 
 .home-global-decor__item--molecule-1 {
   --molecule-shift: var(--molecule-parallax-up);
-  --molecule-idle-x: 14px;
-  --molecule-idle-y: -24px;
+  --molecule-idle-x: 32px;
+  --molecule-idle-y: -44px;
   width: clamp(150px, 12vw, 240px);
   right: -4%;
   top: 18%;
@@ -1110,92 +1110,92 @@ function queueHeroScrollProgress() {
 
 .home-global-decor__item--molecule-2 {
   --molecule-shift: var(--molecule-parallax-down);
-  --molecule-idle-x: -18px;
-  --molecule-idle-y: 17px;
+  --molecule-idle-x: -38px;
+  --molecule-idle-y: 34px;
   width: clamp(170px, 14vw, 280px);
   left: -5%;
   top: 33%;
   opacity: 0.18;
   filter: saturate(0.9) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
-  animation-duration: 18s;
+  animation-duration: 11s;
   animation-delay: -6s;
 }
 
 .home-global-decor__item--molecule-3 {
   --molecule-shift: var(--molecule-parallax-up-soft);
-  --molecule-idle-x: 11px;
-  --molecule-idle-y: -16px;
+  --molecule-idle-x: 28px;
+  --molecule-idle-y: -36px;
   width: clamp(120px, 10vw, 200px);
   right: 13%;
   top: 47%;
   opacity: 0.26;
   filter: saturate(1.05) drop-shadow(0 0 16px rgba(44, 133, 255, 0.16));
-  animation-duration: 13s;
+  animation-duration: 9s;
   animation-delay: -3s;
 }
 
 .home-global-decor__item--molecule-4 {
   --molecule-shift: var(--molecule-parallax-down);
-  --molecule-idle-x: -15px;
-  --molecule-idle-y: 22px;
+  --molecule-idle-x: -34px;
+  --molecule-idle-y: 42px;
   width: clamp(150px, 13vw, 260px);
   left: 8%;
   top: 68%;
   opacity: 0.16;
   filter: saturate(0.88) drop-shadow(0 0 12px rgba(44, 133, 255, 0.1));
-  animation-duration: 20s;
+  animation-duration: 12s;
   animation-delay: -10s;
 }
 
 .home-global-decor__item--molecule-5 {
   --molecule-shift: var(--molecule-parallax-up);
-  --molecule-idle-x: 16px;
-  --molecule-idle-y: -19px;
+  --molecule-idle-x: 36px;
+  --molecule-idle-y: -38px;
   width: clamp(150px, 12vw, 245px);
   right: -3%;
   top: 84%;
   opacity: 0.2;
   filter: saturate(0.98) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
-  animation-duration: 17s;
+  animation-duration: 11s;
   animation-delay: -8s;
 }
 
 .home-global-decor__item--molecule-6 {
   --molecule-shift: var(--molecule-parallax-down);
-  --molecule-idle-x: -12px;
-  --molecule-idle-y: 18px;
+  --molecule-idle-x: -30px;
+  --molecule-idle-y: 36px;
   width: clamp(118px, 10vw, 190px);
   right: 31%;
   top: 58%;
   opacity: 0.24;
   filter: saturate(1.02) drop-shadow(0 0 15px rgba(44, 133, 255, 0.14));
-  animation-duration: 15s;
+  animation-duration: 10s;
   animation-delay: -5s;
 }
 
 .home-global-decor__item--molecule-7 {
   --molecule-shift: var(--molecule-parallax-up-soft);
-  --molecule-idle-x: 17px;
-  --molecule-idle-y: -21px;
+  --molecule-idle-x: 38px;
+  --molecule-idle-y: -42px;
   width: clamp(145px, 12vw, 235px);
   left: -4%;
   top: 76%;
   opacity: 0.2;
   filter: saturate(0.92) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
-  animation-duration: 19s;
+  animation-duration: 12s;
   animation-delay: -9s;
 }
 
 .home-global-decor__item--molecule-8 {
   --molecule-shift: var(--molecule-parallax-up);
-  --molecule-idle-x: -14px;
-  --molecule-idle-y: -17px;
+  --molecule-idle-x: -32px;
+  --molecule-idle-y: -34px;
   width: clamp(138px, 11vw, 220px);
   right: 9%;
   top: 92%;
   opacity: 0.23;
   filter: saturate(0.98) drop-shadow(0 0 15px rgba(44, 133, 255, 0.13));
-  animation-duration: 17s;
+  animation-duration: 11s;
   animation-delay: -12s;
 }
 
@@ -1245,7 +1245,7 @@ function queueHeroScrollProgress() {
   top: 76%;
   opacity: 0.22;
   filter: saturate(1) blur(2px) drop-shadow(0 0 12px rgba(78, 159, 255, 0.12));
-  animation-duration: 13s;
+  animation-duration: 9s;
   animation-delay: -4s;
 }
 
@@ -3041,7 +3041,7 @@ function queueHeroScrollProgress() {
   right: clamp(-46px, -2.4vw, -18px);
   top: 18%;
   opacity: 0.4;
-  animation-duration: 12s;
+  animation-duration: 9s;
   animation-delay: -3s;
 }
 
@@ -3054,7 +3054,7 @@ function queueHeroScrollProgress() {
   filter:
     saturate(0.88)
     drop-shadow(0 0 12px rgba(45, 139, 255, 0.12));
-  animation-duration: 14s;
+  animation-duration: 10s;
   animation-delay: -6s;
 }
 
