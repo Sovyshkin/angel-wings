@@ -9,12 +9,12 @@
       <img class="home-global-decor__item home-global-decor__item--molecule-6" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
       <img class="home-global-decor__item home-global-decor__item--molecule-7" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
       <img class="home-global-decor__item home-global-decor__item--molecule-8" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-1" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-2" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-3" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-4" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-5" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-6" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-1" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-2" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-3" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-4" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-5" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-6" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
     </div>
 
     <section class="hero">
@@ -106,19 +106,19 @@
             </div>
 
             <div class="hero-sphere hero-sphere--top">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--right">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--orbit">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--far-left">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--far-right">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
             </div>
 
             <div class="hero-pen-wrap">
@@ -154,8 +154,8 @@
       <div class="section-decor section-decor--features" aria-hidden="true">
         <img class="section-decor__molecule section-decor__molecule--features-main" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
         <img class="section-decor__molecule section-decor__molecule--features-soft" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--features-top" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--features-low" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--features-top" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--features-low" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
       </div>
       <div class="container">
         <div class="features-panel" data-aos="fade-up" data-aos-delay="100">
@@ -242,9 +242,9 @@
       <div class="section-decor section-decor--categories" aria-hidden="true">
         <img class="section-decor__molecule section-decor__molecule--categories-main" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
         <img class="section-decor__molecule section-decor__molecule--categories-soft" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--categories-top" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--categories-mid" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--categories-low" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--categories-top" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--categories-mid" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--categories-low" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
       </div>
       <div class="container">
         <div class="section-header" data-aos="fade-up">
@@ -937,13 +937,13 @@ function updateBackgroundMoleculeParallax() {
 }
 
 function setupAmbientMoleculeObserver() {
-  const molecules = homeRoot.value?.querySelectorAll(
-    '.home-global-decor__item[class*="--molecule-"], .section-decor__molecule'
+  const decorItems = homeRoot.value?.querySelectorAll(
+    '.home-global-decor__item[class*="--molecule-"], .home-global-decor__item[class*="--drop-"], .section-decor__molecule, .section-decor__drop'
   )
-  if (!molecules?.length) return
+  if (!decorItems?.length) return
 
   if (!('IntersectionObserver' in window)) {
-    molecules.forEach((molecule) => molecule.classList.add('is-ambient-active'))
+    decorItems.forEach((item) => item.classList.add('is-ambient-active'))
     return
   }
 
@@ -953,7 +953,7 @@ function setupAmbientMoleculeObserver() {
     }
   }, { rootMargin: '180px 0px' })
 
-  molecules.forEach((molecule) => moleculeObserver.observe(molecule))
+  decorItems.forEach((item) => moleculeObserver.observe(item))
 }
 
 function queueHeroScrollProgress() {
@@ -1058,7 +1058,7 @@ function queueHeroScrollProgress() {
   z-index: 0;
   pointer-events: none;
   user-select: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .home-global-decor::before {
@@ -1095,6 +1095,20 @@ function queueHeroScrollProgress() {
 .home-global-decor__item[class*="--molecule-"].is-ambient-active,
 .section-decor__molecule.is-ambient-active {
   animation: ambientMoleculeFloat 10s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+}
+
+.home-global-decor__item[class*="--drop-"],
+.section-decor__drop {
+  --drop-idle-x: 18px;
+  --drop-idle-y: -26px;
+  --drop-base-rotate: 0deg;
+  transform: rotate(var(--drop-base-rotate));
+  will-change: transform;
+}
+
+.home-global-decor__item[class*="--drop-"].is-ambient-active,
+.section-decor__drop.is-ambient-active {
+  animation: ambientDropFloat 12s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
 }
 
 .home-global-decor__item--molecule-1 {
@@ -1204,57 +1218,67 @@ function queueHeroScrollProgress() {
   left: 44%;
   top: 22%;
   opacity: 0.28;
-  filter: saturate(1.05) blur(1px) drop-shadow(0 0 16px rgba(78, 159, 255, 0.16));
+  filter: saturate(1.05) drop-shadow(0 0 16px rgba(78, 159, 255, 0.16));
   animation-duration: 12s;
   animation-delay: -2s;
 }
 
 .home-global-decor__item--drop-2 {
+  --drop-idle-x: -26px;
+  --drop-idle-y: 30px;
   width: clamp(80px, 7vw, 140px);
   right: 18%;
   top: 38%;
   opacity: 0.15;
-  filter: saturate(0.82) blur(12px) drop-shadow(0 0 10px rgba(78, 159, 255, 0.08));
+  filter: saturate(0.82) drop-shadow(0 0 10px rgba(78, 159, 255, 0.08));
   animation-duration: 19s;
   animation-delay: -7s;
 }
 
 .home-global-decor__item--drop-3 {
+  --drop-idle-x: 22px;
+  --drop-idle-y: -30px;
   width: clamp(52px, 4.5vw, 88px);
   left: 16%;
   top: 50%;
   opacity: 0.2;
-  filter: saturate(0.95) blur(4px) drop-shadow(0 0 12px rgba(78, 159, 255, 0.1));
+  filter: saturate(0.95) drop-shadow(0 0 12px rgba(78, 159, 255, 0.1));
   animation-duration: 14s;
   animation-delay: -5s;
 }
 
 .home-global-decor__item--drop-4 {
+  --drop-idle-x: -30px;
+  --drop-idle-y: 24px;
   width: clamp(100px, 8vw, 160px);
   right: 5%;
   top: 61%;
   opacity: 0.16;
-  filter: saturate(0.88) blur(10px) drop-shadow(0 0 10px rgba(78, 159, 255, 0.08));
+  filter: saturate(0.88) drop-shadow(0 0 10px rgba(78, 159, 255, 0.08));
   animation-duration: 21s;
   animation-delay: -11s;
 }
 
 .home-global-decor__item--drop-5 {
+  --drop-idle-x: 20px;
+  --drop-idle-y: -34px;
   width: clamp(48px, 4vw, 78px);
   left: 55%;
   top: 76%;
   opacity: 0.22;
-  filter: saturate(1) blur(2px) drop-shadow(0 0 12px rgba(78, 159, 255, 0.12));
+  filter: saturate(1) drop-shadow(0 0 12px rgba(78, 159, 255, 0.12));
   animation-duration: 9s;
   animation-delay: -4s;
 }
 
 .home-global-decor__item--drop-6 {
+  --drop-idle-x: -28px;
+  --drop-idle-y: 30px;
   width: clamp(88px, 7vw, 145px);
   left: -3%;
   top: 90%;
   opacity: 0.14;
-  filter: saturate(0.8) blur(13px) drop-shadow(0 0 10px rgba(78, 159, 255, 0.08));
+  filter: saturate(0.8) drop-shadow(0 0 10px rgba(78, 159, 255, 0.08));
   animation-duration: 22s;
   animation-delay: -12s;
 }
@@ -1268,6 +1292,12 @@ function queueHeroScrollProgress() {
   0% { transform: translate3d(0, 0, 0) rotate(var(--molecule-base-rotate)); }
   50% { transform: translate3d(var(--molecule-idle-x), var(--molecule-idle-y), 0) rotate(calc(var(--molecule-base-rotate) + 2.2deg)); }
   100% { transform: translate3d(0, 0, 0) rotate(calc(var(--molecule-base-rotate) - 1.3deg)); }
+}
+
+@keyframes ambientDropFloat {
+  0% { transform: translate3d(0, 0, 0) rotate(var(--drop-base-rotate)); }
+  48% { transform: translate3d(var(--drop-idle-x), var(--drop-idle-y), 0) rotate(calc(var(--drop-base-rotate) + 4deg)); }
+  100% { transform: translate3d(0, 0, 0) rotate(calc(var(--drop-base-rotate) - 2deg)); }
 }
 
 [data-theme="light"] .home {
@@ -1310,14 +1340,14 @@ function queueHeroScrollProgress() {
 [data-theme="light"] .home-global-decor__item--drop-3,
 [data-theme="light"] .home-global-decor__item--drop-5 {
   opacity: 0.12;
-  filter: saturate(0.9) blur(2px);
+  filter: saturate(0.9);
 }
 
 [data-theme="light"] .home-global-decor__item--drop-2,
 [data-theme="light"] .home-global-decor__item--drop-4,
 [data-theme="light"] .home-global-decor__item--drop-6 {
   opacity: 0.08;
-  filter: saturate(0.75) blur(12px);
+  filter: saturate(0.75);
 }
 
 .hero {
@@ -2455,7 +2485,6 @@ function queueHeroScrollProgress() {
   mix-blend-mode: screen;
   filter:
     saturate(1.12)
-    blur(1px)
     drop-shadow(0 0 18px rgba(62, 157, 255, 0.28));
   animation: sphereAssetDrift 7.4s ease-in-out infinite;
   will-change: transform;
@@ -2502,7 +2531,6 @@ function queueHeroScrollProgress() {
 [data-theme="light"] .hero-sphere__image {
   filter:
     saturate(0.85)
-    blur(2px)
     drop-shadow(0 0 10px rgba(62, 157, 255, 0.08));
 }
 
@@ -2526,7 +2554,6 @@ function queueHeroScrollProgress() {
 .hero-sphere--top .hero-sphere__image {
   filter:
     saturate(1.08)
-    blur(0.2px)
     drop-shadow(0 0 18px rgba(82, 157, 255, 0.24));
   animation-duration: 6.2s;
 }
@@ -2551,7 +2578,6 @@ function queueHeroScrollProgress() {
 .hero-sphere--right .hero-sphere__image {
   filter:
     saturate(1.02)
-    blur(1.6px)
     drop-shadow(0 0 20px rgba(82, 157, 255, 0.22));
   animation-duration: 8.8s;
 }
@@ -2576,7 +2602,6 @@ function queueHeroScrollProgress() {
 .hero-sphere--orbit .hero-sphere__image {
   filter:
     saturate(1.1)
-    blur(0.9px)
     drop-shadow(0 0 16px rgba(82, 157, 255, 0.22));
   animation-duration: 7.8s;
 }
@@ -2601,7 +2626,6 @@ function queueHeroScrollProgress() {
 .hero-sphere--far-left .hero-sphere__image {
   filter:
     saturate(0.82)
-    blur(11px)
     drop-shadow(0 0 10px rgba(82, 157, 255, 0.12));
   animation-duration: 9.8s;
 }
@@ -2626,7 +2650,6 @@ function queueHeroScrollProgress() {
 .hero-sphere--far-right .hero-sphere__image {
   filter:
     saturate(0.78)
-    blur(14px)
     drop-shadow(0 0 10px rgba(82, 157, 255, 0.1));
   animation-duration: 10s;
 }
@@ -2741,7 +2764,7 @@ function queueHeroScrollProgress() {
 .features {
   position: relative;
   padding: 8rem 0;
-  overflow: hidden;
+  overflow: visible;
   isolation: isolate;
   background: transparent;
 }
@@ -2758,7 +2781,7 @@ function queueHeroScrollProgress() {
   z-index: 1;
   pointer-events: none;
   user-select: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .section-decor img {
@@ -2780,7 +2803,7 @@ function queueHeroScrollProgress() {
 
 [data-theme="light"] .section-decor__drop {
   opacity: 0.12;
-  filter: saturate(0.86) blur(3px);
+  filter: saturate(0.86);
 }
 
 .section-decor__molecule {
@@ -2824,7 +2847,6 @@ function queueHeroScrollProgress() {
   opacity: 0.38;
   filter:
     saturate(1.05)
-    blur(1.2px)
     drop-shadow(0 0 16px rgba(67, 154, 255, 0.18));
   animation-delay: -2s;
 }
@@ -2836,7 +2858,6 @@ function queueHeroScrollProgress() {
   opacity: 0.18;
   filter:
     saturate(0.86)
-    blur(12px)
     drop-shadow(0 0 10px rgba(67, 154, 255, 0.1));
   animation-duration: 15s;
   animation-delay: -7s;
@@ -3025,7 +3046,7 @@ function queueHeroScrollProgress() {
 .categories-preview {
   position: relative;
   padding: 4rem 0 8rem;
-  overflow: hidden;
+  overflow: visible;
   isolation: isolate;
   background: transparent;
 }
@@ -3065,7 +3086,6 @@ function queueHeroScrollProgress() {
   opacity: 0.36;
   filter:
     saturate(1.08)
-    blur(0.8px)
     drop-shadow(0 0 16px rgba(67, 154, 255, 0.18));
   animation-delay: -1s;
 }
@@ -3077,7 +3097,6 @@ function queueHeroScrollProgress() {
   opacity: 0.24;
   filter:
     saturate(0.9)
-    blur(8px)
     drop-shadow(0 0 12px rgba(67, 154, 255, 0.1));
   animation-duration: 13s;
   animation-delay: -4s;
@@ -3090,7 +3109,6 @@ function queueHeroScrollProgress() {
   opacity: 0.32;
   filter:
     saturate(1.02)
-    blur(2px)
     drop-shadow(0 0 14px rgba(67, 154, 255, 0.14));
   animation-duration: 10s;
   animation-delay: -7s;
@@ -5284,7 +5302,9 @@ function queueHeroScrollProgress() {
 
 @media (prefers-reduced-motion: reduce) {
   .home-global-decor__item[class*="--molecule-"],
-  .section-decor__molecule {
+  .home-global-decor__item[class*="--drop-"],
+  .section-decor__molecule,
+  .section-decor__drop {
     animation: none !important;
     translate: 0 0 !important;
   }
