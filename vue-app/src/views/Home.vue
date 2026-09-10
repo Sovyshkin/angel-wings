@@ -6,6 +6,9 @@
       <img class="home-global-decor__item home-global-decor__item--molecule-3" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
       <img class="home-global-decor__item home-global-decor__item--molecule-4" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
       <img class="home-global-decor__item home-global-decor__item--molecule-5" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--molecule-6" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--molecule-7" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--molecule-8" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
       <img class="home-global-decor__item home-global-decor__item--drop-1" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
       <img class="home-global-decor__item home-global-decor__item--drop-2" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
       <img class="home-global-decor__item home-global-decor__item--drop-3" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
@@ -729,6 +732,7 @@ const homeRoot = ref(null)
 const catalogPreview = ref(null)
 const heroVisual = ref(null)
 let catalogObserver = null
+let moleculeObserver = null
 let catalogFallbackTimer = null
 let catalogLoaded = false
 let heroScrollFrame = null
@@ -778,6 +782,7 @@ onMounted(() => {
   updateHeroScrollProgress()
   window.addEventListener('scroll', queueHeroScrollProgress, { passive: true })
   window.addEventListener('resize', queueHeroScrollProgress, { passive: true })
+  setupAmbientMoleculeObserver()
 
   if ('IntersectionObserver' in window && catalogPreview.value) {
     catalogObserver = new IntersectionObserver((entries) => {
@@ -792,6 +797,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   catalogObserver?.disconnect()
+  moleculeObserver?.disconnect()
   if (catalogFallbackTimer) window.clearTimeout(catalogFallbackTimer)
   if (heroScrollFrame) window.cancelAnimationFrame(heroScrollFrame)
   if (heroScrollIdleTimer) window.clearTimeout(heroScrollIdleTimer)
@@ -930,6 +936,26 @@ function updateBackgroundMoleculeParallax() {
   homeRoot.value.style.setProperty('--molecule-parallax-down', `${down.toFixed(1)}px`)
 }
 
+function setupAmbientMoleculeObserver() {
+  const molecules = homeRoot.value?.querySelectorAll(
+    '.home-global-decor__item[class*="--molecule-"], .section-decor__molecule'
+  )
+  if (!molecules?.length) return
+
+  if (!('IntersectionObserver' in window)) {
+    molecules.forEach((molecule) => molecule.classList.add('is-ambient-active'))
+    return
+  }
+
+  moleculeObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      entry.target.classList.toggle('is-ambient-active', entry.isIntersecting)
+    }
+  }, { rootMargin: '180px 0px' })
+
+  molecules.forEach((molecule) => moleculeObserver.observe(molecule))
+}
+
 function queueHeroScrollProgress() {
   if (!heroScrollActive) {
     heroScrollActive = true
@@ -1058,12 +1084,23 @@ function queueHeroScrollProgress() {
 
 .home-global-decor__item[class*="--molecule-"],
 .section-decor__molecule {
+  --molecule-base-rotate: 0deg;
+  --molecule-idle-x: 10px;
+  --molecule-idle-y: -18px;
   translate: 0 var(--molecule-shift, 0px);
-  will-change: translate;
+  transform: rotate(var(--molecule-base-rotate));
+  will-change: translate, transform;
+}
+
+.home-global-decor__item[class*="--molecule-"].is-ambient-active,
+.section-decor__molecule.is-ambient-active {
+  animation: ambientMoleculeFloat 16s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
 }
 
 .home-global-decor__item--molecule-1 {
   --molecule-shift: var(--molecule-parallax-up);
+  --molecule-idle-x: 14px;
+  --molecule-idle-y: -24px;
   width: clamp(150px, 12vw, 240px);
   right: -4%;
   top: 18%;
@@ -1073,6 +1110,8 @@ function queueHeroScrollProgress() {
 
 .home-global-decor__item--molecule-2 {
   --molecule-shift: var(--molecule-parallax-down);
+  --molecule-idle-x: -18px;
+  --molecule-idle-y: 17px;
   width: clamp(170px, 14vw, 280px);
   left: -5%;
   top: 33%;
@@ -1084,6 +1123,8 @@ function queueHeroScrollProgress() {
 
 .home-global-decor__item--molecule-3 {
   --molecule-shift: var(--molecule-parallax-up-soft);
+  --molecule-idle-x: 11px;
+  --molecule-idle-y: -16px;
   width: clamp(120px, 10vw, 200px);
   right: 13%;
   top: 47%;
@@ -1095,6 +1136,8 @@ function queueHeroScrollProgress() {
 
 .home-global-decor__item--molecule-4 {
   --molecule-shift: var(--molecule-parallax-down);
+  --molecule-idle-x: -15px;
+  --molecule-idle-y: 22px;
   width: clamp(150px, 13vw, 260px);
   left: 8%;
   top: 68%;
@@ -1106,6 +1149,8 @@ function queueHeroScrollProgress() {
 
 .home-global-decor__item--molecule-5 {
   --molecule-shift: var(--molecule-parallax-up);
+  --molecule-idle-x: 16px;
+  --molecule-idle-y: -19px;
   width: clamp(150px, 12vw, 245px);
   right: -3%;
   top: 84%;
@@ -1113,6 +1158,45 @@ function queueHeroScrollProgress() {
   filter: saturate(0.98) blur(5px) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
   animation-duration: 17s;
   animation-delay: -8s;
+}
+
+.home-global-decor__item--molecule-6 {
+  --molecule-shift: var(--molecule-parallax-down);
+  --molecule-idle-x: -12px;
+  --molecule-idle-y: 18px;
+  width: clamp(118px, 10vw, 190px);
+  right: 31%;
+  top: 58%;
+  opacity: 0.24;
+  filter: saturate(1.02) blur(3px) drop-shadow(0 0 15px rgba(44, 133, 255, 0.14));
+  animation-duration: 15s;
+  animation-delay: -5s;
+}
+
+.home-global-decor__item--molecule-7 {
+  --molecule-shift: var(--molecule-parallax-up-soft);
+  --molecule-idle-x: 17px;
+  --molecule-idle-y: -21px;
+  width: clamp(145px, 12vw, 235px);
+  left: -4%;
+  top: 76%;
+  opacity: 0.2;
+  filter: saturate(0.92) blur(6px) drop-shadow(0 0 14px rgba(44, 133, 255, 0.12));
+  animation-duration: 19s;
+  animation-delay: -9s;
+}
+
+.home-global-decor__item--molecule-8 {
+  --molecule-shift: var(--molecule-parallax-up);
+  --molecule-idle-x: -14px;
+  --molecule-idle-y: -17px;
+  width: clamp(138px, 11vw, 220px);
+  right: 9%;
+  top: 92%;
+  opacity: 0.23;
+  filter: saturate(0.98) blur(4px) drop-shadow(0 0 15px rgba(44, 133, 255, 0.13));
+  animation-duration: 17s;
+  animation-delay: -12s;
 }
 
 .home-global-decor__item--drop-1 {
@@ -1180,6 +1264,12 @@ function queueHeroScrollProgress() {
   100% { translate: 12px -18px; rotate: 2deg; }
 }
 
+@keyframes ambientMoleculeFloat {
+  0% { transform: translate3d(0, 0, 0) rotate(var(--molecule-base-rotate)); }
+  50% { transform: translate3d(var(--molecule-idle-x), var(--molecule-idle-y), 0) rotate(calc(var(--molecule-base-rotate) + 2.2deg)); }
+  100% { transform: translate3d(0, 0, 0) rotate(calc(var(--molecule-base-rotate) - 1.3deg)); }
+}
+
 [data-theme="light"] .home {
   background:
     radial-gradient(circle at 12% 9%, rgba(120, 153, 247, 0.2), transparent 28%),
@@ -1202,13 +1292,16 @@ function queueHeroScrollProgress() {
 
 [data-theme="light"] .home-global-decor__item--molecule-1,
 [data-theme="light"] .home-global-decor__item--molecule-3,
-[data-theme="light"] .home-global-decor__item--molecule-5 {
+[data-theme="light"] .home-global-decor__item--molecule-5,
+[data-theme="light"] .home-global-decor__item--molecule-6,
+[data-theme="light"] .home-global-decor__item--molecule-8 {
   opacity: 0.1;
   filter: saturate(0.85) blur(4px);
 }
 
 [data-theme="light"] .home-global-decor__item--molecule-2,
-[data-theme="light"] .home-global-decor__item--molecule-4 {
+[data-theme="light"] .home-global-decor__item--molecule-4,
+[data-theme="light"] .home-global-decor__item--molecule-7 {
   opacity: 0.08;
   filter: saturate(0.75) blur(9px);
 }
@@ -2709,11 +2802,11 @@ function queueHeroScrollProgress() {
 
 .section-decor__molecule--features-main {
   --molecule-shift: var(--molecule-parallax-up);
+  --molecule-base-rotate: -11deg;
   width: clamp(150px, 14vw, 230px);
   right: clamp(-80px, -4vw, -34px);
   top: 8%;
   opacity: 0.42;
-  transform: rotate(-11deg);
 }
 
 .section-decor__molecule--features-soft {
@@ -2949,11 +3042,11 @@ function queueHeroScrollProgress() {
 
 .section-decor__molecule--categories-main {
   --molecule-shift: var(--molecule-parallax-up-soft);
+  --molecule-base-rotate: 9deg;
   width: clamp(160px, 15vw, 260px);
   right: clamp(-46px, -2.4vw, -18px);
   top: 18%;
   opacity: 0.4;
-  transform: rotate(9deg);
   animation-duration: 12s;
   animation-delay: -3s;
 }
@@ -4696,6 +4789,8 @@ function queueHeroScrollProgress() {
   .home-global-decor__item--molecule-2,
   .home-global-decor__item--molecule-4,
   .home-global-decor__item--molecule-5,
+  .home-global-decor__item--molecule-7,
+  .home-global-decor__item--molecule-8,
   .home-global-decor__item--drop-2,
   .home-global-decor__item--drop-4,
   .home-global-decor__item--drop-6 {
@@ -4719,6 +4814,13 @@ function queueHeroScrollProgress() {
     right: -24px;
     top: 61%;
     opacity: 0.18;
+  }
+
+  .home-global-decor__item--molecule-6 {
+    width: 110px;
+    right: -18px;
+    top: 64%;
+    opacity: 0.17;
   }
 
   .home-global-decor__item--drop-1,
@@ -5188,6 +5290,12 @@ function queueHeroScrollProgress() {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .home-global-decor__item[class*="--molecule-"],
+  .section-decor__molecule {
+    animation: none !important;
+    translate: 0 0 !important;
+  }
+
   .hero-pen-wrap,
   .hero-orbits,
   .hero-orbit,
