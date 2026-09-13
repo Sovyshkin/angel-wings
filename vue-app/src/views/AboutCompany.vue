@@ -1,73 +1,49 @@
 <template>
-  <main class="about-page">
-    <section class="about-hero">
+  <main ref="aboutRoot" class="about-page" :class="{ 'is-ready': isAboutReady }" :aria-busy="!isAboutReady">
+    <section ref="heroSection" class="about-hero">
       <div class="about-grid" aria-hidden="true"></div>
       <div class="about-hero__backdrop" aria-hidden="true">
-        <div class="hero-backdrop__scan"></div>
         <span class="hero-backdrop__monogram">AW</span>
         <div class="hero-backdrop__geometry"></div>
       </div>
-      <div
-        ref="heroMolecule"
-        class="about-hero__molecule"
-        aria-hidden="true"
-        @pointerenter="prepareMoleculePointer"
-        @pointermove="handleMoleculePointerMove"
-        @pointerleave="resetMoleculePerspective"
-      >
-        <div class="about-hero__molecule-glow"></div>
-        <div class="about-hero__molecule-frame">
-          <div class="about-hero__molecule-float">
-            <img src="/about-assets/molecule-water-shell.png" alt="" width="1254" height="1254" decoding="async" fetchpriority="high">
-          </div>
+      <div class="about-hero__podium" aria-hidden="true">
+        <div class="about-hero__podium-motion">
+          <img src="/about-assets/hero-podium.png" alt="">
         </div>
+      </div>
+      <div class="about-hero__visual" aria-hidden="true">
+        <div class="about-hero__visual-glow"></div>
+        <div class="about-hero__visual-rings"></div>
       </div>
       <div class="container about-hero__container">
         <div class="about-hero__copy">
           <div class="about-eyebrow about-intro about-intro--1">
             <span></span>
-            О компании Angel Wings
+            О нас
           </div>
 
           <h1 class="about-hero__title about-intro about-intro--2">
-            Наука в деталях.<br>
-            <em>Сервис — по-человечески.</em>
+            Наука в<span class="about-hero__wide-break"><br></span> деталях.<br>
+            <em>Забота в<span class="about-hero__wide-break"><br></span> каждом шаге.</em>
           </h1>
 
           <div class="about-hero__support">
             <div>
               <p class="about-hero__lead about-intro about-intro--3">
-                Мы развиваем профессиональную среду для выбора исследовательской пептидной продукции —
-                с понятной информацией, аккуратной логистикой и поддержкой на каждом этапе заказа.
+                Наша история в пептидах началась не с трендов, а с науки. Мы занимаемся пептидами,
+                чтобы создавать фундамент для уникальных разработок и инноваций.
               </p>
 
               <div class="about-hero__actions about-intro about-intro--4">
-                <RouterLink to="/catalog" class="about-button about-button--primary">
-                  Перейти в каталог
+                <a href="#principles" class="about-button about-button--primary">
+                  Подробнее о компании
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M5 12h14M13 6l6 6-6 6" />
                   </svg>
-                </RouterLink>
-                <a href="/pharmaceutical-license.pdf" target="_blank" rel="noopener" class="about-button about-button--ghost">
-                  Посмотреть документы
                 </a>
               </div>
             </div>
 
-            <div class="about-hero__signals about-intro about-intro--5" aria-label="Принципы компании">
-              <div>
-                <span class="signal-index">01</span>
-                <strong>Точная информация</strong>
-              </div>
-              <div>
-                <span class="signal-index">02</span>
-                <strong>Контроль процессов</strong>
-              </div>
-              <div>
-                <span class="signal-index">03</span>
-                <strong>Живая поддержка</strong>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -78,14 +54,16 @@
       </div>
     </section>
 
-    <section class="about-section about-section--manifesto">
+    <section id="principles" class="about-section about-section--manifesto">
       <div class="container">
         <div class="section-heading reveal-block">
-          <span class="section-number">01 / Подход</span>
-          <h2>Не просто каталог.<br><em>Понятная система выбора.</em></h2>
-          <p>
-            Мы соединяем продуктовую информацию, удобный интерфейс и внимательное сопровождение,
-            чтобы каждый этап — от первого знакомства до получения заказа — был предсказуемым.
+          <span class="section-number">Наш путь</span>
+          <h2>Начали с науки.<br>Идём <em>своим путём.</em></h2>
+          <p class="section-heading__story">
+            Наша история в пептидах началась не с трендов, а с науки. В 2021 году мы совершили наш первый
+            значимый шаг — самостоятельно синтезировали семаглутид. С тех пор мы идём своим путём. Мы
+            занимаемся пептидами не потому, что это модно, а чтобы заложить прочный фундамент для будущих
+            уникальных разработок и инноваций.
           </p>
         </div>
 
@@ -98,7 +76,7 @@
           >
             <div class="principle-card__top">
               <span class="principle-card__number" aria-hidden="true">
-                <span>0</span><span :class="{ 'principle-card__digit--three': index === 2 }">{{ index + 1 }}</span>
+                0{{ index + 1 }}
               </span>
               <div v-html="principle.icon"></div>
             </div>
@@ -114,11 +92,7 @@
       <div class="container journey-layout">
         <div class="journey-intro reveal-block">
           <span class="section-number">02 / Процесс</span>
-          <h2>Путь заказа<br><em>без белых пятен</em></h2>
-          <p>
-            За интерфейсом работают связанные процессы: актуальный каталог, проверка заказа,
-            уведомления и сопровождение доставки.
-          </p>
+          <h2>Вы всегда знаете,<br><em>что происходит,<br>почему и когда.</em></h2>
           <div class="journey-pulse" aria-hidden="true">
             <span></span>
             Система работает
@@ -145,16 +119,83 @@
       </div>
     </section>
 
+    <section class="about-section about-section--production" aria-labelledby="production-title">
+      <div class="container">
+        <div class="production-layout reveal-block">
+          <header class="production-layout__heading">
+            <span class="section-number">03 / Наше производство</span>
+            <h2 id="production-title">Показываем <em>процесс</em><br>таким, какой он есть.</h2>
+            <p>
+              Загляните в лабораторию: оборудование, команда и ежедневная работа над качеством каждого продукта.
+            </p>
+          </header>
+
+          <div class="production-player" :class="{ 'is-started': hasProductionStarted }">
+            <video
+              ref="productionVideo"
+              class="production-player__video"
+              src="/about-assets/production.mp4"
+              poster="/about-assets/production-poster.png"
+              preload="metadata"
+              playsinline
+              :controls="hasProductionStarted"
+              @play="hasProductionStarted = true"
+            >
+              Ваш браузер не поддерживает воспроизведение видео.
+            </video>
+
+            <button
+              v-if="!hasProductionStarted"
+              class="production-player__play"
+              type="button"
+              aria-label="Смотреть видео о производстве"
+              @click="playProduction"
+            >
+              <span class="production-player__play-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="m9 6 9 6-9 6V6Z" /></svg>
+              </span>
+              <span>Смотреть производство</span>
+            </button>
+
+            <div class="production-player__meta" aria-hidden="true">
+              <span>Angel Wings / lab</span>
+              <span>01:00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="about-section about-section--goal">
+      <div class="container">
+        <div class="goal-panel reveal-block">
+          <div class="goal-panel__copy">
+            <span class="section-number">04 / Наша цель</span>
+            <h2>Вывести индустрию<br><em>из «серой зоны».</em></h2>
+            <p>
+              Наша цель — вывести эту индустрию из «серой зоны» и привнести в неё стандарты качества
+              профессиональной фармацевтики. Мы хотим, чтобы наш продукт стал эталоном для всех,
+              кто работает с продукцией китайских заводов.
+            </p>
+          </div>
+
+          <div class="goal-panel__signal" aria-hidden="true">
+            <img src="/about-assets/goal-quality-seal.png" alt="">
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="about-section about-section--standard">
       <div class="container">
         <div class="standard-panel reveal-block">
           <div class="standard-panel__copy">
-            <span class="section-number">03 / Стандарт Angel Wings</span>
-            <h2>Доверие начинается<br><em>с прозрачности</em></h2>
+            <span class="section-number">05 / Наша миссия</span>
+            <h2>Новые стандарты<br><em>прозрачности и качества</em></h2>
             <p>
-              Мы последовательно улучшаем карточки товаров, личный кабинет, уведомления и внутренние
-              процессы. Если возникает вопрос, команда помогает разобраться с оформлением, оплатой,
-              доставкой и статусом заказа.
+              Мы стремимся вывести индустрию ввоза и дистрибуции из «серой зоны», задав новые стандарты
+              прозрачности и качества. Наш ориентир — принципы профессиональной фармацевтики, где
+              безопасность и точность превыше всего.
             </p>
             <div class="standard-panel__actions">
               <RouterLink to="/contact" class="about-button about-button--light">Связаться с нами</RouterLink>
@@ -190,32 +231,67 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { moleculeTransition } from '../composables/moleculeTransition'
 
 let revealObserver = null
-let moleculeObserver = null
-let moleculePointerFrame = null
-let moleculeIntroFrame = null
-let moleculePointerRect = null
-let moleculePointerX = 0
-let moleculePointerY = 0
-const heroMolecule = ref(null)
+let heroParallaxFrame = 0
+let heroParallaxRange = 1
+let lastHeroParallaxProgress = -1
+const aboutRoot = ref(null)
+const heroSection = ref(null)
+const productionVideo = ref(null)
+const hasProductionStarted = ref(false)
+const isAboutReady = computed(() => moleculeTransition.stage === 'about' || moleculeTransition.stage === 'idle')
+
+const playProduction = async () => {
+  if (!productionVideo.value) return
+  try {
+    await productionVideo.value.play()
+  } catch {
+    // Browser policies can block playback; native controls remain available as a fallback.
+    hasProductionStarted.value = true
+  }
+}
+
+const syncHeroParallaxRange = () => {
+  heroParallaxRange = Math.max(1, (heroSection.value?.offsetHeight || window.innerHeight) * 0.68)
+}
+
+const applyHeroParallax = () => {
+  heroParallaxFrame = 0
+  const app = document.querySelector('.app')
+  if (!app || !aboutRoot.value) return
+
+  const progress = Math.min(1, Math.max(0, window.scrollY / heroParallaxRange))
+  if (Math.abs(progress - lastHeroParallaxProgress) < 0.002) return
+  lastHeroParallaxProgress = progress
+
+  if (progress > 0) app.classList.add('is-about-hero-scrolling')
+  app.style.setProperty('--about-sphere-scroll-y', `${(-progress * 185).toFixed(1)}px`)
+  aboutRoot.value.style.setProperty('--about-podium-scroll-x', `${(progress * 150).toFixed(1)}px`)
+}
+
+const queueHeroParallax = () => {
+  if (heroParallaxFrame) return
+  heroParallaxFrame = window.requestAnimationFrame(applyHeroParallax)
+}
 
 const principles = [
   {
-    title: 'Информация без шума',
-    text: 'Структурируем характеристики и описание так, чтобы важные детали находились быстро и читались однозначно.',
-    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>'
+    title: 'Качество',
+    text: 'Безопасность и точность — основа каждого решения и каждого этапа работы.',
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 7 3v5c0 4.4-2.8 8.4-7 10-4.2-1.6-7-5.6-7-10V6l7-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>'
   },
   {
-    title: 'Аккуратная логистика',
-    text: 'Заказ проходит последовательную сборку, а ключевые этапы доставки сопровождаются понятными статусами.',
-    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11v11H3zM14 9h4l3 4v4h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg>'
+    title: 'Наука',
+    text: 'Мы начали с самостоятельного синтеза семаглутида и продолжаем развивать собственные разработки.',
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5.5 9.2A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.8L14 9V3"/><path d="M8 15h8M10 12h4"/></svg>'
   },
   {
-    title: 'Поддержка в контексте',
-    text: 'Помогаем не шаблонными ответами, а по конкретному заказу: от оформления и оплаты до получения.',
-    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3v-7a9 9 0 1 1 18 0Z"/><path d="M8 10h8M8 14h5"/></svg>'
+    title: 'Прозрачность',
+    text: 'Надёжность и легальность — конкурентное преимущество, а не компромисс.',
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 7.5 5.7-2.9 9L12 21l-4.6-3.3-2.9-9L12 3Z"/><path d="m9.5 11.2 1.8 1.8 3.5-4"/></svg>'
   }
 ]
 
@@ -230,22 +306,16 @@ onMounted(() => {
   const blocks = document.querySelectorAll('.reveal-block')
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const supportsObserver = 'IntersectionObserver' in window
-  const molecule = heroMolecule.value
 
-  if (molecule) {
-    if (reducedMotion) {
-      molecule.classList.add('is-intro-ready')
-    } else {
-      moleculeIntroFrame = window.requestAnimationFrame(() => {
-        molecule.classList.add('is-intro-ready')
-        moleculeIntroFrame = null
-      })
-    }
+  if (!reducedMotion) {
+    syncHeroParallaxRange()
+    applyHeroParallax()
+    window.addEventListener('scroll', queueHeroParallax, { passive: true })
+    window.addEventListener('resize', syncHeroParallaxRange, { passive: true })
   }
 
   if (!supportsObserver || reducedMotion) {
     blocks.forEach(block => block.classList.add('is-visible'))
-    if (molecule && !reducedMotion) molecule.classList.add('is-motion-active')
     return
   }
 
@@ -259,56 +329,17 @@ onMounted(() => {
 
   blocks.forEach(block => revealObserver.observe(block))
 
-  if (!molecule) return
-
-  moleculeObserver = new IntersectionObserver(([entry]) => {
-    molecule.classList.toggle('is-motion-active', entry.isIntersecting)
-  }, { threshold: 0.08 })
-
-  moleculeObserver.observe(molecule)
 })
-
-function prepareMoleculePointer(event) {
-  if (event.pointerType && event.pointerType !== 'mouse') return
-  const molecule = heroMolecule.value
-  if (!molecule || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
-  moleculePointerRect = molecule.getBoundingClientRect()
-  molecule.classList.add('is-pointer-active')
-}
-
-function handleMoleculePointerMove(event) {
-  if (event.pointerType && event.pointerType !== 'mouse') return
-  const molecule = heroMolecule.value
-  if (!molecule || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
-  const latestEvent = event.getCoalescedEvents?.().at(-1) || event
-  const rect = moleculePointerRect || molecule.getBoundingClientRect()
-  moleculePointerX = ((latestEvent.clientX - rect.left) / rect.width - 0.5) * 2
-  moleculePointerY = ((latestEvent.clientY - rect.top) / rect.height - 0.5) * 2
-
-  if (moleculePointerFrame) return
-  moleculePointerFrame = window.requestAnimationFrame(() => {
-    molecule.style.setProperty('--molecule-tilt-x', `${(-moleculePointerY * 2.4).toFixed(2)}deg`)
-    molecule.style.setProperty('--molecule-tilt-y', `${(moleculePointerX * 3.2).toFixed(2)}deg`)
-    moleculePointerFrame = null
-  })
-}
-
-function resetMoleculePerspective() {
-  const molecule = heroMolecule.value
-  if (!molecule) return
-  moleculePointerRect = null
-  molecule.classList.remove('is-pointer-active')
-  molecule.style.setProperty('--molecule-tilt-x', '0deg')
-  molecule.style.setProperty('--molecule-tilt-y', '0deg')
-}
 
 onBeforeUnmount(() => {
   revealObserver?.disconnect()
-  moleculeObserver?.disconnect()
-  if (moleculePointerFrame) window.cancelAnimationFrame(moleculePointerFrame)
-  if (moleculeIntroFrame) window.cancelAnimationFrame(moleculeIntroFrame)
+  window.cancelAnimationFrame(heroParallaxFrame)
+  window.removeEventListener('scroll', queueHeroParallax)
+  window.removeEventListener('resize', syncHeroParallaxRange)
+  const app = document.querySelector('.app')
+  app?.style.removeProperty('--about-sphere-scroll-y')
+  app?.classList.remove('is-about-hero-scrolling')
+  aboutRoot.value?.style.removeProperty('--about-podium-scroll-x')
 })
 </script>
 
@@ -319,7 +350,11 @@ onBeforeUnmount(() => {
   position: relative;
   overflow: hidden;
   background: var(--bg-primary);
+  opacity: 0;
+  transition: opacity 0.5s ease;
 }
+
+.about-page.is-ready { opacity: 1; }
 
 .about-hero {
   position: relative;
@@ -362,6 +397,45 @@ onBeforeUnmount(() => {
 
 .about-hero__container {
   width: 100%;
+}
+
+.about-hero__visual {
+  position: absolute;
+  z-index: 2;
+  width: min(47vw, 670px);
+  aspect-ratio: 1;
+  right: clamp(-4rem, -1vw, -1rem);
+  top: 50%;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.about-hero__visual-glow {
+  position: absolute;
+  inset: 18% 10% 6%;
+  z-index: 0;
+  border-radius: 48% 52% 45% 55% / 54% 42% 58% 46%;
+  background:
+    radial-gradient(ellipse at 45% 36%, rgba(119, 180, 255, 0.22), transparent 24%),
+    radial-gradient(ellipse at 58% 70%, rgba(27, 102, 255, 0.34), transparent 48%);
+  filter: blur(38px);
+  opacity: 0.9;
+}
+
+.about-hero__visual-rings {
+  position: absolute;
+  z-index: 1;
+  width: 76%;
+  height: 16%;
+  left: 12%;
+  bottom: 3%;
+  border: 1px solid rgba(96, 151, 255, 0.34);
+  border-radius: 50%;
+  box-shadow: 0 14px 0 -1px rgba(48, 112, 255, 0.16), 0 28px 0 -1px rgba(41, 91, 207, 0.09), 0 22px 55px rgba(15, 83, 255, 0.5);
+}
+
+.about-hero__visual-rings {
+  display: none;
 }
 
 .about-hero__copy { position: relative; z-index: 4; }
@@ -484,7 +558,7 @@ onBeforeUnmount(() => {
   text-wrap: pretty;
 }
 
-.about-hero__title em { display: inline-block; white-space: nowrap; }
+.about-hero__title em { display: inline-block; white-space: normal; }
 
 .about-hero__title em,
 .section-heading h2 em,
@@ -597,15 +671,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 70px rgba(158, 183, 255, 0.025), 0 0 0 140px rgba(158, 183, 255, 0.018);
 }
 
-.hero-backdrop__scan {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(180deg, transparent 0%, rgba(139, 174, 255, 0.12) 49%, rgba(139, 174, 255, 0.45) 50%, transparent 51%);
-  transform: translateY(-100%);
-  animation: editorialScan 8s cubic-bezier(0.45, 0, 0.55, 1) infinite 1.2s;
-}
-
 .hero-backdrop__monogram {
   position: absolute;
   top: 2%;
@@ -657,7 +722,150 @@ onBeforeUnmount(() => {
 .about-hero__scroll i { width: 52px; height: 1px; overflow: hidden; background: var(--border); }
 .about-hero__scroll i::after { content: ''; display: block; width: 50%; height: 100%; background: var(--about-accent); animation: scrollLine 2.2s ease-in-out infinite; }
 
-.about-intro { opacity: 0; transform: translateY(22px); animation: introReveal 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+/* Focused hero composition: the video backdrop merges into the near-black scene. */
+.about-hero {
+  min-height: min(780px, calc(100svh - var(--header-height, 76px)));
+  align-items: flex-start;
+  padding: clamp(6rem, 12vh, 8rem) 0 clamp(3rem, 5vh, 4rem);
+  overflow: clip;
+  background: #02050d;
+}
+
+.about-grid,
+.hero-backdrop__monogram,
+.hero-backdrop__geometry,
+.about-hero__scroll {
+  display: none;
+}
+
+.about-hero__backdrop {
+  background-color: #02050d;
+}
+
+.about-hero__backdrop::after { display: none; }
+
+.about-hero__podium {
+  position: absolute;
+  z-index: -1;
+  width: min(48vw, 680px);
+  left: calc(79% - min(24vw, 340px));
+  right: auto;
+  bottom: -9.5rem;
+  pointer-events: none;
+  transform: translate3d(var(--about-podium-scroll-x, 0px), 0, 0);
+  will-change: transform;
+}
+
+.about-hero__podium-motion {
+  opacity: 0;
+  transform: translate3d(-3.5rem, 3rem, 0) scale(0.94);
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+}
+
+.about-hero__podium img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.about-page.is-ready .about-hero__podium-motion {
+  animation: podiumReveal 1.5s cubic-bezier(0.16, 1, 0.3, 1) 0.32s both;
+}
+
+.about-hero::before {
+  width: min(47vw, 680px);
+  height: min(44vh, 480px);
+  right: 1%;
+  top: 22%;
+  opacity: 0.58;
+  filter: blur(64px);
+}
+
+.about-hero__copy { max-width: min(54vw, 760px); }
+
+@media (min-width: 1120px) {
+  .about-hero__copy { max-width: 760px; }
+}
+
+.about-eyebrow {
+  gap: 0.85rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.2em;
+  opacity: 0.9;
+}
+
+.about-eyebrow span { width: 40px; }
+
+.about-hero__title {
+  max-width: 760px;
+  margin-top: 1.55rem;
+  font-size: clamp(3rem, 4.05vw, 4.6rem);
+  font-weight: 700;
+  line-height: 0.93;
+  letter-spacing: -0.058em;
+  text-wrap: balance;
+}
+
+.about-hero__title em {
+  max-width: 18ch;
+  margin-top: 0.12em;
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+/* Wide phrasing on large screens; the title wraps naturally on constrained widths. */
+.about-hero__wide-break { display: none; }
+
+.about-hero__support { margin-top: 2rem; }
+.about-hero__lead {
+  max-width: 56ch;
+  color: color-mix(in srgb, var(--text-secondary) 92%, #c8d7ff);
+  font-size: clamp(0.95rem, 1.05vw, 1.08rem);
+  line-height: 1.72;
+  letter-spacing: -0.012em;
+}
+.about-hero__actions { margin-top: 2rem; }
+.about-button--primary { min-height: 48px; padding: 0.75rem 1.2rem; }
+
+.about-hero__visual {
+  width: min(54vw, 720px);
+  right: clamp(-5rem, -2vw, -1.25rem);
+  top: 48%;
+}
+
+.about-hero__visual-glow {
+  inset: 26% 13% 6%;
+  opacity: 0.68;
+}
+
+@media (min-width: 769px) and (max-width: 1119px) {
+  .about-hero {
+    min-height: min(780px, calc(100svh - var(--header-height, 76px)));
+    padding-top: clamp(5.25rem, 10vh, 6.5rem);
+    padding-bottom: clamp(3.5rem, 7vh, 5rem);
+  }
+  .about-hero__copy { max-width: 50vw; }
+  .about-hero__support { display: block; margin-top: 1.8rem; }
+  .about-hero__title {
+    max-width: 14.5ch;
+    font-size: clamp(3rem, 5.8vw, 4.15rem);
+    line-height: 0.95;
+  }
+  .about-hero__title em { max-width: 14.5ch; }
+  .about-hero__lead { max-width: 48ch; }
+  .about-hero__podium {
+    width: min(62vw, 560px);
+    left: calc(75% - min(31vw, 280px));
+    right: auto;
+    bottom: -6rem;
+  }
+  .about-hero::before { width: 55vw; right: -9%; top: 24%; }
+  .about-hero__visual { width: min(57vw, 590px); right: -12vw; top: 52%; }
+}
+
+.about-intro { opacity: 0; transform: translateY(22px); }
+.about-page.is-ready .about-intro { animation: introReveal 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .about-intro--1 { animation-delay: 0.05s; }
 .about-intro--2 { animation-delay: 0.14s; }
 .about-intro--3 { animation-delay: 0.24s; }
@@ -700,6 +908,12 @@ onBeforeUnmount(() => {
 
 .section-heading > h2 { grid-area: title; margin: 0; max-width: 860px; }
 .section-heading > p { grid-area: copy; max-width: 460px; margin: 0 0 0.35rem; }
+.section-heading > .section-heading__story {
+  max-width: 48ch;
+  font-size: 0.94rem;
+  line-height: 1.72;
+  text-wrap: pretty;
+}
 
 .section-heading h2,
 .journey-intro h2,
@@ -745,20 +959,19 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: flex-start;
   color: var(--principle-number-fill);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: clamp(6rem, 9vw, 9rem);
   font-weight: 800;
   line-height: 0.82;
   letter-spacing: -0.09em;
+  font-variant-numeric: lining-nums tabular-nums;
   -webkit-text-stroke: 1px var(--principle-number-stroke);
   user-select: none;
   pointer-events: none;
-  transform: scaleX(0.72);
+  transform: scaleX(0.86);
   transform-origin: left top;
   transition: color 0.7s ease, -webkit-text-stroke-color 0.7s ease, transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.principle-card__number > span { display: inline-block; }
-.principle-card__digit--three { transform: translateY(0.05em) scaleY(0.764); transform-origin: center top; }
 .principle-card__top div { position: relative; z-index: 2; width: 42px; height: 42px; display: grid; place-items: center; margin-left: auto; border: 1px solid rgba(158, 183, 255, 0.22); border-radius: 12px; background: color-mix(in srgb, var(--bg-primary) 76%, transparent); backdrop-filter: blur(8px); }
 .principle-card__top :deep(svg) { width: 20px; fill: none; stroke: currentColor; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; }
 .principle-card h3 { position: relative; z-index: 2; margin: auto 0 1rem; font-family: var(--font-display); font-size: clamp(1.35rem, 2vw, 1.85rem); }
@@ -770,7 +983,7 @@ onBeforeUnmount(() => {
   .principle-card:hover .principle-card__number {
     color: rgba(158, 183, 255, 0.055);
     -webkit-text-stroke-color: rgba(158, 183, 255, 0.38);
-    transform: translate3d(7px, -4px, 0) scaleX(0.72) scale(1.025);
+    transform: translate3d(7px, -4px, 0) scaleX(0.86) scale(1.025);
   }
 }
 
@@ -830,22 +1043,255 @@ onBeforeUnmount(() => {
   .journey-step:hover svg { color: var(--about-accent); transform: translateX(7px); }
 }
 
-.standard-panel {
-  position: relative;
-  min-height: 560px;
+.about-section--production {
+  padding-top: clamp(5rem, 9vw, 9rem);
+  padding-bottom: clamp(4rem, 8vw, 8rem);
+}
+
+.production-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.55fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(2rem, 4vw, 5rem);
+  align-items: start;
+}
+
+.production-layout__heading { padding-bottom: 0; }
+.production-layout__heading h2 {
+  max-width: none;
+  margin: 1.3rem 0 1.35rem;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 4.45vw, 5rem);
+  line-height: 0.98;
+  letter-spacing: -0.052em;
+}
+.production-layout__heading h2 em { color: var(--about-accent); font-style: normal; }
+.production-layout__heading p {
+  max-width: 54ch;
+  color: var(--text-secondary);
+  font-size: 0.97rem;
+  line-height: 1.75;
+  text-wrap: pretty;
+}
+
+.production-player {
+  position: relative;
+  isolation: isolate;
+  aspect-ratio: 16 / 10;
+  min-height: 320px;
+  overflow: hidden;
+  border: 1px solid rgba(158, 183, 255, 0.26);
+  border-radius: clamp(22px, 2.5vw, 32px);
+  background: #101010;
+  box-shadow: 0 32px 90px rgba(0, 3, 13, 0.45), 0 0 0 1px rgba(145, 177, 255, 0.035) inset;
+}
+.production-player::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(2, 5, 13, 0.52), transparent 43%),
+    linear-gradient(0deg, rgba(2, 5, 13, 0.62), transparent 34%);
+  transition: opacity 0.45s ease;
+}
+.production-player::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  z-index: 3;
+  border: 1px solid rgba(224, 232, 255, 0.17);
+  border-radius: calc(clamp(22px, 2.5vw, 32px) - 8px);
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+.production-player.is-started::before,
+.production-player.is-started::after { opacity: 0; }
+.production-player__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #101010;
+}
+.production-player__play {
+  position: absolute;
+  z-index: 2;
+  left: clamp(1.25rem, 3vw, 2.4rem);
+  bottom: clamp(1.25rem, 3vw, 2.4rem);
+  display: inline-flex;
   align-items: center;
-  gap: 3rem;
+  gap: 0.9rem;
+  min-height: 58px;
+  padding: 0.45rem 1.25rem 0.45rem 0.5rem;
+  border: 1px solid rgba(234, 240, 255, 0.48);
+  border-radius: 999px;
+  color: #f9fbff;
+  background: rgba(5, 9, 20, 0.48);
+  box-shadow: 0 12px 38px rgba(0, 2, 12, 0.28);
+  backdrop-filter: blur(12px);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.095em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s ease, border-color 0.35s ease;
+}
+.production-player__play-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  color: #0b1833;
+  background: var(--about-accent);
+  box-shadow: 0 0 0 7px rgba(158, 183, 255, 0.16);
+}
+.production-player__play-icon svg { width: 19px; fill: currentColor; transform: translateX(1px); }
+.production-player__meta {
+  position: absolute;
+  z-index: 2;
+  top: clamp(1.25rem, 3vw, 2.2rem);
+  right: clamp(1.25rem, 3vw, 2.2rem);
+  display: flex;
+  gap: 1rem;
+  color: rgba(244, 247, 255, 0.8);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.production-player__meta span:last-child { color: var(--about-accent); }
+
+@media (hover: hover) and (pointer: fine) {
+  .production-player:hover .production-player__play {
+    border-color: rgba(235, 241, 255, 0.8);
+    background: rgba(18, 31, 60, 0.72);
+    transform: translateY(-4px);
+  }
+  .production-player:hover .production-player__play-icon { animation: productionPlayPulse 1.5s ease-in-out infinite; }
+}
+
+@keyframes productionPlayPulse {
+  50% { box-shadow: 0 0 0 11px rgba(158, 183, 255, 0.08); }
+}
+
+.about-section--goal { padding-top: clamp(4rem, 8vw, 8rem); }
+.goal-panel {
+  position: relative;
+  isolation: isolate;
+  min-height: 430px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.7fr);
+  align-items: center;
+  gap: clamp(2.5rem, 7vw, 7rem);
   padding: clamp(2rem, 5vw, 5rem);
   overflow: hidden;
   border: 1px solid rgba(158, 183, 255, 0.24);
-  border-radius: clamp(24px, 3vw, 42px);
+  border-radius: clamp(24px, 3vw, 38px);
   background:
-    radial-gradient(circle at 85% 35%, rgba(51, 116, 255, 0.22), transparent 35%),
-    linear-gradient(135deg, #0d1425, #080b13 68%);
+    radial-gradient(ellipse at 80% 52%, rgba(31, 83, 193, 0.22), transparent 38%),
+    linear-gradient(120deg, rgba(16, 23, 44, 0.94), rgba(7, 10, 19, 0.98) 66%);
+}
+
+.goal-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.5;
+  background-image: linear-gradient(rgba(158, 183, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(158, 183, 255, 0.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(90deg, black, transparent 78%);
+}
+
+.goal-panel__copy { position: relative; z-index: 2; max-width: 680px; }
+.goal-panel h2 {
+  max-width: 760px;
+  margin: 1.25rem 0 1.55rem;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 4.65vw, 5.1rem);
+  line-height: 0.98;
+  letter-spacing: -0.052em;
+}
+.goal-panel h2 em { color: var(--about-accent); font-style: normal; }
+.goal-panel p { max-width: 55ch; color: var(--text-secondary); font-size: 1rem; line-height: 1.75; text-wrap: pretty; }
+
+.goal-panel__signal {
+  position: relative;
+  z-index: 1;
+  justify-self: center;
+  width: min(29vw, 360px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 24px 36px rgba(0, 7, 28, 0.5));
+}
+.goal-panel__signal::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: 78%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(71, 128, 255, 0.24), rgba(18, 48, 112, 0.1) 45%, transparent 70%);
+  filter: blur(10px);
+}
+.goal-panel__signal img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  animation: qualitySealFloat 7.5s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+@keyframes qualitySealFloat {
+  0%, 100% { transform: translate3d(0, -1.5%, 0) rotate(-1.2deg); }
+  50% { transform: translate3d(0, 2.5%, 0) rotate(1.2deg); }
+}
+
+.standard-panel {
+  position: relative;
+  isolation: isolate;
+  min-height: 560px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.52fr);
+  align-items: center;
+  gap: clamp(2rem, 7vw, 8rem);
+  padding: clamp(2.5rem, 5.5vw, 5.5rem) 0;
+  overflow: hidden;
+  border-top: 1px solid rgba(158, 183, 255, 0.28);
+  border-bottom: 1px solid rgba(158, 183, 255, 0.18);
   color: #f7f9ff;
-  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.22);
+}
+.standard-panel::before {
+  content: '05';
+  position: absolute;
+  z-index: -1;
+  right: -0.035em;
+  bottom: -0.22em;
+  color: rgba(158, 183, 255, 0.025);
+  font-family: var(--font-display);
+  font-size: clamp(19rem, 31vw, 39rem);
+  font-weight: 700;
+  line-height: 0.8;
+  letter-spacing: -0.1em;
+  pointer-events: none;
+}
+.standard-panel::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  right: 0;
+  top: 12%;
+  width: min(36vw, 540px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(53, 109, 235, 0.18), rgba(29, 72, 166, 0.07) 38%, transparent 70%);
+  filter: blur(10px);
 }
 
 .standard-panel__glow {
@@ -869,9 +1315,9 @@ onBeforeUnmount(() => {
 }
 .standard-panel__glow::before { inset: 22%; }
 .standard-panel__glow::after { inset: 36%; border-style: dashed; animation-direction: reverse; animation-duration: 10s; }
-.standard-panel__copy { position: relative; z-index: 2; max-width: 720px; }
-.standard-panel h2 { margin: 1.5rem 0; }
-.standard-panel__copy > p { max-width: 640px; color: rgba(230, 236, 255, 0.68); }
+.standard-panel__copy { position: relative; z-index: 2; max-width: 740px; }
+.standard-panel h2 { max-width: 13ch; margin: 1.5rem 0; }
+.standard-panel__copy > p { max-width: 55ch; color: rgba(230, 236, 255, 0.68); }
 .standard-panel__actions { display: flex; align-items: center; gap: 1.4rem; margin-top: 2.2rem; }
 .about-button--light { color: #08101f; border-color: transparent; background: #f1f5ff; }
 .standard-link { display: inline-flex; align-items: center; gap: 0.55rem; color: #b9c9fb; font-size: 0.82rem; font-weight: 700; }
@@ -880,10 +1326,11 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 2;
   justify-self: center;
-  width: min(28vw, 270px);
+  width: min(25vw, 250px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
+  margin-top: 2.5rem;
   transform: translateZ(0);
   transition: transform 1.05s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
@@ -957,6 +1404,15 @@ onBeforeUnmount(() => {
 [data-theme="light"] .about-button--primary { color: #fff; }
 
 @keyframes introReveal { to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes podiumReveal {
+  0% { opacity: 0; transform: translate3d(-3.5rem, 3rem, 0) scale(0.94); }
+  68% { opacity: 1; transform: translate3d(0.25rem, -0.25rem, 0) scale(1.012); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes aboutLoaderPulse {
+  0%, 100% { transform: scale(0.94); opacity: 0.62; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
 @keyframes editorialScan {
   0%, 12% { transform: translateY(-100%); opacity: 0; }
   22% { opacity: 1; }
@@ -991,23 +1447,39 @@ onBeforeUnmount(() => {
 @keyframes ringRotate { to { transform: rotate(360deg); } }
 
 @media (max-width: 1050px) {
-  .about-hero__title { font-size: clamp(3.5rem, 7.5vw, 5.25rem); }
+  .about-hero__title { font-size: clamp(3rem, 6.2vw, 4.2rem); }
   .about-hero__support { grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr); gap: 3rem; }
   .about-hero__molecule { width: min(39vw, 430px); right: 2rem; top: 9rem; opacity: 0.88; }
+  .about-hero__visual { width: min(49vw, 490px); right: -4rem; }
   .section-heading { grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.7fr); column-gap: 3rem; }
+  .production-layout { gap: 3rem; }
 }
 
 @media (max-width: 768px) {
-  .about-hero { min-height: auto; padding: 2.2rem 0 4.5rem; }
+  .about-hero {
+    min-height: max(58rem, 125svh);
+    padding: 2.2rem 0 clamp(16rem, 68vw, 20rem);
+  }
+  .about-hero::before { width: 110vw; height: 44vh; right: -35%; top: auto; bottom: 10%; opacity: 0.42; }
+  .about-hero__podium {
+    width: min(115vw, 470px);
+    left: calc(50% - min(57.5vw, 235px));
+    right: auto;
+    bottom: 2rem;
+  }
   .about-grid { background-size: 48px 48px; }
+  .about-hero__visual { width: min(78vw, 360px); right: -19vw; top: 16%; opacity: 0.42; }
   .about-hero__molecule { width: min(72vw, 330px); right: -10vw; top: 1rem; opacity: 0.38; }
   .about-hero__container { display: flex; flex-direction: column; gap: 0.5rem; }
-  .about-hero__copy { width: 100%; }
-  .about-eyebrow { font-size: 0.61rem; }
-  .about-hero__title { margin: 1.15rem 0 0; font-size: clamp(2.75rem, 12.5vw, 4.6rem); line-height: 0.94; }
-  .about-hero__title em { white-space: normal; }
+  .about-hero__copy { width: 100%; max-width: 100%; }
+  .about-eyebrow { gap: 0.65rem; font-size: 0.59rem; letter-spacing: 0.17em; }
+  .about-eyebrow span { width: 30px; }
+  .about-hero__title { max-width: 100%; margin: 1.2rem 0 0; font-size: clamp(2.65rem, 11.4vw, 3.8rem); line-height: 0.94; letter-spacing: -0.055em; }
+  .about-hero__title em { max-width: 100%; white-space: normal; }
+  .about-hero__support,
+  .about-hero__support > div { width: 100%; min-width: 0; }
   .about-hero__support { grid-template-columns: 1fr; gap: 2.5rem; margin-top: 2.25rem; }
-  .about-hero__lead { font-size: 0.92rem; line-height: 1.65; }
+  .about-hero__lead { width: 100%; max-width: 100%; font-size: 0.94rem; line-height: 1.68; }
   .about-hero__actions { display: grid; grid-template-columns: 1fr; }
   .about-button { width: 100%; }
   .about-hero__signals { gap: 0.45rem; }
@@ -1027,7 +1499,11 @@ onBeforeUnmount(() => {
   .journey-intro > p,
   .standard-panel__copy > p { font-size: 0.9rem; line-height: 1.65; }
   .principles-grid { grid-template-columns: 1fr; }
-  .principle-card { min-height: 245px; border-radius: 18px; }
+  .principle-card { min-height: 210px; padding: 1.15rem; border-radius: 18px; }
+  .principle-card__top { min-height: 76px; }
+  .principle-card__number { font-size: 5.25rem; }
+  .principle-card h3 { margin-bottom: 0.6rem; font-size: 1.25rem; }
+  .principle-card p { font-size: 0.8rem; line-height: 1.58; }
 
   .journey-layout { grid-template-columns: 1fr; gap: 2.5rem; }
   .journey-intro { position: static; }
@@ -1035,8 +1511,26 @@ onBeforeUnmount(() => {
   .journey-step h3 { font-size: 1.15rem; }
   .journey-step p { font-size: 0.82rem; }
 
-  .standard-panel { min-height: auto; grid-template-columns: 1fr; padding: 2rem 1.25rem; border-radius: 24px; }
-  .standard-panel__mark { grid-row: 1; width: 190px; margin-top: 3rem; }
+  .about-section--production { padding: 4.5rem 0; }
+  .production-layout { display: block; }
+  .production-layout__heading { margin-bottom: 2rem; padding-bottom: 0; }
+  .production-layout__heading h2 { max-width: 12ch; margin: 1.15rem 0 1.2rem; font-size: clamp(2.2rem, 10vw, 3.2rem); }
+  .production-layout__heading p { font-size: 0.9rem; line-height: 1.68; }
+  .production-player { min-height: 0; aspect-ratio: 4 / 3; border-radius: 21px; }
+  .production-player__play { left: 1rem; bottom: 1rem; min-height: 52px; padding-right: 1rem; gap: 0.68rem; font-size: 0.55rem; }
+  .production-player__play-icon { width: 40px; height: 40px; }
+  .production-player__meta { top: 1rem; right: 1rem; gap: 0.6rem; font-size: 0.5rem; }
+
+  .about-section--goal { padding-top: 4.5rem; }
+  .goal-panel { grid-template-columns: 1fr; gap: 2.5rem; min-height: auto; padding: 2rem 1.25rem 2.4rem; border-radius: 24px; }
+  .goal-panel h2 { margin: 1.15rem 0 1.35rem; font-size: clamp(2.3rem, 10.4vw, 3.2rem); }
+  .goal-panel p { font-size: 0.9rem; line-height: 1.68; }
+  .goal-panel__signal { width: min(66vw, 265px); }
+
+  .standard-panel { min-height: auto; grid-template-columns: 1fr; gap: 0.5rem; padding: 3.5rem 0; }
+  .standard-panel::before { right: -0.05em; bottom: -0.02em; font-size: 16rem; }
+  .standard-panel::after { top: auto; bottom: 4%; right: -25%; width: 105vw; }
+  .standard-panel__mark { grid-row: 2; width: 190px; margin: 2.5rem 0 0; }
   .standard-panel__actions { align-items: stretch; flex-direction: column; }
   .standard-link { justify-content: center; min-height: 42px; }
 
@@ -1046,9 +1540,20 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 420px) {
-  .about-hero__title { font-size: clamp(2.6rem, 12.2vw, 3.2rem); }
+  .about-hero__title { font-size: clamp(2.48rem, 11.8vw, 3.15rem); }
   .about-hero__signals { grid-template-columns: 1fr; }
   .about-hero__signals > div { grid-template-columns: 24px 1fr; align-items: center; }
+}
+
+@media (max-width: 500px) {
+  .about-hero__wide-break { display: inline; }
+}
+
+@media (min-width: 540px) and (max-width: 768px) {
+  .about-hero {
+    min-height: max(53rem, 100svh);
+  }
+  .about-hero__podium { bottom: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

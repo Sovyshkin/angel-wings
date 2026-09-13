@@ -4399,7 +4399,7 @@ function queueHeroScrollProgress() {
     display: grid;
     grid-template-columns: 1fr;
     gap: 1.75rem;
-    padding: 0 clamp(1.5rem, 5vw, 3rem);
+    padding: 0 clamp(1rem, 3vw, 1.5rem);
     min-height: 0;
   }
 
@@ -4411,7 +4411,8 @@ function queueHeroScrollProgress() {
     position: relative;
     order: 1;
     min-height: clamp(430px, 56vw, 500px);
-    width: min(100%, 760px);
+    width: 100%;
+    max-width: none;
     height: auto;
     justify-self: center;
     margin: 0 auto;
@@ -4431,9 +4432,9 @@ function queueHeroScrollProgress() {
 
   .hero__content {
     order: 2;
-    width: min(100%, 680px);
-    max-width: 680px;
-    justify-self: center;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
     overflow: visible;
   }
 
@@ -4563,7 +4564,6 @@ function queueHeroScrollProgress() {
   .hero__content {
     order: 2;
     width: 100%;
-    max-width: 420px;
     justify-self: center;
     overflow: visible;
     margin-top: -0.45rem;
@@ -5130,7 +5130,7 @@ function queueHeroScrollProgress() {
     display: grid;
     grid-template-columns: 1fr;
     gap: 1.75rem;
-    padding: 0 clamp(1.5rem, 5vw, 3rem);
+    padding: 0 clamp(1rem, 3vw, 1.5rem);
     min-height: 0;
   }
 
@@ -5142,7 +5142,8 @@ function queueHeroScrollProgress() {
     position: relative;
     order: 1;
     min-height: clamp(430px, 56vw, 500px);
-    width: min(100%, 760px);
+    width: 100%;
+    max-width: none;
     height: auto;
     justify-self: center;
     margin: 0 auto;
@@ -5163,9 +5164,9 @@ function queueHeroScrollProgress() {
 
   .hero__content {
     order: 2;
-    width: min(100%, 680px);
-    max-width: 680px;
-    justify-self: center;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
     overflow: visible;
   }
 

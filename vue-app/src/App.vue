@@ -1,5 +1,5 @@
 <template>
-  <div class="app">
+  <div class="app" :class="`app--molecule-${moleculeTransition.stage}`" :data-route="route.path">
     <PageLoader />
     <div ref="cursorRoot" class="cursor-goo" aria-hidden="true">
       <svg class="cursor-goo__filter" width="0" height="0" focusable="false">
@@ -55,7 +55,7 @@
         </router-link>
         <nav class="header__nav">
           <router-link to="/" class="nav-link">Главная</router-link>
-          <router-link to="/about" class="nav-link">О нас</router-link>
+          <router-link to="/about" class="nav-link" @click.prevent="beginAboutTransition">О нас</router-link>
           <router-link to="/catalog" class="nav-link">Каталог</router-link>
           <router-link to="/dealers" class="nav-link">Дилеры</router-link>
           <router-link to="/#faq" class="nav-link">FAQ</router-link>
@@ -130,7 +130,7 @@
           </svg>
           Главная
         </router-link>
-        <router-link to="/about" class="nav-link" @click="closeMobileMenu">
+        <router-link to="/about" class="nav-link" @click.prevent="beginAboutTransition(true)">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <path d="M12 16v-4M12 8h.01"/>
@@ -204,6 +204,18 @@
     <main class="main">
       <router-view />
     </main>
+    <!-- One persistent molecule video. It is deliberately outside router-view. -->
+    <div class="molecule-transition" aria-hidden="true">
+      <video
+        class="molecule-transition__video"
+        src="/about-assets/about-sphere-transparent.webm"
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="auto"
+      ></video>
+    </div>
     <div ref="telegramWidget" class="telegram-widget">
       <Transition name="telegram-card">
         <aside
@@ -323,7 +335,7 @@
           <div class="footer__col">
             <h4 class="footer__title">Информация</h4>
             <ul class="footer__links">
-              <li><router-link to="/about">О компании</router-link></li>
+              <li><router-link to="/about" @click.prevent="beginAboutTransition">О компании</router-link></li>
               <li><router-link to="/delivery-payment">Доставка и оплата</router-link></li>
               <li><router-link to="/guarantees">Гарантии</router-link></li>
               <li><router-link to="/faq">Частые вопросы</router-link></li>
@@ -413,16 +425,20 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
+import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from './store/cart'
 import { useThemeStore } from './store/theme'
 import { useAuthStore } from './store/auth'
 import PageLoader from './components/PageLoader.vue'
+import { moleculeTransition } from './composables/moleculeTransition'
 
 const cartStore = useCartStore()
 const themeStore = useThemeStore()
 const authStore = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const mobileMenuOpen = ref(false)
 const cursorRoot = ref(null)
 const cursorDotRefs = ref([])
@@ -439,6 +455,40 @@ let removePageActivityListener = null
 let cursorScrollIdleTimer = null
 let cursorPausedByScroll = false
 let removeTelegramWidgetListeners = null
+
+const waitFor = (duration) => new Promise(resolve => window.setTimeout(resolve, duration))
+
+async function beginAboutTransition(closeMenu = false) {
+  if (closeMenu) closeMobileMenu()
+  if (moleculeTransition.isRunning || route.path === '/about') return
+
+  if (route.path !== '/') {
+    moleculeTransition.stage = 'arriving'
+    await router.push('/about')
+    await nextTick()
+    moleculeTransition.stage = 'about'
+    return
+  }
+
+  moleculeTransition.isRunning = true
+  moleculeTransition.stage = 'exiting'
+  await waitFor(460)
+
+  // The molecule is not shown on the home page. The route changes first;
+  // it then appears over the clean About scene using this same video node.
+  await router.push('/about')
+  await nextTick()
+  moleculeTransition.stage = 'center'
+  await waitFor(1520)
+  await waitFor(620)
+
+  requestAnimationFrame(() => {
+    moleculeTransition.stage = 'about'
+  })
+
+  await waitFor(2920)
+  moleculeTransition.isRunning = false
+}
 
 const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value
@@ -459,6 +509,19 @@ const closeTelegramChat = () => {
 watch(mobileMenuOpen, (isOpen) => {
   document.body.style.overflow = isOpen ? 'hidden' : ''
 })
+
+watch(() => route.path, (path) => {
+  // Leaving the About page must always cancel a pending entrance animation.
+  // Otherwise its final frame can remain visible above the Home hero.
+  if (path !== '/about') {
+    moleculeTransition.isRunning = false
+    moleculeTransition.stage = path === '/' ? 'home' : 'idle'
+    return
+  }
+
+  if (moleculeTransition.isRunning) return
+  moleculeTransition.stage = path === '/' ? 'home' : path === '/about' ? 'about' : 'idle'
+}, { immediate: true })
 
 const getInitials = computed(() => {
   if (!authStore.user?.name) return '?'
@@ -972,9 +1035,158 @@ html.is-page-inactive *::after {
 <style scoped>
 .app {
   --header-height: 72px;
+  position: relative;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.header,
+.main,
+.footer,
+.telegram-widget {
+  transition: opacity 0.62s cubic-bezier(0.22, 1, 0.36, 1), transform 0.62s cubic-bezier(0.22, 1, 0.36, 1), filter 0.62s ease;
+}
+
+.app--molecule-exiting .header,
+.app--molecule-exiting .main,
+.app--molecule-exiting .footer,
+.app--molecule-exiting .telegram-widget,
+.app--molecule-center .header,
+.app--molecule-center .main,
+.app--molecule-center .footer,
+.app--molecule-center .telegram-widget,
+.app--molecule-arriving .header,
+.app--molecule-arriving .telegram-widget {
+  opacity: 0;
+  filter: blur(7px);
+  pointer-events: none;
+}
+
+.app--molecule-exiting .header,
+.app--molecule-center .header,
+.app--molecule-arriving .header {
+  transform: translate3d(0, -20px, 0);
+}
+
+.app--molecule-exiting .main,
+.app--molecule-center .main,
+.app--molecule-exiting .footer,
+.app--molecule-center .footer {
+  transform: translate3d(0, 18px, 0);
+}
+
+.app--molecule-about .header {
+  transition-delay: 0.26s;
+}
+
+.molecule-transition {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 90;
+  width: min(47vw, 670px);
+  aspect-ratio: 1;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(-50%, calc(50vh - 50%), 0) scale(0.74);
+  transform-origin: center;
+  will-change: transform, opacity;
+  contain: layout style;
+  backface-visibility: hidden;
+  transition: transform 1.48s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.55s ease;
+}
+
+.molecule-transition__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: transparent;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* The persistent video remains mounted for seamless playback, but is never visible outside /about. */
+.app:not([data-route="/about"]) .molecule-transition {
+  visibility: hidden;
+  opacity: 0 !important;
+}
+
+.app--molecule-home .molecule-transition {
+  opacity: 0;
+  transform: translate3d(calc(-50% + 24vw), calc(-50% - 22vh), 0) scale(0.48);
+}
+
+.app--molecule-exiting .molecule-transition {
+  opacity: 0;
+  transform: translate3d(calc(-50% + 12vw), calc(-50% - 12vh), 0) scale(0.76);
+}
+
+.app--molecule-center .molecule-transition,
+.app--molecule-arriving .molecule-transition {
+  opacity: 1;
+  transform: translate3d(-50%, calc(50vh - 50%), 0) scale(1.08);
+}
+
+.app--molecule-about .molecule-transition {
+  opacity: 1;
+  transform: translate3d(calc(-50% + 29vw), calc(46vh - 50% + var(--about-sphere-scroll-y, 0px)), 0) scale(0.76);
+  transition-duration: 2.85s, 0.6s;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1), ease;
+}
+
+.app.is-about-hero-scrolling .molecule-transition {
+  transition: opacity 0.6s ease;
+}
+
+.app--molecule-idle .molecule-transition {
+  opacity: 0;
+}
+
+@media (max-width: 1050px) {
+  .molecule-transition { width: min(52vw, 520px); }
+  .app--molecule-home .molecule-transition { transform: translate3d(calc(-50% + 22vw), calc(-50% - 18vh), 0) scale(0.43); }
+  .app--molecule-about .molecule-transition { transform: translate3d(calc(-50% + 25vw), calc(60vh - 50% + var(--about-sphere-scroll-y, 0px)), 0) scale(0.68); }
+}
+
+@media (max-width: 768px) {
+  .molecule-transition { width: min(90vw, 420px); z-index: 90; }
+  .app--molecule-home .molecule-transition { opacity: 0; transform: translate3d(calc(-50% + 16vw), calc(-50% - 19vh), 0) scale(0.45); }
+  .app--molecule-exiting .molecule-transition { transform: translate3d(calc(-50% + 8vw), calc(-50% - 10vh), 0) scale(0.77); }
+  .app--molecule-center .molecule-transition,
+  .app--molecule-arriving .molecule-transition { transform: translate3d(-50%, calc(50vh - 50%), 0) scale(1.02); }
+  .app--molecule-about .molecule-transition {
+    opacity: 0.82;
+    transform: translate3d(-50%, calc(82svh - 50% + clamp(3rem, 8vw, 4rem) + var(--about-sphere-scroll-y, 0px)), 0) scale(0.58);
+  }
+}
+
+@media (max-width: 768px) and (max-height: 760px) {
+  .app--molecule-about .molecule-transition {
+    transform: translate3d(-50%, calc(84svh - 50% + clamp(3rem, 8vw, 4rem) + var(--about-sphere-scroll-y, 0px)), 0) scale(0.56);
+  }
+}
+
+@media (min-width: 540px) and (max-width: 768px) {
+  .app--molecule-about .molecule-transition {
+    transform: translate3d(-50%, calc(65svh - 50% + clamp(3rem, 8vw, 4rem) + var(--about-sphere-scroll-y, 0px)), 0) scale(0.58);
+  }
+}
+
+@media (min-width: 540px) and (max-width: 768px) and (max-height: 760px) {
+  .app--molecule-about .molecule-transition {
+    transform: translate3d(-50%, calc(66svh - 50% + clamp(3rem, 8vw, 4rem) + var(--about-sphere-scroll-y, 0px)), 0) scale(0.56);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .molecule-transition,
+  .header,
+  .main,
+  .footer,
+  .telegram-widget { transition-duration: 0.01ms !important; }
 }
 
 .header {
