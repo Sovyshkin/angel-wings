@@ -263,6 +263,15 @@ const applyHeroParallax = () => {
   const app = document.querySelector('.app')
   if (!app || !aboutRoot.value) return
 
+  // The hero is a static composition on phones: movement makes it collide with the CTA.
+  if (window.matchMedia('(max-width: 768px)').matches) {
+    lastHeroParallaxProgress = -1
+    app.classList.remove('is-about-hero-scrolling')
+    app.style.removeProperty('--about-sphere-scroll-y')
+    aboutRoot.value.style.removeProperty('--about-podium-scroll-x')
+    return
+  }
+
   const progress = Math.min(1, Math.max(0, window.scrollY / heroParallaxRange))
   if (Math.abs(progress - lastHeroParallaxProgress) < 0.002) return
   lastHeroParallaxProgress = progress
