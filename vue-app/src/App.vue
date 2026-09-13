@@ -1153,6 +1153,8 @@ html.is-page-inactive *::after {
 
 @media (max-width: 768px) {
   .molecule-transition { width: min(90vw, 420px); z-index: 90; }
+  /* Some mobile WebM decoders flatten alpha to black. Screen compositing removes that fallback matte. */
+  .molecule-transition__video { mix-blend-mode: screen; }
   .app--molecule-home .molecule-transition { opacity: 0; transform: translate3d(calc(-50% + 16vw), calc(-50% - 19vh), 0) scale(0.45); }
   .app--molecule-exiting .molecule-transition { transform: translate3d(calc(-50% + 8vw), calc(-50% - 10vh), 0) scale(0.77); }
   .app--molecule-center .molecule-transition,
