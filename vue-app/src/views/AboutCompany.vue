@@ -1474,7 +1474,7 @@ onBeforeUnmount(() => {
     width: min(115vw, 470px);
     left: calc(50% - min(57.5vw, 235px));
     right: auto;
-    bottom: 2rem;
+    bottom: 0.25rem;
   }
   .about-grid { background-size: 48px 48px; }
   .about-hero__visual { width: min(78vw, 360px); right: -19vw; top: 16%; opacity: 0.42; }
