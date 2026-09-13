@@ -1471,10 +1471,10 @@ onBeforeUnmount(() => {
   }
   .about-hero::before { width: 110vw; height: 44vh; right: -35%; top: auto; bottom: 10%; opacity: 0.42; }
   .about-hero__podium {
-    width: min(115vw, 470px);
-    left: calc(50% - min(57.5vw, 235px));
+    width: min(110vw, 450px);
+    left: calc(50% - min(55vw, 225px));
     right: auto;
-    bottom: 0.25rem;
+    bottom: -1.25rem;
   }
   .about-grid { background-size: 48px 48px; }
   .about-hero__visual { width: min(78vw, 360px); right: -19vw; top: 16%; opacity: 0.42; }
@@ -1562,7 +1562,7 @@ onBeforeUnmount(() => {
   .about-hero {
     min-height: max(53rem, 100svh);
   }
-  .about-hero__podium { bottom: 0; }
+  .about-hero__podium { bottom: -1.25rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
