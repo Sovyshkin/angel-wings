@@ -1157,8 +1157,8 @@ html.is-page-inactive *::after {
     width: min(90vw, 420px);
     z-index: 90;
     mix-blend-mode: screen;
-    -webkit-mask-image: radial-gradient(ellipse 54% 54% at 50% 50%, #000 79%, rgba(0, 0, 0, 0.78) 89%, transparent 100%);
-    mask-image: radial-gradient(ellipse 54% 54% at 50% 50%, #000 79%, rgba(0, 0, 0, 0.78) 89%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 45% 45% at 50% 50%, #000 88%, rgba(0, 0, 0, 0.52) 95%, transparent 100%);
+    mask-image: radial-gradient(ellipse 45% 45% at 50% 50%, #000 88%, rgba(0, 0, 0, 0.52) 95%, transparent 100%);
     -webkit-mask-repeat: no-repeat;
     mask-repeat: no-repeat;
   }
