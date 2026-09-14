@@ -111,9 +111,6 @@
               <h3>{{ step.title }}</h3>
               <p>{{ step.text }}</p>
             </div>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
           </li>
         </ol>
       </div>
@@ -1008,7 +1005,7 @@ onBeforeUnmount(() => {
   position: relative;
   isolation: isolate;
   display: grid;
-  grid-template-columns: 55px minmax(0, 1fr) 34px;
+  grid-template-columns: 55px minmax(0, 1fr);
   gap: 1.2rem;
   align-items: start;
   padding: 2rem 0;
@@ -1041,7 +1038,6 @@ onBeforeUnmount(() => {
 .journey-step > div { transition: transform 0.72s cubic-bezier(0.16, 1, 0.3, 1); }
 .journey-step h3 { margin-bottom: 0.55rem; font-family: var(--font-display); font-size: clamp(1.25rem, 2vw, 1.65rem); }
 .journey-step p { max-width: 560px; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.65; transition: color 0.6s ease; }
-.journey-step svg { color: var(--text-muted); transition: color 0.6s ease, transform 0.72s cubic-bezier(0.16, 1, 0.3, 1); }
 
 @media (hover: hover) and (pointer: fine) {
   .journey-step:hover { border-color: rgba(158, 183, 255, 0.42); }
@@ -1049,7 +1045,6 @@ onBeforeUnmount(() => {
   .journey-step:hover .journey-step__number { transform: translateX(4px); }
   .journey-step:hover > div { transform: translateX(8px); }
   .journey-step:hover p { color: color-mix(in srgb, var(--text-secondary) 78%, var(--text-primary)); }
-  .journey-step:hover svg { color: var(--about-accent); transform: translateX(7px); }
 }
 
 .about-section--production {
@@ -1516,7 +1511,7 @@ onBeforeUnmount(() => {
 
   .journey-layout { grid-template-columns: 1fr; gap: 2.5rem; }
   .journey-intro { position: static; }
-  .journey-step { grid-template-columns: 36px minmax(0, 1fr) 22px; gap: 0.75rem; padding: 1.5rem 0; }
+  .journey-step { grid-template-columns: 36px minmax(0, 1fr); gap: 0.75rem; padding: 1.5rem 0; }
   .journey-step h3 { font-size: 1.15rem; }
   .journey-step p { font-size: 0.82rem; }
 
