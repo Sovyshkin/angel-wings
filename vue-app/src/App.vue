@@ -1169,25 +1169,25 @@ html.is-page-inactive *::after {
   .app--molecule-arriving .molecule-transition { transform: translate3d(-50%, calc(50vh - 50%), 0) scale(1.02); }
   .app--molecule-about .molecule-transition {
     opacity: 1;
-    transform: translate3d(-50%, calc(82svh - 50% + clamp(3rem, 8vw, 4rem) + 3rem + var(--about-sphere-scroll-y, 0px)), 0) scale(0.58);
+    transform: translate3d(-50%, calc(82svh - 50% + clamp(3rem, 8vw, 4rem) + 6rem + var(--about-sphere-scroll-y, 0px)), 0) scale(0.58);
   }
 }
 
 @media (max-width: 768px) and (max-height: 760px) {
   .app--molecule-about .molecule-transition {
-    transform: translate3d(-50%, calc(84svh - 50% + clamp(3rem, 8vw, 4rem) + 3rem + var(--about-sphere-scroll-y, 0px)), 0) scale(0.56);
+    transform: translate3d(-50%, calc(84svh - 50% + clamp(3rem, 8vw, 4rem) + 6rem + var(--about-sphere-scroll-y, 0px)), 0) scale(0.56);
   }
 }
 
 @media (min-width: 540px) and (max-width: 768px) {
   .app--molecule-about .molecule-transition {
-    transform: translate3d(-50%, calc(65svh - 50% + clamp(3rem, 8vw, 4rem) + 3rem + var(--about-sphere-scroll-y, 0px)), 0) scale(0.58);
+    transform: translate3d(-50%, calc(65svh - 50% + clamp(3rem, 8vw, 4rem) + 6rem + var(--about-sphere-scroll-y, 0px)), 0) scale(0.58);
   }
 }
 
 @media (min-width: 540px) and (max-width: 768px) and (max-height: 760px) {
   .app--molecule-about .molecule-transition {
-    transform: translate3d(-50%, calc(66svh - 50% + clamp(3rem, 8vw, 4rem) + 3rem + var(--about-sphere-scroll-y, 0px)), 0) scale(0.56);
+    transform: translate3d(-50%, calc(66svh - 50% + clamp(3rem, 8vw, 4rem) + 6rem + var(--about-sphere-scroll-y, 0px)), 0) scale(0.56);
   }
 }
 

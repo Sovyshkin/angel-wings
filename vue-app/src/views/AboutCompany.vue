@@ -1471,8 +1471,8 @@ onBeforeUnmount(() => {
   }
   .about-hero::before { width: 110vw; height: 44vh; right: -35%; top: auto; bottom: 10%; opacity: 0.42; }
   .about-hero__podium {
-    width: min(110vw, 450px);
-    left: calc(50% - min(55vw, 225px));
+    width: min(102vw, 410px);
+    left: calc(50% - min(51vw, 205px));
     right: auto;
     bottom: -1.25rem;
   }
