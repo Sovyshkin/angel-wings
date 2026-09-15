@@ -125,7 +125,10 @@
             class="journey-detail reveal-block"
             :style="{ '--delay': `${index * 90}ms` }"
           >
-            <span class="journey-detail__number">{{ String(index + 1).padStart(2, '0') }}</span>
+            <div class="journey-detail__marker" aria-hidden="true">
+              <i></i>
+              <span>{{ step.role }}</span>
+            </div>
             <div>
               <span class="journey-detail__eyebrow">{{ step.title }}</span>
               <h3>{{ step.detailTitle }}</h3>
@@ -334,12 +337,14 @@ const journey = [
   {
     id: 'production-details',
     title: 'Производство',
+    role: 'Основа',
     detailTitle: 'Лицензированная фармацевтическая база',
     text: 'ООО «КОЛОРИТ‑ФАРМА» работает на рынке более 20 лет и располагает действующей фармацевтической лицензией.'
   },
   {
     id: 'development-details',
     title: 'Разработка',
+    role: 'Экспертиза',
     detailTitle: 'Научная экспертиза и собственные решения',
     text: 'Разработка осуществляется лабораторией «АТГ‑Сервис» под предводительством Ильи Владимировича Духовлинова.',
     links: [
@@ -350,6 +355,7 @@ const journey = [
   {
     id: 'sales-details',
     title: 'Сбыт',
+    role: 'Бренд',
     detailTitle: 'Бренд Angel Wings',
     text: 'Сбыт осуществляется под брендом Angel Wings. Пептиды — первый шаг к генному ателье уникальных разработок.'
   }
@@ -1010,6 +1016,8 @@ onBeforeUnmount(() => {
   z-index: -1;
   display: inline-flex;
   align-items: flex-start;
+  padding-right: 0.12em;
+  overflow: visible;
   color: var(--principle-number-fill);
   font-family: var(--font-body);
   font-size: clamp(6rem, 9vw, 9rem);
@@ -1102,12 +1110,14 @@ onBeforeUnmount(() => {
 .journey-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
 .journey-tile { position: relative; isolation: isolate; min-height: 238px; display: flex; flex-direction: column; padding: 1.45rem; overflow: hidden; border: 1px solid var(--border); border-radius: 20px; color: var(--text-primary); text-decoration: none; background: linear-gradient(145deg, rgba(158, 183, 255, 0.075), rgba(158, 183, 255, 0.01) 56%, transparent); transition: border-color 0.35s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s ease; }
 .journey-tile::before { content: ''; position: absolute; inset: auto -10% -62% 38%; z-index: -1; aspect-ratio: 1; border: 1px solid rgba(158, 183, 255, 0.2); border-radius: 50%; transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
-.journey-tile__number, .journey-detail__number, .journey-detail__eyebrow { color: var(--about-accent); font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.journey-tile__number, .journey-detail__eyebrow { color: var(--about-accent); font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; }
 .journey-tile__title { margin-top: auto; font-family: var(--font-display); font-size: clamp(1.5rem, 2.2vw, 2.05rem); line-height: 1.02; letter-spacing: -0.035em; }
 .journey-tile__action { display: inline-flex; align-items: center; gap: 0.55rem; margin-top: 1.2rem; color: var(--about-accent); font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; }
 .journey-tile__action svg { width: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; transition: transform 0.35s ease; }
 .journey-details { display: grid; gap: 0; margin-top: clamp(2.5rem, 5vw, 5rem); border-top: 1px solid var(--border); }
-.journey-detail { display: grid; grid-template-columns: minmax(100px, 0.23fr) minmax(0, 1fr); gap: 1.5rem; padding: clamp(2rem, 3.4vw, 3.5rem) 0; border-bottom: 1px solid var(--border); scroll-margin-top: calc(var(--header-height, 76px) + 2rem); }
+.journey-detail { display: grid; grid-template-columns: minmax(130px, 0.23fr) minmax(0, 1fr); gap: 1.5rem; padding: clamp(2rem, 3.4vw, 3.5rem) 0; border-bottom: 1px solid var(--border); scroll-margin-top: calc(var(--header-height, 76px) + 2rem); }
+.journey-detail__marker { display: inline-flex; align-items: center; gap: 0.7rem; align-self: start; padding-top: 0.35rem; color: var(--about-accent); font-family: var(--font-mono); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.14em; line-height: 1.2; text-transform: uppercase; }
+.journey-detail__marker i { width: 32px; height: 1px; flex: 0 0 auto; background: currentColor; box-shadow: 0 0 12px color-mix(in srgb, currentColor 60%, transparent); }
 .journey-detail > div { max-width: 760px; }
 .journey-detail h3 { margin: 0.7rem 0 0.85rem; font-family: var(--font-display); font-size: clamp(1.7rem, 3vw, 2.8rem); line-height: 1.04; letter-spacing: -0.04em; }
 .journey-detail p { max-width: 60ch; color: var(--text-secondary); font-size: 1rem; line-height: 1.7; }
@@ -1464,8 +1474,11 @@ onBeforeUnmount(() => {
 
 .reveal-block { opacity: 0; transform: translate3d(0, 30px, 0); will-change: opacity, transform; }
 .reveal-block.is-visible { animation: aboutBlockReveal 0.82s cubic-bezier(0.16, 1, 0.3, 1) var(--delay, 0ms) both; }
-.reveal-block.is-visible :is(.section-number, .journey-step__number, .principle-card__number, .journey-pulse) {
+.reveal-block.is-visible :is(.section-number, .journey-step__number, .journey-pulse) {
   animation: aboutTextReveal 0.68s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--delay, 0ms) + 65ms) both;
+}
+.reveal-block.is-visible .principle-card__number {
+  animation: aboutPrincipleNumberReveal 0.68s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--delay, 0ms) + 65ms) both;
 }
 .reveal-block.is-visible :is(h2, h3) {
   animation: aboutTextReveal 0.78s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--delay, 0ms) + 125ms) both;
@@ -1482,6 +1495,11 @@ onBeforeUnmount(() => {
 @keyframes aboutTextReveal {
   from { opacity: 0; clip-path: inset(0 0 100% 0); transform: translate3d(0, 0.6em, 0); filter: blur(7px); }
   to { opacity: 1; clip-path: inset(0 0 0 0); transform: translate3d(0, 0, 0); filter: blur(0); }
+}
+
+@keyframes aboutPrincipleNumberReveal {
+  from { opacity: 0; transform: translate3d(0, 0.6em, 0) scaleX(0.86); filter: blur(7px); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scaleX(0.86); filter: blur(0); }
 }
 
 [data-theme="light"] .about-page { --about-accent: #5278df; --about-accent-strong: #315dcc; }
@@ -1617,6 +1635,7 @@ onBeforeUnmount(() => {
   .journey-tile__action { margin-top: 0.75rem; }
   .journey-details { margin-top: 2.5rem; }
   .journey-detail { grid-template-columns: 1fr; gap: 0.7rem; padding: 2rem 0; }
+  .journey-detail__marker { padding-top: 0; }
   .journey-detail h3 { margin-top: 0.45rem; font-size: 1.65rem; }
   .journey-detail p { font-size: 0.9rem; line-height: 1.65; }
 
