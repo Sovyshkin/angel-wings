@@ -81,7 +81,12 @@
               <div v-html="principle.icon"></div>
             </div>
             <h3>{{ principle.title }}</h3>
-            <p>{{ principle.text }}</p>
+            <p>
+              <template v-for="(part, partIndex) in principle.textParts || [{ text: principle.text }]" :key="partIndex">
+                <a v-if="part.href" class="principle-card__link" :href="part.href" target="_blank" rel="noopener noreferrer">{{ part.text }}</a>
+                <template v-else>{{ part.text }}</template>
+              </template>
+            </p>
             <i></i>
           </article>
         </div>
@@ -89,30 +94,48 @@
     </section>
 
     <section class="about-section about-section--journey">
-      <div class="container journey-layout">
-        <div class="journey-intro reveal-block">
-          <span class="section-number">02 / Процесс</span>
-          <h2>Вы всегда знаете,<br><em>что происходит,<br>почему и когда.</em></h2>
-          <div class="journey-pulse" aria-hidden="true">
-            <span></span>
-            Система работает
-          </div>
-        </div>
+      <div class="container">
+        <header class="journey-heading reveal-block">
+          <span class="section-number">02 / Как мы работаем</span>
+          <h2>Три звена<br><em>одной системы.</em></h2>
+          <p>Нажмите на направление, чтобы перейти к подробному описанию.</p>
+        </header>
 
-        <ol class="journey-list">
-          <li
+        <nav class="journey-tiles" aria-label="Направления работы">
+          <a
             v-for="(step, index) in journey"
-            :key="step.title"
-            class="journey-step reveal-block"
-            :style="{ '--delay': `${index * 80}ms` }"
+            :key="step.id"
+            class="journey-tile reveal-block"
+            :href="`#${step.id}`"
+            :style="{ '--delay': `${index * 100}ms` }"
           >
-            <span class="journey-step__number">{{ String(index + 1).padStart(2, '0') }}</span>
+            <span class="journey-tile__number">{{ String(index + 1).padStart(2, '0') }}</span>
+            <span class="journey-tile__title">{{ step.title }}</span>
+            <span class="journey-tile__action">Подробнее
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </span>
+          </a>
+        </nav>
+
+        <div class="journey-details">
+          <article
+            v-for="(step, index) in journey"
+            :id="step.id"
+            :key="`${step.id}-detail`"
+            class="journey-detail reveal-block"
+            :style="{ '--delay': `${index * 90}ms` }"
+          >
+            <span class="journey-detail__number">{{ String(index + 1).padStart(2, '0') }}</span>
             <div>
-              <h3>{{ step.title }}</h3>
+              <span class="journey-detail__eyebrow">{{ step.title }}</span>
+              <h3>{{ step.detailTitle }}</h3>
               <p>{{ step.text }}</p>
+              <div v-if="step.links" class="journey-detail__links">
+                <a v-for="link in step.links" :key="link.href" :href="link.href" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>
+              </div>
             </div>
-          </li>
-        </ol>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -285,13 +308,19 @@ const queueHeroParallax = () => {
 
 const principles = [
   {
-    title: 'ООО «КОЛОРИТ‑ФАРМА»',
-    text: 'Компания с 20+ лет на рынке с действующей фармацевтической лицензией от Роспотребнадзора.',
+    title: 'Производство',
+    text: 'ООО «КОЛОРИТ‑ФАРМА» — компания с 20+ лет на рынке с действующей фармацевтической лицензией от Роспотребнадзора.',
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 7 3v5c0 4.4-2.8 8.4-7 10-4.2-1.6-7-5.6-7-10V6l7-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>'
   },
   {
     title: 'Разработка',
-    text: 'Осуществляется лабораторией «АТГ‑Сервис» под предводительством Ильи Владимировича Духовлинова.',
+    textParts: [
+      { text: 'Осуществляется лабораторией ' },
+      { text: '«АТГ‑Сервис»', href: 'https://service-gene.ru/' },
+      { text: ' под предводительством ' },
+      { text: 'Ильи Владимировича Духовлинова', href: 'https://dukhovlinov.com/' },
+      { text: '.' }
+    ],
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5.5 9.2A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.8L14 9V3"/><path d="M8 15h8M10 12h4"/></svg>'
   },
   {
@@ -302,10 +331,28 @@ const principles = [
 ]
 
 const journey = [
-  { title: 'Актуальный каталог', text: 'Проверяем данные, наличие и варианты товаров перед публикацией.' },
-  { title: 'Понятное оформление', text: 'Собираем заказ в едином сценарии без лишних шагов и скрытых условий.' },
-  { title: 'Контроль и уведомления', text: 'Фиксируем статус оплаты и сообщаем о важных изменениях по заказу.' },
-  { title: 'Доставка и сопровождение', text: 'Помогаем отследить отправление и остаёмся на связи после оформления.' }
+  {
+    id: 'production-details',
+    title: 'Производство',
+    detailTitle: 'Лицензированная фармацевтическая база',
+    text: 'ООО «КОЛОРИТ‑ФАРМА» работает на рынке более 20 лет и располагает действующей фармацевтической лицензией.'
+  },
+  {
+    id: 'development-details',
+    title: 'Разработка',
+    detailTitle: 'Научная экспертиза и собственные решения',
+    text: 'Разработка осуществляется лабораторией «АТГ‑Сервис» под предводительством Ильи Владимировича Духовлинова.',
+    links: [
+      { label: 'Лаборатория «АТГ‑Сервис»', href: 'https://service-gene.ru/' },
+      { label: 'Илья Владимирович Духовлинов', href: 'https://dukhovlinov.com/' }
+    ]
+  },
+  {
+    id: 'sales-details',
+    title: 'Сбыт',
+    detailTitle: 'Бренд Angel Wings',
+    text: 'Сбыт осуществляется под брендом Angel Wings. Пептиды — первый шаг к генному ателье уникальных разработок.'
+  }
 ]
 
 onMounted(() => {
@@ -327,11 +374,10 @@ onMounted(() => {
 
   revealObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
-      if (!entry.isIntersecting) return
-      entry.target.classList.add('is-visible')
-      revealObserver?.unobserve(entry.target)
+      // Reset outside the viewport so the reveal plays again on every return.
+      entry.target.classList.toggle('is-visible', entry.isIntersecting)
     })
-  }, { threshold: 0.16, rootMargin: '0px 0px -7% 0px' })
+  }, { threshold: 0.16, rootMargin: '0px 0px -9% 0px' })
 
   blocks.forEach(block => revealObserver.observe(block))
 
@@ -982,6 +1028,8 @@ onBeforeUnmount(() => {
 .principle-card__top :deep(svg) { width: 20px; fill: none; stroke: currentColor; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; }
 .principle-card h3 { position: relative; z-index: 2; margin: auto 0 1rem; font-family: var(--font-display); font-size: clamp(1.35rem, 2vw, 1.85rem); }
 .principle-card p { position: relative; z-index: 2; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.7; }
+.principle-card__link { color: #dce6ff; font-weight: 700; text-decoration: none; text-decoration-thickness: 1px; text-underline-offset: 0.2em; border-bottom: 1px solid rgba(158, 183, 255, 0.7); text-shadow: 0 0 16px rgba(111, 149, 255, 0.35); transition: color 0.25s ease, border-color 0.25s ease, text-shadow 0.25s ease; }
+.principle-card__link:hover { color: #fff; border-color: #fff; text-shadow: 0 0 20px rgba(158, 183, 255, 0.75); }
 .principle-card > i { position: absolute; width: 150px; height: 150px; right: -75px; bottom: -75px; border: 1px solid rgba(158, 183, 255, 0.13); border-radius: 50%; transition: transform 0.6s ease; }
 .principle-card:hover > i { transform: scale(1.35); }
 
@@ -1045,6 +1093,32 @@ onBeforeUnmount(() => {
   .journey-step:hover .journey-step__number { transform: translateX(4px); }
   .journey-step:hover > div { transform: translateX(8px); }
   .journey-step:hover p { color: color-mix(in srgb, var(--text-secondary) 78%, var(--text-primary)); }
+}
+
+.journey-heading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 0.48fr); column-gap: clamp(2rem, 8vw, 8rem); align-items: end; margin-bottom: clamp(2rem, 4vw, 4rem); }
+.journey-heading .section-number { grid-column: 1 / -1; margin-bottom: 1.2rem; }
+.journey-heading h2 { margin: 0; font-size: clamp(2.8rem, 5vw, 5rem); line-height: 0.95; letter-spacing: -0.05em; }
+.journey-heading p { max-width: 34ch; margin: 0 0 0.45rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.65; }
+.journey-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.journey-tile { position: relative; isolation: isolate; min-height: 238px; display: flex; flex-direction: column; padding: 1.45rem; overflow: hidden; border: 1px solid var(--border); border-radius: 20px; color: var(--text-primary); text-decoration: none; background: linear-gradient(145deg, rgba(158, 183, 255, 0.075), rgba(158, 183, 255, 0.01) 56%, transparent); transition: border-color 0.35s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s ease; }
+.journey-tile::before { content: ''; position: absolute; inset: auto -10% -62% 38%; z-index: -1; aspect-ratio: 1; border: 1px solid rgba(158, 183, 255, 0.2); border-radius: 50%; transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.journey-tile__number, .journey-detail__number, .journey-detail__eyebrow { color: var(--about-accent); font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.journey-tile__title { margin-top: auto; font-family: var(--font-display); font-size: clamp(1.5rem, 2.2vw, 2.05rem); line-height: 1.02; letter-spacing: -0.035em; }
+.journey-tile__action { display: inline-flex; align-items: center; gap: 0.55rem; margin-top: 1.2rem; color: var(--about-accent); font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.journey-tile__action svg { width: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; transition: transform 0.35s ease; }
+.journey-details { display: grid; gap: 0; margin-top: clamp(2.5rem, 5vw, 5rem); border-top: 1px solid var(--border); }
+.journey-detail { display: grid; grid-template-columns: minmax(100px, 0.23fr) minmax(0, 1fr); gap: 1.5rem; padding: clamp(2rem, 3.4vw, 3.5rem) 0; border-bottom: 1px solid var(--border); scroll-margin-top: calc(var(--header-height, 76px) + 2rem); }
+.journey-detail > div { max-width: 760px; }
+.journey-detail h3 { margin: 0.7rem 0 0.85rem; font-family: var(--font-display); font-size: clamp(1.7rem, 3vw, 2.8rem); line-height: 1.04; letter-spacing: -0.04em; }
+.journey-detail p { max-width: 60ch; color: var(--text-secondary); font-size: 1rem; line-height: 1.7; }
+.journey-detail__links { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; margin-top: 1.2rem; }
+.journey-detail__links a { color: #dce6ff; font-size: 0.88rem; font-weight: 700; text-decoration: none; border-bottom: 1px solid rgba(158, 183, 255, 0.7); text-underline-offset: 0.25em; }
+
+@media (hover: hover) and (pointer: fine) {
+  .journey-tile:hover { transform: translateY(-7px); border-color: rgba(158, 183, 255, 0.6); background: linear-gradient(145deg, rgba(158, 183, 255, 0.13), rgba(158, 183, 255, 0.025) 56%, transparent); }
+  .journey-tile:hover::before { transform: scale(1.22); }
+  .journey-tile:hover .journey-tile__action svg { transform: translateX(5px); }
+  .journey-detail__links a:hover { color: #fff; border-color: #fff; }
 }
 
 .about-section--production {
@@ -1388,8 +1462,27 @@ onBeforeUnmount(() => {
 .about-cta__link:hover { transform: rotate(-12deg) scale(1.06); box-shadow: 0 18px 45px rgba(86, 130, 255, 0.28); }
 .about-cta__link svg { width: 25px; }
 
-.reveal-block { opacity: 0; transform: translateY(34px); transition: opacity 0.75s ease var(--delay, 0ms), transform 0.75s cubic-bezier(0.16, 1, 0.3, 1) var(--delay, 0ms); }
-.reveal-block.is-visible { opacity: 1; transform: translateY(0); }
+.reveal-block { opacity: 0; transform: translate3d(0, 30px, 0); will-change: opacity, transform; }
+.reveal-block.is-visible { animation: aboutBlockReveal 0.82s cubic-bezier(0.16, 1, 0.3, 1) var(--delay, 0ms) both; }
+.reveal-block.is-visible :is(.section-number, .journey-step__number, .principle-card__number, .journey-pulse) {
+  animation: aboutTextReveal 0.68s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--delay, 0ms) + 65ms) both;
+}
+.reveal-block.is-visible :is(h2, h3) {
+  animation: aboutTextReveal 0.78s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--delay, 0ms) + 125ms) both;
+}
+.reveal-block.is-visible p {
+  animation: aboutTextReveal 0.72s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--delay, 0ms) + 220ms) both;
+}
+
+@keyframes aboutBlockReveal {
+  from { opacity: 0; transform: translate3d(0, 30px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes aboutTextReveal {
+  from { opacity: 0; clip-path: inset(0 0 100% 0); transform: translate3d(0, 0.6em, 0); filter: blur(7px); }
+  to { opacity: 1; clip-path: inset(0 0 0 0); transform: translate3d(0, 0, 0); filter: blur(0); }
+}
 
 [data-theme="light"] .about-page { --about-accent: #5278df; --about-accent-strong: #315dcc; }
 [data-theme="light"] .about-grid { opacity: 0.62; background-image: linear-gradient(rgba(50, 82, 160, 0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(50, 82, 160, 0.055) 1px, transparent 1px); }
@@ -1514,6 +1607,18 @@ onBeforeUnmount(() => {
   .journey-step { grid-template-columns: 36px minmax(0, 1fr); gap: 0.75rem; padding: 1.5rem 0; }
   .journey-step h3 { font-size: 1.15rem; }
   .journey-step p { font-size: 0.82rem; }
+  .journey-heading { display: block; margin-bottom: 2rem; }
+  .journey-heading .section-number { display: flex; margin-bottom: 1.1rem; }
+  .journey-heading h2 { margin: 0; font-size: clamp(2.3rem, 10.5vw, 3.4rem); }
+  .journey-heading p { margin: 1.1rem 0 0; font-size: 0.9rem; }
+  .journey-tiles { grid-template-columns: 1fr; gap: 0.75rem; }
+  .journey-tile { min-height: 158px; padding: 1.15rem; border-radius: 17px; }
+  .journey-tile__title { margin-top: auto; font-size: 1.45rem; }
+  .journey-tile__action { margin-top: 0.75rem; }
+  .journey-details { margin-top: 2.5rem; }
+  .journey-detail { grid-template-columns: 1fr; gap: 0.7rem; padding: 2rem 0; }
+  .journey-detail h3 { margin-top: 0.45rem; font-size: 1.65rem; }
+  .journey-detail p { font-size: 0.9rem; line-height: 1.65; }
 
   .about-section--production { padding: 4.5rem 0; }
   .production-layout { display: block; }
@@ -1572,7 +1677,7 @@ onBeforeUnmount(() => {
   .about-hero__molecule-float { transform: none !important; transition: none; }
   .about-hero__molecule { opacity: 1; transform: none !important; }
   .about-intro,
-  .reveal-block { opacity: 1; transform: none; transition: none; }
+  .reveal-block { opacity: 1; transform: none; transition: none; animation: none !important; }
   .journey-step,
   .journey-step::before,
   .journey-step__number,
