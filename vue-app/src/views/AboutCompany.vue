@@ -71,6 +71,7 @@
             class="journey-tile reveal-block"
             :href="`#${step.id}`"
             :style="{ '--delay': `${index * 100}ms` }"
+            @click.prevent="scrollToJourneyDetail(step.id)"
           >
             <span class="journey-tile__number">{{ String(index + 1).padStart(2, '0') }}</span>
             <span class="journey-tile__title">{{ step.title }}</span>
@@ -272,6 +273,16 @@ const scrollToAboutSection = (target) => {
   activeAboutSection.value = target
   aboutNavLockUntil = Date.now() + 1100
   document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+const scrollToJourneyDetail = (target) => {
+  const detail = document.getElementById(target)
+  if (!detail) return
+
+  detail.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'start'
+  })
 }
 
 const playProduction = async () => {
