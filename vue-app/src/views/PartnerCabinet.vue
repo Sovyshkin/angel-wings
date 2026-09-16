@@ -681,6 +681,7 @@ onMounted(async () => {
   box-shadow:
     0 24px 80px rgba(0, 0, 0, 0.44),
     0 0 42px rgba(159, 179, 255, 0.16);
+  color: #f7f9ff;
   text-align: center;
 }
 
@@ -727,14 +728,14 @@ onMounted(async () => {
   padding: 1rem;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
+  color: rgba(241, 245, 255, 0.84);
   line-height: 1.55;
 }
 
 .credit-postcard__date {
   position: relative;
   margin: 0 0 1.25rem;
-  color: var(--text-secondary);
+  color: rgba(218, 227, 248, 0.62);
   font-size: 0.9rem;
 }
 

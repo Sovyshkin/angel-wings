@@ -1674,7 +1674,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.82) inset, 0 16px 40px rgba(58, 77, 127, 0.2);
 }
 [data-theme="light"] .about-dock__item { color: rgba(36, 54, 101, 0.72); }
-[data-theme="light"] .about-dock__item.is-active { color: #fff; }
+[data-theme="light"] .about-dock__item.is-active { color: #314d92; }
 [data-theme="light"] .about-grid { opacity: 0.62; background-image: linear-gradient(rgba(50, 82, 160, 0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(50, 82, 160, 0.055) 1px, transparent 1px); }
 [data-theme="light"] .about-hero__backdrop {
   background:
@@ -1689,6 +1689,12 @@ onBeforeUnmount(() => {
   background: linear-gradient(145deg, rgba(94, 130, 224, 0.1), rgba(255, 255, 255, 0.5) 48%, transparent);
 }
 [data-theme="light"] .about-button--primary { color: #fff; }
+[data-theme="light"] .goal-panel { color: #f7f9ff; border-color: rgba(126, 158, 238, 0.32); }
+[data-theme="light"] .goal-panel p { color: rgba(231, 237, 252, 0.74); }
+[data-theme="light"] .standard-panel { color: #16203b; border-color: rgba(72, 104, 184, 0.22); }
+[data-theme="light"] .standard-panel__copy > p { color: rgba(31, 44, 78, 0.7); }
+[data-theme="light"] .standard-link { color: #4168c6; }
+[data-theme="light"] .standard-panel__mark small { color: rgba(35, 56, 109, 0.58); }
 
 @keyframes introReveal { to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes podiumReveal {
@@ -1753,7 +1759,14 @@ onBeforeUnmount(() => {
     min-height: 54px;
     padding: 0.22rem 0.1rem;
   }
-  .about-dock__active-pill { top: 0; bottom: 0; left: 0; width: 20%; }
+  .about-dock__active-pill {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 20%;
+    background: linear-gradient(145deg, rgba(166, 186, 243, 0.22), rgba(88, 112, 177, 0.14) 52%, rgba(45, 57, 103, 0.28));
+  }
+  .about-dock__active-pill::before { display: none; }
   .about-dock__icon { width: 21px; height: 21px; }
   .about-dock__icon svg { width: 18px; height: 18px; }
   .about-dock__label { display: block; font-size: 0.5rem; font-weight: 750; letter-spacing: 0; }
