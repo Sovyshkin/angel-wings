@@ -452,8 +452,6 @@ const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'u
 let cursorFrameId = 0
 let removeCursorMoveListener = null
 let removePageActivityListener = null
-let cursorScrollIdleTimer = null
-let cursorPausedByScroll = false
 let removeTelegramWidgetListeners = null
 
 const waitFor = (duration) => new Promise(resolve => window.setTimeout(resolve, duration))
@@ -633,6 +631,7 @@ onMounted(() => {
 
   if (!canUseCustomCursor || !cursorRoot.value) {
     document.documentElement.classList.remove('has-goo-cursor')
+    document.documentElement.classList.remove('is-goo-cursor-visible')
     return
   }
 
@@ -659,16 +658,8 @@ onMounted(() => {
   }
 
   const pauseCursorForScroll = () => {
-    cursorPausedByScroll = true
-    cursorRoot.value?.classList.remove('is-visible')
-    document.documentElement.classList.add('is-page-scrolling')
-    stopCursorLoop()
-
-    if (cursorScrollIdleTimer) window.clearTimeout(cursorScrollIdleTimer)
-    cursorScrollIdleTimer = window.setTimeout(() => {
-      cursorPausedByScroll = false
-      document.documentElement.classList.remove('is-page-scrolling')
-    }, 240)
+    // Keep the custom cursor alive during wheel and programmatic scrolling.
+    // Hiding it here caused a visible switch back to the native cursor.
   }
 
   const onPointerMove = (event) => {
@@ -676,18 +667,19 @@ onMounted(() => {
     mouse.x = event.clientX
     mouse.y = event.clientY
 
-    if (cursorPausedByScroll) return
-
     if (document.hidden || !document.hasFocus()) {
       cursorRoot.value?.classList.remove('is-visible')
+      document.documentElement.classList.remove('is-goo-cursor-visible')
       stopCursorLoop()
       return
     }
     if (event.target?.closest?.(nativeCursorSelector)) {
       cursorRoot.value?.classList.remove('is-visible')
+      document.documentElement.classList.remove('is-goo-cursor-visible')
       return
     }
     cursorRoot.value?.classList.add('is-visible')
+    document.documentElement.classList.add('is-goo-cursor-visible')
 
     if (!cursorStarted) {
       cursorStarted = true
@@ -699,6 +691,7 @@ onMounted(() => {
     if (event.pointerType === 'touch') return
     if (event.target?.closest?.(nativeCursorSelector)) {
       cursorRoot.value?.classList.remove('is-visible')
+      document.documentElement.classList.remove('is-goo-cursor-visible')
     }
   }
 
@@ -708,12 +701,14 @@ onMounted(() => {
     const toNativeCursor = event.relatedTarget?.closest?.(nativeCursorSelector)
     if (fromNativeCursor && !toNativeCursor) {
       cursorRoot.value?.classList.add('is-visible')
+      document.documentElement.classList.add('is-goo-cursor-visible')
     }
   }
 
   const renderCursor = () => {
     if (document.hidden || !document.hasFocus()) {
       cursorRoot.value?.classList.remove('is-visible')
+      document.documentElement.classList.remove('is-goo-cursor-visible')
       stopCursorLoop()
       return
     }
@@ -765,7 +760,6 @@ onMounted(() => {
     document.removeEventListener('pointerout', onPointerOut)
     window.removeEventListener('blur', stopCursorLoop)
     document.removeEventListener('visibilitychange', stopCursorLoop)
-    if (cursorScrollIdleTimer) window.clearTimeout(cursorScrollIdleTimer)
   }
 })
 
@@ -787,6 +781,7 @@ onBeforeUnmount(() => {
     removeTelegramWidgetListeners()
   }
   document.documentElement.classList.remove('has-goo-cursor')
+  document.documentElement.classList.remove('is-goo-cursor-visible')
   document.documentElement.classList.remove('is-page-inactive')
   document.documentElement.classList.remove('is-page-scrolling')
 })
@@ -794,18 +789,18 @@ onBeforeUnmount(() => {
 
 <style>
 @media (min-width: 1024px) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  html.has-goo-cursor,
-  html.has-goo-cursor * {
+  html.has-goo-cursor.is-goo-cursor-visible,
+  html.has-goo-cursor.is-goo-cursor-visible * {
     cursor: none !important;
   }
 
-  html.has-goo-cursor [data-native-cursor],
-  html.has-goo-cursor [data-native-cursor] iframe {
+  html.has-goo-cursor.is-goo-cursor-visible [data-native-cursor],
+  html.has-goo-cursor.is-goo-cursor-visible [data-native-cursor] iframe {
     cursor: auto !important;
   }
 
-  html.has-goo-cursor [data-native-cursor] a,
-  html.has-goo-cursor [data-native-cursor] button {
+  html.has-goo-cursor.is-goo-cursor-visible [data-native-cursor] a,
+  html.has-goo-cursor.is-goo-cursor-visible [data-native-cursor] button {
     cursor: pointer !important;
   }
 }
@@ -983,11 +978,6 @@ onBeforeUnmount(() => {
 
 html.is-page-inactive .cursor-goo {
   opacity: 0 !important;
-}
-
-html.is-page-scrolling .cursor-goo {
-  opacity: 0 !important;
-  filter: none;
 }
 
 html.is-page-inactive *,

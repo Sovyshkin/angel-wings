@@ -1,6 +1,6 @@
 <template>
   <main ref="aboutRoot" class="about-page" :class="{ 'is-ready': isAboutReady }" :aria-busy="!isAboutReady">
-    <section ref="heroSection" class="about-hero">
+    <section id="about-hero" ref="heroSection" class="about-hero">
       <div class="about-grid" aria-hidden="true"></div>
       <div class="about-hero__backdrop" aria-hidden="true">
         <span class="hero-backdrop__monogram">AW</span>
@@ -23,19 +23,21 @@
           </div>
 
           <h1 class="about-hero__title about-intro about-intro--2">
-            Наука в<span class="about-hero__wide-break"><br></span> деталях.<br>
-            <em>Забота в<span class="about-hero__wide-break"><br></span> каждом шаге.</em>
+            Начали с науки.<br>
+            Идём <em>своим путём.</em>
           </h1>
 
           <div class="about-hero__support">
             <div>
               <p class="about-hero__lead about-intro about-intro--3">
-                Наша история в пептидах началась не с трендов, а с науки. Мы занимаемся пептидами,
-                чтобы создавать фундамент для уникальных разработок и инноваций.
+                Наша история в пептидах началась не с трендов, а с науки. В 2021 году мы совершили наш первый
+                значимый шаг — самостоятельно синтезировали семаглутид. С тех пор мы идём своим путём. Мы
+                занимаемся пептидами не потому, что это модно, а чтобы заложить прочный фундамент для будущих
+                уникальных разработок и инноваций.
               </p>
 
               <div class="about-hero__actions about-intro about-intro--4">
-                <a href="#principles" class="about-button about-button--primary">
+                <a href="#journey" class="about-button about-button--primary">
                   Подробнее о компании
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M5 12h14M13 6l6 6-6 6" />
@@ -54,46 +56,7 @@
       </div>
     </section>
 
-    <section id="principles" class="about-section about-section--manifesto">
-      <div class="container">
-        <div class="section-heading reveal-block">
-          <span class="section-number">Наш путь</span>
-          <h2>Начали с науки.<br>Идём <em>своим путём.</em></h2>
-          <p class="section-heading__story">
-            Наша история в пептидах началась не с трендов, а с науки. В 2021 году мы совершили наш первый
-            значимый шаг — самостоятельно синтезировали семаглутид. С тех пор мы идём своим путём. Мы
-            занимаемся пептидами не потому, что это модно, а чтобы заложить прочный фундамент для будущих
-            уникальных разработок и инноваций.
-          </p>
-        </div>
-
-        <div class="principles-grid">
-          <article
-            v-for="(principle, index) in principles"
-            :key="principle.title"
-            class="principle-card reveal-block"
-            :style="{ '--delay': `${index * 90}ms` }"
-          >
-            <div class="principle-card__top">
-              <span class="principle-card__number" aria-hidden="true">
-                0{{ index + 1 }}
-              </span>
-              <div v-html="principle.icon"></div>
-            </div>
-            <h3>{{ principle.title }}</h3>
-            <p>
-              <template v-for="(part, partIndex) in principle.textParts || [{ text: principle.text }]" :key="partIndex">
-                <a v-if="part.href" class="principle-card__link" :href="part.href" target="_blank" rel="noopener noreferrer">{{ part.text }}</a>
-                <template v-else>{{ part.text }}</template>
-              </template>
-            </p>
-            <i></i>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="about-section about-section--journey">
+    <section id="journey" class="about-section about-section--journey">
       <div class="container">
         <header class="journey-heading reveal-block">
           <span class="section-number">02 / Как мы работаем</span>
@@ -142,7 +105,7 @@
       </div>
     </section>
 
-    <section class="about-section about-section--production" aria-labelledby="production-title">
+    <section id="about-production" class="about-section about-section--production" aria-labelledby="production-title">
       <div class="container">
         <div class="production-layout reveal-block">
           <header class="production-layout__heading">
@@ -189,7 +152,7 @@
       </div>
     </section>
 
-    <section class="about-section about-section--goal">
+    <section id="about-goal" class="about-section about-section--goal">
       <div class="container">
         <div class="goal-panel reveal-block">
           <div class="goal-panel__copy">
@@ -209,7 +172,7 @@
       </div>
     </section>
 
-    <section class="about-section about-section--standard">
+    <section id="about-standard" class="about-section about-section--standard">
       <div class="container">
         <div class="standard-panel reveal-block">
           <div class="standard-panel__copy">
@@ -250,6 +213,32 @@
         </div>
       </div>
     </section>
+
+    <nav class="about-dock" :style="{ '--dock-active-index': activeAboutIndex }" aria-label="Навигация по странице «О нас»">
+      <span class="about-dock__active-pill" aria-hidden="true"></span>
+      <button
+        v-for="item in aboutNavigation"
+        :key="item.target"
+        type="button"
+        class="about-dock__item"
+        :class="{ 'is-active': activeAboutSection === item.target }"
+        :aria-label="item.label"
+        :aria-current="activeAboutSection === item.target ? 'location' : undefined"
+        @click="scrollToAboutSection(item.target)"
+      >
+        <span class="about-dock__icon" aria-hidden="true">
+          <svg v-if="item.icon === 'home'" viewBox="0 0 24 24"><path class="about-dock__icon-fill" d="m2.8 10.8 9.2-7.6 9.2 7.6v9.1a1.3 1.3 0 0 1-1.3 1.3h-5.2v-6.5h-5.4v6.5H4.1a1.3 1.3 0 0 1-1.3-1.3v-9.1Z"/><path d="M8.1 10.3h7.8"/></svg>
+          <svg v-else-if="item.icon === 'nodes'" viewBox="0 0 24 24"><circle cx="6.2" cy="7" r="2.3"/><circle cx="17.8" cy="7" r="2.3"/><circle cx="12" cy="17.2" r="2.3"/><path d="m8.2 8.2 2.4 6.1m5.2-6.1-2.4 6.1M8.5 7h7"/></svg>
+          <svg v-else-if="item.icon === 'flask'" viewBox="0 0 24 24"><path d="M9 3.5h6M10.2 3.5v5.2l-5.1 8.3A2.7 2.7 0 0 0 7.4 21h9.2a2.7 2.7 0 0 0 2.3-4l-5.1-8.3V3.5"/><path d="M8.2 15.1h7.6M9.4 12.8h5.2"/></svg>
+          <svg v-else-if="item.icon === 'target'" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.8"/><circle cx="12" cy="12" r="2.6"/><path d="M12 2.2v3M12 18.8v3M2.2 12h3m13.6 0h3"/></svg>
+          <svg v-else viewBox="0 0 24 24"><path d="m12 3.1 7 3v5.2c0 4.2-2.8 8.1-7 9.6-4.2-1.5-7-5.4-7-9.6V6.1l7-3Z"/><path d="m8.7 12 2.1 2.1 4.6-4.5"/></svg>
+        </span>
+        <span class="about-dock__label">
+          <span class="about-dock__label-full">{{ item.label }}</span>
+          <span class="about-dock__label-short">{{ item.shortLabel }}</span>
+        </span>
+      </button>
+    </nav>
   </main>
 </template>
 
@@ -258,6 +247,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { moleculeTransition } from '../composables/moleculeTransition'
 
 let revealObserver = null
+let aboutNavObserver = null
+let aboutNavLockUntil = 0
 let heroParallaxFrame = 0
 let heroParallaxRange = 1
 let lastHeroParallaxProgress = -1
@@ -265,7 +256,23 @@ const aboutRoot = ref(null)
 const heroSection = ref(null)
 const productionVideo = ref(null)
 const hasProductionStarted = ref(false)
+const activeAboutSection = ref('about-hero')
+const activeAboutIndex = computed(() => Math.max(0, aboutNavigation.findIndex(item => item.target === activeAboutSection.value)))
 const isAboutReady = computed(() => moleculeTransition.stage === 'about' || moleculeTransition.stage === 'idle')
+
+const aboutNavigation = [
+  { target: 'about-hero', label: 'Начало', shortLabel: 'Старт', icon: 'home' },
+  { target: 'journey', label: 'Система', shortLabel: 'Связи', icon: 'nodes' },
+  { target: 'about-production', label: 'Производство', shortLabel: 'Лаборатория', icon: 'flask' },
+  { target: 'about-goal', label: 'Цель', shortLabel: 'Цель', icon: 'target' },
+  { target: 'about-standard', label: 'Миссия', shortLabel: 'Миссия', icon: 'shield' }
+]
+
+const scrollToAboutSection = (target) => {
+  activeAboutSection.value = target
+  aboutNavLockUntil = Date.now() + 1100
+  document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 const playProduction = async () => {
   if (!productionVideo.value) return
@@ -366,6 +373,21 @@ onMounted(() => {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const supportsObserver = 'IntersectionObserver' in window
 
+  if (supportsObserver) {
+    aboutNavObserver = new IntersectionObserver((entries) => {
+      if (Date.now() < aboutNavLockUntil) return
+      const visibleSections = entries
+        .filter(entry => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
+      if (visibleSections[0]?.target?.id) activeAboutSection.value = visibleSections[0].target.id
+    }, { threshold: [0.18, 0.42, 0.7], rootMargin: '-20% 0px -52% 0px' })
+
+    aboutNavigation.forEach(item => {
+      const section = document.getElementById(item.target)
+      if (section) aboutNavObserver.observe(section)
+    })
+  }
+
   if (!reducedMotion) {
     syncHeroParallaxRange()
     applyHeroParallax()
@@ -399,6 +421,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   revealObserver?.disconnect()
+  aboutNavObserver?.disconnect()
   window.cancelAnimationFrame(heroParallaxFrame)
   window.removeEventListener('scroll', queueHeroParallax)
   window.removeEventListener('resize', syncHeroParallaxRange)
@@ -1123,6 +1146,7 @@ onBeforeUnmount(() => {
 .journey-tile__action { display: inline-flex; align-items: center; gap: 0.55rem; margin-top: 1.2rem; color: var(--about-accent); font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; }
 .journey-tile__action svg { width: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; transition: transform 0.35s ease; }
 .journey-details { display: grid; gap: 0; margin-top: clamp(2.5rem, 5vw, 5rem); border-top: 1px solid var(--border); }
+.journey-details--standalone { margin-top: 0; }
 .journey-detail { display: grid; grid-template-columns: minmax(130px, 0.23fr) minmax(0, 1fr); gap: 1.5rem; padding: clamp(2rem, 3.4vw, 3.5rem) 0; border-bottom: 1px solid var(--border); scroll-margin-top: calc(var(--header-height, 76px) + 2rem); }
 .journey-detail__marker { display: inline-flex; align-items: center; gap: 0.7rem; align-self: start; padding-top: 0.35rem; color: var(--about-accent); font-family: var(--font-mono); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.14em; line-height: 1.2; text-transform: uppercase; }
 .journey-detail__marker i { width: 32px; height: 1px; flex: 0 0 auto; background: currentColor; box-shadow: 0 0 12px color-mix(in srgb, currentColor 60%, transparent); }
@@ -1480,6 +1504,117 @@ onBeforeUnmount(() => {
 .about-cta__link:hover { transform: rotate(-12deg) scale(1.06); box-shadow: 0 18px 45px rgba(86, 130, 255, 0.28); }
 .about-cta__link svg { width: 25px; }
 
+.about-dock {
+  position: fixed;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 96;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(50px, 1fr));
+  align-items: stretch;
+  width: min(400px, calc(100vw - 2rem));
+  padding: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgba(195, 208, 240, 0.22);
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(143, 162, 211, 0.07), rgba(58, 75, 119, 0.025) 44%, rgba(4, 7, 17, 0.62)), rgba(10, 12, 18, 0.74);
+  box-shadow:
+    0 1px 0 rgba(222, 229, 246, 0.13) inset,
+    0 -1px 0 rgba(2, 5, 13, 0.42) inset,
+    0 10px 30px rgba(0, 4, 18, 0.34),
+    0 3px 8px rgba(7, 13, 35, 0.18);
+  backdrop-filter: blur(18px) saturate(135%) brightness(0.96);
+  -webkit-backdrop-filter: blur(18px) saturate(135%) brightness(0.96);
+  transform: translateX(-50%);
+  animation: aboutDockEnter 0.68s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
+  will-change: transform, opacity;
+}
+.about-dock::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  display: none;
+  pointer-events: none;
+}
+.about-dock::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  display: none;
+}
+.about-dock__active-pill {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 20%;
+  overflow: hidden;
+  border: 1px solid rgba(218, 228, 255, 0.27);
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 28% 10%, rgba(255, 255, 255, 0.3), transparent 34%),
+    linear-gradient(145deg, rgba(166, 186, 243, 0.25), rgba(88, 112, 177, 0.15) 52%, rgba(45, 57, 103, 0.3));
+  box-shadow:
+    0 1px 0 rgba(242, 246, 255, 0.28) inset,
+    0 -1px 0 rgba(4, 9, 28, 0.28) inset,
+    0 5px 14px rgba(0, 5, 23, 0.24);
+  backdrop-filter: blur(8px) brightness(1.03);
+  -webkit-backdrop-filter: blur(8px) brightness(1.03);
+  transform: translateX(calc(var(--dock-active-index) * 100%));
+  transition: transform 0.46s cubic-bezier(0.22, 1.2, 0.38, 1);
+  will-change: transform;
+}
+.about-dock__active-pill::before {
+  content: '';
+  position: absolute;
+  width: 130%;
+  height: 90%;
+  left: -12%;
+  top: -38%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.28), transparent 70%);
+  filter: blur(4px);
+}
+.about-dock__active-pill::after {
+  content: '';
+  position: absolute;
+  right: -12%;
+  bottom: -58%;
+  width: 90%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(145, 169, 236, 0.12);
+  filter: blur(10px);
+}
+.about-dock__item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  min-height: 50px;
+  padding: 0.2rem 0.12rem;
+  border: 0;
+  border-radius: inherit;
+  color: rgba(243, 245, 250, 0.68);
+  background: transparent;
+  transition: color 0.42s ease, transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.about-dock__item:hover { color: #fff; transform: translateY(-1px); }
+.about-dock__item.is-active {
+  color: #fff;
+}
+.about-dock__icon { width: 20px; height: 20px; display: grid; flex: 0 0 auto; place-items: center; transition: transform 0.42s cubic-bezier(0.2, 1.45, 0.5, 1), filter 0.35s ease; }
+.about-dock__item.is-active .about-dock__icon { transform: translateY(-0.5px) scale(1.06); filter: drop-shadow(0 2px 4px rgba(5, 15, 55, 0.26)); }
+.about-dock__icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.about-dock__icon-fill { fill: currentColor; stroke: none; }
+.about-dock__label { max-width: 100%; overflow: hidden; font-family: var(--font-body); font-size: 0.55rem; font-weight: 750; letter-spacing: -0.018em; line-height: 1; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.about-dock__label-short { display: none; }
+
 .reveal-block { opacity: 0; transform: translate3d(0, 30px, 0); will-change: opacity, transform; }
 .reveal-block.is-visible { animation: aboutBlockReveal 0.82s cubic-bezier(0.16, 1, 0.3, 1) var(--delay, 0ms) both; }
 .reveal-block.is-leaving { pointer-events: none; animation: aboutBlockConceal 0.42s cubic-bezier(0.55, 0, 0.78, 0.2) both; }
@@ -1506,6 +1641,11 @@ onBeforeUnmount(() => {
   to { opacity: 0; transform: translate3d(0, 18px, 0); filter: blur(3px); }
 }
 
+@keyframes aboutDockEnter {
+  from { opacity: 0; transform: translate3d(-50%, calc(100% + 2rem), 0); }
+  to { opacity: 1; transform: translate3d(-50%, 0, 0); }
+}
+
 @keyframes aboutTextReveal {
   from { opacity: 0; clip-path: inset(0 0 100% 0); transform: translate3d(0, 0.6em, 0); filter: blur(7px); }
   to { opacity: 1; clip-path: inset(0 0 0 0); transform: translate3d(0, 0, 0); filter: blur(0); }
@@ -1517,6 +1657,13 @@ onBeforeUnmount(() => {
 }
 
 [data-theme="light"] .about-page { --about-accent: #5278df; --about-accent-strong: #315dcc; }
+[data-theme="light"] .about-dock {
+  border-color: rgba(72, 96, 152, 0.22);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.74), rgba(225, 234, 255, 0.5)), rgba(232, 239, 255, 0.62);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.82) inset, 0 16px 40px rgba(58, 77, 127, 0.2);
+}
+[data-theme="light"] .about-dock__item { color: rgba(36, 54, 101, 0.72); }
+[data-theme="light"] .about-dock__item.is-active { color: #fff; }
 [data-theme="light"] .about-grid { opacity: 0.62; background-image: linear-gradient(rgba(50, 82, 160, 0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(50, 82, 160, 0.055) 1px, transparent 1px); }
 [data-theme="light"] .about-hero__backdrop {
   background:
@@ -1585,6 +1732,23 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
+  .about-dock {
+    bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    width: min(360px, calc(100vw - 2rem));
+    padding: 0;
+  }
+  .about-dock__item {
+    min-width: 0;
+    min-height: 54px;
+    padding: 0.22rem 0.1rem;
+  }
+  .about-dock__active-pill { top: 0; bottom: 0; left: 0; width: 20%; }
+  .about-dock__icon { width: 21px; height: 21px; }
+  .about-dock__icon svg { width: 18px; height: 18px; }
+  .about-dock__label { display: block; font-size: 0.5rem; font-weight: 750; letter-spacing: 0; }
+  .about-dock__label-full { display: none; }
+  .about-dock__label-short { display: inline; }
+
   .about-hero {
     min-height: max(58rem, 125svh);
     padding: 2.2rem 0 clamp(16rem, 68vw, 20rem);
