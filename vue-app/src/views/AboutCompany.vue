@@ -380,8 +380,16 @@ onMounted(() => {
 
   revealObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
-      // Reset outside the viewport so the reveal plays again on every return.
-      entry.target.classList.toggle('is-visible', entry.isIntersecting)
+      // Play a complementary exit before resetting, so scrolling back never
+      // makes content disappear abruptly. Re-entering removes the exit state
+      // and starts the reveal again.
+      if (entry.isIntersecting) {
+        entry.target.classList.remove('is-leaving')
+        entry.target.classList.add('is-visible')
+      } else if (entry.target.classList.contains('is-visible')) {
+        entry.target.classList.remove('is-visible')
+        entry.target.classList.add('is-leaving')
+      }
     })
   }, { threshold: 0.16, rootMargin: '0px 0px -9% 0px' })
 
@@ -1474,6 +1482,7 @@ onBeforeUnmount(() => {
 
 .reveal-block { opacity: 0; transform: translate3d(0, 30px, 0); will-change: opacity, transform; }
 .reveal-block.is-visible { animation: aboutBlockReveal 0.82s cubic-bezier(0.16, 1, 0.3, 1) var(--delay, 0ms) both; }
+.reveal-block.is-leaving { pointer-events: none; animation: aboutBlockConceal 0.42s cubic-bezier(0.55, 0, 0.78, 0.2) both; }
 .reveal-block.is-visible :is(.section-number, .journey-step__number, .journey-pulse) {
   animation: aboutTextReveal 0.68s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--delay, 0ms) + 65ms) both;
 }
@@ -1490,6 +1499,11 @@ onBeforeUnmount(() => {
 @keyframes aboutBlockReveal {
   from { opacity: 0; transform: translate3d(0, 30px, 0); }
   to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes aboutBlockConceal {
+  from { opacity: 1; transform: translate3d(0, 0, 0); filter: blur(0); }
+  to { opacity: 0; transform: translate3d(0, 18px, 0); filter: blur(3px); }
 }
 
 @keyframes aboutTextReveal {

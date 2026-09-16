@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import cdek from '../services/cdek.js'
+import tochkaService from '../services/tochka.js'
 import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
 import { enqueueOrderTelegramNotification } from '../services/telegramQueue.js'
 import yandexGeocoder from '../services/yandexGeocoder.js'
@@ -195,6 +196,18 @@ function isPaidStatus(status) {
   return ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].some(code =>
     normalizePaymentStatusValue(status).includes(code)
   )
+}
+
+function normalizeGatewayPaymentStatus(status) {
+  const raw = normalizePaymentStatusValue(status)
+
+  if (['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED', 'AUTHORIZED', 'CAPTURED', 'EXECUTED', 'SETTLED'].some(code => raw.includes(code))) {
+    return 'PAID'
+  }
+  if (['CANCEL', 'FAILED', 'ERROR', 'EXPIRED', 'REFUND', 'REJECT', 'DECLIN'].some(code => raw.includes(code))) {
+    return 'FAILED'
+  }
+  return 'PENDING'
 }
 
 function normalizeAdditionItems(rawItems) {
@@ -993,6 +1006,38 @@ router.get('/my', authenticate, async (req, res, next) => {
       orderBy: { createdAt: 'desc' }
     })
 
+    // A webhook can be delayed or lost while the bank has already confirmed
+    // payment. Reconcile pending orders here too, so the customer never sees
+    // an outdated “awaiting payment” state in their account.
+    const paymentStatusByOrderId = new Map()
+    const paymentSyncResults = await Promise.allSettled(
+      orders
+        .filter(order => order.paymentId && !isPaidStatus(order.paymentStatus))
+        .map(async (order) => {
+          const statusResult = await tochkaService.getPaymentStatus(order.paymentId)
+          if (!statusResult.success) return null
+
+          const paymentStatus = normalizeGatewayPaymentStatus(statusResult.status)
+          if (paymentStatus === normalizePaymentStatusValue(order.paymentStatus)) {
+            return { id: order.id, paymentStatus }
+          }
+
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { paymentStatus }
+          })
+
+          await syncPartnerCommissionForOrder(prisma, order.id)
+          return { id: order.id, paymentStatus }
+        })
+    )
+
+    paymentSyncResults.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value) {
+        paymentStatusByOrderId.set(result.value.id, result.value.paymentStatus)
+      }
+    })
+
     const statusMetaByOrderId = new Map()
     const ordersWithCdek = orders.filter(order => Boolean(order.cdekOrderUuid))
 
@@ -1050,6 +1095,7 @@ router.get('/my', authenticate, async (req, res, next) => {
       const partnerBonusAmount = Math.max(0, Number(order.partnerBonusAmount || 0))
       return {
         ...order,
+        paymentStatus: paymentStatusByOrderId.get(order.id) || order.paymentStatus,
         status: effectiveStatus,
         partnerBonusInfo: partnerBonusAmount > 0 && buyerPartner
           ? {
