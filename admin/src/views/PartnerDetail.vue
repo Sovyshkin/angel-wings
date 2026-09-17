@@ -14,6 +14,14 @@
         </div>
       </div>
       <div v-if="partner" class="header-actions">
+        <button type="button" class="btn btn-secondary" :disabled="exportLoading" @click="exportPartnerOrders">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 3v12"/>
+            <path d="m7 10 5 5 5-5"/>
+            <path d="M5 21h14"/>
+          </svg>
+          {{ exportLoading ? 'Формируем файл...' : 'Выгрузить заказы' }}
+        </button>
         <label class="toggle">
           <input type="checkbox" :checked="partner?.isActive" @change="toggleActive">
           <span class="toggle-slider"></span>
@@ -498,6 +506,7 @@ const historyTotal = ref(0)
 const historyHasMore = ref(false)
 const historyLoading = ref(false)
 const historyError = ref('')
+const exportLoading = ref(false)
 let historyRequestId = 0
 
 const hasAvailableBalance = computed(() => Number(partner.value?.balance?.availableBalance || 0) > 0)
@@ -589,6 +598,30 @@ async function toggleActive() {
     partner.value.isActive = newStatus
   } catch (e) {
     console.error(e)
+  }
+}
+
+async function exportPartnerOrders() {
+  if (!partner.value || exportLoading.value) return
+
+  exportLoading.value = true
+  try {
+    const response = await axios.get(`${API_URL}/${route.params.id}/orders-export`, {
+      responseType: 'blob',
+      headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+    })
+    const fileUrl = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = fileUrl
+    link.download = `partner-${partner.value.id}-orders.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(fileUrl)
+  } catch (error) {
+    alert(error?.response?.data?.error || 'Не удалось сформировать выгрузку заказов')
+  } finally {
+    exportLoading.value = false
   }
 }
 

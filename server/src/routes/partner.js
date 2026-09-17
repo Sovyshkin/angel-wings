@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
+import ExcelJS from 'exceljs'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import bcrypt from 'bcryptjs'
 import { v4 as uuidv4 } from 'uuid'
@@ -30,6 +31,28 @@ function formatRubles(value) {
     currency: 'RUB',
     maximumFractionDigits: 2
   }).format(Number(value || 0))
+}
+
+function getOrderStatusLabel(status) {
+  const labels = {
+    PENDING: 'Ожидает',
+    PROCESSING: 'В обработке',
+    SHIPPED: 'Отправлен',
+    DELIVERED: 'Доставлен',
+    CANCELLED: 'Отменён'
+  }
+  return labels[status] || status || '—'
+}
+
+function getPaymentStatusLabel(status) {
+  const labels = {
+    PENDING: 'Ожидает оплаты',
+    PAID: 'Оплачен',
+    FAILED: 'Ошибка оплаты',
+    CANCELLED: 'Отменён',
+    REFUNDED: 'Возвращён'
+  }
+  return labels[status] || status || '—'
 }
 
 function escapeHtml(value) {
@@ -913,6 +936,124 @@ router.put('/:id', authenticate, requireAdmin, async (req, res, next) => {
     })
 
     res.json({ partner })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const partnerId = parseInt(req.params.id, 10)
+    if (!Number.isInteger(partnerId)) {
+      return res.status(400).json({ error: 'Некорректный ID партнёра' })
+    }
+
+    const partner = await prisma.partner.findUnique({
+      where: { id: partnerId },
+      include: {
+        user: { select: { name: true, email: true } },
+        promoCodes: { select: { id: true, code: true } }
+      }
+    })
+
+    if (!partner) {
+      return res.status(404).json({ error: 'Партнёр не найден' })
+    }
+
+    const promoCodeIds = partner.promoCodes.map(promoCode => promoCode.id)
+    const orderWhere = promoCodeIds.length
+      ? {
+          OR: [
+            { promoCodeId: { in: promoCodeIds } },
+            { commission: { partnerId } }
+          ]
+        }
+      : { commission: { partnerId } }
+
+    const orders = await prisma.order.findMany({
+      where: orderWhere,
+      include: {
+        user: { select: { name: true, email: true, phone: true } },
+        items: {
+          include: { product: { select: { title: true, sku: true } } }
+        },
+        commission: { select: { partnerId: true, amount: true, percentage: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    const promoCodeById = new Map(partner.promoCodes.map(promoCode => [promoCode.id, promoCode.code]))
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'Angel Wings'
+    workbook.created = new Date()
+
+    const sheet = workbook.addWorksheet('Заказы', {
+      views: [{ state: 'frozen', ySplit: 1 }]
+    })
+    sheet.columns = [
+      { header: 'Заказ', key: 'id', width: 12 },
+      { header: 'Дата', key: 'createdAt', width: 18 },
+      { header: 'Клиент', key: 'customerName', width: 24 },
+      { header: 'Email', key: 'customerEmail', width: 30 },
+      { header: 'Телефон', key: 'customerPhone', width: 18 },
+      { header: 'Промокод', key: 'promoCode', width: 22 },
+      { header: 'Состав заказа', key: 'items', width: 48 },
+      { header: 'Сумма заказа', key: 'total', width: 16 },
+      { header: 'Скидка', key: 'discountAmount', width: 14 },
+      { header: 'Доставка', key: 'deliveryPrice', width: 14 },
+      { header: 'Статус заказа', key: 'status', width: 20 },
+      { header: 'Статус оплаты', key: 'paymentStatus', width: 20 },
+      { header: 'Комиссия', key: 'commissionAmount', width: 16 },
+      { header: 'Процент комиссии', key: 'commissionPercentage', width: 20 }
+    ]
+
+    orders.forEach(order => {
+      const items = order.items
+        .map(item => `${item.product?.title || `Товар #${item.productId}`} × ${item.quantity}`)
+        .join('\n')
+
+      sheet.addRow({
+        id: order.id,
+        createdAt: order.createdAt,
+        customerName: order.user?.name || order.customerName || '—',
+        customerEmail: order.user?.email || order.customerEmail || '—',
+        customerPhone: order.user?.phone || order.customerPhone || '—',
+        promoCode: promoCodeById.get(order.promoCodeId) || '—',
+        items: items || '—',
+        total: Number(order.total || 0),
+        discountAmount: Number(order.discountAmount || 0),
+        deliveryPrice: Number(order.deliveryPrice || order.deliveryCost || 0),
+        status: getOrderStatusLabel(order.status),
+        paymentStatus: getPaymentStatusLabel(order.paymentStatus),
+        commissionAmount: Number(order.commission?.amount || 0),
+        commissionPercentage: order.commission?.percentage == null ? null : Number(order.commission.percentage) / 100
+      })
+    })
+
+    const header = sheet.getRow(1)
+    header.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF20283F' } }
+    header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+    header.height = 30
+    sheet.autoFilter = { from: 'A1', to: 'N1' }
+
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return
+      row.alignment = { vertical: 'top', wrapText: true }
+      row.getCell('createdAt').numFmt = 'dd.mm.yyyy hh:mm'
+      ;['total', 'discountAmount', 'deliveryPrice', 'commissionAmount'].forEach(key => {
+        row.getCell(key).numFmt = '#,##0.00 [$₽-419]'
+      })
+      row.getCell('commissionPercentage').numFmt = '0.0%'
+    })
+
+    const safeDate = new Date().toISOString().slice(0, 10)
+    const fileName = `partner-${partnerId}-orders-${safeDate}.xlsx`
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
+    res.setHeader('Cache-Control', 'no-store')
+    await workbook.xlsx.write(res)
+    res.end()
   } catch (error) {
     next(error)
   }

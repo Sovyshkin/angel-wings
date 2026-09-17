@@ -1,5 +1,5 @@
 <template>
-  <main ref="aboutRoot" class="about-page" :class="{ 'is-ready': isAboutReady }" :aria-busy="!isAboutReady">
+  <main ref="aboutRoot" class="about-page is-ready" aria-busy="false">
     <section id="about-hero" ref="heroSection" class="about-hero">
       <div class="about-grid" aria-hidden="true"></div>
       <div class="about-hero__backdrop" aria-hidden="true">
@@ -16,37 +16,32 @@
         <div class="about-hero__visual-rings"></div>
       </div>
       <div class="container about-hero__container">
-        <div class="about-hero__copy">
-          <div class="about-eyebrow about-intro about-intro--1">
-            <span></span>
-            О нас
-          </div>
+        <div class="about-hero__system">
+          <header class="system-hero-heading about-intro about-intro--1">
+            <span class="section-number">01 / Экосистема Angel Wings</span>
+            <h1>Три звена<br><em>одной системы.</em></h1>
+          </header>
 
-          <h1 class="about-hero__title about-intro about-intro--2">
-            Начали с науки.<br>
-            Идём <em>своим путём.</em>
-          </h1>
-
-          <div class="about-hero__support">
-            <div>
-              <p class="about-hero__lead about-intro about-intro--3">
-                Наша история в пептидах началась не с трендов, а с науки. В 2021 году мы совершили наш первый
-                значимый шаг — самостоятельно синтезировали семаглутид. С тех пор мы идём своим путём. Мы
-                занимаемся пептидами не потому, что это модно, а чтобы заложить прочный фундамент для будущих
-                уникальных разработок и инноваций.
-              </p>
-
-              <div class="about-hero__actions about-intro about-intro--4">
-                <a href="#journey" class="about-button about-button--primary">
-                  Подробнее о компании
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M5 12h14M13 6l6 6-6 6" />
-                  </svg>
-                </a>
-              </div>
-            </div>
-
-          </div>
+          <nav class="journey-tiles journey-tiles--hero" aria-label="Направления работы">
+            <a
+              v-for="(step, index) in journey"
+              :key="step.id"
+              class="journey-tile about-intro"
+              :href="`#${step.id}`"
+              :style="{ '--delay': `${index * 100 + 160}ms`, '--orb-delay': step.orbDelay }"
+              @click.prevent="scrollToJourneyDetail(step.id)"
+              @pointermove="updateJourneySphereParallax"
+              @pointerleave="resetJourneySphereParallax"
+            >
+              <span class="journey-tile__number">{{ String(index + 1).padStart(2, '0') }}</span>
+              <span class="journey-tile__kicker">{{ step.kicker }}</span>
+              <span class="journey-tile__orb" aria-hidden="true"><img :src="step.orb" alt="" decoding="async"></span>
+              <span class="journey-tile__title">{{ step.title }}</span>
+              <span class="journey-tile__action">Подробнее
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </span>
+            </a>
+          </nav>
         </div>
       </div>
 
@@ -58,28 +53,10 @@
 
     <section id="journey" class="about-section about-section--journey">
       <div class="container">
-        <header class="journey-heading reveal-block">
-          <span class="section-number">02 / Как мы работаем</span>
-          <h2>Три звена<br><em>одной системы.</em></h2>
-          <p>Нажмите на направление, чтобы перейти к подробному описанию.</p>
+        <header class="journey-details-heading reveal-block">
+          <span class="section-number">02 / Подробно</span>
+          <h2>О каждом звене<br><em>без общих слов.</em></h2>
         </header>
-
-        <nav class="journey-tiles" aria-label="Направления работы">
-          <a
-            v-for="(step, index) in journey"
-            :key="step.id"
-            class="journey-tile reveal-block"
-            :href="`#${step.id}`"
-            :style="{ '--delay': `${index * 100}ms` }"
-            @click.prevent="scrollToJourneyDetail(step.id)"
-          >
-            <span class="journey-tile__number">{{ String(index + 1).padStart(2, '0') }}</span>
-            <span class="journey-tile__title">{{ step.title }}</span>
-            <span class="journey-tile__action">Подробнее
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-            </span>
-          </a>
-        </nav>
 
         <div class="journey-details">
           <article
@@ -96,7 +73,60 @@
             <div>
               <span class="journey-detail__eyebrow">{{ step.title }}</span>
               <h3>{{ step.detailTitle }}</h3>
-              <p>{{ step.text }}</p>
+              <div v-if="step.content && isJourneyDetailExpanded(step.id)" class="journey-detail__rich">
+                <p v-for="paragraph in step.content.intro" :key="paragraph">{{ paragraph }}</p>
+                <div class="journey-detail__goals">
+                  <span>Три задачи</span>
+                  <ol>
+                    <li v-for="(goal, goalIndex) in step.content.goals" :key="goal">
+                      <b>{{ String(goalIndex + 1).padStart(2, '0') }}</b>
+                      <p>{{ goal }}</p>
+                    </li>
+                  </ol>
+                </div>
+                <p>{{ step.content.outro }}</p>
+              </div>
+              <p v-else class="journey-detail__text">{{ isJourneyDetailExpanded(step.id) ? step.text : getJourneyDetailPreview(step) }}</p>
+              <button
+                type="button"
+                class="journey-detail__expand"
+                :aria-expanded="isJourneyDetailExpanded(step.id)"
+                @click="toggleJourneyDetail(step.id)"
+              >
+                {{ isJourneyDetailExpanded(step.id) ? 'Свернуть' : 'Развернуть' }}
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+              </button>
+              <a
+                v-if="step.logo"
+                class="journey-detail__partner-mark"
+                :href="step.logo.href"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span class="journey-detail__partner-copy">
+                  <small>Научный партнёр</small>
+                  <strong>{{ step.logo.label }}</strong>
+                </span>
+                <span class="journey-detail__partner-logo">
+                  <img :src="step.logo.src" :alt="step.logo.alt">
+                </span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
+              </a>
+              <a
+                v-if="step.person"
+                class="journey-detail__person"
+                :href="step.person.href"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <img :src="step.person.image" :alt="step.person.name">
+                <span>
+                  <small>{{ step.person.role }}</small>
+                  <strong>{{ step.person.name }}</strong>
+                  <em>{{ step.person.description }}</em>
+                </span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
+              </a>
               <div v-if="step.links" class="journey-detail__links">
                 <a v-for="link in step.links" :key="link.href" :href="link.href" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>
               </div>
@@ -245,7 +275,6 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { moleculeTransition } from '../composables/moleculeTransition'
 
 let revealObserver = null
 let aboutNavObserver = null
@@ -258,12 +287,12 @@ const heroSection = ref(null)
 const productionVideo = ref(null)
 const hasProductionStarted = ref(false)
 const activeAboutSection = ref('about-hero')
+const expandedJourneyDetails = ref(new Set())
 const activeAboutIndex = computed(() => Math.max(0, aboutNavigation.findIndex(item => item.target === activeAboutSection.value)))
-const isAboutReady = computed(() => moleculeTransition.stage === 'about' || moleculeTransition.stage === 'idle')
 
 const aboutNavigation = [
-  { target: 'about-hero', label: 'Начало', shortLabel: 'Старт', icon: 'home' },
-  { target: 'journey', label: 'Система', shortLabel: 'Связи', icon: 'nodes' },
+  { target: 'about-hero', label: 'Экосистема', shortLabel: 'Система', icon: 'home' },
+  { target: 'journey', label: 'Направления', shortLabel: 'Звенья', icon: 'nodes' },
   { target: 'about-production', label: 'Производство', shortLabel: 'Лаборатория', icon: 'flask' },
   { target: 'about-goal', label: 'Цель', shortLabel: 'Цель', icon: 'target' },
   { target: 'about-standard', label: 'Миссия', shortLabel: 'Миссия', icon: 'shield' }
@@ -283,6 +312,42 @@ const scrollToJourneyDetail = (target) => {
     behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
     block: 'start'
   })
+}
+
+const updateJourneySphereParallax = (event) => {
+  if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
+  const tile = event.currentTarget
+  const bounds = tile.getBoundingClientRect()
+  const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 18
+  const y = ((event.clientY - bounds.top) / bounds.height - 0.5) * 14
+  tile.style.setProperty('--sphere-parallax-x', `${x.toFixed(1)}px`)
+  tile.style.setProperty('--sphere-parallax-y', `${y.toFixed(1)}px`)
+}
+
+const resetJourneySphereParallax = (event) => {
+  event.currentTarget.style.setProperty('--sphere-parallax-x', '0px')
+  event.currentTarget.style.setProperty('--sphere-parallax-y', '0px')
+}
+
+const getJourneyDetailText = (step) => {
+  if (!step.content) return step.text || ''
+  return [...step.content.intro, ...step.content.goals, step.content.outro].join(' ')
+}
+
+const getJourneyDetailPreview = (step) => {
+  const text = getJourneyDetailText(step).trim()
+  const previewLimit = 145
+  if (text.length <= previewLimit) return text
+  return `${text.slice(0, previewLimit).replace(/\s+\S*$/, '').trim()}…`
+}
+
+const isJourneyDetailExpanded = (id) => expandedJourneyDetails.value.has(id)
+
+const toggleJourneyDetail = (id) => {
+  const next = new Set(expandedJourneyDetails.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expandedJourneyDetails.value = next
 }
 
 const playProduction = async () => {
@@ -355,27 +420,56 @@ const journey = [
   {
     id: 'production-details',
     title: 'Производство',
+    kicker: 'Качество в каждой детали',
+    orb: '/about-assets/journey-production-sphere.png',
+    orbDelay: '-1.4s',
     role: 'Основа',
     detailTitle: 'Лицензированная фармацевтическая база',
-    text: 'ООО «КОЛОРИТ‑ФАРМА» работает на рынке более 20 лет и располагает действующей фармацевтической лицензией.'
+    text: 'ООО «КОЛОРИТ‑ФАРМА» работает на рынке более 20 лет и располагает действующей фармацевтической лицензией. За это время на нашем счету 8 препаратов от ВИЧ, один от диабета и орфанные препараты. На данный момент в аптеках продаётся принадлежащий нам препарат «Форзе Маре». Крема, пептиды, БАДы и косметика — всё это направления, с которыми работает наша команда технологов.'
   },
   {
     id: 'development-details',
     title: 'Разработка',
+    kicker: 'Технологии в движении',
+    orb: '/about-assets/journey-development-sphere.png',
+    orbDelay: '-3.2s',
     role: 'Экспертиза',
     detailTitle: 'Научная экспертиза и собственные решения',
-    text: 'Разработка осуществляется лабораторией «АТГ‑Сервис» под предводительством Ильи Владимировича Духовлинова.',
-    links: [
-      { label: 'Лаборатория «АТГ‑Сервис»', href: 'https://service-gene.ru/' },
-      { label: 'Илья Владимирович Духовлинов', href: 'https://dukhovlinov.com/' }
-    ]
+    text: 'Научную часть наших продуктов делает петербургская биотех-лаборатория АТГ Сервис Ген. Это не перепродажа чужого сырья: сначала проектируется молекула, затем собирается конструкция, нарабатывается пептид или плазмида и проверяется в лаборатории. Так устроены наши собственные разработки: плазмидный фоллистатин, фактор роста гепатоцитов, флагеллин и другие генно-инженерные формулы. За науку отвечает Илья Духовлинов — кандидат биологических наук, специалист по биохимии и генетической инженерии. Он руководит разработками в генной инженерии, рекомбинантных технологиях, пептидах, вакцинах и иммунотерапии. Именно его конструкции стоят за нашими формулами, которые нельзя просто купить как готовое сырьё и перефасовать. Среди профессиональных признаний: медаль Правительства России «Труд во имя жизни», медаль ВОИР «За заслуги в изобретательстве и рационализации» I степени, золотая медаль Международного салона изобретений в Женеве и международная медаль «За самоотверженную борьбу с коронавирусом».',
+    logo: {
+      label: 'АТГ Сервис Ген',
+      alt: 'Логотип АТГ Сервис Ген',
+      href: 'https://service-gene.ru/',
+      src: 'https://static.tildacdn.com/tild3764-6661-4366-a438-643165633936/Logo.svg'
+    },
+    person: {
+      name: 'Илья Духовлинов',
+      role: 'Научный руководитель',
+      description: 'Кандидат биологических наук',
+      href: 'https://dukhovlinov.com/',
+      image: '/about-assets/ilya-dukhovlinov.jpg'
+    }
   },
   {
     id: 'sales-details',
     title: 'Сбыт',
+    kicker: 'Результаты для людей',
+    orb: '/about-assets/journey-sales-sphere.png',
+    orbDelay: '-4.5s',
     role: 'Бренд',
     detailTitle: 'Бренд Angel Wings',
-    text: 'Сбыт осуществляется под брендом Angel Wings. Пептиды — первый шаг к генному ателье уникальных разработок.'
+    content: {
+      intro: [
+        'Рынок пептидов сейчас напоминает дикий запад: каждый кричит, что он производитель, но на самом деле просто фасует китайские готовые субстанции. Качество и цена никак не коррелируют.',
+        'Angel Wings — не просто бренд пептидов. Это наша миссия.'
+      ],
+      goals: [
+        'Дать людям товар, в качестве которого они могут быть уверены. Мы фармацевтическая компания с лицензией: наша команда занимается лекарствами, а не только «исследовательскими пептидами».',
+        'Двигать этот рынок в легальное поле. Прямо сейчас мы проводим доклинические исследования части препаратов и открываем компанию для регистрации наших пептидов и уникальных разработок.',
+        'Построить первое в мире «генное ателье».'
+      ],
+      outro: 'Пептиды — фундамент для продвижения наших уникальных генных препаратов, которые не имеют аналогов в мире. Angel Wings — база, через которую мы можем рассказать людям о наших персонализированных продуктах, таких как «сыворотка от старости».'
+    }
   }
 ]
 
@@ -413,18 +507,21 @@ onMounted(() => {
 
   revealObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
-      // Play a complementary exit before resetting, so scrolling back never
-      // makes content disappear abruptly. Re-entering removes the exit state
-      // and starts the reveal again.
-      if (entry.isIntersecting) {
+      const hasEnoughVisibility = entry.isIntersecting && entry.intersectionRatio >= 0.16
+      const hasFullyLeftViewport = entry.boundingClientRect.bottom < -48
+        || entry.boundingClientRect.top > window.innerHeight + 48
+
+      // Hysteresis prevents a block from toggling at the viewport edge: it
+      // enters only after 16% is visible, but leaves only once it is fully out.
+      if (!entry.target.classList.contains('is-visible') && hasEnoughVisibility) {
         entry.target.classList.remove('is-leaving')
         entry.target.classList.add('is-visible')
-      } else if (entry.target.classList.contains('is-visible')) {
+      } else if (entry.target.classList.contains('is-visible') && hasFullyLeftViewport) {
         entry.target.classList.remove('is-visible')
         entry.target.classList.add('is-leaving')
       }
     })
-  }, { threshold: 0.16, rootMargin: '0px 0px -9% 0px' })
+  }, { threshold: [0, 0.16], rootMargin: '48px 0px 48px 0px' })
 
   blocks.forEach(block => revealObserver.observe(block))
 
@@ -462,7 +559,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   padding: clamp(4rem, 8vh, 7.5rem) 0 clamp(5rem, 9vh, 8rem);
-  isolation: isolate;
 }
 
 .about-hero::before {
@@ -497,11 +593,13 @@ onBeforeUnmount(() => {
 
 .about-hero__container {
   width: 100%;
+  position: relative;
+  z-index: 95;
 }
 
 .about-hero__visual {
   position: absolute;
-  z-index: 2;
+  z-index: 0;
   width: min(47vw, 670px);
   aspect-ratio: 1;
   right: clamp(-4rem, -1vw, -1rem);
@@ -539,6 +637,39 @@ onBeforeUnmount(() => {
 }
 
 .about-hero__copy { position: relative; z-index: 4; }
+
+.about-hero__system {
+  position: relative;
+  z-index: 95;
+  width: 100%;
+}
+
+.system-hero-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.44fr);
+  column-gap: clamp(2rem, 8vw, 8rem);
+  align-items: end;
+  margin-bottom: clamp(2rem, 4vw, 3.6rem);
+}
+
+.system-hero-heading .section-number { grid-column: 1 / -1; margin-bottom: 1.15rem; }
+.system-hero-heading h1 {
+  max-width: 12ch;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(3.1rem, 5.2vw, 5.5rem);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.065em;
+}
+.system-hero-heading h1 em { color: var(--about-accent); font-style: italic; font-weight: inherit; }
+.system-hero-heading p {
+  max-width: 31ch;
+  margin: 0 0 0.5rem;
+  color: color-mix(in srgb, var(--text-secondary) 90%, #cbd8ff);
+  font-size: 0.98rem;
+  line-height: 1.62;
+}
 
 @media (min-width: 1120px) {
   .about-hero__copy {
@@ -846,7 +977,7 @@ onBeforeUnmount(() => {
 
 .about-hero__podium {
   position: absolute;
-  z-index: -1;
+  z-index: 0;
   width: min(48vw, 680px);
   left: calc(79% - min(24vw, 340px));
   right: auto;
@@ -966,6 +1097,7 @@ onBeforeUnmount(() => {
 
 .about-intro { opacity: 0; transform: translateY(22px); }
 .about-page.is-ready .about-intro { animation: introReveal 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.about-page.is-ready .journey-tiles--hero .about-intro { animation-delay: var(--delay, 160ms); }
 .about-intro--1 { animation-delay: 0.05s; }
 .about-intro--2 { animation-delay: 0.14s; }
 .about-intro--3 { animation-delay: 0.24s; }
@@ -1150,13 +1282,63 @@ onBeforeUnmount(() => {
 .journey-heading h2 { margin: 0; font-size: clamp(2.8rem, 5vw, 5rem); line-height: 0.95; letter-spacing: -0.05em; }
 .journey-heading p { max-width: 34ch; margin: 0 0 0.45rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.65; }
 .journey-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
-.journey-tile { position: relative; isolation: isolate; min-height: 238px; display: flex; flex-direction: column; padding: 1.45rem; overflow: hidden; border: 1px solid var(--border); border-radius: 20px; color: var(--text-primary); text-decoration: none; background: linear-gradient(145deg, rgba(158, 183, 255, 0.075), rgba(158, 183, 255, 0.01) 56%, transparent); transition: border-color 0.35s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s ease; }
-.journey-tile::before { content: ''; position: absolute; inset: auto -10% -62% 38%; z-index: -1; aspect-ratio: 1; border: 1px solid rgba(158, 183, 255, 0.2); border-radius: 50%; transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.journey-tiles--hero { position: relative; z-index: 96; margin-top: clamp(1.45rem, 2.2vw, 2.1rem); }
+.journey-tile {
+  position: relative;
+  isolation: isolate;
+  min-height: 256px;
+  display: flex;
+  flex-direction: column;
+  padding: 1.45rem;
+  overflow: hidden;
+  border: 1px solid rgba(168, 198, 255, 0.38);
+  border-radius: 26px;
+  color: var(--text-primary);
+  text-decoration: none;
+  background:
+    radial-gradient(ellipse 96% 86% at 103% 104%, rgba(22, 96, 235, 0.28), transparent 69%),
+    radial-gradient(ellipse 88% 42% at 11% -8%, rgba(218, 234, 255, 0.14), transparent 57%),
+    linear-gradient(135deg, rgba(99, 128, 205, 0.17), rgba(15, 26, 58, 0.44) 49%, rgba(3, 9, 23, 0.82));
+  box-shadow:
+    inset 0 1px 0 rgba(235, 244, 255, 0.48),
+    inset 0 -2px 0 rgba(68, 128, 255, 0.44),
+    inset 1px 0 0 rgba(221, 236, 255, 0.16),
+    inset -1px 0 0 rgba(38, 103, 234, 0.18),
+    0 18px 42px rgba(1, 6, 22, 0.36),
+    0 18px 28px -18px rgba(58, 126, 255, 0.76);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  backdrop-filter: blur(12px) saturate(130%);
+  transition: border-color 420ms ease, transform 620ms cubic-bezier(0.16, 1, 0.3, 1), background 420ms ease, box-shadow 420ms ease;
+}
+.journey-tile::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(4, 10, 27, 0.46) 0%, rgba(4, 10, 27, 0.18) 39%, transparent 67%),
+    linear-gradient(111deg, rgba(255, 255, 255, 0.19) 0%, rgba(255, 255, 255, 0.025) 13%, transparent 31%),
+    radial-gradient(ellipse 63% 31% at 13% 0%, rgba(239, 247, 255, 0.16), transparent 74%);
+  opacity: 0.9;
+}
+.journey-tile > span { position: relative; z-index: 3; }
 .journey-tile__number, .journey-detail__eyebrow { color: var(--about-accent); font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.journey-tile__kicker { max-width: 13ch; margin-top: 1.08rem; color: rgba(181, 204, 255, 0.78); font-family: var(--font-mono); font-size: 0.56rem; font-weight: 600; letter-spacing: 0.14em; line-height: 1.62; text-transform: uppercase; }
+.journey-tile__orb { position: absolute !important; z-index: 1 !important; width: 70%; right: -9%; bottom: -28%; pointer-events: none; transform: translate3d(0, 0, 0); transform-origin: 55% 55%; animation: journeyOrbFloat 5.4s cubic-bezier(0.42, 0, 0.58, 1) var(--orb-delay, 0s) infinite; will-change: transform; }
+.journey-tile__orb img { display: block; width: 100%; height: auto; filter: drop-shadow(0 18px 22px rgba(0, 45, 135, 0.34)); transform: translate3d(var(--sphere-parallax-x, 0px), var(--sphere-parallax-y, 0px), 0) rotate(-2deg) scale(1); transform-origin: 55% 55%; transition: transform 760ms cubic-bezier(0.16, 1, 0.3, 1), filter 760ms ease; will-change: transform; }
+.journey-tile:nth-child(2) .journey-tile__orb { width: 74%; right: -14%; bottom: -30%; }
+.journey-tile:nth-child(2) .journey-tile__orb img { transform: translate3d(var(--sphere-parallax-x, 0px), var(--sphere-parallax-y, 0px), 0) rotate(4deg) scale(1); }
+.journey-tile:nth-child(3) .journey-tile__orb { width: 71%; right: -9%; bottom: -31%; }
+.journey-tile:nth-child(3) .journey-tile__orb img { transform: translate3d(var(--sphere-parallax-x, 0px), var(--sphere-parallax-y, 0px), 0) rotate(-5deg) scale(1); }
 .journey-tile__title { margin-top: auto; font-family: var(--font-display); font-size: clamp(1.5rem, 2.2vw, 2.05rem); line-height: 1.02; letter-spacing: -0.035em; }
-.journey-tile__action { display: inline-flex; align-items: center; gap: 0.55rem; margin-top: 1.2rem; color: var(--about-accent); font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.journey-tile__action { display: inline-flex; align-items: center; gap: 0.55rem; margin-top: 1.2rem; color: rgba(158, 183, 255, 0.88); font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; transition: color 300ms ease; }
 .journey-tile__action svg { width: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; transition: transform 0.35s ease; }
-.journey-details { display: grid; gap: 0; margin-top: clamp(2.5rem, 5vw, 5rem); border-top: 1px solid var(--border); }
+.journey-details-heading { margin-bottom: clamp(2.25rem, 4vw, 4rem); }
+.journey-details-heading h2 { margin: 1.15rem 0 0; font-size: clamp(2.5rem, 4.6vw, 4.8rem); line-height: 0.94; letter-spacing: -0.055em; }
+.journey-details-heading h2 em { color: var(--about-accent); font-style: italic; }
+.journey-details { display: grid; gap: 0; margin-top: 0; border-top: 1px solid var(--border); }
 .journey-details--standalone { margin-top: 0; }
 .journey-detail { display: grid; grid-template-columns: minmax(130px, 0.23fr) minmax(0, 1fr); gap: 1.5rem; padding: clamp(2rem, 3.4vw, 3.5rem) 0; border-bottom: 1px solid var(--border); scroll-margin-top: calc(var(--header-height, 76px) + 2rem); }
 .journey-detail__marker { display: inline-flex; align-items: center; gap: 0.7rem; align-self: start; padding-top: 0.35rem; color: var(--about-accent); font-family: var(--font-mono); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.14em; line-height: 1.2; text-transform: uppercase; }
@@ -1164,12 +1346,68 @@ onBeforeUnmount(() => {
 .journey-detail > div { max-width: 760px; }
 .journey-detail h3 { margin: 0.7rem 0 0.85rem; font-family: var(--font-display); font-size: clamp(1.7rem, 3vw, 2.8rem); line-height: 1.04; letter-spacing: -0.04em; }
 .journey-detail p { max-width: 60ch; color: var(--text-secondary); font-size: 1rem; line-height: 1.7; }
+.journey-detail__rich { display: grid; gap: 1.15rem; }
+.journey-detail__rich p { margin: 0; }
+.journey-detail__text { margin: 0; }
+.journey-detail__expand { display: inline-flex; align-items: center; gap: 0.55rem; margin-top: 1.15rem; padding: 0.68rem 0.9rem; border: 1px solid color-mix(in srgb, var(--about-accent) 44%, transparent); border-radius: 999px; outline: none; appearance: none; -webkit-appearance: none; background: color-mix(in srgb, var(--about-accent) 9%, transparent); color: var(--about-accent); font-family: inherit; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.04em; cursor: pointer; transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease; }
+.journey-detail__expand:hover { background: color-mix(in srgb, var(--about-accent) 17%, transparent); border-color: color-mix(in srgb, var(--about-accent) 72%, transparent); transform: translateY(-1px); }
+.journey-detail__expand:focus-visible { outline: 2px solid var(--about-accent); outline-offset: 3px; }
+.journey-detail__expand svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+.journey-detail__expand[aria-expanded='true'] svg { transform: rotate(180deg); }
+.journey-detail__partner-mark { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 180px) 18px; align-items: center; gap: 1rem; max-width: 520px; margin-top: 1.1rem; padding: 0.85rem 0.95rem 0.85rem 1.05rem; overflow: hidden; border: 1px solid rgba(158, 183, 255, 0.28); border-radius: 18px; color: var(--text-primary); text-decoration: none; background: linear-gradient(118deg, rgba(124, 153, 235, 0.15), rgba(12, 19, 39, 0.45)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
+.journey-detail__partner-copy { display: grid; gap: 0.28rem; min-width: 0; }
+.journey-detail__partner-copy small { color: var(--about-accent); font-family: var(--font-mono); font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.journey-detail__partner-copy strong { font-size: 0.91rem; line-height: 1.2; }
+.journey-detail__partner-logo { display: grid; place-items: center; min-height: 54px; padding: 0.38rem 0.7rem; background: transparent; }
+.journey-detail__partner-logo img { display: block; width: 100%; max-height: 45px; object-fit: contain; }
+.journey-detail__partner-mark > svg { width: 18px; height: 18px; fill: none; stroke: var(--about-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform 180ms ease; }
+.journey-detail__partner-mark:hover { border-color: rgba(158, 183, 255, 0.58); background: linear-gradient(118deg, rgba(124, 153, 235, 0.23), rgba(12, 19, 39, 0.5)); transform: translateY(-2px); }
+.journey-detail__partner-mark:hover > svg { transform: translate(2px, -2px); }
+.journey-detail__person { display: grid; grid-template-columns: 76px minmax(0, 1fr) 18px; align-items: center; gap: 0.9rem; max-width: 520px; margin-top: 0.75rem; padding: 0.58rem 0.86rem 0.58rem 0.58rem; overflow: hidden; border: 1px solid rgba(158, 183, 255, 0.26); border-radius: 18px; color: var(--text-primary); text-decoration: none; background: linear-gradient(118deg, rgba(99, 128, 207, 0.15), rgba(8, 14, 30, 0.5)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
+.journey-detail__person > img { display: block; width: 76px; height: 88px; border-radius: 12px; object-fit: cover; object-position: 56% 28%; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28); }
+.journey-detail__person > span { display: grid; gap: 0.23rem; min-width: 0; }
+.journey-detail__person small { color: var(--about-accent); font-family: var(--font-mono); font-size: 0.58rem; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; }
+.journey-detail__person strong { font-size: 0.96rem; line-height: 1.18; }
+.journey-detail__person em { color: var(--text-secondary); font-size: 0.78rem; font-style: normal; line-height: 1.35; }
+.journey-detail__person > svg { width: 18px; height: 18px; fill: none; stroke: var(--about-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform 180ms ease; }
+.journey-detail__person:hover { border-color: rgba(158, 183, 255, 0.58); background: linear-gradient(118deg, rgba(111, 143, 224, 0.24), rgba(8, 14, 30, 0.55)); transform: translateY(-2px); }
+.journey-detail__person:hover > svg { transform: translate(2px, -2px); }
+.journey-detail__goals {
+  margin: 0.55rem 0;
+  padding: clamp(1.15rem, 2.3vw, 1.65rem);
+  overflow: hidden;
+  border: 1px solid rgba(158, 183, 255, 0.24);
+  border-radius: 20px;
+  background:
+    radial-gradient(ellipse 75% 80% at 100% 0%, rgba(94, 139, 255, 0.14), transparent 72%),
+    linear-gradient(135deg, rgba(151, 179, 255, 0.1), rgba(11, 18, 36, 0.2));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.journey-detail__goals > span {
+  display: block;
+  margin-bottom: 1.1rem;
+  color: var(--about-accent);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.journey-detail__goals ol { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.journey-detail__goals li { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); gap: 0.8rem; align-items: start; }
+.journey-detail__goals li + li { padding-top: 1rem; border-top: 1px solid rgba(158, 183, 255, 0.16); }
+.journey-detail__goals b { padding-top: 0.28rem; color: var(--about-accent); font-family: var(--font-mono); font-size: 0.64rem; letter-spacing: 0.1em; }
+.journey-detail__goals li p { max-width: none; color: color-mix(in srgb, var(--text-secondary) 92%, #e4ecff); font-size: 0.95rem; line-height: 1.62; }
 .journey-detail__links { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; margin-top: 1.2rem; }
 .journey-detail__links a { color: #dce6ff; font-size: 0.88rem; font-weight: 700; text-decoration: none; border-bottom: 1px solid rgba(158, 183, 255, 0.7); text-underline-offset: 0.25em; }
 
 @media (hover: hover) and (pointer: fine) {
-  .journey-tile:hover { transform: translateY(-7px); border-color: rgba(158, 183, 255, 0.6); background: linear-gradient(145deg, rgba(158, 183, 255, 0.13), rgba(158, 183, 255, 0.025) 56%, transparent); }
-  .journey-tile:hover::before { transform: scale(1.22); }
+  .journey-tile:hover { transform: translateY(-6px) scale(1.012); border-color: rgba(196, 221, 255, 0.72); background: radial-gradient(ellipse 96% 86% at 103% 104%, rgba(26, 108, 255, 0.36), transparent 69%), radial-gradient(ellipse 88% 42% at 11% -8%, rgba(226, 239, 255, 0.2), transparent 57%), linear-gradient(135deg, rgba(109, 143, 224, 0.23), rgba(18, 34, 74, 0.5) 49%, rgba(3, 9, 23, 0.78)); box-shadow: inset 0 1px 0 rgba(241, 248, 255, 0.66), inset 0 -2px 0 rgba(84, 143, 255, 0.7), inset 1px 0 0 rgba(221, 236, 255, 0.26), 0 24px 52px rgba(1, 6, 22, 0.42), 0 20px 34px -16px rgba(55, 128, 255, 0.92); }
+  .journey-tile:hover::after { animation: journeyGlassSheen 2.8s ease-in-out infinite; }
+  .journey-tile:hover .journey-tile__orb img { filter: drop-shadow(0 22px 28px rgba(20, 96, 255, 0.48)); transform: translate3d(var(--sphere-parallax-x, 0px), calc(var(--sphere-parallax-y, 0px) - 5px), 0) rotate(1deg) scale(1.06); }
+  .journey-tile:nth-child(2):hover .journey-tile__orb img { transform: translate3d(var(--sphere-parallax-x, 0px), calc(var(--sphere-parallax-y, 0px) - 5px), 0) rotate(7deg) scale(1.06); }
+  .journey-tile:nth-child(3):hover .journey-tile__orb img { transform: translate3d(var(--sphere-parallax-x, 0px), calc(var(--sphere-parallax-y, 0px) - 5px), 0) rotate(-2deg) scale(1.06); }
+  .journey-tile:hover .journey-tile__action { color: #dce8ff; }
   .journey-tile:hover .journey-tile__action svg { transform: translateX(5px); }
   .journey-detail__links a:hover { color: #fff; border-color: #fff; }
 }
@@ -1667,6 +1905,16 @@ onBeforeUnmount(() => {
   to { opacity: 1; transform: translate3d(0, 0, 0) scaleX(0.86); filter: blur(0); }
 }
 
+@keyframes journeyOrbFloat {
+  0%, 100% { transform: translate3d(0, -4px, 0); }
+  50% { transform: translate3d(0, 4px, 0); }
+}
+
+@keyframes journeyGlassSheen {
+  0%, 100% { background-position: 0 0, 0 0, 0 0; }
+  50% { background-position: 17% 0, -11% 0, 0 0; }
+}
+
 [data-theme="light"] .about-page { --about-accent: #5278df; --about-accent-strong: #315dcc; }
 [data-theme="light"] .about-dock {
   border-color: rgba(72, 96, 152, 0.22);
@@ -1682,6 +1930,20 @@ onBeforeUnmount(() => {
     radial-gradient(ellipse 25% 35% at 92% 68%, rgba(71, 120, 220, 0.08), transparent 78%),
     linear-gradient(120deg, #fafbff, #edf2fd 72%, #f8faff);
 }
+[data-theme="light"] .journey-tile {
+  border-color: rgba(87, 115, 184, 0.26);
+  color: #17213d;
+  background: linear-gradient(132deg, rgba(255, 255, 255, 0.66), rgba(217, 229, 255, 0.38) 48%, rgba(196, 213, 255, 0.28)), rgba(236, 242, 255, 0.44);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84), inset 0 -1px 0 rgba(85, 112, 183, 0.14), 0 18px 42px rgba(69, 89, 141, 0.16);
+}
+[data-theme="light"] .journey-tile::after { background: radial-gradient(ellipse 70% 36% at 20% 0%, rgba(255, 255, 255, 0.7), transparent 74%), linear-gradient(112deg, rgba(255, 255, 255, 0.4), transparent 68%, rgba(109, 143, 231, 0.13)); }
+[data-theme="light"] .journey-detail__goals { border-color: rgba(73, 107, 191, 0.2); background: radial-gradient(ellipse 75% 80% at 100% 0%, rgba(94, 139, 255, 0.12), transparent 72%), linear-gradient(135deg, rgba(244, 248, 255, 0.88), rgba(223, 233, 255, 0.48)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88); }
+[data-theme="light"] .journey-detail__goals li + li { border-color: rgba(73, 107, 191, 0.14); }
+[data-theme="light"] .journey-detail__goals li p { color: rgba(30, 45, 82, 0.78); }
+[data-theme="light"] .journey-detail__expand { background: rgba(85, 120, 214, 0.08); border-color: rgba(78, 112, 202, 0.32); }
+[data-theme="light"] .journey-detail__expand:hover { background: rgba(85, 120, 214, 0.15); border-color: rgba(78, 112, 202, 0.58); }
+[data-theme="light"] .journey-detail__partner-mark { border-color: rgba(78, 112, 202, 0.25); background: linear-gradient(118deg, rgba(224, 233, 255, 0.88), rgba(255, 255, 255, 0.72)); color: #1b294d; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92); }
+[data-theme="light"] .journey-detail__person { border-color: rgba(78, 112, 202, 0.25); background: linear-gradient(118deg, rgba(224, 233, 255, 0.88), rgba(255, 255, 255, 0.72)); color: #1b294d; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92); }
 [data-theme="light"] .hero-backdrop__monogram { -webkit-text-stroke-color: #5278df; }
 [data-theme="light"] .principle-card {
   --principle-number-stroke: rgba(49, 93, 204, 0.2);
@@ -1749,6 +2011,11 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
+  .about-page {
+    opacity: 1;
+    transition: none;
+  }
+
   .about-dock {
     bottom: calc(1.25rem + env(safe-area-inset-bottom));
     width: min(360px, calc(100vw - 2rem));
@@ -1774,8 +2041,8 @@ onBeforeUnmount(() => {
   .about-dock__label-short { display: inline; }
 
   .about-hero {
-    min-height: max(58rem, 125svh);
-    padding: 2.2rem 0 clamp(16rem, 68vw, 20rem);
+    min-height: max(51rem, 108svh);
+    padding: 2.2rem 0 clamp(8rem, 26vw, 10rem);
   }
   .about-hero::before { width: 110vw; height: 44vh; right: -35%; top: auto; bottom: 10%; opacity: 0.42; }
   .about-hero__podium {
@@ -1789,6 +2056,10 @@ onBeforeUnmount(() => {
   .about-hero__molecule { width: min(72vw, 330px); right: -10vw; top: 1rem; opacity: 0.38; }
   .about-hero__container { display: flex; flex-direction: column; gap: 0.5rem; }
   .about-hero__copy { width: 100%; max-width: 100%; }
+  .system-hero-heading { display: block; margin-bottom: 1.5rem; }
+  .system-hero-heading .section-number { display: flex; margin-bottom: 1.1rem; }
+  .system-hero-heading h1 { max-width: 9ch; font-size: clamp(2.55rem, 11.4vw, 3.8rem); line-height: 0.93; }
+  .system-hero-heading p { margin: 1rem 0 0; font-size: 0.86rem; line-height: 1.55; }
   .about-eyebrow { gap: 0.65rem; font-size: 0.59rem; letter-spacing: 0.17em; }
   .about-eyebrow span { width: 30px; }
   .about-hero__title { max-width: 100%; margin: 1.2rem 0 0; font-size: clamp(2.65rem, 11.4vw, 3.8rem); line-height: 0.94; letter-spacing: -0.055em; }
@@ -1832,14 +2103,33 @@ onBeforeUnmount(() => {
   .journey-heading h2 { margin: 0; font-size: clamp(2.3rem, 10.5vw, 3.4rem); }
   .journey-heading p { margin: 1.1rem 0 0; font-size: 0.9rem; }
   .journey-tiles { grid-template-columns: 1fr; gap: 0.75rem; }
-  .journey-tile { min-height: 158px; padding: 1.15rem; border-radius: 17px; }
-  .journey-tile__title { margin-top: auto; font-size: 1.45rem; }
-  .journey-tile__action { margin-top: 0.75rem; }
+  .journey-tiles--hero { margin-top: 1.35rem; }
+  .journey-tile { min-height: 178px; padding: 1rem 1.1rem; border-radius: 20px; }
+  .journey-tile__kicker { max-width: 13ch; margin-top: 0.7rem; font-size: 0.5rem; }
+  .journey-tile__orb { width: 56%; right: -3%; bottom: -36%; animation-duration: 6.2s; }
+  .journey-tile:nth-child(2) .journey-tile__orb { width: 60%; right: -6%; bottom: -39%; }
+  .journey-tile:nth-child(3) .journey-tile__orb { width: 58%; right: -4%; bottom: -40%; }
+  .journey-tile__title { margin-top: auto; font-size: 1.32rem; }
+  .journey-tile__action { margin-top: 0.62rem; }
   .journey-details { margin-top: 2.5rem; }
+  .journey-details-heading { margin-bottom: 2rem; }
+  .journey-details-heading h2 { font-size: clamp(2.2rem, 10vw, 3.2rem); }
   .journey-detail { grid-template-columns: 1fr; gap: 0.7rem; padding: 2rem 0; }
   .journey-detail__marker { padding-top: 0; }
   .journey-detail h3 { margin-top: 0.45rem; font-size: 1.65rem; }
   .journey-detail p { font-size: 0.9rem; line-height: 1.65; }
+  .journey-detail__expand { margin-top: 1rem; padding: 0.64rem 0.82rem; font-size: 0.73rem; }
+  .journey-detail__partner-mark { grid-template-columns: minmax(0, 1fr) 122px 16px; gap: 0.6rem; padding: 0.72rem 0.76rem 0.72rem 0.85rem; border-radius: 15px; }
+  .journey-detail__partner-copy strong { font-size: 0.8rem; }
+  .journey-detail__partner-logo { min-height: 46px; padding: 0.3rem 0.5rem; }
+  .journey-detail__partner-logo img { max-height: 36px; }
+  .journey-detail__person { grid-template-columns: 64px minmax(0, 1fr) 16px; gap: 0.68rem; padding: 0.48rem 0.68rem 0.48rem 0.48rem; border-radius: 15px; }
+  .journey-detail__person > img { width: 64px; height: 74px; border-radius: 10px; }
+  .journey-detail__person strong { font-size: 0.86rem; }
+  .journey-detail__person em { font-size: 0.71rem; }
+  .journey-detail__goals { padding: 1.1rem; border-radius: 17px; }
+  .journey-detail__goals li { grid-template-columns: 1.8rem minmax(0, 1fr); gap: 0.65rem; }
+  .journey-detail__goals li p { font-size: 0.87rem; line-height: 1.58; }
 
   .about-section--production { padding: 4.5rem 0; }
   .production-layout { display: block; }
@@ -1867,6 +2157,19 @@ onBeforeUnmount(() => {
   .about-cta__inner { grid-template-columns: 1fr auto; gap: 1rem; }
   .about-cta__inner > span { grid-column: 1 / -1; }
   .about-cta__link { width: 58px; height: 58px; }
+
+  /* Mobile browsers can delay IntersectionObserver callbacks after a route
+     restore, leaving whole sections transparent. Content must never depend
+     on the reveal observer at this breakpoint. */
+  .about-intro,
+  .reveal-block,
+  .reveal-block.is-leaving {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    pointer-events: auto;
+    animation: none !important;
+  }
 }
 
 @media (max-width: 420px) {
@@ -1881,7 +2184,7 @@ onBeforeUnmount(() => {
 
 @media (min-width: 540px) and (max-width: 768px) {
   .about-hero {
-    min-height: max(53rem, 100svh);
+    min-height: max(48rem, 96svh);
   }
   .about-hero__podium { bottom: -1.25rem; }
 }
@@ -1897,6 +2200,7 @@ onBeforeUnmount(() => {
   .about-hero__molecule-frame,
   .about-hero__molecule-float { transform: none !important; transition: none; }
   .about-hero__molecule { opacity: 1; transform: none !important; }
+  .journey-tile__orb { animation: none !important; }
   .about-intro,
   .reveal-block { opacity: 1; transform: none; transition: none; animation: none !important; }
   .journey-step,

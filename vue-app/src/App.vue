@@ -613,18 +613,17 @@ onMounted(() => {
   }
 
   const updatePageActivity = () => {
-    const isInactive = document.hidden || !document.hasFocus()
+    // `document.hasFocus()` becomes false when mobile DevTools or the browser
+    // chrome receives focus, even while the page is fully visible. Pausing all
+    // animations in that state freezes elements on their opacity: 0 keyframe.
+    const isInactive = document.visibilityState === 'hidden'
     document.documentElement.classList.toggle('is-page-inactive', isInactive)
   }
 
   updatePageActivity()
   document.addEventListener('visibilitychange', updatePageActivity)
-  window.addEventListener('blur', updatePageActivity)
-  window.addEventListener('focus', updatePageActivity)
   removePageActivityListener = () => {
     document.removeEventListener('visibilitychange', updatePageActivity)
-    window.removeEventListener('blur', updatePageActivity)
-    window.removeEventListener('focus', updatePageActivity)
   }
 
   // Some mobile browsers restore an inactive tab from their page cache with the
@@ -643,6 +642,16 @@ onMounted(() => {
 
       await router.isReady()
       await nextTick()
+
+      // Timers are suspended while a mobile tab is in the background. If that
+      // happens during the molecule transition, it can remain in its hidden
+      // "center" frame forever. Resolve the transition before checking the
+      // router view so restored pages are always readable.
+      if (moleculeTransition.isRunning || ['exiting', 'center', 'arriving'].includes(moleculeTransition.stage)) {
+        moleculeTransition.isRunning = false
+        moleculeTransition.stage = route.path === '/' ? 'home' : route.path === '/about' ? 'about' : 'idle'
+        await nextTick()
+      }
 
       const routeContent = document.querySelector('.main > *')
       if (forceReload || !routeContent) reloadCurrentRoute()
@@ -1189,6 +1198,16 @@ html.is-page-inactive *::after {
 }
 
 @media (max-width: 768px) {
+  /* Never conceal page content while a mobile browser resumes a suspended
+     molecule transition. The visual transition remains decorative only. */
+  .app--molecule-exiting .main,
+  .app--molecule-center .main {
+    opacity: 1;
+    filter: none;
+    pointer-events: auto;
+    transform: none;
+  }
+
   /* Some mobile WebM decoders flatten alpha to black. Blend the whole composited video layer, not its hardware video surface. */
   .molecule-transition {
     width: min(90vw, 420px);

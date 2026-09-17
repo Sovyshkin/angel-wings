@@ -129,7 +129,7 @@
                 width="720"
                 height="1080"
                 loading="eager"
-                decoding="async"
+                decoding="sync"
                 fetchpriority="high"
               >
             </div>
@@ -141,7 +141,7 @@
                 width="1200"
                 height="676"
                 loading="eager"
-                decoding="async"
+                decoding="sync"
                 fetchpriority="high"
               >
             </div>
@@ -2684,6 +2684,28 @@ function queueHeroScrollProgress() {
   }
 }
 
+@keyframes heroPenRevealMobile {
+  from {
+    opacity: 0;
+    transform: translate3d(-50%, -42px, 0) rotate(7deg);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0) rotate(10deg);
+  }
+}
+
+@keyframes heroPlatformRevealMobile {
+  from {
+    opacity: 0;
+    transform: translate3d(44px, 0, 0) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 @keyframes heroOrbitReveal {
   0% {
     --hero-orbit-enter-scale: 0;
@@ -4666,13 +4688,9 @@ function queueHeroScrollProgress() {
     top: 3%;
     width: clamp(178px, 48vw, 218px);
     height: clamp(260px, 69vw, 318px);
-    transform:
-      translate3d(
-        calc(-50% + var(--hero-idle-x)),
-        calc(var(--hero-pen-enter-y) + var(--hero-idle-y) + (var(--hero-scroll-progress) * -165px)),
-        80px
-      )
-      rotate(calc(10deg + var(--hero-idle-rotate)));
+    transform: translate3d(-50%, 0, 0) rotate(10deg);
+    opacity: 1;
+    animation: heroPenRevealMobile 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both;
   }
 
   .hero-platform {
@@ -4681,12 +4699,9 @@ function queueHeroScrollProgress() {
     width: 76%;
     bottom: -28%;
     height: 34%;
-    transform: translate3d(
-      calc(var(--hero-platform-enter-x) + var(--hero-idle-x) + (var(--hero-scroll-progress) * 170px)),
-      var(--hero-idle-y),
-      0
-    )
-    rotate(var(--hero-idle-rotate));
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+    animation: heroPlatformRevealMobile 0.82s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
   }
 
   .hero-platform img {
