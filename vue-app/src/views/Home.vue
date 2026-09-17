@@ -9,12 +9,12 @@
       <img class="home-global-decor__item home-global-decor__item--molecule-6" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
       <img class="home-global-decor__item home-global-decor__item--molecule-7" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
       <img class="home-global-decor__item home-global-decor__item--molecule-8" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-1" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-2" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-3" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-4" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-5" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-6" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-1" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-2" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-3" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-4" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-5" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+      <img class="home-global-decor__item home-global-decor__item--drop-6" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
     </div>
 
     <section class="hero">
@@ -106,19 +106,19 @@
             </div>
 
             <div class="hero-sphere hero-sphere--top">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--right">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--orbit">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--far-left">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
             </div>
             <div class="hero-sphere hero-sphere--far-right">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
+              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
             </div>
 
             <div class="hero-pen-wrap">
@@ -136,10 +136,10 @@
 
             <div class="hero-platform">
               <img
-                src="/hero-assets/подставка.png"
+                src="/hero-assets/подставка-1200.webp"
                 alt=""
-                width="1672"
-                height="941"
+                width="1200"
+                height="676"
                 loading="eager"
                 decoding="async"
                 fetchpriority="high"
@@ -154,8 +154,8 @@
       <div class="section-decor section-decor--features" aria-hidden="true">
         <img class="section-decor__molecule section-decor__molecule--features-main" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
         <img class="section-decor__molecule section-decor__molecule--features-soft" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--features-top" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--features-low" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--features-top" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--features-low" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
       </div>
       <div class="container">
         <div class="features-panel" data-aos="fade-up" data-aos-delay="100">
@@ -242,9 +242,9 @@
       <div class="section-decor section-decor--categories" aria-hidden="true">
         <img class="section-decor__molecule section-decor__molecule--categories-main" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
         <img class="section-decor__molecule section-decor__molecule--categories-soft" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--categories-top" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--categories-mid" src="/hero-assets/капелька-2.png" alt="" width="1311" height="1200" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--categories-low" src="/hero-assets/капелька-1.png" alt="" width="1312" height="1199" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--categories-top" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--categories-mid" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
+        <img class="section-decor__drop section-decor__drop--categories-low" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
       </div>
       <div class="container">
         <div class="section-header" data-aos="fade-up">
