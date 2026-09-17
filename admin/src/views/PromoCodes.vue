@@ -246,6 +246,7 @@ const error = ref('')
 const loadingForm = ref(false)
 const filterPartnerId = ref(null)
 const search = ref('')
+const PROMO_CODES_PAGE_SIZE = 200
 
 const form = ref({
   code: '',
@@ -289,10 +290,32 @@ const filteredPromoCodes = computed(() => {
 })
 
 async function fetchPromoCodes() {
+  loading.value = true
   try {
-    const params = filterPartnerId.value ? { partnerId: filterPartnerId.value } : {}
-    const { data } = await axios.get(PROMO_CODES_URL, { params })
-    promoCodes.value = data.promoCodes
+    const baseParams = filterPartnerId.value ? { partnerId: filterPartnerId.value } : {}
+    const allPromoCodes = []
+    let offset = 0
+    let total = Infinity
+
+    while (allPromoCodes.length < total) {
+      const { data } = await axios.get(PROMO_CODES_URL, {
+        params: {
+          ...baseParams,
+          limit: PROMO_CODES_PAGE_SIZE,
+          offset,
+          _fresh: Date.now()
+        },
+        headers: { 'Cache-Control': 'no-cache' }
+      })
+      const batch = Array.isArray(data?.promoCodes) ? data.promoCodes : []
+      total = Number(data?.total ?? batch.length)
+      allPromoCodes.push(...batch)
+
+      if (!batch.length) break
+      offset += batch.length
+    }
+
+    promoCodes.value = allPromoCodes
   } catch (e) {
     console.error(e)
   } finally {
