@@ -390,8 +390,8 @@
               <span class="promo-discount">
                 {{ code.discountType === 'percentage' ? code.discountValue + '%' : formatCurrency(code.discountValue) }}
               </span>
-              <span :class="['badge', code.isActive ? 'badge-success' : 'badge-danger']">
-                {{ code.isActive ? 'Активен' : 'Отключён' }}
+              <span :class="['badge', getPromoCodeStatus(code).active ? 'badge-success' : 'badge-danger']">
+                {{ getPromoCodeStatus(code).label }}
               </span>
             </div>
           </div>
@@ -458,7 +458,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
@@ -508,7 +508,10 @@ async function fetchPartner() {
   loadError.value = ''
   partner.value = null
   try {
-    const { data } = await axios.get(`${API_URL}/${route.params.id}`)
+    const { data } = await axios.get(`${API_URL}/${route.params.id}`, {
+      params: { _fresh: Date.now() },
+      headers: { 'Cache-Control': 'no-cache' }
+    })
     partner.value = data.partner
     percentage.value = data.partner.percentage
   } catch (e) {
@@ -686,6 +689,27 @@ function formatCurrency(value) {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(value)
 }
 
+function getPromoCodeStatus(code) {
+  const now = Date.now()
+  const startsAt = code?.startDate ? new Date(code.startDate).getTime() : null
+  const endsAt = code?.endDate ? new Date(code.endDate).getTime() : null
+  const activationCount = Number(code?.activationCount || 0)
+  const maxActivations = Number(code?.maxActivations || 0)
+
+  if (!code?.isActive) return { active: false, label: 'Отключён' }
+  if (startsAt && startsAt > now) return { active: false, label: 'Ещё не действует' }
+  if (endsAt && endsAt < now) return { active: false, label: 'Истёк' }
+  if (code?.usageType === 'single' && activationCount >= 1) return { active: false, label: 'Использован' }
+  if (code?.usageType === 'multi' && maxActivations > 0 && activationCount >= maxActivations) {
+    return { active: false, label: 'Лимит исчерпан' }
+  }
+  return { active: true, label: 'Активен' }
+}
+
+function refreshPartnerOnFocus() {
+  if (document.visibilityState === 'visible') fetchPartner()
+}
+
 function formatDate(date) {
   return new Date(date).toLocaleDateString('ru-RU', {
     year: 'numeric',
@@ -768,6 +792,13 @@ function getStatusLabel(status) {
 onMounted(() => {
   fetchPartner()
   fetchBalanceHistory(true)
+  window.addEventListener('focus', refreshPartnerOnFocus)
+  document.addEventListener('visibilitychange', refreshPartnerOnFocus)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', refreshPartnerOnFocus)
+  document.removeEventListener('visibilitychange', refreshPartnerOnFocus)
 })
 </script>
 

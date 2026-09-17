@@ -1549,6 +1549,16 @@ async function validatePromoCode(options = {}) {
   }
 }
 
+function refreshPromoValidation() {
+  if (
+    document.visibilityState === 'visible' &&
+    promoCodeNormalized.value &&
+    authStore.isAuthenticated
+  ) {
+    validatePromoCode({ silent: true })
+  }
+}
+
 async function fetchPartnerBalance() {
   if (!authStore.isAuthenticated) {
     hasPartnerBalanceAccess.value = false
@@ -2928,6 +2938,12 @@ onMounted(async () => {
   if (savedDelivery.deliveryInfo) {
     deliveryInfo.value = savedDelivery.deliveryInfo
   }
+
+  if (promoCodeNormalized.value && authStore.isAuthenticated) {
+    await validatePromoCode({ silent: true })
+  }
+  window.addEventListener('focus', refreshPromoValidation)
+  document.addEventListener('visibilitychange', refreshPromoValidation)
 })
 
 watch(() => authStore.user, () => {
@@ -3057,6 +3073,8 @@ watch(() => authStore.isAuthenticated, (isAuthenticated) => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('focus', refreshPromoValidation)
+  document.removeEventListener('visibilitychange', refreshPromoValidation)
   if (promoValidateTimer) clearTimeout(promoValidateTimer)
   if (additionPreviewTimer) clearTimeout(additionPreviewTimer)
   if (deliveryRecalculationTimer) clearTimeout(deliveryRecalculationTimer)

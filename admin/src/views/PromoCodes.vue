@@ -338,9 +338,9 @@ async function deletePromoCode(id) {
   if (!confirm('Удалить промокод?')) return
   try {
     await axios.delete(`${PROMO_CODES_URL}/${id}`)
-    promoCodes.value = promoCodes.value.filter(pc => pc.id !== id)
+    await fetchPromoCodes()
   } catch (e) {
-    alert('Ошибка удаления')
+    alert(e.response?.data?.error || 'Не удалось удалить промокод')
   }
 }
 

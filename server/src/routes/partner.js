@@ -84,6 +84,7 @@ async function sendPartnerCreditEmail({ partner, amount, comment }) {
 // Resource routes - placed before /:id to avoid conflicts
 router.get('/promo-codes', authenticate, requireAdmin, async (req, res, next) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
     const { limit = 50, offset = 0, partnerId } = req.query
 
     const where = partnerId ? { partnerId: parseInt(partnerId) } : {}
@@ -213,11 +214,27 @@ router.put('/promo-codes/:id', authenticate, requireAdmin, async (req, res, next
 
 router.delete('/promo-codes/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    await prisma.promoCode.delete({
-      where: { id: parseInt(req.params.id) }
+    const promoCodeId = parseInt(req.params.id, 10)
+
+    if (!Number.isInteger(promoCodeId)) {
+      return res.status(400).json({ error: 'Некорректный идентификатор промокода' })
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // A code can remain referenced by partner bindings created through it.
+      // Keep the partner binding but remove the deleted promo-code reference.
+      await tx.partnerUser.updateMany({
+        where: { promoCodeId },
+        data: { promoCodeId: null }
+      })
+
+      await tx.promoCode.delete({
+        where: { id: promoCodeId }
+      })
     })
 
-    res.json({ message: 'Promo code deleted' })
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+    res.json({ message: 'Promo code deleted', id: promoCodeId })
   } catch (error) {
     next(error)
   }
@@ -903,6 +920,7 @@ router.put('/:id', authenticate, requireAdmin, async (req, res, next) => {
 
 router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
     const partner = await prisma.partner.findUnique({
       where: { id: parseInt(req.params.id) },
       include: {
