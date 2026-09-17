@@ -375,17 +375,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import axios from 'axios'
 import deliveryApi from '../api/delivery'
-
-// Global axios error handler - prevents crashes on API errors
-axios.interceptors.response.use(
-  response => response,
-  error => {
-    console.warn('API error:', error.response?.status, error.config?.url)
-    return Promise.resolve({ data: null, error: true })
-  }
-)
 
 const activeTab = ref('orders')
 
