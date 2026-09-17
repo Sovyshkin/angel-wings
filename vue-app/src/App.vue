@@ -449,10 +449,12 @@ const telegramWidget = ref(null)
 const telegramChatOpen = ref(false)
 const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
 const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
+const TAB_RESUME_RELOAD_AFTER_MS = 10_000
 let cursorFrameId = 0
 let removeCursorMoveListener = null
 let removePageActivityListener = null
 let removeTelegramWidgetListeners = null
+let removeRouteRecoveryListeners = null
 
 const waitFor = (duration) => new Promise(resolve => window.setTimeout(resolve, duration))
 
@@ -625,6 +627,48 @@ onMounted(() => {
     window.removeEventListener('focus', updatePageActivity)
   }
 
+  // Some mobile browsers restore an inactive tab from their page cache with the
+  // persistent App shell intact but an empty router-view. Keep the current URL
+  // and recover the route before the user sees a blank page.
+  let hiddenAt = 0
+  let reloadQueued = false
+  const reloadCurrentRoute = () => {
+    if (reloadQueued) return
+    reloadQueued = true
+    window.location.reload()
+  }
+  const checkRouteAfterResume = (forceReload = false) => {
+    window.setTimeout(async () => {
+      if (document.visibilityState !== 'visible') return
+
+      await router.isReady()
+      await nextTick()
+
+      const routeContent = document.querySelector('.main > *')
+      if (forceReload || !routeContent) reloadCurrentRoute()
+    }, 0)
+  }
+  const recoverRouteOnVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now()
+      return
+    }
+
+    const wasInactiveLongEnough = hiddenAt > 0 && Date.now() - hiddenAt >= TAB_RESUME_RELOAD_AFTER_MS
+    hiddenAt = 0
+    checkRouteAfterResume(wasInactiveLongEnough)
+  }
+  const recoverRouteFromPageCache = (event) => {
+    if (event.persisted || document.wasDiscarded) checkRouteAfterResume(true)
+  }
+
+  document.addEventListener('visibilitychange', recoverRouteOnVisibilityChange)
+  window.addEventListener('pageshow', recoverRouteFromPageCache)
+  removeRouteRecoveryListeners = () => {
+    document.removeEventListener('visibilitychange', recoverRouteOnVisibilityChange)
+    window.removeEventListener('pageshow', recoverRouteFromPageCache)
+  }
+
   const canUseCustomCursor =
     window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches &&
     !window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -779,6 +823,9 @@ onBeforeUnmount(() => {
   }
   if (removeTelegramWidgetListeners) {
     removeTelegramWidgetListeners()
+  }
+  if (removeRouteRecoveryListeners) {
+    removeRouteRecoveryListeners()
   }
   document.documentElement.classList.remove('has-goo-cursor')
   document.documentElement.classList.remove('is-goo-cursor-visible')
