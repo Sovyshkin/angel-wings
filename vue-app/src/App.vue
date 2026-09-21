@@ -3,7 +3,10 @@
       class="app"
       :class="[
         `app--molecule-${moleculeTransition.stage}`,
-        { 'app--has-global-dock': showGlobalDock }
+        {
+          'app--has-global-dock': showGlobalDock,
+          'app--molecule-running': moleculeTransition.isRunning
+        }
       ]"
       :data-route="route.path"
     >
@@ -529,15 +532,19 @@ async function beginAboutTransition(closeMenu = false) {
   if (closeMenu) closeMobileMenu()
   if (moleculeTransition.isRunning || route.path === '/about') return
 
+  moleculeTransition.isRunning = true
+
   if (route.path !== '/') {
     moleculeTransition.stage = 'arriving'
     await router.push('/about')
     await nextTick()
+    await waitFor(1180)
     moleculeTransition.stage = 'about'
+    await waitFor(2920)
+    moleculeTransition.isRunning = false
     return
   }
 
-  moleculeTransition.isRunning = true
   moleculeTransition.stage = 'exiting'
   await waitFor(460)
 
@@ -1185,6 +1192,27 @@ html.is-page-inactive *::after {
   pointer-events: none;
 }
 
+/* The About scene is revealed only after the molecule reaches its final
+   background position. Keeping this tied to the transition state prevents the
+   first hero block from flashing underneath the animation on mobile. */
+.app--molecule-running .header,
+.app--molecule-running .main,
+.app--molecule-running .footer,
+.app--molecule-running .telegram-widget {
+  opacity: 0;
+  filter: blur(7px);
+  pointer-events: none;
+}
+
+.app--molecule-running .header {
+  transform: translate3d(0, -20px, 0);
+}
+
+.app--molecule-running .main,
+.app--molecule-running .footer {
+  transform: translate3d(0, 18px, 0);
+}
+
 .app--molecule-exiting .header,
 .app--molecule-center .header,
 .app--molecule-arriving .header {
@@ -1274,16 +1302,6 @@ html.is-page-inactive *::after {
 }
 
 @media (max-width: 768px) {
-  /* Never conceal page content while a mobile browser resumes a suspended
-     molecule transition. The visual transition remains decorative only. */
-  .app--molecule-exiting .main,
-  .app--molecule-center .main {
-    opacity: 1;
-    filter: none;
-    pointer-events: auto;
-    transform: none;
-  }
-
   /* Some mobile WebM decoders flatten alpha to black. Blend the whole composited video layer, not its hardware video surface. */
   .molecule-transition {
     width: min(90vw, 420px);
