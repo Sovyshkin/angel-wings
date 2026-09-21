@@ -226,7 +226,7 @@
         class="global-dock__item"
         :class="{ 'is-active': isGlobalDockItemActive(item) }"
         :aria-current="isGlobalDockItemActive(item) ? 'page' : undefined"
-        @click="closeMobileMenu"
+        @click="handleGlobalDockNavigation(item, $event)"
       >
         <svg v-if="item.icon === 'home'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="m3.5 10 8.5-7 8.5 7v10.25a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
@@ -555,6 +555,15 @@ async function beginAboutTransition(closeMenu = false) {
 
   await waitFor(2920)
   moleculeTransition.isRunning = false
+}
+
+function handleGlobalDockNavigation(item, event) {
+  closeMobileMenu()
+
+  if (item.to === '/about') {
+    event.preventDefault()
+    beginAboutTransition()
+  }
 }
 
 const toggleMobileMenu = () => {
