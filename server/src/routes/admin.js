@@ -14,6 +14,7 @@ import { sendCloudKassirIncomeReceiptOnPaidTransition } from '../utils/cloudKass
 import { deleteProductForAdmin } from '../utils/productDeletion.js'
 import { refundUserPointsForOrder } from '../utils/userPoints.js'
 import emailService from '../services/email.js'
+import { queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -1088,6 +1089,7 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
             data: { paymentStatus: normalized }
           })
           await syncPartnerCommissionForOrder(prisma, order.id)
+          queueCdekWaybillAfterPayment({ ...order, paymentStatus: normalized }, order.paymentStatus)
           return { id: order.id, paymentStatus: normalized }
         })
       )
@@ -1180,7 +1182,7 @@ router.put('/orders/:id/payment-status', authenticate, requireAdmin, async (req,
 
     const previousOrder = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { paymentStatus: true }
+      select: { paymentStatus: true, cdekOrderUuid: true }
     })
 
     const order = await prisma.order.update({
@@ -1189,6 +1191,7 @@ router.put('/orders/:id/payment-status', authenticate, requireAdmin, async (req,
     })
 
     await syncPartnerCommissionForOrder(prisma, order.id)
+    queueCdekWaybillAfterPayment(order, previousOrder?.paymentStatus)
     await sendCloudKassirIncomeReceiptOnPaidTransition(
       prisma,
       order.id,

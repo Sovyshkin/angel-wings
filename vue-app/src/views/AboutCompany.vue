@@ -35,7 +35,12 @@
             >
               <span class="journey-tile__number">{{ String(index + 1).padStart(2, '0') }}</span>
               <span class="journey-tile__kicker">{{ step.kicker }}</span>
-              <span class="journey-tile__orb" aria-hidden="true"><img :src="step.orb" alt="" decoding="async"></span>
+              <span class="journey-tile__orb" aria-hidden="true">
+                <picture>
+                  <source :srcset="step.orbWebp" type="image/webp">
+                  <img :src="step.orb" alt="" decoding="async" fetchpriority="high">
+                </picture>
+              </span>
               <span class="journey-tile__title">{{ step.title }}</span>
               <span class="journey-tile__action">Подробнее
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -422,6 +427,7 @@ const journey = [
     title: 'Производство',
     kicker: 'Качество в каждой детали',
     orb: '/about-assets/journey-production-sphere.png',
+    orbWebp: '/about-assets/journey-production-sphere.webp',
     orbDelay: '-1.4s',
     role: 'Основа',
     detailTitle: 'Лицензированная фармацевтическая база',
@@ -432,6 +438,7 @@ const journey = [
     title: 'Разработка',
     kicker: 'Технологии в движении',
     orb: '/about-assets/journey-development-sphere.png',
+    orbWebp: '/about-assets/journey-development-sphere.webp',
     orbDelay: '-3.2s',
     role: 'Экспертиза',
     detailTitle: 'Научная экспертиза и собственные решения',
@@ -455,6 +462,7 @@ const journey = [
     title: 'Сбыт',
     kicker: 'Результаты для людей',
     orb: '/about-assets/journey-sales-sphere.png',
+    orbWebp: '/about-assets/journey-sales-sphere.webp',
     orbDelay: '-4.5s',
     role: 'Бренд',
     detailTitle: 'Бренд Angel Wings',
@@ -1325,8 +1333,10 @@ onBeforeUnmount(() => {
 }
 .journey-tile > span { position: relative; z-index: 3; }
 .journey-tile__number, .journey-detail__eyebrow { color: var(--about-accent); font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.journey-detail__eyebrow { font-size: 0.99rem; }
 .journey-tile__kicker { max-width: 13ch; margin-top: 1.08rem; color: rgba(181, 204, 255, 0.78); font-family: var(--font-mono); font-size: 0.56rem; font-weight: 600; letter-spacing: 0.14em; line-height: 1.62; text-transform: uppercase; }
 .journey-tile__orb { position: absolute !important; z-index: 1 !important; width: 70%; right: -9%; bottom: -28%; pointer-events: none; transform: translate3d(0, 0, 0); transform-origin: 55% 55%; animation: journeyOrbFloat 5.4s cubic-bezier(0.42, 0, 0.58, 1) var(--orb-delay, 0s) infinite; will-change: transform; }
+.journey-tile__orb picture { display: block; }
 .journey-tile__orb img { display: block; width: 100%; height: auto; filter: drop-shadow(0 18px 22px rgba(0, 45, 135, 0.34)); transform: translate3d(var(--sphere-parallax-x, 0px), var(--sphere-parallax-y, 0px), 0) rotate(-2deg) scale(1); transform-origin: 55% 55%; transition: transform 760ms cubic-bezier(0.16, 1, 0.3, 1), filter 760ms ease; will-change: transform; }
 .journey-tile:nth-child(2) .journey-tile__orb { width: 74%; right: -14%; bottom: -30%; }
 .journey-tile:nth-child(2) .journey-tile__orb img { transform: translate3d(var(--sphere-parallax-x, 0px), var(--sphere-parallax-y, 0px), 0) rotate(4deg) scale(1); }
@@ -1341,7 +1351,7 @@ onBeforeUnmount(() => {
 .journey-details { display: grid; gap: 0; margin-top: 0; border-top: 1px solid var(--border); }
 .journey-details--standalone { margin-top: 0; }
 .journey-detail { display: grid; grid-template-columns: minmax(130px, 0.23fr) minmax(0, 1fr); gap: 1.5rem; padding: clamp(2rem, 3.4vw, 3.5rem) 0; border-bottom: 1px solid var(--border); scroll-margin-top: calc(var(--header-height, 76px) + 2rem); }
-.journey-detail__marker { display: inline-flex; align-items: center; gap: 0.7rem; align-self: start; padding-top: 0.35rem; color: var(--about-accent); font-family: var(--font-mono); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.14em; line-height: 1.2; text-transform: uppercase; }
+.journey-detail__marker { display: inline-flex; align-items: center; gap: 0.7rem; align-self: start; padding-top: 0.35rem; color: var(--about-accent); font-family: var(--font-mono); font-size: 0.93rem; font-weight: 600; letter-spacing: 0.14em; line-height: 1.2; text-transform: uppercase; }
 .journey-detail__marker i { width: 32px; height: 1px; flex: 0 0 auto; background: currentColor; box-shadow: 0 0 12px color-mix(in srgb, currentColor 60%, transparent); }
 .journey-detail > div { max-width: 760px; }
 .journey-detail h3 { margin: 0.7rem 0 0.85rem; font-family: var(--font-display); font-size: clamp(1.7rem, 3vw, 2.8rem); line-height: 1.04; letter-spacing: -0.04em; }

@@ -1,5 +1,12 @@
 <template>
-  <div class="app" :class="`app--molecule-${moleculeTransition.stage}`" :data-route="route.path">
+    <div
+      class="app"
+      :class="[
+        `app--molecule-${moleculeTransition.stage}`,
+        { 'app--has-global-dock': showGlobalDock }
+      ]"
+      :data-route="route.path"
+    >
     <PageLoader />
     <div ref="cursorRoot" class="cursor-goo" aria-hidden="true">
       <svg class="cursor-goo__filter" width="0" height="0" focusable="false">
@@ -204,6 +211,49 @@
     <main class="main">
       <router-view />
     </main>
+
+    <nav
+      v-if="showGlobalDock"
+      class="global-dock"
+      :style="{ '--global-dock-active-index': activeGlobalDockIndex }"
+      aria-label="Основная навигация"
+    >
+      <span class="global-dock__active-pill" aria-hidden="true"></span>
+      <router-link
+        v-for="item in globalDockItems"
+        :key="item.to"
+        :to="item.to"
+        class="global-dock__item"
+        :class="{ 'is-active': isGlobalDockItemActive(item) }"
+        :aria-current="isGlobalDockItemActive(item) ? 'page' : undefined"
+        @click="closeMobileMenu"
+      >
+        <svg v-if="item.icon === 'home'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="m3.5 10 8.5-7 8.5 7v10.25a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M9 21v-6h6v6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+        </svg>
+        <svg v-else-if="item.icon === 'catalog'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1.2" stroke="currentColor" stroke-width="1.7"/>
+          <rect x="14" y="3.5" width="6.5" height="6.5" rx="1.2" stroke="currentColor" stroke-width="1.7"/>
+          <rect x="3.5" y="14" width="6.5" height="6.5" rx="1.2" stroke="currentColor" stroke-width="1.7"/>
+          <rect x="14" y="14" width="6.5" height="6.5" rx="1.2" stroke="currentColor" stroke-width="1.7"/>
+        </svg>
+        <svg v-else-if="item.icon === 'dealers'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 21V7.5L12 3l8 4.5V21M2.5 21h19" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M10 21v-3.5h4V21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        <svg v-else-if="item.icon === 'partners'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M3.5 20c.5-3.1 2.4-5 5.5-5s5 1.9 5.5 5M16 5.5a3 3 0 0 1 0 5.8M17 15c2.1.4 3.4 2 3.7 4.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M4.5 21c.7-4.1 3.2-6.3 7.5-6.3s6.8 2.2 7.5 6.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <span class="global-dock__label">{{ item.label }}</span>
+      </router-link>
+    </nav>
+
     <!-- One persistent molecule video. It is deliberately outside router-view. -->
     <div class="molecule-transition" aria-hidden="true">
       <video
@@ -439,6 +489,31 @@ const themeStore = useThemeStore()
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+
+const globalDockItems = computed(() => [
+  { to: '/', label: 'Главная', icon: 'home' },
+  { to: '/catalog', label: 'Каталог', icon: 'catalog' },
+  { to: '/dealers', label: 'Дилеры', icon: 'dealers' },
+  { to: '/partnership', label: 'Партнёрам', icon: 'partners' },
+  authStore.isAuthenticated
+    ? { to: '/profile', label: 'Профиль', icon: 'user' }
+    : { to: '/auth', label: 'Войти', icon: 'user' }
+])
+
+const showGlobalDock = computed(() => route.path !== '/about' && route.path !== '/cart')
+
+const isGlobalDockItemActive = (item) => {
+  if (item.to === '/') return route.path === '/'
+  if (item.to === '/catalog') return route.path === '/catalog' || route.path.startsWith('/product/')
+  if (item.to === '/partnership') return route.path === '/partnership' || route.path === '/partner'
+  return route.path === item.to
+}
+
+const activeGlobalDockIndex = computed(() => {
+  const index = globalDockItems.value.findIndex((item) => isGlobalDockItemActive(item))
+  return index === -1 ? 0 : index
+})
+
 const mobileMenuOpen = ref(false)
 const cursorRoot = ref(null)
 const cursorDotRefs = ref([])
@@ -1456,6 +1531,139 @@ html.is-page-inactive *::after {
   padding-top: var(--header-height);
 }
 
+.app--has-global-dock .footer {
+  padding-bottom: calc(6.75rem + env(safe-area-inset-bottom));
+}
+
+.global-dock {
+  --global-dock-item-width: 20%;
+  position: fixed;
+  z-index: 96;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(5, minmax(3.7rem, 1fr));
+  align-items: stretch;
+  width: min(29rem, calc(100vw - 2rem));
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgba(170, 192, 255, 0.28);
+  border-radius: 999px;
+  background:
+    linear-gradient(140deg, rgba(41, 53, 91, 0.78), rgba(6, 10, 24, 0.88) 68%),
+    rgba(11, 16, 34, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(237, 245, 255, 0.2),
+    inset 0 -1px 0 rgba(82, 121, 224, 0.24),
+    0 0.75rem 2.75rem rgba(0, 5, 22, 0.46);
+  backdrop-filter: blur(18px) saturate(135%);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  transform: translateX(-50%);
+  animation: global-dock-enter 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.global-dock::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(105deg, rgba(166, 191, 255, 0.12), transparent 37%, rgba(77, 129, 255, 0.09));
+  pointer-events: none;
+}
+
+.global-dock__active-pill {
+  position: absolute;
+  z-index: 0;
+  inset: 0 auto 0 0;
+  width: var(--global-dock-item-width);
+  border: 1px solid rgba(192, 210, 255, 0.36);
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(146, 168, 229, 0.4), rgba(71, 86, 135, 0.37));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 1.2rem rgba(104, 137, 242, 0.16);
+  transform: translateX(calc(var(--global-dock-active-index) * 100%));
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.global-dock__item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 3.7rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.24rem;
+  padding: 0.45rem 0.35rem;
+  color: rgba(221, 227, 245, 0.68);
+  text-decoration: none;
+  transition: color 0.25s ease, transform 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.global-dock__item svg {
+  width: 1.22rem;
+  height: 1.22rem;
+  flex: 0 0 auto;
+}
+
+.global-dock__label {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 0.62rem;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.global-dock__item.is-active {
+  color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .global-dock__item:hover {
+    color: #fff;
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes global-dock-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(-50%, 0.9rem, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+[data-theme="light"] .global-dock {
+  border-color: rgba(96, 123, 191, 0.28);
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.8), rgba(225, 233, 252, 0.82)),
+    rgba(245, 248, 255, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    inset 0 -1px 0 rgba(113, 145, 218, 0.18),
+    0 0.75rem 2.3rem rgba(49, 70, 126, 0.16);
+}
+
+[data-theme="light"] .global-dock__active-pill {
+  border-color: rgba(112, 141, 215, 0.35);
+  background: linear-gradient(145deg, rgba(175, 194, 244, 0.72), rgba(135, 159, 225, 0.54));
+}
+
+[data-theme="light"] .global-dock__item {
+  color: rgba(35, 49, 87, 0.68);
+}
+
+[data-theme="light"] .global-dock__item.is-active,
+[data-theme="light"] .global-dock__item:hover {
+  color: #263a76;
+}
+
 .footer {
   background: var(--bg-card);
   border-top: 1px solid var(--border);
@@ -2151,6 +2359,35 @@ html.is-page-inactive *::after {
 }
 
 @media (max-width: 768px) {
+  .app--has-global-dock .footer {
+    padding-bottom: calc(6.15rem + env(safe-area-inset-bottom));
+  }
+
+  .global-dock {
+    bottom: max(0.8rem, env(safe-area-inset-bottom));
+    width: min(24.5rem, calc(100vw - 1.25rem));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .global-dock__item {
+    min-height: 3.45rem;
+    gap: 0.2rem;
+    padding: 0.38rem 0.18rem;
+  }
+
+  .global-dock__item svg {
+    width: 1.14rem;
+    height: 1.14rem;
+  }
+
+  .global-dock__label {
+    font-size: 0.53rem;
+  }
+
+  .app--has-global-dock .telegram-widget {
+    bottom: calc(4.8rem + env(safe-area-inset-bottom));
+  }
+
   .header__container {
     padding: 0 0.75rem;
     gap: 0.5rem;

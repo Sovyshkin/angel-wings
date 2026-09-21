@@ -4,6 +4,7 @@ import tochkaService from '../services/tochka.js'
 import { authenticate } from '../middleware/auth.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { CLOUD_KASSIR_ORDER_INCLUDE } from '../utils/cloudKassirReceipt.js'
+import { queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -322,7 +323,7 @@ router.get('/status/:paymentId', async (req, res, next) => {
       const paymentStatus = normalizePaymentStatus(result.status)
       const matchedOrders = await prisma.order.findMany({
         where: { paymentId: String(paymentId) },
-        select: { id: true }
+        select: { id: true, paymentStatus: true, cdekOrderUuid: true }
       })
       const updateResult = await prisma.order.updateMany({
         where: { paymentId: String(paymentId) },
@@ -331,6 +332,7 @@ router.get('/status/:paymentId', async (req, res, next) => {
       if (updateResult.count > 0) {
         await Promise.all(matchedOrders.map(async (order) => {
           await syncPartnerCommissionForOrder(prisma, order.id)
+          queueCdekWaybillAfterPayment({ ...order, paymentStatus }, order.paymentStatus)
         }))
       }
       res.json({ success: true, status: result.status, paymentStatus })
@@ -390,6 +392,7 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
       select: PAYMENT_SYNC_ORDER_SELECT
     })
     await syncPartnerCommissionForOrder(prisma, order.id)
+    queueCdekWaybillAfterPayment(updatedOrder, order.paymentStatus)
 
     const orderForResponse = await attachPromoCode(updatedOrder)
 
@@ -428,7 +431,7 @@ router.post('/webhook', async (req, res, next) => {
       if (Number.isFinite(orderId)) {
         const existingOrder = await prisma.order.findUnique({
           where: { id: orderId },
-          select: { paymentId: true }
+          select: { paymentId: true, paymentStatus: true, cdekOrderUuid: true }
         })
         updatedOrder = await prisma.order.update({
           where: { id: orderId },
@@ -439,24 +442,27 @@ router.post('/webhook', async (req, res, next) => {
               : {})
           }
         })
+        updatedOrder.previousPaymentStatus = existingOrder?.paymentStatus || null
       }
     }
 
     if (!updatedOrder && paymentId) {
       const found = await prisma.order.findFirst({
         where: { paymentId: String(paymentId) },
-        select: { id: true }
+        select: { id: true, paymentStatus: true, cdekOrderUuid: true }
       })
       if (found) {
         updatedOrder = await prisma.order.update({
           where: { id: found.id },
           data: { paymentStatus: normalized }
         })
+        updatedOrder.previousPaymentStatus = found.paymentStatus
       }
     }
 
     if (updatedOrder) {
       await syncPartnerCommissionForOrder(prisma, updatedOrder.id)
+      queueCdekWaybillAfterPayment(updatedOrder, updatedOrder.previousPaymentStatus)
       console.log(`[PAYMENT] Webhook updated order ${updatedOrder.id} paymentStatus=${normalized}`)
     } else {
       console.warn('[PAYMENT] Webhook did not match any order', { paymentLinkId, paymentId, normalized })

@@ -681,9 +681,13 @@ export async function callCourier({
 
 // ==================== ШАБЛОНЫ ПЕЧАТИ ====================
 
-// Получить UUID печатной формы
+// Создать запрос на формирование накладной. СДЭК обрабатывает его асинхронно
+// и возвращает UUID печатной формы.
 export async function getPrintForm(order_uuid) {
-  return cdekRequest(`/orders/${order_uuid}/print`, 'POST')
+  return cdekRequest('/print/orders', 'POST', {
+    orders: [{ order_uuid }],
+    copy_count: 1
+  })
 }
 
 // ==================== БАЛАНС И СТАТУСЫ ====================
