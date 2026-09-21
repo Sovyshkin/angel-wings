@@ -238,13 +238,9 @@
           <rect x="3.5" y="14" width="6.5" height="6.5" rx="1.2" stroke="currentColor" stroke-width="1.7"/>
           <rect x="14" y="14" width="6.5" height="6.5" rx="1.2" stroke="currentColor" stroke-width="1.7"/>
         </svg>
-        <svg v-else-if="item.icon === 'dealers'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4 21V7.5L12 3l8 4.5V21M2.5 21h19" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M10 21v-3.5h4V21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-        </svg>
-        <svg v-else-if="item.icon === 'partners'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.7"/>
-          <path d="M3.5 20c.5-3.1 2.4-5 5.5-5s5 1.9 5.5 5M16 5.5a3 3 0 0 1 0 5.8M17 15c2.1.4 3.4 2 3.7 4.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <svg v-else-if="item.icon === 'about'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M12 10.7v5.1M12 7.6h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
         </svg>
         <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.7"/>
@@ -493,11 +489,8 @@ const router = useRouter()
 const globalDockItems = computed(() => [
   { to: '/', label: 'Главная', icon: 'home' },
   { to: '/catalog', label: 'Каталог', icon: 'catalog' },
-  { to: '/dealers', label: 'Дилеры', icon: 'dealers' },
-  { to: '/partnership', label: 'Партнёрам', icon: 'partners' },
-  authStore.isAuthenticated
-    ? { to: '/profile', label: 'Профиль', icon: 'user' }
-    : { to: '/auth', label: 'Войти', icon: 'user' }
+  { to: '/about', label: 'О нас', icon: 'about' },
+  { to: '/profile', label: 'Профиль', icon: 'user' }
 ])
 
 const showGlobalDock = computed(() => route.path !== '/about' && route.path !== '/cart')
@@ -505,7 +498,6 @@ const showGlobalDock = computed(() => route.path !== '/about' && route.path !== 
 const isGlobalDockItemActive = (item) => {
   if (item.to === '/') return route.path === '/'
   if (item.to === '/catalog') return route.path === '/catalog' || route.path.startsWith('/product/')
-  if (item.to === '/partnership') return route.path === '/partnership' || route.path === '/partner'
   return route.path === item.to
 }
 
@@ -1536,15 +1528,15 @@ html.is-page-inactive *::after {
 }
 
 .global-dock {
-  --global-dock-item-width: 20%;
+  --global-dock-item-width: 25%;
   position: fixed;
   z-index: 96;
   left: 50%;
   bottom: max(1rem, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(5, minmax(3.7rem, 1fr));
+  grid-template-columns: repeat(4, minmax(4.5rem, 1fr));
   align-items: stretch;
-  width: min(29rem, calc(100vw - 2rem));
+  width: min(24rem, calc(100vw - 2rem));
   overflow: hidden;
   isolation: isolate;
   border: 1px solid rgba(170, 192, 255, 0.28);
@@ -2365,8 +2357,8 @@ html.is-page-inactive *::after {
 
   .global-dock {
     bottom: max(0.8rem, env(safe-area-inset-bottom));
-    width: min(24.5rem, calc(100vw - 1.25rem));
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: min(22rem, calc(100vw - 1.25rem));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .global-dock__item {
