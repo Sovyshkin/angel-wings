@@ -2,7 +2,7 @@ import express from 'express'
 import { PrismaClient } from '@prisma/client'
 import cdek from '../services/cdek.js'
 import yandexGeocoder from '../services/yandexGeocoder.js'
-import { extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
+import { canApplyCdekStatus, extractCdekMessages, extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 
 const router = express.Router()
@@ -454,6 +454,14 @@ router.post('/orders/:uuid/sync-status', async (req, res) => {
     const latestStatus = extractLatestCdekStatus(cdekOrder)
     const cdekStatusCode = latestStatus?.code || null
     const nextLocalStatus = mapCdekStatusToLocal(cdekStatusCode)
+    const cdekMessages = extractCdekMessages(cdekOrder)
+    const cdekStatuses = Array.isArray(cdekOrder?.entity?.statuses)
+      ? cdekOrder.entity.statuses.map(status => ({
+          code: status?.code || status?.status || null,
+          name: status?.name || status?.status || status?.code || 'Статус СДЭК',
+          dateTime: status?.date_time || status?.date || null
+        }))
+      : []
 
     const order = await prisma.order.findFirst({
       where: { cdekOrderUuid: uuid }
@@ -470,7 +478,7 @@ router.post('/orders/:uuid/sync-status', async (req, res) => {
     let updated = false
     let currentStatus = order.status
 
-    if (nextLocalStatus && nextLocalStatus !== order.status) {
+    if (canApplyCdekStatus(order.status, nextLocalStatus)) {
       const updatedOrder = await prisma.order.update({
         where: { id: order.id },
         data: { status: nextLocalStatus }
@@ -485,8 +493,11 @@ router.post('/orders/:uuid/sync-status', async (req, res) => {
       orderId: order.id,
       cdekOrderUuid: uuid,
       cdekStatusCode,
+      cdekMessages,
+      cdekStatuses,
       localStatus: currentStatus,
-      mappedStatus: nextLocalStatus
+      mappedStatus: nextLocalStatus,
+      statusChangeBlocked: Boolean(nextLocalStatus && nextLocalStatus !== order.status && !updated)
     })
   } catch (error) {
     console.error('[CDEK] Sync order status error:', error)

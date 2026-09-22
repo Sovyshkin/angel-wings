@@ -421,6 +421,17 @@
                 </div>
               </div>
             </div>
+
+            <section v-if="cdekMessages.length" class="cdek-warning" role="alert">
+              <div class="cdek-warning__heading">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 8v4.5M12 16.4h.01M10.3 3.4 2.8 17a2.25 2.25 0 0 0 1.97 3.34h14.46A2.25 2.25 0 0 0 21.2 17L13.7 3.4a1.95 1.95 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Сообщение СДЭК</span>
+              </div>
+              <p v-for="message in cdekMessages" :key="message">{{ message }}</p>
+              <small v-if="cdekStatusChangeBlocked">Статус заказа не изменён: текущий статус является финальным.</small>
+            </section>
           </div>
 
           <div class="detail-section" v-if="selectedOrder.shippingAddress">
@@ -528,6 +539,8 @@ const selectedOrder = ref(null)
 const creatingCdek = ref(false)
 const syncingCdek = ref(false)
 const cdekStatus = ref(null)
+const cdekMessages = ref([])
+const cdekStatusChangeBlocked = ref(false)
 const cancelReasonOptions = [
   { value: 'high_price', label: 'Высокая цена' },
   { value: 'long_delivery', label: 'Долгая доставка' },
@@ -676,6 +689,10 @@ async function markAsPaid(order) {
 function viewOrder(order) {
   selectedOrder.value = order
   cdekStatus.value = null
+  cdekMessages.value = []
+  cdekStatusChangeBlocked.value = false
+
+  if (order.cdekOrderUuid) void syncCdekStatus()
 }
 
 function getDeliveryType(order) {
@@ -761,21 +778,23 @@ async function syncCdekStatus() {
   
   syncingCdek.value = true
   try {
-    const { data } = await deliveryApi.get(`/orders/${selectedOrder.value.cdekOrderUuid}`)
-    
-    if (data.entity?.statuses) {
-      cdekStatus.value = data.entity.statuses.map(s => ({
-        name: s.name || s.status,
-        date: s.date ? new Date(s.date).toLocaleString('ru-RU') : ''
-      }))
+    const { data } = await deliveryApi.post(`/orders/${selectedOrder.value.cdekOrderUuid}/sync-status`)
+
+    cdekStatus.value = (data.cdekStatuses || []).map(status => ({
+      name: status.name,
+      date: status.dateTime ? new Date(status.dateTime).toLocaleString('ru-RU') : ''
+    }))
+    cdekMessages.value = data.cdekMessages || []
+    cdekStatusChangeBlocked.value = Boolean(data.statusChangeBlocked)
+
+    if (data.localStatus) {
+      selectedOrder.value.status = data.localStatus
+      const listOrder = orders.value.find(order => order.id === selectedOrder.value.id)
+      if (listOrder) listOrder.status = data.localStatus
     }
   } catch (e) {
     console.error('Sync error:', e)
-    // Mock statuses for demo
-    cdekStatus.value = [
-      { name: 'Создан', date: new Date().toLocaleString('ru-RU') },
-      { name: 'Принят', date: new Date().toLocaleString('ru-RU') }
-    ]
+    cdekMessages.value = [e.response?.data?.message || e.response?.data?.error || 'Не удалось получить статус СДЭК.']
   } finally {
     syncingCdek.value = false
   }
@@ -1538,6 +1557,40 @@ watch(search, scheduleOrdersSearch)
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 0.75rem;
+}
+
+.cdek-warning {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.13), rgba(120, 70, 6, 0.08));
+  color: var(--text-primary);
+}
+
+.cdek-warning__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+  color: #fbbf24;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.cdek-warning p {
+  margin: 0.45rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.cdek-warning small {
+  display: block;
+  margin-top: 0.75rem;
+  color: #fcd34d;
+  font-size: 0.76rem;
+  line-height: 1.4;
 }
 
 .status-timeline {
