@@ -952,6 +952,25 @@ onMounted(async () => {
   font-size: 0.9375rem;
 }
 
+/* Long values such as ingredients are a separate reading unit, not a value
+   that should be vertically centred against its label. */
+.spec-row--multiline {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.8fr) minmax(0, 3fr);
+  align-items: start;
+  gap: 1.5rem;
+}
+
+.spec-row--multiline .spec-key {
+  padding-top: 0.16rem;
+}
+
+.spec-row--multiline .spec-val {
+  min-width: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .product-actions {
   display: flex;
   gap: 1rem;
