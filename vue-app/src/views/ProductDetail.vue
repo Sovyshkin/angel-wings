@@ -131,7 +131,12 @@
           <div class="product-specs" v-if="hasSpecs">
             <h3>Характеристики</h3>
             <div class="specs-table">
-              <div class="spec-row" v-for="(value, key) in visibleSpecs" :key="key">
+              <div
+                v-for="(value, key) in visibleSpecs"
+                :key="key"
+                class="spec-row"
+                :class="{ 'spec-row--multiline': String(value || '').length > 42 }"
+              >
                 <span class="spec-key">{{ key }}</span>
                 <span class="spec-val">{{ value }}</span>
               </div>
@@ -1206,6 +1211,38 @@ onMounted(async () => {
   .product-specs {
     padding: 1rem;
     margin-bottom: 1rem;
+  }
+
+  .spec-row {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    align-items: start;
+    gap: 0.75rem;
+    padding: 0.9rem 0.75rem;
+  }
+
+  .spec-key {
+    min-width: 0;
+    padding-top: 0.12rem;
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .spec-val {
+    min-width: 0;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .spec-row--multiline {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+
+  .spec-row--multiline .spec-val {
+    text-align: left;
   }
 
   .product-actions {
