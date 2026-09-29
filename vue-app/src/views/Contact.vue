@@ -4,7 +4,7 @@
       <div class="contact-header" data-aos="fade-up">
         <div id="about-company" class="anchor-target"></div>
         <h1 class="page-title">Свяжитесь с нами</h1>
-        <p class="page-subtitle">{{ isExpress ? 'Опишите конкретный вопрос, выберите специалиста и перейдите к безопасной оплате.' : 'Наши специалисты помогут подобрать оптимальный комплекс пептидов для ваших целей' }}</p>
+        <p class="page-subtitle">{{ isExpress ? 'Опишите конкретный вопрос и выберите специалиста. Формат и оплата согласуются с ним напрямую.' : 'Наши специалисты помогут подобрать оптимальный комплекс пептидов для ваших целей' }}</p>
       </div>
 
       <div class="info-sections" data-aos="fade-up" data-aos-delay="50">
@@ -30,7 +30,7 @@
           </div>
           <div class="consultation-mode__intro">
             <strong>{{ isExpress ? 'Экспресс-консультация до 20 минут' : 'Бесплатная заявка на консультацию' }}</strong>
-            <span>{{ isExpress ? 'Выберите специалиста и формат — после оплаты заявка сразу поступит в работу.' : 'Оставьте контакты и вопрос — команда свяжется с вами.' }}</span>
+            <span>{{ isExpress ? 'Выберите специалиста и формат — он свяжется с вами для согласования консультации и оплаты напрямую.' : 'Оставьте контакты и вопрос — команда свяжется с вами.' }}</span>
           </div>
           <form @submit.prevent="handleSubmit" class="contact-form">
             <div class="form-group">
@@ -137,14 +137,14 @@
 
             <button type="submit" class="btn btn-primary btn-submit" :disabled="isSubmitting">
               <span v-if="isSubmitting" class="spinner"></span>
-              <span v-else>{{ isExpress ? 'Перейти к оплате · 4 000 ₽' : 'Отправить заявку' }}</span>
+              <span v-else>{{ isExpress ? 'Отправить заявку специалисту' : 'Отправить заявку' }}</span>
             </button>
 
             <div v-if="submitSuccess" class="success-message">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Заявка отправлена! Мы свяжемся с вами в ближайшее время.
+              {{ isExpress ? 'Заявка отправлена! Специалист свяжется с вами для согласования консультации и оплаты.' : 'Заявка отправлена! Мы свяжемся с вами в ближайшее время.' }}
             </div>
 
             <div v-if="submitError" class="error-message">
@@ -311,7 +311,7 @@ async function handleSubmit() {
 
   try {
     if (isExpress.value) {
-      const { data } = await axios.post('/api/consultations', {
+      await axios.post('/api/consultations', {
         name: form.name,
         email: form.email,
         phone: form.phone,
@@ -320,7 +320,9 @@ async function handleSubmit() {
         question: form.message,
         consent: form.consent
       })
-      window.location.assign(data.paymentUrl)
+      submitSuccess.value = true
+      Object.assign(form, { name: '', email: '', phone: '', goal: '', message: '', specialist: 'OLESYA_TERENKO', contactFormat: 'MESSAGES', consent: false })
+      setTimeout(() => { submitSuccess.value = false }, 5000)
       return
     }
 

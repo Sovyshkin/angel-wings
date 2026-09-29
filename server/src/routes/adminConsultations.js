@@ -24,7 +24,7 @@ router.get('/', authenticate, requireAdmin, async (req, res, next) => {
         skip: Math.max(0, parseInt(req.query?.offset, 10) || 0)
       }),
       prisma.consultationRequest.count({ where }),
-      prisma.consultationRequest.count({ where: { status: 'NEW', paymentStatus: 'PAID' } })
+      prisma.consultationRequest.count({ where: { status: 'NEW' } })
     ])
     res.json({ consultations, total, newCount })
   } catch (error) {

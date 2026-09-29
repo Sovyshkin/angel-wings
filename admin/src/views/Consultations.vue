@@ -4,11 +4,10 @@
       <div>
         <p class="eyebrow">EXPRESS CONSULTATION</p>
         <h1 class="page-title">Консультации</h1>
-        <p class="page-subtitle">Оплаченные запросы клиентов на консультацию специалистов</p>
+        <p class="page-subtitle">Заявки на консультацию. Оплату клиент и специалист согласуют напрямую.</p>
       </div>
       <select v-model="statusFilter" class="input" @change="loadConsultations">
         <option value="">Все заявки</option>
-        <option value="PENDING_PAYMENT">Ожидают оплаты</option>
         <option value="NEW">Новые</option>
         <option value="IN_PROGRESS">В работе</option>
         <option value="DONE">Завершены</option>
@@ -17,9 +16,9 @@
     </div>
 
     <div class="summary-card card">
-      <span>Новых оплаченных заявок</span>
+      <span>Новых заявок</span>
       <strong>{{ newCount }}</strong>
-      <span class="summary-card__note">Стоимость одной консультации — 4 000 ₽</span>
+      <span class="summary-card__note">Оплата консультации проходит напрямую специалисту</span>
     </div>
 
     <div v-if="loading" class="loading-state"><div class="spinner"></div></div>
@@ -40,14 +39,13 @@
         <div class="consultation-card__grid">
           <div><span>Клиент</span><strong>{{ item.customerName }}</strong><a :href="`mailto:${item.customerEmail}`">{{ item.customerEmail }}</a><a :href="`tel:${item.customerPhone}`">{{ item.customerPhone }}</a></div>
           <div><span>Формат</span><strong>{{ formatLabel(item.contactFormat) }}</strong><small>{{ formatDate(item.createdAt) }}</small></div>
-          <div><span>Оплата</span><strong>{{ Number(item.amount).toLocaleString('ru-RU') }} ₽</strong><small v-if="item.paymentId">ID: {{ item.paymentId }}</small></div>
+          <div><span>Стоимость</span><strong>{{ Number(item.amount).toLocaleString('ru-RU') }} ₽</strong><small>Оплата напрямую специалисту</small></div>
         </div>
 
         <div class="question"><span>Запрос клиента</span><p>{{ item.question }}</p></div>
         <textarea v-model="drafts[item.id]" class="input note" rows="3" placeholder="Внутренняя заметка для специалиста"></textarea>
         <footer>
           <select v-model="statuses[item.id]" class="input">
-            <option value="PENDING_PAYMENT">Ожидает оплаты</option>
             <option value="NEW">Новая</option>
             <option value="IN_PROGRESS">В работе</option>
             <option value="DONE">Завершена</option>
@@ -74,9 +72,9 @@ const savingId = ref(null)
 
 const specialistLabel = value => value === 'MARINA_SHESTAKOVA' ? 'Шестакова Марина' : 'Теренько Олеся'
 const formatLabel = value => value === 'CALL' ? 'Созвон по договорённости' : 'Текстовые сообщения'
-const paymentLabel = value => ({ PAID: 'Оплачено', FAILED: 'Оплата не прошла', PENDING: 'Ожидает оплаты' }[value] || value)
+const paymentLabel = value => ({ EXTERNAL: 'Оплата напрямую', PAID: 'Оплачено', FAILED: 'Оплата не прошла', PENDING: 'Ожидает оплаты' }[value] || value)
 const statusLabel = value => ({ PENDING_PAYMENT: 'Ожидает оплаты', NEW: 'Новая', IN_PROGRESS: 'В работе', DONE: 'Завершена', CANCELLED: 'Отменена' }[value] || value)
-const paymentClass = value => value === 'PAID' ? 'badge--paid' : value === 'FAILED' ? 'badge--failed' : 'badge--pending'
+const paymentClass = value => value === 'EXTERNAL' ? 'badge--external' : value === 'PAID' ? 'badge--paid' : value === 'FAILED' ? 'badge--failed' : 'badge--pending'
 const statusClass = value => `badge--${String(value || '').toLowerCase()}`
 const formatDate = value => new Date(value).toLocaleString('ru-RU')
 
@@ -112,7 +110,7 @@ onMounted(loadConsultations)
 .eyebrow { margin:0 0 .35rem; color:var(--accent); font:700 .7rem/1 var(--font-mono); letter-spacing:.16em; }
 .page-title { margin:0; }.page-subtitle { margin:.35rem 0 0; color:var(--text-muted); }
 .summary-card { display:flex; align-items:center; gap:1rem; margin-bottom:1.25rem; padding:1rem 1.25rem; }.summary-card strong { font-size:1.65rem; color:var(--accent); }.summary-card__note { color:var(--text-muted); margin-left:auto; }
-.consultation-list { display:grid; gap:1rem; }.consultation-card { padding:1.25rem; }.consultation-card header,.consultation-card footer { display:flex; justify-content:space-between; align-items:center; gap:1rem; }.consultation-card h2 { margin:.2rem 0 0; font-size:1.1rem; }.request-id,.consultation-card__grid span,.question span { color:var(--text-muted); font-size:.76rem; }.badges { display:flex; gap:.45rem; flex-wrap:wrap; }.badge { border-radius:999px; padding:.35rem .55rem; font-size:.73rem; font-weight:700; background:var(--bg-secondary); }.badge--paid,.badge--done { color:#48d597; background:#123b2b; }.badge--failed,.badge--cancelled { color:#ff9494; background:#471f29; }.badge--pending,.badge--pending_payment { color:#ffc86a; background:#443319; }.badge--new { color:#aabfff; background:#252d57; }.badge--in_progress { color:#7fc4ff; background:#173b57; }
+.consultation-list { display:grid; gap:1rem; }.consultation-card { padding:1.25rem; }.consultation-card header,.consultation-card footer { display:flex; justify-content:space-between; align-items:center; gap:1rem; }.consultation-card h2 { margin:.2rem 0 0; font-size:1.1rem; }.request-id,.consultation-card__grid span,.question span { color:var(--text-muted); font-size:.76rem; }.badges { display:flex; gap:.45rem; flex-wrap:wrap; }.badge { border-radius:999px; padding:.35rem .55rem; font-size:.73rem; font-weight:700; background:var(--bg-secondary); }.badge--paid,.badge--done { color:#48d597; background:#123b2b; }.badge--failed,.badge--cancelled { color:#ff9494; background:#471f29; }.badge--pending,.badge--pending_payment { color:#ffc86a; background:#443319; }.badge--external { color:#b9ccff; background:#24345e; }.badge--new { color:#aabfff; background:#252d57; }.badge--in_progress { color:#7fc4ff; background:#173b57; }
 .consultation-card__grid { display:grid; grid-template-columns:1.4fr 1fr .75fr; gap:1rem; padding:1rem 0; }.consultation-card__grid div { display:flex; flex-direction:column; gap:.25rem; }.consultation-card a { color:var(--accent); text-decoration:none; font-size:.86rem; }.consultation-card small { color:var(--text-muted); overflow-wrap:anywhere; }.question { padding:1rem; background:var(--bg-secondary); border-radius:10px; }.question p { margin:.35rem 0 0; white-space:pre-wrap; line-height:1.5; }.note { width:100%; box-sizing:border-box; resize:vertical; margin:1rem 0; }.consultation-card footer .input { min-width:12rem; }.empty-state { padding:2rem; text-align:center; color:var(--text-muted); }
 @media (max-width:700px) { .consultations-page{padding:1rem}.page-header{align-items:stretch;flex-direction:column}.summary-card{flex-wrap:wrap}.summary-card__note{margin-left:0;width:100%}.consultation-card__grid{grid-template-columns:1fr}.consultation-card header,.consultation-card footer{align-items:stretch;flex-direction:column}.consultation-card footer .input,.consultation-card footer .btn{width:100%;box-sizing:border-box} }
 </style>

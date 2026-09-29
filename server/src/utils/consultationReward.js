@@ -9,7 +9,8 @@ function isSuccessfulOrder(order) {
     ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED', 'AUTHORIZED', 'CAPTURED', 'EXECUTED', 'SETTLED'].some(code => paymentStatus.includes(code))
 }
 
-// A consultation earns its reward only after it is marked completed and the
+// Payment for the consultation is agreed directly with the specialist. A
+// consultation earns its reward only after an admin marks it completed and the
 // account makes its first later successful purchase. The guarded update makes
 // repeated payment webhooks safe: exactly one request can claim the reward.
 export async function grantConsultationRewardsForPaidOrder(prisma, order) {
@@ -21,7 +22,6 @@ export async function grantConsultationRewardsForPaidOrder(prisma, order) {
       where: {
         userId: Number(order.userId),
         status: 'DONE',
-        paymentStatus: 'PAID',
         completedAt: { lte: now },
         rewardGrantedAt: null
       },

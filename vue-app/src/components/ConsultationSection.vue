@@ -21,8 +21,8 @@
             <p>После завершения консультации и первой успешной покупки после неё.</p>
           </div>
         </div>
-        <router-link class="btn btn-accent consultation-section__cta" to="/contact?consultation=express">Записаться на консультацию <span>→</span></router-link>
-        <p class="consultation-section__note">Текстовые сообщения или созвон — формат согласуется со специалистом.</p>
+        <router-link class="btn btn-accent consultation-section__cta" to="/contact?consultation=express">Оставить заявку <span>→</span></router-link>
+        <p class="consultation-section__note">Текстовые сообщения или созвон — формат и оплата согласуются напрямую со специалистом.</p>
       </div>
     </div>
 

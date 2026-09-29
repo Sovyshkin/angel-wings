@@ -428,7 +428,6 @@ router.post('/webhook', async (req, res, next) => {
     const normalized = normalizePaymentStatus(status)
 
     let updatedOrder = null
-    let updatedConsultation = null
     const orderIdMatch = String(paymentLinkId || '').match(/order-(\d+)/i)
     if (orderIdMatch) {
       const orderId = parseInt(orderIdMatch[1], 10)
@@ -464,47 +463,11 @@ router.post('/webhook', async (req, res, next) => {
       }
     }
 
-    const consultationIdMatch = String(paymentLinkId || '').match(/consultation-(\d+)/i)
-    if (consultationIdMatch) {
-      const consultationId = parseInt(consultationIdMatch[1], 10)
-      if (Number.isFinite(consultationId)) {
-        const existing = await prisma.consultationRequest.findUnique({
-          where: { id: consultationId },
-          select: { paymentId: true, paymentStatus: true, status: true }
-        })
-        if (existing) {
-          updatedConsultation = await prisma.consultationRequest.update({
-            where: { id: consultationId },
-            data: {
-              paymentStatus: normalized,
-              ...(normalized === 'PAID' && existing.status === 'PENDING_PAYMENT' ? { status: 'NEW' } : {}),
-              ...(paymentId && !existing.paymentId ? { paymentId: String(paymentId) } : {})
-            }
-          })
-        }
-      }
-    }
-
-    if (!updatedConsultation && paymentId) {
-      const existing = await prisma.consultationRequest.findUnique({ where: { paymentId: String(paymentId) } })
-      if (existing) {
-        updatedConsultation = await prisma.consultationRequest.update({
-          where: { id: existing.id },
-          data: {
-            paymentStatus: normalized,
-            ...(normalized === 'PAID' && existing.status === 'PENDING_PAYMENT' ? { status: 'NEW' } : {})
-          }
-        })
-      }
-    }
-
     if (updatedOrder) {
       await syncPartnerCommissionForOrder(prisma, updatedOrder.id)
       queueCdekWaybillAfterPayment(updatedOrder, updatedOrder.previousPaymentStatus)
       if (normalized === 'PAID') await grantConsultationRewardsForPaidOrder(prisma, updatedOrder)
       console.log(`[PAYMENT] Webhook updated order ${updatedOrder.id} paymentStatus=${normalized}`)
-    } else if (updatedConsultation) {
-      console.log(`[PAYMENT] Webhook updated consultation ${updatedConsultation.id} paymentStatus=${normalized}`)
     } else {
       console.warn('[PAYMENT] Webhook did not match any order', { paymentLinkId, paymentId, normalized })
     }

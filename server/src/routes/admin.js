@@ -15,6 +15,7 @@ import { deleteProductForAdmin } from '../utils/productDeletion.js'
 import { refundUserPointsForOrder } from '../utils/userPoints.js'
 import emailService from '../services/email.js'
 import { queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
+import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -1192,6 +1193,9 @@ router.put('/orders/:id/payment-status', authenticate, requireAdmin, async (req,
 
     await syncPartnerCommissionForOrder(prisma, order.id)
     queueCdekWaybillAfterPayment(order, previousOrder?.paymentStatus)
+    if (normalizedStatus === 'PAID') {
+      await grantConsultationRewardsForPaidOrder(prisma, order)
+    }
     await sendCloudKassirIncomeReceiptOnPaidTransition(
       prisma,
       order.id,
