@@ -70,7 +70,11 @@ const drafts = ref({})
 const statuses = ref({})
 const savingId = ref(null)
 
-const specialistLabel = value => value === 'MARINA_SHESTAKOVA' ? 'Шестакова Марина' : 'Теренько Олеся'
+const specialistLabel = value => {
+  if (value === 'MARINA_SHESTAKOVA') return 'Шестакова Марина'
+  if (value === 'OLESYA_TERENKO') return 'Теренько Олеся'
+  return 'Специалист будет назначен'
+}
 const formatLabel = value => value === 'CALL' ? 'Созвон по договорённости' : 'Текстовые сообщения'
 const paymentLabel = value => ({ EXTERNAL: 'Оплата напрямую', PAID: 'Оплачено', FAILED: 'Оплата не прошла', PENDING: 'Ожидает оплаты' }[value] || value)
 const statusLabel = value => ({ PENDING_PAYMENT: 'Ожидает оплаты', NEW: 'Новая', IN_PROGRESS: 'В работе', DONE: 'Завершена', CANCELLED: 'Отменена' }[value] || value)

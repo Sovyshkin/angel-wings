@@ -7,7 +7,6 @@ const router = Router()
 const prisma = new PrismaClient()
 
 const CONSULTATION_AMOUNT = 4000
-const SPECIALISTS = new Set(['OLESYA_TERENKO', 'MARINA_SHESTAKOVA'])
 const CONTACT_FORMATS = new Set(['MESSAGES', 'CALL'])
 
 function cleanText(value, maxLength) {
@@ -20,7 +19,6 @@ router.post('/', authenticate, async (req, res, next) => {
     const customerName = cleanText(req.body?.name, 120)
     const customerEmail = normalizeEmail(req.user?.email || req.body?.email)
     const customerPhone = cleanText(req.body?.phone, 60)
-    const specialist = String(req.body?.specialist || '').trim().toUpperCase()
     const contactFormat = String(req.body?.contactFormat || '').trim().toUpperCase()
     const question = cleanText(req.body?.question, 2000)
     const consent = req.body?.consent === true
@@ -28,7 +26,6 @@ router.post('/', authenticate, async (req, res, next) => {
     if (!customerName) return res.status(400).json({ error: 'Укажите имя' })
     if (!customerEmail || !customerEmail.includes('@')) return res.status(400).json({ error: 'Укажите корректный email' })
     if (!customerPhone) return res.status(400).json({ error: 'Укажите телефон или Telegram для связи' })
-    if (!SPECIALISTS.has(specialist)) return res.status(400).json({ error: 'Выберите специалиста' })
     if (!CONTACT_FORMATS.has(contactFormat)) return res.status(400).json({ error: 'Выберите формат консультации' })
     if (!question) return res.status(400).json({ error: 'Опишите ваш вопрос' })
     if (!consent) return res.status(400).json({ error: 'Необходимо согласие на обработку персональных данных' })
@@ -39,7 +36,7 @@ router.post('/', authenticate, async (req, res, next) => {
         customerName,
         customerEmail,
         customerPhone,
-        specialist,
+        specialist: 'UNASSIGNED',
         contactFormat,
         question,
         amount: CONSULTATION_AMOUNT,

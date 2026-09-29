@@ -583,7 +583,11 @@ function getConsultationStatusLabel(value) {
   return labels[value] || value
 }
 
-const specialistLabel = value => value === 'MARINA_SHESTAKOVA' ? 'Шестакова Марина' : 'Теренько Олеся'
+const specialistLabel = value => {
+  if (value === 'MARINA_SHESTAKOVA') return 'Шестакова Марина'
+  if (value === 'OLESYA_TERENKO') return 'Теренько Олеся'
+  return 'Специалист будет назначен'
+}
 const consultationFormatLabel = value => value === 'CALL' ? 'Созвон по договорённости' : 'Текстовые сообщения'
 
 function getGoalLabel(value) {

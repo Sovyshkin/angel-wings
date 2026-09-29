@@ -30,7 +30,7 @@
           </div>
           <div class="consultation-mode__intro">
             <strong>{{ isExpress ? 'Экспресс-консультация до 20 минут' : 'Бесплатная заявка на консультацию' }}</strong>
-            <span>{{ isExpress ? 'Выберите специалиста и формат — он свяжется с вами для согласования консультации и оплаты напрямую.' : 'Оставьте контакты и вопрос — команда свяжется с вами.' }}</span>
+            <span>{{ isExpress ? 'Опишите вопрос и выберите формат — мы назначим специалиста и свяжемся для согласования консультации и оплаты напрямую.' : 'Оставьте контакты и вопрос — команда свяжется с вами.' }}</span>
           </div>
           <form @submit.prevent="handleSubmit" class="contact-form">
             <div class="form-group">
@@ -84,24 +84,6 @@
 
             <template v-if="isExpress">
               <div class="form-group">
-                <label for="specialist">Специалист</label>
-                <div id="specialist" class="specialist-picker" role="radiogroup" aria-label="Выбор специалиста">
-                  <button
-                    v-for="specialist in specialists"
-                    :key="specialist.id"
-                    type="button"
-                    role="radio"
-                    :aria-checked="form.specialist === specialist.id"
-                    :class="{ active: form.specialist === specialist.id }"
-                    @click="form.specialist = specialist.id"
-                  >
-                    <img :src="specialist.image" :alt="specialist.name">
-                    <span class="specialist-picker__check" aria-hidden="true">✓</span>
-                    <span class="specialist-picker__name">{{ specialist.name }}</span>
-                  </button>
-                </div>
-              </div>
-              <div class="form-group">
                 <label>Формат консультации</label>
                 <div class="format-switch" :class="{ 'format-switch--call': form.contactFormat === 'CALL' }" role="radiogroup" aria-label="Формат консультации">
                   <span class="format-switch__active" aria-hidden="true"></span>
@@ -137,14 +119,14 @@
 
             <button type="submit" class="btn btn-primary btn-submit" :disabled="isSubmitting">
               <span v-if="isSubmitting" class="spinner"></span>
-              <span v-else>{{ isExpress ? 'Отправить заявку специалисту' : 'Отправить заявку' }}</span>
+              <span v-else>{{ isExpress ? 'Отправить экспресс-заявку' : 'Отправить заявку' }}</span>
             </button>
 
             <div v-if="submitSuccess" class="success-message">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              {{ isExpress ? 'Заявка отправлена! Специалист свяжется с вами для согласования консультации и оплаты.' : 'Заявка отправлена! Мы свяжемся с вами в ближайшее время.' }}
+              {{ isExpress ? 'Заявка отправлена! Мы назначим специалиста и свяжемся с вами для согласования консультации и оплаты.' : 'Заявка отправлена! Мы свяжемся с вами в ближайшее время.' }}
             </div>
 
             <div v-if="submitError" class="error-message">
@@ -236,19 +218,12 @@ const route = useRoute()
 const authStore = useAuthStore()
 const consultationType = ref(route.query.consultation === 'express' ? 'express' : 'free')
 const isExpress = computed(() => consultationType.value === 'express')
-const specialistIds = new Set(['OLESYA_TERENKO', 'MARINA_SHESTAKOVA'])
-const specialists = [
-  { id: 'OLESYA_TERENKO', name: 'Теренько Олеся', image: '/consultations/olesya.jpg' },
-  { id: 'MARINA_SHESTAKOVA', name: 'Шестакова Марина', image: '/consultations/marina.jpg' }
-]
-
 const form = reactive({
   name: '',
   email: '',
   phone: '',
   goal: '',
   message: '',
-  specialist: specialistIds.has(route.query.specialist) ? route.query.specialist : 'OLESYA_TERENKO',
   contactFormat: 'MESSAGES',
   consent: false
 })
@@ -315,13 +290,12 @@ async function handleSubmit() {
         name: form.name,
         email: form.email,
         phone: form.phone,
-        specialist: form.specialist,
         contactFormat: form.contactFormat,
         question: form.message,
         consent: form.consent
       })
       submitSuccess.value = true
-      Object.assign(form, { name: '', email: '', phone: '', goal: '', message: '', specialist: 'OLESYA_TERENKO', contactFormat: 'MESSAGES', consent: false })
+      Object.assign(form, { name: '', email: '', phone: '', goal: '', message: '', contactFormat: 'MESSAGES', consent: false })
       setTimeout(() => { submitSuccess.value = false }, 5000)
       return
     }
@@ -334,7 +308,7 @@ async function handleSubmit() {
       message: form.message
     })
     submitSuccess.value = true
-    Object.assign(form, { name: '', email: '', phone: '', goal: '', message: '', specialist: 'OLESYA_TERENKO', contactFormat: 'MESSAGES', consent: false })
+    Object.assign(form, { name: '', email: '', phone: '', goal: '', message: '', contactFormat: 'MESSAGES', consent: false })
     setTimeout(() => { submitSuccess.value = false }, 5000)
   } catch (error) {
     submitError.value = error?.response?.data?.error || 'Не удалось отправить сообщение. Попробуйте ещё раз.'
@@ -345,7 +319,6 @@ async function handleSubmit() {
 
 watch(() => route.query, (query) => {
   if (query.consultation === 'express') consultationType.value = 'express'
-  if (specialistIds.has(query.specialist)) form.specialist = query.specialist
 }, { deep: true })
 </script>
 
@@ -450,81 +423,6 @@ watch(() => route.query, (query) => {
 
 .consultation-mode__intro strong { color: var(--text-primary); }
 .consultation-mode__intro span { color: var(--text-secondary); font-size: .85rem; line-height: 1.45; }
-
-.specialist-picker {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .75rem;
-}
-
-.specialist-picker button {
-  position: relative;
-  min-height: 220px;
-  overflow: hidden;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-secondary);
-  cursor: pointer;
-  isolation: isolate;
-  transition: border-color .35s cubic-bezier(.22, 1, .36, 1), box-shadow .35s cubic-bezier(.22, 1, .36, 1), transform .35s cubic-bezier(.22, 1, .36, 1);
-}
-
-.specialist-picker button::after {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  background: linear-gradient(90deg, rgba(6, 12, 29, .76), rgba(6, 12, 29, .08));
-  content: '';
-}
-
-.specialist-picker button:hover { border-color: rgba(162, 189, 255, .66); transform: translateY(-2px); }
-.specialist-picker button.active { border-color: #a9c0ff; box-shadow: 0 0 0 2px rgba(126, 160, 255, .28), 0 12px 24px rgba(42, 73, 174, .2); }
-.specialist-picker button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-.specialist-picker img {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 22%;
-}
-
-.specialist-picker__name {
-  position: absolute;
-  z-index: 2;
-  left: .85rem;
-  bottom: .75rem;
-  max-width: calc(100% - 3rem);
-  color: #fff;
-  font-size: .82rem;
-  font-weight: 700;
-  text-align: left;
-  text-shadow: 0 2px 8px rgba(0,0,0,.8);
-}
-
-.specialist-picker__check {
-  position: absolute;
-  z-index: 2;
-  top: .65rem;
-  right: .65rem;
-  display: grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  border: 1px solid rgba(228, 236, 255, .64);
-  border-radius: 50%;
-  background: rgba(8, 16, 37, .72);
-  color: #fff;
-  font-size: .72rem;
-  opacity: 0;
-  transform: scale(.7);
-  transition: opacity .25s ease, transform .35s cubic-bezier(.22,1,.36,1), background .25s ease;
-}
-
-.specialist-picker button.active .specialist-picker__check { opacity: 1; transform: scale(1); background: #809ff4; }
 
 .format-switch {
   position: relative;
@@ -787,6 +685,5 @@ watch(() => route.query, (query) => {
     min-width: 100%;
   }
 
-  .specialist-picker button { min-height: 150px; }
 }
 </style>

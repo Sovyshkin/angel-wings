@@ -26,15 +26,6 @@
       </div>
     </div>
 
-    <div class="container consultation-specialists">
-      <article v-for="specialist in specialists" :key="specialist.id" class="consultation-specialist">
-        <img :src="specialist.image" :alt="specialist.name" width="560" height="840" loading="lazy" decoding="async">
-        <div class="consultation-specialist__content">
-          <router-link :to="`/contact?consultation=express&specialist=${specialist.id}`">Выбрать специалиста <b>→</b></router-link>
-        </div>
-      </article>
-    </div>
-
     <div class="container consultation-details">
       <div class="consultation-details__copy">
         <span class="consultation-section__eyebrow">ЧТО ВЫ ПОЛУЧИТЕ</span>
@@ -45,19 +36,13 @@
           <li>Противопоказания и важные ограничения</li>
           <li>Оценку: достаточно ли экспресс-формата или нужен подробный разбор</li>
         </ul>
-        <p>При необходимости специалист направит к профильному врачу. Это разовая консультация — без постоянной переписки и ежедневных ответов на вопросы.</p>
-        <router-link class="consultation-details__link" to="/contact?consultation=express">Выбрать специалиста <b>→</b></router-link>
+        <p class="consultation-details__important"><strong>Важно:</strong> это разовая экспресс-консультация. Она не предполагает постоянную переписку с врачом и ответы на любые вопросы каждый день.</p>
+        <p>Если вам нужен более глубокий разбор, можно оформить полноценную консультацию — с анализом лабораторных показателей, подбором питания и дополнительных БАДов или лекарственных препаратов по показаниям.</p>
+        <router-link class="consultation-details__link" to="/contact?consultation=express">Оставить заявку <b>→</b></router-link>
       </div>
     </div>
   </section>
 </template>
-
-<script setup>
-const specialists = [
-  { id: 'OLESYA_TERENKO', shortName: 'Олеся Теренько', name: 'Теренько Олеся', title: 'Интегративный и клинический нутрициолог · опыт более 5 лет', image: '/consultations/olesya.jpg' },
-  { id: 'MARINA_SHESTAKOVA', shortName: 'Марина Шестакова', name: 'Шестакова Марина', title: 'Врач-нутрициолог, диетолог и кардиолог · 20 000+ консультаций', image: '/consultations/marina.jpg' }
-]
-</script>
 
 <style scoped>
 .consultation-section { position:relative; isolation:isolate; overflow:hidden; padding:7rem 0 6rem; background:linear-gradient(135deg,#070b18 0%,#0b1227 48%,#07101f 100%); color:#f7f9ff; }
@@ -97,6 +82,29 @@ const specialists = [
 
   .consultation-section__reward strong {
     font-size: .9rem;
+  }
+
+  .consultation-details {
+    margin-top: 2.5rem;
+  }
+}
+
+.consultation-details {
+  margin-top: 3.5rem;
+}
+
+.consultation-details__important {
+  margin-bottom: 1rem !important;
+  padding: 1rem 1.1rem;
+  border-left: 2px solid #9eb8ff;
+  border-radius: .35rem;
+  background: rgba(102, 140, 242, .1);
+  color: rgba(223, 232, 255, .88) !important;
+}
+
+@media (max-width: 760px) {
+  .consultation-details {
+    margin-top: 2.5rem;
   }
 }
 </style>
