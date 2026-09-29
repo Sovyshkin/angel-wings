@@ -981,9 +981,10 @@ router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, nex
 
 router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { status, limit = 50, offset = 0, q = '' } = req.query
+    const { status, favorites, limit = 50, offset = 0, q = '' } = req.query
     const search = String(q || '').trim()
     const where = status ? { status } : {}
+    if (String(favorites || '').toLowerCase() === 'true') where.isFavorite = true
 
     if (search) {
       const numericId = Number.parseInt(search.replace(/^#/, ''), 10)
@@ -1042,7 +1043,7 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
         },
         take: parseInt(limit),
         skip: parseInt(offset),
-        orderBy: { createdAt: 'desc' }
+        orderBy: [{ isFavorite: 'desc' }, { createdAt: 'desc' }]
       }),
       prisma.order.count({ where })
     ])
@@ -1112,6 +1113,29 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
     await attachPartnerBonusInfoToOrders(orders)
 
     res.json({ orders, total })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.put('/orders/:id/favorite', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.id, 10)
+    const { isFavorite } = req.body
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return res.status(400).json({ error: 'Некорректный ID заказа' })
+    }
+    if (typeof isFavorite !== 'boolean') {
+      return res.status(400).json({ error: 'Некорректная отметка избранного' })
+    }
+
+    const order = await prisma.order.update({
+      where: { id: orderId },
+      data: { isFavorite }
+    })
+
+    res.json({ order })
   } catch (error) {
     next(error)
   }

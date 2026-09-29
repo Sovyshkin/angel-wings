@@ -6,6 +6,16 @@
         <p class="page-subtitle">Управление заказами</p>
       </div>
       <div class="header-actions">
+        <button
+          type="button"
+          :class="['favorite-filter', { active: filterFavorites }]"
+          :aria-pressed="filterFavorites"
+          title="Показать избранные заказы"
+          @click="toggleFavoritesFilter"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.8 2.53 5.13 5.66.82-4.1 4 0.97 5.64L12 16.73 6.94 19.4l.97-5.64-4.1-4 5.66-.82L12 3.8Z"/></svg>
+          <span>Избранные</span>
+        </button>
         <select v-model="filterStatus" @change="handleStatusFilterChange" class="input status-filter">
           <option value="">Все статусы</option>
           <option value="PENDING">Ожидает</option>
@@ -82,6 +92,7 @@
         <table class="data-table">
           <thead>
             <tr>
+              <th class="favorite-column"><span class="sr-only">Избранное</span></th>
               <th>ID</th>
               <th>Клиент</th>
               <th>Доставка</th>
@@ -96,6 +107,18 @@
           </thead>
           <tbody>
             <tr v-for="order in orders" :key="order.id">
+              <td class="favorite-cell">
+                <button
+                  type="button"
+                  :class="['favorite-order-btn', { active: order.isFavorite }]"
+                  :aria-label="order.isFavorite ? `Убрать заказ #${order.id} из избранного` : `Добавить заказ #${order.id} в избранное`"
+                  :aria-pressed="Boolean(order.isFavorite)"
+                  :disabled="favoriteSavingId === order.id"
+                  @click="toggleOrderFavorite(order)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.8 2.53 5.13 5.66.82-4.1 4 .97 5.64L12 16.73 6.94 19.4l.97-5.64-4.1-4 5.66-.82L12 3.8Z"/></svg>
+                </button>
+              </td>
               <td class="cell-id">#{{ order.id }}</td>
               <td class="cell-customer">
                 <div>{{ order.customerName }}</div>
@@ -186,7 +209,19 @@
       <div class="orders-cards">
         <div v-for="order in orders" :key="`mobile-${order.id}`" class="order-card card">
           <div class="order-card__header">
-            <div class="order-card__id">Заказ #{{ order.id }}</div>
+            <div class="order-card__title">
+              <button
+                type="button"
+                :class="['favorite-order-btn', { active: order.isFavorite }]"
+                :aria-label="order.isFavorite ? `Убрать заказ #${order.id} из избранного` : `Добавить заказ #${order.id} в избранное`"
+                :aria-pressed="Boolean(order.isFavorite)"
+                :disabled="favoriteSavingId === order.id"
+                @click="toggleOrderFavorite(order)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.8 2.53 5.13 5.66.82-4.1 4 .97 5.64L12 16.73 6.94 19.4l.97-5.64-4.1-4 5.66-.82L12 3.8Z"/></svg>
+              </button>
+              <div class="order-card__id">Заказ #{{ order.id }}</div>
+            </div>
             <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
               {{ getPaymentLabel(order.paymentStatus) }}
             </span>
@@ -534,7 +569,9 @@ const orders = ref([])
 const total = ref(0)
 const loading = ref(true)
 const filterStatus = ref('')
+const filterFavorites = ref(false)
 const search = ref('')
+const favoriteSavingId = ref(null)
 const selectedOrder = ref(null)
 const creatingCdek = ref(false)
 const syncingCdek = ref(false)
@@ -565,6 +602,7 @@ async function fetchOrders() {
   try {
     const params = {
       ...(filterStatus.value ? { status: filterStatus.value } : {}),
+      ...(filterFavorites.value ? { favorites: 'true' } : {}),
       ...(search.value.trim() ? { q: search.value.trim() } : {}),
       limit: ORDERS_PER_PAGE,
       offset: (currentPage.value - 1) * ORDERS_PER_PAGE
@@ -595,6 +633,32 @@ function handleStatusFilterChange() {
     fetchOrders()
   } else {
     currentPage.value = 1
+  }
+}
+
+function toggleFavoritesFilter() {
+  filterFavorites.value = !filterFavorites.value
+  if (currentPage.value === 1) {
+    fetchOrders()
+  } else {
+    currentPage.value = 1
+  }
+}
+
+async function toggleOrderFavorite(order) {
+  if (!order?.id || favoriteSavingId.value === order.id) return
+
+  const nextValue = !Boolean(order.isFavorite)
+  favoriteSavingId.value = order.id
+  try {
+    const { data } = await axios.put(`${API_URL}/orders/${order.id}/favorite`, { isFavorite: nextValue })
+    order.isFavorite = Boolean(data.order?.isFavorite)
+    if (selectedOrder.value?.id === order.id) selectedOrder.value.isFavorite = order.isFavorite
+    if (filterFavorites.value && !order.isFavorite) await fetchOrders()
+  } catch (e) {
+    alert(e.response?.data?.error || 'Не удалось обновить избранное')
+  } finally {
+    favoriteSavingId.value = null
   }
 }
 
@@ -901,6 +965,46 @@ watch(search, scheduleOrdersSearch)
   gap: 1rem;
 }
 
+.favorite-filter {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: .5rem;
+  padding: .55rem .8rem;
+  border: 1px solid rgba(148, 163, 184, .28);
+  border-radius: 10px;
+  background: rgba(148, 163, 184, .06);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 650;
+  transition: border-color .22s ease, background .22s ease, color .22s ease, box-shadow .22s ease;
+}
+
+.favorite-filter svg,
+.favorite-order-btn svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.favorite-filter:hover {
+  border-color: rgba(250, 204, 21, .66);
+  color: #fde68a;
+}
+
+.favorite-filter.active {
+  border-color: rgba(250, 204, 21, .72);
+  background: linear-gradient(135deg, rgba(250, 204, 21, .2), rgba(245, 158, 11, .07));
+  box-shadow: inset 0 1px rgba(255, 241, 166, .25), 0 0 18px rgba(245, 158, 11, .16);
+  color: #facc15;
+}
+
 .status-filter {
   padding: 0.625rem 1rem;
   min-width: 180px;
@@ -959,7 +1063,63 @@ watch(search, scheduleOrdersSearch)
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1040px;
+  min-width: 1100px;
+}
+
+.favorite-column,
+.favorite-cell {
+  width: 46px;
+  padding-right: .3rem !important;
+  padding-left: .8rem !important;
+  text-align: center !important;
+}
+
+.favorite-order-btn {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(148, 163, 184, .78);
+  cursor: pointer;
+  transition: color .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.favorite-order-btn:hover:not(:disabled) {
+  border-color: rgba(250, 204, 21, .46);
+  background: rgba(250, 204, 21, .08);
+  color: #fde68a;
+  transform: translateY(-1px);
+}
+
+.favorite-order-btn.active {
+  border-color: rgba(250, 204, 21, .62);
+  background: linear-gradient(135deg, rgba(250, 204, 21, .2), rgba(245, 158, 11, .1));
+  box-shadow: 0 0 13px rgba(245, 158, 11, .2), inset 0 1px rgba(255, 244, 184, .22);
+  color: #facc15;
+}
+
+.favorite-order-btn.active svg {
+  fill: currentColor;
+}
+
+.favorite-order-btn:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .data-table th,
@@ -1081,6 +1241,12 @@ watch(search, scheduleOrdersSearch)
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.9rem;
+}
+
+.order-card__title {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
 }
 
 .order-card__id {
@@ -1818,6 +1984,15 @@ watch(search, scheduleOrdersSearch)
 
   .status-filter {
     width: 100%;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .favorite-filter {
+    justify-content: center;
   }
 
   .orders-stats {

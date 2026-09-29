@@ -176,6 +176,7 @@ model Order {
   user                   User?                  @relation(fields: [userId], references: [id])
   partnerId              Int?
   status                 String                 @default("PENDING")
+  isFavorite             Boolean                @default(false)
   cancelReason           String?
   paymentStatus          String?                @default("PENDING")
   paymentId              String?

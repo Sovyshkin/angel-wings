@@ -446,30 +446,42 @@
       <div class="container">
         <div class="cta__inner">
           <div class="cta__content">
+            <div class="cta__meta" aria-label="Чат и канал">
+              <img src="/consultation-cta-assets/telegram-mini.png" alt="" aria-hidden="true" width="1254" height="1254">
+              <span>ЧАТ <b>•</b> КАНАЛ</span>
+              <i aria-hidden="true"></i>
+              <i aria-hidden="true"></i>
+              <i aria-hidden="true"></i>
+            </div>
             <h2>Нужна консультация?</h2>
             <p>Наши специалисты помогут подобрать оптимальный комплекс пептидов для ваших целей</p>
             <div class="cta__actions">
-              <router-link to="/contact" class="btn btn-primary">Связаться с нами</router-link>
+              <router-link to="/contact" class="btn btn-primary cta__contact-btn">
+                <img src="/consultation-cta-assets/chat-dots.png" alt="" aria-hidden="true" width="1254" height="1254">
+                <span>Связаться с нами</span>
+                <img class="cta__button-arrow" src="/consultation-cta-assets/arrow.png" alt="" aria-hidden="true" width="1254" height="1254">
+              </router-link>
               <a
                 href="https://t.me/+G8SAtpWBSFAzZDcy"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="btn cta__chat-btn"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="m21.6 3.4-3.1 14.8c-.2 1-.9 1.2-1.8.7L12 15.4l-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.8 8.8-7.9c.4-.3-.1-.5-.6-.2L6.3 12.1l-4.7-1.5c-1-.3-1-1 .2-1.5L20.2 2c.9-.3 1.6.2 1.4 1.4Z"/>
-                </svg>
-                Вступить в чат
+                <img src="/consultation-cta-assets/telegram-mini.png" alt="" aria-hidden="true" width="1254" height="1254">
+                <span>Вступить в чат</span>
+                <img class="cta__button-arrow" src="/consultation-cta-assets/arrow.png" alt="" aria-hidden="true" width="1254" height="1254">
               </a>
             </div>
           </div>
-          <div class="cta__decoration">
-            <div class="molecule">
-              <div class="atom"></div>
-              <div class="atom"></div>
-              <div class="atom"></div>
-              <div class="orbit"></div>
-            </div>
+          <div class="cta__decoration" aria-hidden="true">
+            <div class="cta__aura"></div>
+            <img class="cta__asset cta__asset--orbit" src="/consultation-cta-assets/orbit.png" alt="" width="1254" height="1254">
+            <img class="cta__asset cta__asset--chat-bars" src="/consultation-cta-assets/chat-bars.png" alt="" width="1254" height="1254">
+            <img class="cta__asset cta__asset--users cta__asset--users-left" src="/consultation-cta-assets/users.png" alt="" width="1254" height="1254">
+            <img class="cta__asset cta__asset--telegram" src="/consultation-cta-assets/telegram-glass.png" alt="" width="1254" height="1254">
+            <img class="cta__asset cta__asset--chat-dots" src="/consultation-cta-assets/chat-dots.png" alt="" width="1254" height="1254">
+            <img class="cta__asset cta__asset--users cta__asset--users-right" src="/consultation-cta-assets/users.png" alt="" width="1254" height="1254">
+            <img class="cta__asset cta__asset--plane" src="/consultation-cta-assets/telegram-plane.png" alt="" width="1254" height="1254">
           </div>
         </div>
       </div>
@@ -3551,14 +3563,17 @@ function queueHeroScrollProgress() {
 
 .cta__inner {
   position: relative;
-  padding: 5rem;
+  min-height: 315px;
+  padding: 4.25rem 5rem;
   background:
-    radial-gradient(circle at 90% 15%, rgba(166, 185, 248, 0.13), transparent 35%),
-    var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 28px;
-  overflow: hidden;
-  transition: background 0.4s ease, border-color 0.4s ease;
+    radial-gradient(circle at 86% 50%, rgba(50, 105, 246, 0.24), transparent 27%),
+    linear-gradient(112deg, rgba(15, 25, 55, 0.97), rgba(8, 15, 35, 0.93) 58%, rgba(17, 34, 74, 0.9));
+  border: 1px solid rgba(178, 202, 255, 0.38);
+  border-radius: 30px;
+  box-shadow: inset 0 1px rgba(233, 241, 255, 0.14), inset 0 -1px rgba(64, 113, 238, 0.16), 0 26px 65px rgba(0, 5, 22, 0.36);
+  overflow: visible;
+  isolation: isolate;
+  transition: border-color .5s ease, box-shadow .5s ease;
 }
 
 .cta__inner::before {
@@ -3568,12 +3583,29 @@ function queueHeroScrollProgress() {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  background: linear-gradient(90deg, transparent 7%, rgba(191, 211, 255, .74) 48%, transparent 93%);
+  border-radius: inherit;
+  opacity: .7;
+}
+
+.cta__inner::after {
+  position: absolute;
+  z-index: -1;
+  inset: 1px;
+  border-radius: 29px;
+  background: linear-gradient(135deg, rgba(184, 205, 255, .06), transparent 34%);
+  content: '';
+  pointer-events: none;
+}
+
+.cta__inner:hover {
+  border-color: rgba(190, 213, 255, .62);
+  box-shadow: inset 0 1px rgba(236, 243, 255, .22), inset 0 -1px rgba(79, 128, 255, .24), 0 30px 72px rgba(0, 7, 30, .46), 0 0 42px rgba(57, 108, 245, .15);
 }
 
 .cta__content {
   position: relative;
-  z-index: 1;
+  z-index: 4;
   max-width: 500px;
 }
 
@@ -3597,14 +3629,67 @@ function queueHeroScrollProgress() {
   flex-wrap: wrap;
 }
 
+.cta__contact-btn,
 .cta__chat-btn {
   min-height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
+  gap: .55rem;
+  padding: .7rem 1rem;
+  border-radius: 999px;
+  font-size: .9rem;
+  line-height: 1;
+  transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease, background .3s ease;
+}
+
+.cta__contact-btn img,
+.cta__chat-btn img {
+  flex: 0 0 auto;
+  width: 1.45rem;
+  height: 1.45rem;
+  object-fit: contain;
+}
+
+.cta__contact-btn img {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+.cta__contact-btn b,
+.cta__chat-btn b {
+  margin-left: .2rem;
+  font-size: 1.15rem;
+  font-weight: 400;
+  transition: transform .3s ease;
+}
+
+.cta__contact-btn:hover,
+.cta__chat-btn:hover {
+  transform: translateY(-2px);
+}
+
+.cta__contact-btn:hover b,
+.cta__chat-btn:hover b {
+  transform: translateX(3px);
+}
+
+.cta__contact-btn {
+  border: 1px solid rgba(215, 227, 255, .75);
+  background: linear-gradient(135deg, #b7caff, #8baaf7);
+  box-shadow: 0 10px 23px rgba(57, 101, 219, .25), inset 0 1px rgba(255, 255, 255, .45);
+  color: #0a1532;
+}
+
+.cta__contact-btn:hover {
+  background: linear-gradient(135deg, #c8d6ff, #96b2ff);
+  color: #07112a;
+  box-shadow: 0 13px 29px rgba(63, 110, 240, .38), inset 0 1px rgba(255, 255, 255, .56);
+}
+
+.cta__chat-btn {
   border: 1px solid rgba(166, 185, 248, 0.38);
-  background: rgba(166, 185, 248, 0.07);
+  background: rgba(122, 153, 237, 0.09);
   color: var(--text-primary);
   text-decoration: none;
 }
@@ -3612,50 +3697,392 @@ function queueHeroScrollProgress() {
 .cta__chat-btn:hover {
   border-color: rgba(166, 185, 248, 0.72);
   background: rgba(166, 185, 248, 0.14);
-  color: var(--accent);
+  color: #dfe8ff;
 }
 
 .cta__decoration {
   position: absolute;
-  right: 5rem;
+  z-index: 2;
+  right: 2.25rem;
   top: 50%;
+  width: min(44vw, 515px);
+  height: 315px;
   transform: translateY(-50%);
+  pointer-events: none;
 }
 
-.molecule {
+.cta__aura {
   position: relative;
-  width: 200px;
-  height: 200px;
-}
-
-.atom {
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  background: var(--accent);
+  z-index: 0;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
-  box-shadow: 0 0 30px var(--accent);
+  background: radial-gradient(circle at 53% 52%, rgba(103, 160, 255, .38), rgba(46, 96, 234, .16) 32%, transparent 68%);
+  filter: blur(12px);
+  opacity: .75;
+  transition: opacity .5s ease, transform .5s ease;
 }
 
-.atom:nth-child(1) { top: 50%; left: 50%; transform: translate(-50%, -50%); }
-.atom:nth-child(2) { top: 10%; left: 50%; transform: translate(-50%, -50%); }
-.atom:nth-child(3) { bottom: 10%; left: 50%; transform: translate(-50%, 50%); }
+.cta__inner:hover .cta__aura {
+  opacity: 1;
+  transform: scale(1.08);
+}
 
-.orbit {
+.cta__asset {
   position: absolute;
-  inset: 10%;
-  border: 2px dashed rgba(166, 185, 248, 0.2);
-  border-radius: 50%;
-  animation: spin 30s linear infinite;
-  transition: border-color 0.4s ease;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: none;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 19px rgba(11, 65, 190, .28));
+  will-change: transform;
 }
 
-[data-theme="light"] .orbit {
-  border-color: rgba(166, 185, 248, 0.3);
+.cta__asset--orbit {
+  z-index: 1;
+  top: -5%;
+  left: -3%;
+  width: 108%;
+  animation: cta-orbit-spin 28s linear infinite;
 }
 
-[data-theme="light"] .cta__content p {
-  color: var(--text-secondary);
+.cta__asset--telegram {
+  z-index: 3;
+  top: 13%;
+  left: 31%;
+  width: 48%;
+  animation: cta-float-main 6.5s ease-in-out infinite;
+}
+
+.cta__asset--chat-bars {
+  z-index: 4;
+  top: 8%;
+  left: 2%;
+  width: 30%;
+  animation: cta-float-left 5.7s ease-in-out -1.3s infinite;
+}
+
+.cta__asset--chat-dots {
+  z-index: 5;
+  right: 1%;
+  bottom: 4%;
+  width: 28%;
+  animation: cta-float-right 6.2s ease-in-out -.6s infinite;
+}
+
+.cta__asset--users {
+  z-index: 4;
+  right: 8%;
+  top: 1%;
+  width: 21%;
+  animation: cta-float-right 5.5s ease-in-out -2s infinite;
+}
+
+.cta__asset--plane {
+  z-index: 6;
+  left: 19%;
+  bottom: 3%;
+  width: 18%;
+  animation: cta-float-left 4.9s ease-in-out -3.2s infinite;
+}
+
+@keyframes cta-float-main {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-2deg); }
+  50% { transform: translate3d(0, -7px, 0) rotate(1deg); }
+}
+
+@keyframes cta-float-left {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-3deg); }
+  50% { transform: translate3d(-4px, -5px, 0) rotate(1deg); }
+}
+
+@keyframes cta-float-right {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(3deg); }
+  50% { transform: translate3d(4px, -6px, 0) rotate(-1deg); }
+}
+
+@keyframes cta-orbit-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Compact consultation card — deliberately restrained so the PNG composition remains the focus. */
+.cta {
+  padding: 2.75rem 0 5rem;
+}
+
+.cta__inner {
+  display: flex;
+  align-items: center;
+  min-height: 270px;
+  padding: 2.85rem 4rem;
+  border-color: rgba(99, 139, 225, .22);
+  border-radius: 23px;
+  background:
+    radial-gradient(ellipse at 77% 53%, rgba(26, 72, 189, .18), transparent 29%),
+    radial-gradient(circle at 88% 26%, rgba(58, 108, 232, .12), transparent 16%),
+    linear-gradient(105deg, #090f1d 0%, #070d19 57%, #091426 100%);
+  box-shadow: inset 0 1px rgba(159, 190, 255, .07), inset 0 -1px rgba(61, 108, 219, .1), 0 18px 42px rgba(0, 4, 16, .28);
+}
+
+.cta__inner::before {
+  left: 8%;
+  right: auto;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, rgba(110, 162, 255, .42), transparent);
+  opacity: .55;
+}
+
+.cta__inner::after {
+  z-index: 0;
+  border-radius: 22px;
+  background: linear-gradient(125deg, rgba(130, 170, 255, .035), transparent 38%);
+}
+
+.cta__inner:hover {
+  border-color: rgba(120, 166, 255, .36);
+  box-shadow: inset 0 1px rgba(180, 205, 255, .1), inset 0 -1px rgba(65, 120, 242, .15), 0 19px 45px rgba(0, 5, 20, .33), 0 0 28px rgba(44, 103, 238, .09);
+}
+
+.cta__content {
+  width: 48%;
+  max-width: 520px;
+}
+
+.cta__meta {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  min-height: 28px;
+  margin-bottom: .75rem;
+  padding: 0 .68rem 0 .38rem;
+  border: 1px solid rgba(67, 132, 255, .56);
+  border-radius: 999px;
+  background: linear-gradient(100deg, rgba(30, 83, 187, .18), rgba(17, 41, 102, .08));
+  box-shadow: inset 0 1px rgba(180, 209, 255, .15), 0 0 18px rgba(40, 104, 244, .12);
+  color: #a9c5ff;
+  font: 700 .62rem/1 var(--font-mono);
+  letter-spacing: .15em;
+}
+
+.cta__meta img {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-right: .28rem;
+  object-fit: contain;
+}
+
+.cta__meta b {
+  color: #78a6ff;
+  font-weight: 700;
+}
+
+.cta__meta i {
+  position: absolute;
+  right: -1.55rem;
+  display: block;
+  width: .62rem;
+  height: 1px;
+  background: #76a6ff;
+  box-shadow: 0 0 8px rgba(83, 147, 255, .68);
+  transform: rotate(-26deg);
+}
+
+.cta__meta i:nth-of-type(1) { top: .35rem; }
+.cta__meta i:nth-of-type(2) { top: .83rem; right: -1.82rem; width: .85rem; }
+.cta__meta i:nth-of-type(3) { top: 1.28rem; right: -1.52rem; width: .55rem; }
+
+.cta__content h2 {
+  margin: 0 0 .75rem;
+  color: #f3f7ff;
+  font-size: clamp(2rem, 3.1vw, 3.05rem);
+  font-weight: 800;
+  line-height: .98;
+  letter-spacing: -.048em;
+}
+
+.cta__content p {
+  position: relative;
+  max-width: 31rem;
+  margin: 0 0 1.35rem;
+  padding-left: .85rem;
+  color: rgba(198, 214, 247, .76);
+  font-size: .91rem;
+  line-height: 1.47;
+}
+
+.cta__content p::before {
+  position: absolute;
+  top: .08rem;
+  bottom: .08rem;
+  left: 0;
+  width: 1px;
+  background: linear-gradient(#67bdff, rgba(92, 145, 255, .16));
+  box-shadow: 0 0 8px rgba(70, 163, 255, .8);
+  content: '';
+}
+
+.cta__actions {
+  gap: .72rem;
+}
+
+.cta__contact-btn,
+.cta__chat-btn {
+  min-width: 0;
+  min-height: 57px;
+  padding: .75rem .9rem;
+  border-radius: 15px;
+  font-size: .82rem;
+  font-weight: 650;
+}
+
+.cta__contact-btn img,
+.cta__chat-btn img,
+.cta__contact-btn img.cta__contact-btn img {
+  width: 1.42rem;
+  height: 1.42rem;
+}
+
+.cta__contact-btn b,
+.cta__chat-btn b {
+  margin-left: .75rem;
+  color: #dce8ff;
+  font-size: 1.25rem;
+  font-weight: 300;
+}
+
+.cta__contact-btn .cta__button-arrow,
+.cta__chat-btn .cta__button-arrow {
+  width: 1.18rem;
+  height: 1.18rem;
+  margin-left: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 5px rgba(152, 191, 255, .46));
+  transition: transform .3s ease, filter .3s ease;
+}
+
+.cta__contact-btn {
+  border-color: rgba(103, 166, 255, .78);
+  background: linear-gradient(120deg, rgba(36, 89, 202, .52), rgba(23, 50, 123, .34));
+  box-shadow: inset 0 1px rgba(201, 220, 255, .18), inset 0 0 20px rgba(48, 107, 247, .13), 0 8px 20px rgba(9, 38, 113, .21);
+  color: #e6efff;
+}
+
+.cta__contact-btn:hover {
+  background: linear-gradient(120deg, rgba(48, 105, 226, .62), rgba(27, 59, 139, .43));
+  color: #f3f7ff;
+  box-shadow: inset 0 1px rgba(217, 230, 255, .25), inset 0 0 22px rgba(61, 124, 255, .21), 0 8px 25px rgba(23, 67, 179, .32);
+}
+
+.cta__chat-btn {
+  border-color: rgba(88, 138, 234, .45);
+  background: rgba(17, 34, 79, .32);
+  box-shadow: inset 0 1px rgba(174, 200, 255, .08);
+  color: rgba(222, 232, 255, .9);
+}
+
+.cta__chat-btn:hover {
+  border-color: rgba(119, 168, 255, .64);
+  background: rgba(34, 68, 151, .28);
+  box-shadow: inset 0 1px rgba(193, 215, 255, .13), 0 0 18px rgba(45, 104, 240, .12);
+  color: #f1f5ff;
+}
+
+.cta__contact-btn:hover,
+.cta__chat-btn:hover {
+  transform: translateY(-1px);
+}
+
+.cta__contact-btn:hover .cta__button-arrow,
+.cta__chat-btn:hover .cta__button-arrow {
+  transform: translateX(2px);
+  filter: drop-shadow(0 0 8px rgba(177, 209, 255, .7));
+}
+
+.cta__decoration {
+  right: 3.5rem;
+  width: min(40vw, 435px);
+  height: 248px;
+}
+
+.cta__aura {
+  opacity: .55;
+  background:
+    radial-gradient(circle at 54% 51%, rgba(51, 118, 251, .24), rgba(18, 58, 154, .11) 27%, transparent 59%),
+    radial-gradient(circle at 80% 18%, rgba(96, 160, 255, .16), transparent 7%),
+    radial-gradient(circle at 12% 78%, rgba(64, 125, 241, .12), transparent 8%);
+  filter: blur(15px);
+}
+
+.cta__inner:hover .cta__aura {
+  opacity: .72;
+  transform: none;
+}
+
+.cta__asset {
+  filter: drop-shadow(0 8px 14px rgba(10, 56, 160, .2));
+}
+
+.cta__asset--orbit {
+  top: 18%;
+  left: 16%;
+  width: 68%;
+  opacity: .56;
+  filter: drop-shadow(0 5px 10px rgba(20, 81, 211, .16));
+  animation-duration: 40s;
+}
+
+.cta__asset--telegram {
+  top: 18%;
+  left: 35%;
+  width: 42%;
+  filter: drop-shadow(0 12px 19px rgba(30, 104, 255, .34));
+  animation-duration: 8s;
+}
+
+.cta__asset--chat-bars {
+  top: 6%;
+  left: 15%;
+  width: 23%;
+  opacity: .76;
+  animation-duration: 7.2s;
+}
+
+.cta__asset--chat-dots {
+  right: 2%;
+  bottom: 22%;
+  width: 23%;
+  opacity: .74;
+  animation-duration: 7.8s;
+}
+
+.cta__asset--users {
+  top: auto;
+  width: 17%;
+  opacity: .7;
+}
+
+.cta__asset--users-left {
+  left: 17%;
+  bottom: 6%;
+  animation: cta-float-left 7.1s ease-in-out -1.8s infinite;
+}
+
+.cta__asset--users-right {
+  right: 12%;
+  bottom: 5%;
+  animation: cta-float-right 7.4s ease-in-out -3.4s infinite;
+}
+
+.cta__asset--plane {
+  left: auto;
+  right: 17%;
+  bottom: auto;
+  top: 2%;
+  width: 12%;
+  opacity: .83;
+  animation-duration: 7s;
 }
 
 @keyframes spin {
@@ -4947,24 +5374,43 @@ function queueHeroScrollProgress() {
   }
 
   .cta {
-    padding: 1rem 0 3rem;
+    padding: 1.25rem 0 3rem;
   }
 
   .cta__decoration {
-    display: none;
+    position: relative;
+    top: auto;
+    right: auto;
+    width: min(100%, 310px);
+    height: 190px;
+    margin: .85rem auto -1rem;
+    transform: none;
   }
 
   .cta__inner {
-    padding: 1.5rem;
+    min-height: 0;
+    padding: 1.4rem;
+    overflow: visible;
+  }
+
+  .cta__content {
+    width: 100%;
+  }
+
+  .cta__meta {
+    margin-bottom: .65rem;
+    font-size: .56rem;
   }
 
   .cta__content h2 {
-    font-size: 1.5rem;
+    font-size: clamp(1.85rem, 8vw, 2.25rem);
+    line-height: .98;
   }
 
   .cta__content p {
-    font-size: 1rem;
-    margin-bottom: 1.5rem;
+    max-width: 28rem;
+    margin-bottom: 1.15rem;
+    font-size: .86rem;
   }
 
   .cta__actions {
@@ -4974,6 +5420,30 @@ function queueHeroScrollProgress() {
 
   .cta__actions .btn {
     width: 100%;
+  }
+
+  .cta__actions .cta__contact-btn,
+  .cta__actions .cta__chat-btn {
+    justify-content: flex-start;
+    min-height: 54px;
+  }
+
+  .cta__asset--telegram {
+    top: 16%;
+    left: 34%;
+    width: 42%;
+  }
+
+  .cta__asset--chat-bars {
+    top: 5%;
+    left: 14%;
+    width: 23%;
+  }
+
+  .cta__asset--chat-dots {
+    right: 2%;
+    bottom: 22%;
+    width: 23%;
   }
 
   .benefits {
