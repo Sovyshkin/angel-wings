@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 export const USER_POINT_TYPES = {
   ADMIN_CREDIT: 'ADMIN_CREDIT',
+  CONSULTATION_REWARD: 'CONSULTATION_REWARD',
   ORDER_SPEND: 'ORDER_SPEND',
   ORDER_REFUND: 'ORDER_REFUND'
 }
@@ -17,7 +18,7 @@ export function normalizePointMessage(value) {
   return message ? message.slice(0, 500) : null
 }
 
-export async function creditUserPoints(tx, { userId, amount, message = null, createdById = null, batchId = null }) {
+export async function creditUserPoints(tx, { userId, amount, message = null, createdById = null, batchId = null, type = USER_POINT_TYPES.ADMIN_CREDIT, orderId = null }) {
   const normalizedAmount = normalizePointAmount(amount)
   if (!Number.isInteger(userId) || userId <= 0) {
     throw Object.assign(new Error('Некорректный пользователь'), { status: 400 })
@@ -37,10 +38,11 @@ export async function creditUserPoints(tx, { userId, amount, message = null, cre
       userId,
       amount: normalizedAmount,
       balanceAfter: user.pointsBalance,
-      type: USER_POINT_TYPES.ADMIN_CREDIT,
+      type,
       message: normalizePointMessage(message),
       createdById,
-      batchId
+      batchId,
+      orderId
     }
   })
 

@@ -440,6 +440,8 @@
       </div>
     </section>
 
+    <ConsultationSection />
+
     <section class="cta" data-aos="zoom-in" data-aos-offset="100">
       <div class="container">
         <div class="cta__inner">
@@ -535,32 +537,6 @@
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </router-link>
-        </div>
-      </div>
-    </section>
-
-    <section class="promo-banner" data-aos="fade-right" data-aos-offset="100">
-      <div class="promo-bg">
-        <div class="promo-orb promo-orb-1"></div>
-        <div class="promo-orb promo-orb-2"></div>
-        <div class="promo-orb promo-orb-3"></div>
-      </div>
-      <div class="container">
-        <div class="promo-content">
-          <div class="promo-badge">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a4 4 0 01-4 4H7l-4 4V7a4 4 0 014-4h10a4 4 0 014 4z"/>
-            </svg>
-            Персональная консультация
-          </div>
-          <h2>Подберем пептидный комплекс под задачу</h2>
-          <p>Поможем сориентироваться в каталоге и выбрать продукты под исследовательский протокол</p>
-          <div class="promo-actions">
-            <a href="https://t.me/Seraphim_angelwings" target="_blank" rel="noopener noreferrer" class="btn btn-accent">
-              Получить консультацию
-            </a>
-            <router-link to="/catalog" class="promo-link">Открыть каталог</router-link>
-          </div>
         </div>
       </div>
     </section>
@@ -724,6 +700,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
 import { trackProductEvent } from '../api/analytics'
+import ConsultationSection from '../components/ConsultationSection.vue'
 
 const productStore = useProductStore()
 const cartStore = useCartStore()

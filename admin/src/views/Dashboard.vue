@@ -37,6 +37,12 @@
             </svg>
             <span class="nav-text">Заказы</span>
           </router-link>
+          <router-link to="/consultations" class="nav-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11L6 20v-4.1a2.5 2.5 0 0 1-2-2.4v-8Z"/><path d="M8 9h8M8 12h5"/>
+            </svg>
+            <span class="nav-text">Консультации</span>
+          </router-link>
           <router-link to="/users" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
@@ -167,6 +173,12 @@
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
               Заказы
+            </router-link>
+            <router-link to="/consultations" class="nav-link" @click="mobileMenuOpen = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11L6 20v-4.1a2.5 2.5 0 0 1-2-2.4v-8Z"/><path d="M8 9h8M8 12h5"/>
+              </svg>
+              Консультации
             </router-link>
             <router-link to="/users" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

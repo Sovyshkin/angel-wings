@@ -21,6 +21,7 @@ const OrderFail = () => import('../views/OrderFail.vue')
 const Partnership = () => import('../views/Partnership.vue')
 const PartnerCabinet = () => import('../views/PartnerCabinet.vue')
 const Dealers = () => import('../views/Dealers.vue')
+const ConsultationResult = () => import('../views/ConsultationResult.vue')
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -41,6 +42,8 @@ const routes = [
   { path: '/dealers', name: 'Dealers', component: Dealers },
   { path: '/order-success', name: 'OrderSuccess', component: OrderSuccess },
   { path: '/order-failed', name: 'OrderFail', component: OrderFail },
+  { path: '/consultation-success', name: 'ConsultationSuccess', component: ConsultationResult },
+  { path: '/consultation-failed', name: 'ConsultationFail', component: ConsultationResult },
   { path: '/partner', name: 'PartnerCabinet', component: PartnerCabinet, meta: { requiresAuth: true, requiresPartner: true } },
 ]
 

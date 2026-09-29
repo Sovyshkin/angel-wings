@@ -10,6 +10,7 @@ import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { decryptMarketingPayload } from '../utils/marketingToken.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { normalizePointAmount, spendUserPoints } from '../utils/userPoints.js'
+import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -1028,6 +1029,9 @@ router.get('/my', authenticate, async (req, res, next) => {
           })
 
           await syncPartnerCommissionForOrder(prisma, order.id)
+          if (paymentStatus === 'PAID') {
+            await grantConsultationRewardsForPaidOrder(prisma, { ...order, paymentStatus })
+          }
           return { id: order.id, paymentStatus }
         })
     )

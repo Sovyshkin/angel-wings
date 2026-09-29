@@ -4,7 +4,7 @@
       <div class="contact-header" data-aos="fade-up">
         <div id="about-company" class="anchor-target"></div>
         <h1 class="page-title">Свяжитесь с нами</h1>
-        <p class="page-subtitle">Наши специалисты помогут подобрать оптимальный комплекс пептидов для ваших целей</p>
+        <p class="page-subtitle">{{ isExpress ? 'Опишите конкретный вопрос, выберите специалиста и перейдите к безопасной оплате.' : 'Наши специалисты помогут подобрать оптимальный комплекс пептидов для ваших целей' }}</p>
       </div>
 
       <div class="info-sections" data-aos="fade-up" data-aos-delay="50">
@@ -24,6 +24,14 @@
 
       <div class="contact-grid">
         <div class="contact-form-wrapper" data-aos="fade-up" data-aos-delay="100">
+          <div class="consultation-mode" role="tablist" aria-label="Тип консультации">
+            <button type="button" :class="{ active: consultationType === 'free' }" role="tab" :aria-selected="consultationType === 'free'" @click="consultationType = 'free'">Бесплатная заявка</button>
+            <button type="button" :class="{ active: isExpress }" role="tab" :aria-selected="isExpress" @click="consultationType = 'express'">Экспресс · 4 000 ₽</button>
+          </div>
+          <div class="consultation-mode__intro">
+            <strong>{{ isExpress ? 'Экспресс-консультация до 20 минут' : 'Бесплатная заявка на консультацию' }}</strong>
+            <span>{{ isExpress ? 'Выберите специалиста и формат — после оплаты заявка сразу поступит в работу.' : 'Оставьте контакты и вопрос — команда свяжется с вами.' }}</span>
+          </div>
           <form @submit.prevent="handleSubmit" class="contact-form">
             <div class="form-group">
               <label for="name">Имя</label>
@@ -62,7 +70,7 @@
               />
             </div>
 
-            <div class="form-group">
+            <div v-if="!isExpress" class="form-group">
               <label for="goal">Цель обращения</label>
               <select id="goal" v-model="form.goal" class="input">
                 <option value="">Выберите тему</option>
@@ -74,28 +82,69 @@
               </select>
             </div>
 
+            <template v-if="isExpress">
+              <div class="form-group">
+                <label for="specialist">Специалист</label>
+                <div id="specialist" class="specialist-picker" role="radiogroup" aria-label="Выбор специалиста">
+                  <button
+                    v-for="specialist in specialists"
+                    :key="specialist.id"
+                    type="button"
+                    role="radio"
+                    :aria-checked="form.specialist === specialist.id"
+                    :class="{ active: form.specialist === specialist.id }"
+                    @click="form.specialist = specialist.id"
+                  >
+                    <img :src="specialist.image" :alt="specialist.name">
+                    <span class="specialist-picker__check" aria-hidden="true">✓</span>
+                    <span class="specialist-picker__name">{{ specialist.name }}</span>
+                  </button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Формат консультации</label>
+                <div class="format-switch" :class="{ 'format-switch--call': form.contactFormat === 'CALL' }" role="radiogroup" aria-label="Формат консультации">
+                  <span class="format-switch__active" aria-hidden="true"></span>
+                  <button type="button" role="radio" :aria-checked="form.contactFormat === 'MESSAGES'" :class="{ active: form.contactFormat === 'MESSAGES' }" @click="form.contactFormat = 'MESSAGES'">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H8l-4 3v-5.3A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 11h.01M12 11h.01M16 11h.01"/></svg>
+                    <span>Сообщения</span>
+                  </button>
+                  <button type="button" role="radio" :aria-checked="form.contactFormat === 'CALL'" :class="{ active: form.contactFormat === 'CALL' }" @click="form.contactFormat = 'CALL'">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.2 3.6 5.7 5.1c-.9.5-1.3 1.5-1 2.5 1.4 4.8 5.2 8.6 10 10 .9.3 1.9-.1 2.5-1l1.5-2.5-3.5-2.1-1.5 1.7a12.5 12.5 0 0 1-3.4-3.4L12 8.8 8.2 3.6Z"/></svg>
+                    <span>Созвон</span>
+                  </button>
+                </div>
+              </div>
+            </template>
+
             <div class="form-group">
-              <label for="message">Сообщение</label>
+              <label for="message">{{ isExpress ? 'Ваш вопрос' : 'Сообщение' }}</label>
               <textarea 
                 id="message" 
                 v-model="form.message" 
-                placeholder="Опишите ваш вопрос или задачу..."
+                :placeholder="isExpress ? 'Например: можно ли использовать выбранный пептид с учётом моего запроса?' : 'Опишите ваш вопрос или задачу...'"
                 class="input textarea"
                 :class="{ 'error': errors.message }"
               ></textarea>
               <span v-if="errors.message" class="error-text">{{ errors.message }}</span>
             </div>
 
+            <label v-if="isExpress" class="consultation-consent">
+              <input v-model="form.consent" type="checkbox">
+              <span>Соглашаюсь на обработку персональных данных для организации консультации.</span>
+            </label>
+            <span v-if="errors.consent" class="error-text">{{ errors.consent }}</span>
+
             <button type="submit" class="btn btn-primary btn-submit" :disabled="isSubmitting">
               <span v-if="isSubmitting" class="spinner"></span>
-              <span v-else>Отправить сообщение</span>
+              <span v-else>{{ isExpress ? 'Перейти к оплате · 4 000 ₽' : 'Отправить заявку' }}</span>
             </button>
 
             <div v-if="submitSuccess" class="success-message">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Сообщение отправлено! Мы свяжемся с вами в ближайшее время.
+              Заявка отправлена! Мы свяжемся с вами в ближайшее время.
             </div>
 
             <div v-if="submitError" class="error-message">
@@ -178,21 +227,37 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { computed, ref, reactive, watch } from 'vue'
 import axios from 'axios'
+import { useRoute } from 'vue-router'
+import { useAuthStore } from '../store/auth'
+
+const route = useRoute()
+const authStore = useAuthStore()
+const consultationType = ref(route.query.consultation === 'express' ? 'express' : 'free')
+const isExpress = computed(() => consultationType.value === 'express')
+const specialistIds = new Set(['OLESYA_TERENKO', 'MARINA_SHESTAKOVA'])
+const specialists = [
+  { id: 'OLESYA_TERENKO', name: 'Теренько Олеся', image: '/consultations/olesya.jpg' },
+  { id: 'MARINA_SHESTAKOVA', name: 'Шестакова Марина', image: '/consultations/marina.jpg' }
+]
 
 const form = reactive({
   name: '',
   email: '',
   phone: '',
   goal: '',
-  message: ''
+  message: '',
+  specialist: specialistIds.has(route.query.specialist) ? route.query.specialist : 'OLESYA_TERENKO',
+  contactFormat: 'MESSAGES',
+  consent: false
 })
 
 const errors = reactive({
   name: '',
   email: '',
-  message: ''
+  message: '',
+  consent: ''
 })
 
 const isSubmitting = ref(false)
@@ -204,6 +269,7 @@ function validate() {
   errors.name = ''
   errors.email = ''
   errors.message = ''
+  errors.consent = ''
 
   if (!form.name.trim()) {
     errors.name = 'Пожалуйста, введите ваше имя'
@@ -223,10 +289,20 @@ function validate() {
     valid = false
   }
 
+  if (isExpress.value && !form.consent) {
+    errors.consent = 'Необходимо согласие на обработку персональных данных'
+    valid = false
+  }
+
   return valid
 }
 
 async function handleSubmit() {
+  if (isExpress.value && !authStore.isAuthenticated) {
+    submitError.value = 'Экспресс-консультация доступна после входа в аккаунт — так 4 000 баллов вернутся именно на ваш баланс.'
+    return
+  }
+
   if (!validate()) return
 
   isSubmitting.value = true
@@ -234,6 +310,20 @@ async function handleSubmit() {
   submitSuccess.value = false
 
   try {
+    if (isExpress.value) {
+      const { data } = await axios.post('/api/consultations', {
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        specialist: form.specialist,
+        contactFormat: form.contactFormat,
+        question: form.message,
+        consent: form.consent
+      })
+      window.location.assign(data.paymentUrl)
+      return
+    }
+
     await axios.post('/api/contact-requests', {
       name: form.name,
       email: form.email,
@@ -242,7 +332,7 @@ async function handleSubmit() {
       message: form.message
     })
     submitSuccess.value = true
-    Object.keys(form).forEach(key => form[key] = '')
+    Object.assign(form, { name: '', email: '', phone: '', goal: '', message: '', specialist: 'OLESYA_TERENKO', contactFormat: 'MESSAGES', consent: false })
     setTimeout(() => { submitSuccess.value = false }, 5000)
   } catch (error) {
     submitError.value = error?.response?.data?.error || 'Не удалось отправить сообщение. Попробуйте ещё раз.'
@@ -250,6 +340,11 @@ async function handleSubmit() {
     isSubmitting.value = false
   }
 }
+
+watch(() => route.query, (query) => {
+  if (query.consultation === 'express') consultationType.value = 'express'
+  if (specialistIds.has(query.specialist)) form.specialist = query.specialist
+}, { deep: true })
 </script>
 
 <style scoped>
@@ -316,6 +411,185 @@ async function handleSubmit() {
   border-radius: var(--radius);
   padding: 2.5rem;
 }
+
+.consultation-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 1rem;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+}
+
+.consultation-mode button {
+  padding: .8rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.consultation-mode button.active {
+  background: var(--accent-dim);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--border-hover);
+}
+
+.consultation-mode__intro {
+  display: grid;
+  gap: .25rem;
+  margin-bottom: 1.7rem;
+}
+
+.consultation-mode__intro strong { color: var(--text-primary); }
+.consultation-mode__intro span { color: var(--text-secondary); font-size: .85rem; line-height: 1.45; }
+
+.specialist-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.specialist-picker button {
+  position: relative;
+  min-height: 220px;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  isolation: isolate;
+  transition: border-color .35s cubic-bezier(.22, 1, .36, 1), box-shadow .35s cubic-bezier(.22, 1, .36, 1), transform .35s cubic-bezier(.22, 1, .36, 1);
+}
+
+.specialist-picker button::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(6, 12, 29, .76), rgba(6, 12, 29, .08));
+  content: '';
+}
+
+.specialist-picker button:hover { border-color: rgba(162, 189, 255, .66); transform: translateY(-2px); }
+.specialist-picker button.active { border-color: #a9c0ff; box-shadow: 0 0 0 2px rgba(126, 160, 255, .28), 0 12px 24px rgba(42, 73, 174, .2); }
+.specialist-picker button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.specialist-picker img {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+}
+
+.specialist-picker__name {
+  position: absolute;
+  z-index: 2;
+  left: .85rem;
+  bottom: .75rem;
+  max-width: calc(100% - 3rem);
+  color: #fff;
+  font-size: .82rem;
+  font-weight: 700;
+  text-align: left;
+  text-shadow: 0 2px 8px rgba(0,0,0,.8);
+}
+
+.specialist-picker__check {
+  position: absolute;
+  z-index: 2;
+  top: .65rem;
+  right: .65rem;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid rgba(228, 236, 255, .64);
+  border-radius: 50%;
+  background: rgba(8, 16, 37, .72);
+  color: #fff;
+  font-size: .72rem;
+  opacity: 0;
+  transform: scale(.7);
+  transition: opacity .25s ease, transform .35s cubic-bezier(.22,1,.36,1), background .25s ease;
+}
+
+.specialist-picker button.active .specialist-picker__check { opacity: 1; transform: scale(1); background: #809ff4; }
+
+.format-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-secondary) 88%, #081126);
+  overflow: hidden;
+}
+
+.format-switch__active {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border: 1px solid rgba(165, 189, 255, .64);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(123, 157, 255, .52), rgba(67, 102, 206, .34));
+  box-shadow: 0 6px 16px rgba(42, 82, 200, .22), inset 0 1px rgba(255,255,255,.3);
+  transition: transform .38s cubic-bezier(.22, 1, .36, 1), background .38s ease;
+}
+
+.format-switch--call .format-switch__active {
+  transform: translateX(100%);
+  background: linear-gradient(135deg, rgba(111, 153, 255, .6), rgba(54, 95, 203, .38));
+}
+
+.format-switch button {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .52rem;
+  min-height: 44px;
+  padding: .65rem .75rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 700 .78rem var(--font-body);
+  cursor: pointer;
+  transition: color .28s ease, transform .28s ease;
+}
+
+.format-switch button:hover { color: var(--text-primary); }
+.format-switch button:active { transform: scale(.975); }
+.format-switch button.active { color: #f7f9ff; }
+.format-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.format-switch svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+.consultation-consent {
+  display: flex;
+  gap: .55rem;
+  align-items: flex-start;
+  color: var(--text-secondary);
+  font-size: .85rem;
+  line-height: 1.45;
+}
+
+.consultation-consent input { margin-top: .18rem; accent-color: var(--accent); }
+.consultation-consent { margin-top: -.4rem; }
 
 .contact-form {
   display: flex;
@@ -510,5 +784,7 @@ async function handleSubmit() {
   .info-card {
     min-width: 100%;
   }
+
+  .specialist-picker button { min-height: 150px; }
 }
 </style>

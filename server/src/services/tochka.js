@@ -249,7 +249,7 @@ class TochkaService {
     }
   }
 
-  async createPayment(amount, orderId, purpose, redirectUrl, failRedirectUrl, order = null) {
+  async createPayment(amount, orderId, purpose, redirectUrl, failRedirectUrl, order = null, paymentLinkPrefix = 'ORDER') {
     try {
       const { jwtToken, clientId } = this.getEnv()
       console.log('[TOCHKA] createPayment start', JSON.stringify({
@@ -280,7 +280,7 @@ class TochkaService {
           purpose: purpose,
           redirectUrl: redirectUrl,
           failRedirectUrl: failRedirectUrl,
-          paymentLinkId: `ORDER-${orderId}-${uniqueSuffix}`
+          paymentLinkId: `${String(paymentLinkPrefix || 'ORDER').toUpperCase()}-${orderId}-${uniqueSuffix}`
         }
       }
 

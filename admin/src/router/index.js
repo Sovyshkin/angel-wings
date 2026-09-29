@@ -24,6 +24,7 @@ const routes = [
       { path: 'analytics', name: 'AdminAnalytics', component: () => import('../views/Analytics.vue') },
       { path: 'categories', name: 'AdminCategories', component: () => import('../views/Categories.vue') },
       { path: 'orders', name: 'AdminOrders', component: () => import('../views/Orders.vue') },
+      { path: 'consultations', name: 'AdminConsultations', component: () => import('../views/Consultations.vue') },
       { path: 'users', name: 'AdminUsers', component: () => import('../views/Users.vue') },
       { path: 'users/:id', name: 'AdminUserDetail', component: () => import('../views/UserDetail.vue') },
       { path: 'user-points', name: 'AdminUserPoints', component: () => import('../views/UserPoints.vue') },

@@ -519,7 +519,7 @@ const telegramWidget = ref(null)
 const telegramChatOpen = ref(false)
 const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
 const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
-const TAB_RESUME_RELOAD_AFTER_MS = 10_000
+const SCROLL_RESTORE_STORAGE_KEY = 'angel_wings_scroll_restore'
 let cursorFrameId = 0
 let removeCursorMoveListener = null
 let removePageActivityListener = null
@@ -677,6 +677,21 @@ async function dismissPointsToast() {
 }
 
 onMounted(() => {
+  // A forced recovery reload is only a last resort for a genuinely empty
+  // router view. Restore its exact scroll position after Vue has rendered;
+  // ordinary tab switching never reloads the page.
+  try {
+    const savedScroll = JSON.parse(sessionStorage.getItem(SCROLL_RESTORE_STORAGE_KEY) || 'null')
+    if (savedScroll?.path === route.fullPath && Number.isFinite(savedScroll.top)) {
+      sessionStorage.removeItem(SCROLL_RESTORE_STORAGE_KEY)
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        window.scrollTo({ left: Math.max(0, Number(savedScroll.left) || 0), top: Math.max(0, savedScroll.top), behavior: 'auto' })
+      }))
+    }
+  } catch {
+    // Storage can be unavailable in private browsing; native restoration stays in place.
+  }
+
   captureAttributionFromUrl()
   checkPointNotifications()
 
@@ -712,14 +727,22 @@ onMounted(() => {
   // Some mobile browsers restore an inactive tab from their page cache with the
   // persistent App shell intact but an empty router-view. Keep the current URL
   // and recover the route before the user sees a blank page.
-  let hiddenAt = 0
   let reloadQueued = false
   const reloadCurrentRoute = () => {
     if (reloadQueued) return
     reloadQueued = true
+    try {
+      sessionStorage.setItem(SCROLL_RESTORE_STORAGE_KEY, JSON.stringify({
+        path: route.fullPath,
+        left: window.scrollX,
+        top: window.scrollY
+      }))
+    } catch {
+      // The reload is still useful if session storage is unavailable.
+    }
     window.location.reload()
   }
-  const checkRouteAfterResume = (forceReload = false) => {
+  const checkRouteAfterResume = () => {
     window.setTimeout(async () => {
       if (document.visibilityState !== 'visible') return
 
@@ -737,21 +760,14 @@ onMounted(() => {
       }
 
       const routeContent = document.querySelector('.main > *')
-      if (forceReload || !routeContent) reloadCurrentRoute()
+      if (!routeContent) reloadCurrentRoute()
     }, 0)
   }
   const recoverRouteOnVisibilityChange = () => {
-    if (document.visibilityState === 'hidden') {
-      hiddenAt = Date.now()
-      return
-    }
-
-    const wasInactiveLongEnough = hiddenAt > 0 && Date.now() - hiddenAt >= TAB_RESUME_RELOAD_AFTER_MS
-    hiddenAt = 0
-    checkRouteAfterResume(wasInactiveLongEnough)
+    if (document.visibilityState === 'visible') checkRouteAfterResume()
   }
   const recoverRouteFromPageCache = (event) => {
-    if (event.persisted || document.wasDiscarded) checkRouteAfterResume(true)
+    if (event.persisted || document.wasDiscarded) checkRouteAfterResume()
   }
 
   document.addEventListener('visibilitychange', recoverRouteOnVisibilityChange)

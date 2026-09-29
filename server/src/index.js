@@ -20,6 +20,8 @@ import pointsRoutes from './routes/points.js'
 import adminPointsRoutes from './routes/adminPoints.js'
 import contactRequestsRoutes from './routes/contactRequests.js'
 import adminContactRequestsRoutes from './routes/adminContactRequests.js'
+import consultationRoutes from './routes/consultations.js'
+import adminConsultationRoutes from './routes/adminConsultations.js'
 import { recoveryRouter, adminRecoveryRouter } from './routes/recovery.js'
 import { startRecoveryWorker } from './services/recovery.js'
 import { errorHandler } from './middleware/errorHandler.js'
@@ -63,6 +65,8 @@ app.use('/api/admin', adminRoutes)
 app.use('/api/partner-applications', partnerApplicationsRoutes)
 app.use('/api/contact-requests', contactRequestsRoutes)
 app.use('/api/partner', partnerCabinetRoutes)
+app.use('/api/consultations', consultationRoutes)
+app.use('/api/admin/consultations', adminConsultationRoutes)
 app.use('/api/delivery', deliveryRoutes)
 app.use('/api/dealers', dealerRoutes)
 app.use('/api/points', pointsRoutes)
