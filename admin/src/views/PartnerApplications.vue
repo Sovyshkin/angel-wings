@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">Заявки</h1>
-        <p class="page-subtitle">{{ requestType === 'contact' ? 'Обращения с контактной формы сайта' : 'Проверка кандидатов и назначение партнёрского доступа' }}</p>
+        <p class="page-subtitle">{{ requestType === 'contact' ? 'Обращения с контактной формы сайта' : requestType === 'express' ? 'Заявки на экспресс-консультацию и их сопровождение' : 'Проверка кандидатов и назначение партнёрского доступа' }}</p>
       </div>
       <div v-if="requestType === 'partner'" class="status-tabs">
         <button
@@ -17,7 +17,7 @@
           <span v-if="tab.value === 'PENDING' && pendingCount">{{ pendingCount }}</span>
         </button>
       </div>
-      <div v-else class="status-tabs">
+      <div v-else-if="requestType === 'contact'" class="status-tabs">
         <button
           v-for="tab in contactTabs"
           :key="tab.value"
@@ -27,6 +27,18 @@
         >
           {{ tab.label }}
           <span v-if="tab.value === 'NEW' && newContactCount">{{ newContactCount }}</span>
+        </button>
+      </div>
+      <div v-else class="status-tabs">
+        <button
+          v-for="tab in consultationTabs"
+          :key="tab.value"
+          type="button"
+          :class="{ active: consultationStatus === tab.value }"
+          @click="setConsultationStatus(tab.value)"
+        >
+          {{ tab.label }}
+          <span v-if="tab.value === 'NEW' && newConsultationCount">{{ newConsultationCount }}</span>
         </button>
       </div>
     </div>
@@ -41,6 +53,11 @@
         <span>Партнёрство</span>
         <strong>Заявки партнёров</strong>
         <small v-if="pendingCount">На рассмотрении: {{ pendingCount }}</small>
+      </button>
+      <button type="button" :class="{ active: requestType === 'express' }" @click="setRequestType('express')">
+        <span>Консультации</span>
+        <strong>Экспресс-заявки</strong>
+        <small v-if="newConsultationCount">Новых: {{ newConsultationCount }}</small>
       </button>
     </div>
 
@@ -68,6 +85,11 @@
     <div v-else-if="requestType === 'partner' && !applications.length" class="empty-state card">
       <h3>Заявок нет</h3>
       <p>В выбранном статусе пока нет заявок на партнёрство.</p>
+    </div>
+
+    <div v-else-if="requestType === 'express' && !consultations.length" class="empty-state card">
+      <h3>Заявок нет</h3>
+      <p>В выбранном статусе пока нет заявок на экспресс-консультацию.</p>
     </div>
 
     <div v-else-if="requestType === 'contact'" class="contact-requests-list">
@@ -144,6 +166,67 @@
               @click="updateContactRequest(request, 'DONE')"
             >
               {{ contactProcessingId === request.id ? 'Сохраняем...' : 'Закрыть заявку' }}
+            </button>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div v-else-if="requestType === 'express'" class="contact-requests-list">
+      <article v-for="consultation in consultations" :key="consultation.id" class="contact-request-card card">
+        <div class="contact-request-card__head">
+          <div>
+            <div class="application-id">Экспресс-заявка #{{ consultation.id }}</div>
+            <h3>{{ specialistLabel(consultation.specialist) }}</h3>
+            <p>{{ consultation.customerName }} · {{ consultation.customerEmail }}</p>
+          </div>
+          <span class="application-status" :class="`application-status--${consultation.status.toLowerCase().replace('_', '-')}`">
+            {{ getConsultationStatusLabel(consultation.status) }}
+          </span>
+        </div>
+
+        <div class="application-meta">
+          <div>
+            <span>Связь</span>
+            <a :href="`tel:${consultation.customerPhone}`">{{ consultation.customerPhone }}</a>
+          </div>
+          <div>
+            <span>Формат</span>
+            <strong>{{ consultationFormatLabel(consultation.contactFormat) }}</strong>
+          </div>
+          <div>
+            <span>Оплата</span>
+            <strong>Напрямую специалисту</strong>
+          </div>
+          <div>
+            <span>Дата заявки</span>
+            <strong>{{ formatDate(consultation.createdAt) }}</strong>
+          </div>
+        </div>
+
+        <div class="application-details">
+          <div>
+            <span>Запрос клиента</span>
+            <p>{{ consultation.question }}</p>
+          </div>
+        </div>
+
+        <div v-if="consultation.adminNote" class="admin-note">
+          <span>Комментарий администратора</span>
+          <p>{{ consultation.adminNote }}</p>
+        </div>
+
+        <div class="application-actions">
+          <textarea
+            v-model="consultationNotes[consultation.id]"
+            rows="2"
+            placeholder="Комментарий для команды или результат консультации"
+          ></textarea>
+          <div>
+            <button type="button" class="btn btn-secondary" :disabled="consultationProcessingId === consultation.id" @click="updateConsultation(consultation, 'CANCELLED')">Отменить</button>
+            <button type="button" class="btn btn-secondary" :disabled="consultationProcessingId === consultation.id" @click="updateConsultation(consultation, 'IN_PROGRESS')">В работе</button>
+            <button type="button" class="btn btn-primary" :disabled="consultationProcessingId === consultation.id" @click="updateConsultation(consultation, 'DONE')">
+              {{ consultationProcessingId === consultation.id ? 'Сохраняем...' : 'Завершить консультацию' }}
             </button>
           </div>
         </div>
@@ -263,17 +346,23 @@ const tabs = [
 
 const applications = ref([])
 const contactRequests = ref([])
+const consultations = ref([])
 const loading = ref(true)
 const contactLoading = ref(true)
+const consultationLoading = ref(true)
 const requestType = ref('contact')
 const status = ref('PENDING')
 const contactStatus = ref('NEW')
+const consultationStatus = ref('NEW')
 const pendingCount = ref(0)
 const newContactCount = ref(0)
+const newConsultationCount = ref(0)
 const processingId = ref(null)
 const contactProcessingId = ref(null)
+const consultationProcessingId = ref(null)
 const adminNotes = reactive({})
 const contactNotes = reactive({})
+const consultationNotes = reactive({})
 
 const contactTabs = [
   { label: 'Новые', value: 'NEW' },
@@ -283,7 +372,19 @@ const contactTabs = [
   { label: 'Все', value: 'ALL' }
 ]
 
-const activeLoading = computed(() => requestType.value === 'contact' ? contactLoading.value : loading.value)
+const consultationTabs = [
+  { label: 'Новые', value: 'NEW' },
+  { label: 'В работе', value: 'IN_PROGRESS' },
+  { label: 'Завершённые', value: 'DONE' },
+  { label: 'Отменённые', value: 'CANCELLED' },
+  { label: 'Все', value: '' }
+]
+
+const activeLoading = computed(() => requestType.value === 'contact'
+  ? contactLoading.value
+  : requestType.value === 'express'
+    ? consultationLoading.value
+    : loading.value)
 
 async function fetchApplications() {
   loading.value = true
@@ -322,12 +423,34 @@ async function fetchContactRequests() {
   }
 }
 
+async function fetchConsultations() {
+  consultationLoading.value = true
+  try {
+    const { data } = await axios.get('/api/admin/consultations', {
+      params: consultationStatus.value ? { status: consultationStatus.value, limit: 100 } : { limit: 100 }
+    })
+    consultations.value = data.consultations || []
+    newConsultationCount.value = data.newCount || 0
+    consultations.value.forEach((consultation) => {
+      if (consultation.adminNote && !consultationNotes[consultation.id]) {
+        consultationNotes[consultation.id] = consultation.adminNote
+      }
+    })
+    dispatchRequestsCount()
+  } catch (e) {
+    alert(e.response?.data?.error || 'Не удалось загрузить экспресс-заявки')
+  } finally {
+    consultationLoading.value = false
+  }
+}
+
 function dispatchRequestsCount() {
   window.dispatchEvent(new CustomEvent('partner-applications-count', {
     detail: {
       pendingCount: pendingCount.value,
       contactCount: newContactCount.value,
-      totalCount: pendingCount.value + newContactCount.value
+      consultationCount: newConsultationCount.value,
+      totalCount: pendingCount.value + newContactCount.value + newConsultationCount.value
     }
   }))
 }
@@ -336,6 +459,8 @@ function setRequestType(type) {
   requestType.value = type
   if (type === 'contact') {
     fetchContactRequests()
+  } else if (type === 'express') {
+    fetchConsultations()
   } else {
     fetchApplications()
   }
@@ -351,6 +476,11 @@ function setContactStatus(nextStatus) {
   fetchContactRequests()
 }
 
+function setConsultationStatus(nextStatus) {
+  consultationStatus.value = nextStatus
+  fetchConsultations()
+}
+
 async function updateContactRequest(request, nextStatus) {
   contactProcessingId.value = request.id
   try {
@@ -363,6 +493,21 @@ async function updateContactRequest(request, nextStatus) {
     alert(e.response?.data?.error || 'Не удалось обновить обращение')
   } finally {
     contactProcessingId.value = null
+  }
+}
+
+async function updateConsultation(consultation, nextStatus) {
+  consultationProcessingId.value = consultation.id
+  try {
+    await axios.patch(`/api/admin/consultations/${consultation.id}`, {
+      status: nextStatus,
+      adminNote: consultationNotes[consultation.id] || ''
+    })
+    await fetchConsultations()
+  } catch (e) {
+    alert(e.response?.data?.error || 'Не удалось обновить экспресс-заявку')
+  } finally {
+    consultationProcessingId.value = null
   }
 }
 
@@ -428,6 +573,19 @@ function getContactStatusLabel(value) {
   return labels[value] || value
 }
 
+function getConsultationStatusLabel(value) {
+  const labels = {
+    NEW: 'Новая',
+    IN_PROGRESS: 'В работе',
+    DONE: 'Завершена',
+    CANCELLED: 'Отменена'
+  }
+  return labels[value] || value
+}
+
+const specialistLabel = value => value === 'MARINA_SHESTAKOVA' ? 'Шестакова Марина' : 'Теренько Олеся'
+const consultationFormatLabel = value => value === 'CALL' ? 'Созвон по договорённости' : 'Текстовые сообщения'
+
 function getGoalLabel(value) {
   const labels = {
     consult: 'Консультация по продуктам',
@@ -457,7 +615,7 @@ function getTelegramUrl(value) {
 }
 
 onMounted(async () => {
-  await Promise.all([fetchContactRequests(), fetchApplications()])
+  await Promise.all([fetchContactRequests(), fetchConsultations(), fetchApplications()])
 })
 </script>
 
@@ -514,7 +672,7 @@ onMounted(async () => {
 
 .request-type-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.85rem;
   padding: 0.75rem;
 }

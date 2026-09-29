@@ -272,17 +272,21 @@ const pendingApplicationsCount = ref(0)
 
 async function fetchPendingApplicationsCount() {
   try {
-    const [partnerResult, contactResult] = await Promise.allSettled([
+    const [partnerResult, contactResult, consultationResult] = await Promise.allSettled([
       axios.get('/api/admin/partner-applications', {
         params: { status: 'PENDING', limit: 1 }
       }),
       axios.get('/api/admin/contact-requests', {
         params: { status: 'NEW', limit: 1 }
+      }),
+      axios.get('/api/admin/consultations', {
+        params: { status: 'NEW', limit: 1 }
       })
     ])
     const partnerCount = partnerResult.status === 'fulfilled' ? Number(partnerResult.value.data.pendingCount || 0) : 0
     const contactCount = contactResult.status === 'fulfilled' ? Number(contactResult.value.data.newCount || 0) : 0
-    pendingApplicationsCount.value = partnerCount + contactCount
+    const consultationCount = consultationResult.status === 'fulfilled' ? Number(consultationResult.value.data.newCount || 0) : 0
+    pendingApplicationsCount.value = partnerCount + contactCount + consultationCount
   } catch (error) {
     console.error('[ADMIN] failed to fetch applications count', error)
   }
@@ -291,7 +295,8 @@ async function fetchPendingApplicationsCount() {
 function handlePartnerApplicationsCount(event) {
   pendingApplicationsCount.value = Number(
     event?.detail?.totalCount ?? (
-      Number(event?.detail?.pendingCount || 0) + Number(event?.detail?.contactCount || 0)
+        Number(event?.detail?.pendingCount || 0) + Number(event?.detail?.contactCount || 0)
+        + Number(event?.detail?.consultationCount || 0)
     )
   )
 }
