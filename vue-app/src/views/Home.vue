@@ -3824,6 +3824,7 @@ function queueHeroScrollProgress() {
     radial-gradient(circle at 88% 26%, rgba(58, 108, 232, .12), transparent 16%),
     linear-gradient(105deg, #090f1d 0%, #070d19 57%, #091426 100%);
   box-shadow: inset 0 1px rgba(159, 190, 255, .07), inset 0 -1px rgba(61, 108, 219, .1), 0 18px 42px rgba(0, 4, 16, .28);
+  overflow: hidden;
 }
 
 .cta__inner::before {
@@ -4025,12 +4026,19 @@ function queueHeroScrollProgress() {
 }
 
 .cta__asset--orbit {
-  top: 18%;
-  left: 16%;
-  width: 68%;
+  top: 0;
+  left: 20%;
+  width: 60%;
   opacity: .56;
   filter: drop-shadow(0 5px 10px rgba(20, 81, 211, .16));
-  animation-duration: 40s;
+  animation: none;
+  transition: transform .6s cubic-bezier(.22, 1, .36, 1), opacity .45s ease, filter .45s ease;
+}
+
+.cta__inner:hover .cta__asset--orbit {
+  transform: translate3d(0, -5px, 0) rotate(-2deg) scale(1.02);
+  opacity: .7;
+  filter: drop-shadow(0 7px 13px rgba(38, 104, 243, .25));
 }
 
 .cta__asset--telegram {
@@ -5390,7 +5398,7 @@ function queueHeroScrollProgress() {
   .cta__inner {
     min-height: 0;
     padding: 1.4rem;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .cta__content {
@@ -5760,6 +5768,51 @@ function queueHeroScrollProgress() {
     left: 36%;
     top: 34%;
     width: clamp(72px, 10vw, 96px);
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1080px) {
+  .cta {
+    padding: 2.25rem 0 4rem;
+  }
+
+  .cta__inner {
+    display: block;
+    min-height: 0;
+    padding: 2.4rem 2.5rem 2.1rem;
+  }
+
+  .cta__content {
+    width: 100%;
+    max-width: 34rem;
+  }
+
+  .cta__content h2 {
+    font-size: clamp(2.35rem, 5.2vw, 2.85rem);
+  }
+
+  .cta__content p {
+    max-width: 32rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .cta__actions {
+    flex-wrap: nowrap;
+  }
+
+  .cta__contact-btn,
+  .cta__chat-btn {
+    min-width: 15.5rem;
+  }
+
+  .cta__decoration {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: min(100%, 25rem);
+    height: 14.5rem;
+    margin: 1rem auto -.35rem;
+    transform: none;
   }
 }
 
