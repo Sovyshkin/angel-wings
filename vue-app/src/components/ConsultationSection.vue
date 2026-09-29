@@ -18,7 +18,7 @@
           <div>
             <span class="consultation-section__reward-kicker">БОНУС ДЛЯ ВАШЕГО АККАУНТА</span>
             <strong>4 000 баллов вернутся на ваш баланс</strong>
-            <p>После завершения консультации и первой успешной покупки после неё.</p>
+            <p>После завершения консультации и первой успешной покупки.</p>
           </div>
         </div>
         <router-link class="btn btn-accent consultation-section__cta" to="/contact?consultation=express">Оставить заявку <span>→</span></router-link>
