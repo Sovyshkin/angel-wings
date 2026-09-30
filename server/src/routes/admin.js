@@ -1014,7 +1014,7 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
       ]
     }
     
-    const [orders, total] = await Promise.all([
+    const [orders, total, statusGroups] = await Promise.all([
       prisma.order.findMany({
         where,
         include: {
@@ -1043,9 +1043,13 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
         },
         take: parseInt(limit),
         skip: parseInt(offset),
-        orderBy: [{ isFavorite: 'desc' }, { createdAt: 'desc' }]
+        orderBy: { createdAt: 'desc' }
       }),
-      prisma.order.count({ where })
+      prisma.order.count({ where }),
+      prisma.order.groupBy({
+        by: ['status'],
+        _count: { _all: true }
+      })
     ])
 
     const promoCodeIds = [...new Set(orders.map(order => order.promoCodeId).filter(Boolean))]
@@ -1112,7 +1116,12 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
 
     await attachPartnerBonusInfoToOrders(orders)
 
-    res.json({ orders, total })
+    const stats = statusGroups.reduce((result, group) => {
+      result[group.status] = group._count._all
+      return result
+    }, {})
+
+    res.json({ orders, total, stats })
   } catch (error) {
     next(error)
   }

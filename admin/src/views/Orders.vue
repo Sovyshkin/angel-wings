@@ -49,7 +49,7 @@
             </svg>
           </div>
           <div class="stat-info">
-            <span class="stat-value">{{ stats.pending }}</span>
+            <span class="stat-value">{{ stats.PENDING || 0 }}</span>
             <span class="stat-label">Ожидают</span>
           </div>
         </div>
@@ -60,7 +60,7 @@
             </svg>
           </div>
           <div class="stat-info">
-            <span class="stat-value">{{ stats.processing }}</span>
+            <span class="stat-value">{{ stats.PROCESSING || 0 }}</span>
             <span class="stat-label">В обработке</span>
           </div>
         </div>
@@ -71,7 +71,7 @@
             </svg>
           </div>
           <div class="stat-info">
-            <span class="stat-value">{{ stats.shipped }}</span>
+            <span class="stat-value">{{ stats.SHIPPED || 0 }}</span>
             <span class="stat-label">Отправлено</span>
           </div>
         </div>
@@ -82,7 +82,7 @@
             </svg>
           </div>
           <div class="stat-info">
-            <span class="stat-value">{{ stats.delivered }}</span>
+            <span class="stat-value">{{ stats.DELIVERED || 0 }}</span>
             <span class="stat-label">Доставлено</span>
           </div>
         </div>
@@ -557,7 +557,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import axios from 'axios'
 import deliveryApi from '../api/delivery'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
@@ -587,13 +587,12 @@ const cancelReasonOptions = [
 ]
 const currentPage = ref(1)
 const ORDERS_PER_PAGE = 10
-
-const stats = computed(() => ({
-  pending: orders.value.filter(o => o.status === 'PENDING').length,
-  processing: orders.value.filter(o => o.status === 'PROCESSING').length,
-  shipped: orders.value.filter(o => o.status === 'SHIPPED').length,
-  delivered: orders.value.filter(o => o.status === 'DELIVERED').length
-}))
+const stats = ref({
+  PENDING: 0,
+  PROCESSING: 0,
+  SHIPPED: 0,
+  DELIVERED: 0
+})
 
 let searchTimer = null
 
@@ -610,6 +609,7 @@ async function fetchOrders() {
     const { data } = await axios.get(`${API_URL}/orders`, { params })
     orders.value = data.orders
     total.value = data.total || 0
+    stats.value = data.stats || {}
   } catch (e) {
     console.error(e)
   } finally {

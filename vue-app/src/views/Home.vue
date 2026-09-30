@@ -446,29 +446,34 @@
       <div class="container">
         <div class="cta__inner">
           <div class="cta__content">
-            <div class="cta__meta" aria-label="Чат и канал">
-              <img src="/consultation-cta-assets/telegram-mini.png" alt="" aria-hidden="true" width="1254" height="1254">
-              <span>ЧАТ <b>•</b> КАНАЛ</span>
+            <div class="cta__meta" aria-label="Закрытый чат и канал">
+              <img src="/consultation-cta-assets/telegram-plane.png" alt="" aria-hidden="true" width="1254" height="1254">
+              <span>ЗАКРЫТЫЙ ЧАТ <b>•</b> КАНАЛ</span>
               <i aria-hidden="true"></i>
               <i aria-hidden="true"></i>
               <i aria-hidden="true"></i>
             </div>
-            <h2>Нужна консультация?</h2>
-            <p>Наши специалисты помогут подобрать оптимальный комплекс пептидов для ваших целей</p>
+            <h2>Наш чат и канал <em>закрыты</em></h2>
+            <p>Вступай, чтобы получить доступ к закрытому чату и каналу</p>
             <div class="cta__actions">
-              <router-link to="/contact" class="btn btn-primary cta__contact-btn">
-                <img src="/consultation-cta-assets/chat-dots.png" alt="" aria-hidden="true" width="1254" height="1254">
-                <span>Связаться с нами</span>
-                <img class="cta__button-arrow" src="/consultation-cta-assets/arrow.png" alt="" aria-hidden="true" width="1254" height="1254">
-              </router-link>
               <a
                 href="https://t.me/+G8SAtpWBSFAzZDcy"
                 target="_blank"
                 rel="noopener noreferrer"
+                class="btn btn-primary cta__contact-btn"
+              >
+                <img src="/consultation-cta-assets/telegram-plane.png" alt="" aria-hidden="true" width="1254" height="1254">
+                <span>Вступить в чат</span>
+                <img class="cta__button-arrow" src="/consultation-cta-assets/arrow.png" alt="" aria-hidden="true" width="1254" height="1254">
+              </a>
+              <a
+                href="https://t.me/+UwZu11Bt55FhNTIy"
+                target="_blank"
+                rel="noopener noreferrer"
                 class="btn cta__chat-btn"
               >
-                <img src="/consultation-cta-assets/telegram-mini.png" alt="" aria-hidden="true" width="1254" height="1254">
-                <span>Вступить в чат</span>
+                <img src="/consultation-cta-assets/telegram-plane.png" alt="" aria-hidden="true" width="1254" height="1254">
+                <span>Подписаться на канал</span>
                 <img class="cta__button-arrow" src="/consultation-cta-assets/arrow.png" alt="" aria-hidden="true" width="1254" height="1254">
               </a>
             </div>
@@ -3901,6 +3906,17 @@ function queueHeroScrollProgress() {
   font-weight: 800;
   line-height: .98;
   letter-spacing: -.048em;
+}
+
+.cta__content h2 em {
+  display: block;
+  font: inherit;
+  font-style: normal;
+  background: linear-gradient(105deg, #38c8ff 0%, #6b8cff 56%, #8d74ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 14px rgba(76, 153, 255, .16));
 }
 
 .cta__content p {
