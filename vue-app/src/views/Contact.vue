@@ -25,11 +25,11 @@
       <div class="contact-grid">
         <div class="contact-form-wrapper" data-aos="fade-up" data-aos-delay="100">
           <div class="consultation-mode" role="tablist" aria-label="Тип консультации">
-            <button type="button" :class="{ active: consultationType === 'free' }" role="tab" :aria-selected="consultationType === 'free'" @click="consultationType = 'free'">Бесплатная заявка</button>
+            <button type="button" :class="{ active: consultationType === 'free' }" role="tab" :aria-selected="consultationType === 'free'" @click="consultationType = 'free'">Обращение</button>
             <button type="button" :class="{ active: isExpress }" role="tab" :aria-selected="isExpress" @click="consultationType = 'express'">Экспресс · 4 000 ₽</button>
           </div>
           <div class="consultation-mode__intro">
-            <strong>{{ isExpress ? 'Экспресс-консультация до 20 минут' : 'Бесплатная заявка на консультацию' }}</strong>
+            <strong>{{ isExpress ? 'Экспресс-консультация до 20 минут' : 'Обращение' }}</strong>
             <span>{{ isExpress ? 'Опишите вопрос и выберите формат — мы назначим специалиста и свяжемся для согласования консультации и оплаты напрямую.' : 'Оставьте контакты и вопрос — команда свяжется с вами.' }}</span>
           </div>
           <form @submit.prevent="handleSubmit" class="contact-form">
@@ -74,7 +74,6 @@
               <label for="goal">Цель обращения</label>
               <select id="goal" v-model="form.goal" class="input">
                 <option value="">Выберите тему</option>
-                <option value="consult">Консультация по продуктам</option>
                 <option value="order">Оформление заказа</option>
                 <option value="support">Техническая поддержка</option>
                 <option value="partnership">Сотрудничество</option>
@@ -119,14 +118,14 @@
 
             <button type="submit" class="btn btn-primary btn-submit" :disabled="isSubmitting">
               <span v-if="isSubmitting" class="spinner"></span>
-              <span v-else>{{ isExpress ? 'Отправить экспресс-заявку' : 'Отправить заявку' }}</span>
+              <span v-else>{{ isExpress ? 'Отправить экспресс-заявку' : 'Отправить обращение' }}</span>
             </button>
 
             <div v-if="submitSuccess" class="success-message">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              {{ isExpress ? 'Заявка отправлена! Мы назначим специалиста и свяжемся с вами для согласования консультации и оплаты.' : 'Заявка отправлена! Мы свяжемся с вами в ближайшее время.' }}
+              {{ isExpress ? 'Заявка отправлена! Мы назначим специалиста и свяжемся с вами для согласования консультации и оплаты.' : 'Обращение отправлено! Мы свяжемся с вами в ближайшее время.' }}
             </div>
 
             <div v-if="submitError" class="error-message">
