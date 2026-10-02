@@ -3,6 +3,7 @@ import axios from 'axios'
 const CLOUDKASSIR_API_URL = process.env.CLOUDKASSIR_API_URL || 'https://api.cloudpayments.ru'
 const DEFAULT_CALCULATION_PLACE = 'https://www.angel-wings.ru/'
 const DEFAULT_INN = '773323389224'
+const CLOUDKASSIR_VAT_RATE = 5
 
 function toCents(value) {
   const amount = Number(value)
@@ -44,14 +45,6 @@ function isRecipientPaidCdekDelivery(order) {
     tariffName.includes('сдэк') ||
     tariffName.includes('склад-склад')
   )
-}
-
-function resolveVat() {
-  const raw = String(process.env.CLOUDKASSIR_VAT ?? 'none').trim().toLowerCase()
-  if (!raw || ['none', 'null', 'no_vat', 'без ндс', 'безндс'].includes(raw)) return null
-
-  const parsed = Number(raw)
-  return Number.isFinite(parsed) ? parsed : null
 }
 
 function allocateDiscount(lines, totalCents) {
@@ -158,7 +151,9 @@ class CloudKassirService {
   }
 
   buildIncomeReceiptPayload(order) {
-    const vat = resolveVat()
+    // Keep fallback CloudKassir receipts consistent with payment links:
+    // each fiscal position is issued with VAT 5%.
+    const vat = CLOUDKASSIR_VAT_RATE
     const goodsLines = (order?.items || []).map((item) => {
       const productTitle = item.product?.title || 'Товар'
       const dosage = item.dosage ? `, ${item.dosage}` : ''

@@ -4,6 +4,7 @@ import cloudKassirService from './cloudKassir.js'
 const TOCHKA_API_URL = 'https://enter.tochka.com/uapi/acquiring/v1.0'
 const TOCHKA_OPEN_BANKING_URL = 'https://enter.tochka.com/uapi/open-banking/v1.0'
 const TOCHKA_STATUS_TIMEOUT_MS = Number(process.env.TOCHKA_STATUS_TIMEOUT_MS || 5000)
+const TOCHKA_VAT_TYPE = 'vat5'
 
 function toCents(value) {
   const amount = Number(value)
@@ -74,10 +75,9 @@ class TochkaService {
     const taxSystemCode = String(process.env.TOCHKA_TAX_SYSTEM_CODE || 'usn_income').trim()
     if (taxSystemCode) receipt.taxSystemCode = taxSystemCode
 
-    const vatType = String(process.env.TOCHKA_VAT_TYPE || '').trim()
-    if (vatType) {
-      receipt.Items = receipt.Items.map(item => ({ ...item, vatType }))
-    }
+    // Payment links are fiscalized by Tochka. Every position must explicitly
+    // carry the 5% VAT rate so the generated receipt matches the checkout.
+    receipt.Items = receipt.Items.map(item => ({ ...item, vatType: TOCHKA_VAT_TYPE }))
 
     return receipt
   }
