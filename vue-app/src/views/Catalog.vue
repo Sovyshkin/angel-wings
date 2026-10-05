@@ -522,7 +522,7 @@ function handleImageError(e) {
   const img = e.target
   if (img.dataset.fallbackApplied === 'true') return
   img.dataset.fallbackApplied = 'true'
-  img.src = '/logo-192.webp'
+  img.src = '/angel-wings-logo-light.svg'
 }
 
 onMounted(async () => {

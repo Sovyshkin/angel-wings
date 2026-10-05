@@ -53,15 +53,14 @@
       <div class="header__container">
         <router-link to="/" class="header__logo">
           <img
-            class="header-logo"
-            src="/logo-192.webp"
-            alt=""
-            width="192"
-            height="192"
+            class="header-logo header-logo--wordmark"
+            :src="themeStore.isDark ? '/angel-wings-wordmark-light.svg' : '/angel-wings-wordmark-dark.svg'"
+            alt="Angel Wings"
+            width="1030"
+            height="200"
             fetchpriority="high"
             decoding="async"
           >
-          <span class="logo-text">ANGEL WINGS</span>
         </router-link>
         <nav class="header__nav">
           <router-link to="/" class="nav-link">Главная</router-link>
@@ -351,7 +350,14 @@
       <div class="footer__container">
         <div class="footer__grid">
           <div class="footer__col footer__col--brand">
-            <div class="footer__logo">ANGEL WINGS</div>
+            <img
+              class="footer__logo"
+              :src="themeStore.isDark ? '/angel-wings-wordmark-light.svg' : '/angel-wings-wordmark-dark.svg'"
+              alt="Angel Wings"
+              width="1030"
+              height="200"
+              loading="lazy"
+            >
             <p class="footer__desc">Высокочистые пептиды для научных исследований и персональной оптимизации. GMP-сертифицированное производство.</p>
             <div class="footer__requisites">
               <p><strong>ИП Кириллов Никита Сергеевич</strong></p>
@@ -1406,6 +1412,12 @@ html.is-page-inactive *::after {
   flex-shrink: 0;
 }
 
+.header-logo--wordmark {
+  width: clamp(9.75rem, 13vw, 15.25rem);
+  height: auto;
+  max-height: 2.8rem;
+}
+
 .logo-icon {
   color: var(--accent);
   transition: color 0.4s ease;
@@ -1725,10 +1737,12 @@ html.is-page-inactive *::after {
 }
 
 .footer__logo {
-  font-family: var(--font-display);
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: var(--accent);
+  display: block;
+  width: min(13.25rem, 100%);
+  height: auto;
+  max-height: 2.6rem;
+  object-fit: contain;
+  object-position: left center;
   margin-bottom: 1rem;
 }
 
@@ -2438,6 +2452,12 @@ html.is-page-inactive *::after {
     height: 56px;
   }
 
+  .header-logo--wordmark {
+    width: 9.5rem;
+    height: auto;
+    max-height: 2rem;
+  }
+
   .logo-icon {
     width: 24px;
     height: 24px;
@@ -2580,6 +2600,12 @@ html.is-page-inactive *::after {
   .header-logo {
     width: 52px;
     height: 52px;
+  }
+
+  .header-logo--wordmark {
+    width: 8rem;
+    height: auto;
+    max-height: 1.7rem;
   }
 
   .header__actions {

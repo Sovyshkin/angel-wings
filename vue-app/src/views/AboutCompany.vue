@@ -231,7 +231,7 @@
           <div class="standard-panel__mark" aria-hidden="true">
             <div class="standard-panel__glow"></div>
             <span class="standard-panel__mark-ring"></span>
-            <img src="/logo-192.webp" alt="">
+            <img src="/angel-wings-logo-light.svg" alt="">
             <small>Angel Wings</small>
           </div>
         </div>

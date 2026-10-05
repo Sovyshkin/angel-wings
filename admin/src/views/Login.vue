@@ -3,7 +3,7 @@
     <div class="login-container">
       <div class="login-card card hover-lift">
         <router-link to="/" class="login-logo">
-          <span class="logo-text">ANGEL WINGS</span>
+          <img src="../assets/angel-wings-logo-light.svg" alt="Angel Wings" class="login-logo__image">
         </router-link>
         
         <h1 class="login-title">{{ verificationStep ? 'Подтверждение входа' : 'Вход в админку' }}</h1>
@@ -171,12 +171,10 @@ function backToLogin() {
   margin-bottom: 2rem;
 }
 
-.logo-text {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.5rem;
-  letter-spacing: 0.2em;
-  color: var(--accent);
+.login-logo__image {
+  width: 4.5rem;
+  height: 3.25rem;
+  object-fit: contain;
 }
 
 .login-title {

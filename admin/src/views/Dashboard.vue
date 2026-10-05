@@ -3,7 +3,7 @@
     <header class="admin-header">
       <div class="header-container">
         <router-link to="/" class="header-logo">
-          <img src="../assets/logo.jpg" alt="Logo" class="logo-img">
+          <img src="../assets/angel-wings-logo-light.svg" alt="Angel Wings" class="logo-img">
         </router-link>
 
         <nav class="admin-nav">
@@ -140,7 +140,7 @@
           </svg>
         </button>
         <div class="mobile-menu__header">
-          <img src="../assets/logo.jpg" alt="Logo" class="mobile-logo">
+          <img src="../assets/angel-wings-logo-light.svg" alt="Angel Wings" class="mobile-logo">
           <span class="mobile-menu__title">Админ-панель</span>
         </div>
         <div class="mobile-menu__links">

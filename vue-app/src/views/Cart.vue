@@ -219,7 +219,7 @@
               >
                 <div class="item-image">
                   <img
-                    :src="item.product?.image || '/logo-192.webp'"
+                    :src="item.product?.image || '/angel-wings-logo-light.svg'"
                     :alt="item.product?.title || `Товар #${item.productId}`"
                     width="96"
                     height="96"
@@ -1636,7 +1636,7 @@ function handleImageError(e) {
   const img = e.target
   if (img.dataset.fallbackApplied === 'true') return
   img.dataset.fallbackApplied = 'true'
-  img.src = '/logo-192.webp'
+  img.src = '/angel-wings-logo-light.svg'
 }
 
 function getOrderAdditionId() {

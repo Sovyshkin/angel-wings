@@ -2,7 +2,7 @@
   <main class="recovery-page">
     <section class="recovery-card" data-aos="fade-up">
       <router-link to="/" class="recovery-logo" aria-label="На главную">
-        <img src="/logo-192.webp" alt="Angel Wings" width="64" height="64" decoding="async">
+        <img src="/angel-wings-logo-light.svg" alt="Angel Wings" width="64" height="64" decoding="async">
       </router-link>
 
       <div class="recovery-eyebrow">Восстановление доступа</div>

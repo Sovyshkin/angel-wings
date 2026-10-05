@@ -5,7 +5,7 @@
         <div class="auth__header">
           <router-link to="/" class="auth__logo">
             <img
-              src="/logo-192.webp"
+              src="/angel-wings-logo-light.svg"
               alt="ANGEL WINGS"
               class="auth__logo-img"
               width="192"
