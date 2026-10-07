@@ -11,6 +11,7 @@
       :data-route="route.path"
     >
     <PageLoader />
+    <CookieConsent />
     <div ref="cursorRoot" class="cursor-goo" aria-hidden="true">
       <svg class="cursor-goo__filter" width="0" height="0" focusable="false">
         <defs>
@@ -487,6 +488,7 @@ import { useCartStore } from './store/cart'
 import { useThemeStore } from './store/theme'
 import { useAuthStore } from './store/auth'
 import PageLoader from './components/PageLoader.vue'
+import CookieConsent from './components/CookieConsent.vue'
 import { moleculeTransition } from './composables/moleculeTransition'
 
 const cartStore = useCartStore()

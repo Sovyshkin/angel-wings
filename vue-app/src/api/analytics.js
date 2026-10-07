@@ -1,5 +1,13 @@
 const SESSION_KEY = 'angel_wings_analytics_session_id'
 
+function hasAnalyticsConsent() {
+  try {
+    return localStorage.getItem('cookieConsent') === 'all'
+  } catch {
+    return false
+  }
+}
+
 function getSessionId() {
   try {
     const existing = sessionStorage.getItem(SESSION_KEY)
@@ -17,6 +25,8 @@ function getSessionId() {
 }
 
 export function trackProductEvent(productId, event, options = {}) {
+  if (!hasAnalyticsConsent()) return
+
   const id = Number.parseInt(productId, 10)
   if (!Number.isFinite(id) || id <= 0 || !event) return
 

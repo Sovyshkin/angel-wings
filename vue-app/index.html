@@ -32,8 +32,17 @@
           w.setTimeout(loadGtm, 1200);
         }
       }
-      if (d.readyState === 'complete') scheduleGtm();
-      else w.addEventListener('load', scheduleGtm, { once: true });
+      function hasAnalyticsConsent(){
+        try { return w.localStorage.getItem('cookieConsent') === 'all'; }
+        catch (error) { return false; }
+      }
+      if (hasAnalyticsConsent()) {
+        if (d.readyState === 'complete') scheduleGtm();
+        else w.addEventListener('load', scheduleGtm, { once: true });
+      }
+      w.addEventListener('aw:cookie-consent', function(event) {
+        if (event.detail === 'all') scheduleGtm();
+      });
     })(window,document,'script','dataLayer','GTM-PDD9PB8D');
   </script>
   <!-- End Google Tag Manager -->
@@ -60,22 +69,22 @@
           m.setTimeout(initMetrika, 1400);
         }
       }
-      if (e.readyState === 'complete') scheduleMetrika();
-      else m.addEventListener('load', scheduleMetrika, { once: true });
+      function hasAnalyticsConsent(){
+        try { return m.localStorage.getItem('cookieConsent') === 'all'; }
+        catch (error) { return false; }
+      }
+      if (hasAnalyticsConsent()) {
+        if (e.readyState === 'complete') scheduleMetrika();
+        else m.addEventListener('load', scheduleMetrika, { once: true });
+      }
+      m.addEventListener('aw:cookie-consent', function(event) {
+        if (event.detail === 'all') scheduleMetrika();
+      });
     })(window,document,'script','https://mc.yandex.ru/metrika/tag.js?id=110967998','ym');
   </script>
   <!-- /Yandex.Metrika counter -->
 </head>
 <body>
-  <!-- Google Tag Manager (noscript) -->
-  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PDD9PB8D"
-  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-  <!-- End Google Tag Manager (noscript) -->
-
-  <!-- Yandex.Metrika counter (noscript) -->
-  <noscript><div><img src="https://mc.yandex.ru/watch/110967998" style="position:absolute;left:-9999px" alt=""></div></noscript>
-  <!-- /Yandex.Metrika counter (noscript) -->
-
   <div id="app"></div>
   <script type="module" src="/src/main.js"></script>
 </body>
