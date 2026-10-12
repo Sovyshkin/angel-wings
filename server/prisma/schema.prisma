@@ -180,6 +180,11 @@ model Order {
   cancelReason           String?
   paymentStatus          String?                @default("PENDING")
   paymentId              String?
+  paymentUrl             String?
+  paymentAmount          Float?
+  paymentLinkId          String?
+  paymentCreationToken   String?
+  paymentCreationStartedAt DateTime?
   total                  Float
   partnerBonusAmount     Float?                 @default(0)
   acquiringFee           Float?

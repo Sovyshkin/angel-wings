@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { randomUUID } from 'node:crypto'
 import { PrismaClient } from '@prisma/client'
 import tochkaService from '../services/tochka.js'
 import { authenticate } from '../middleware/auth.js'
@@ -9,6 +10,58 @@ import { grantConsultationRewardsForPaidOrder } from '../utils/consultationRewar
 
 const router = Router()
 const prisma = new PrismaClient()
+const paymentCreationLocks = new Map()
+
+async function withPaymentCreationLock(orderId, operation) {
+  const previous = paymentCreationLocks.get(orderId) || Promise.resolve()
+  let release
+  const current = new Promise(resolve => { release = resolve })
+  paymentCreationLocks.set(orderId, current)
+  await previous
+  const token = randomUUID()
+  let acquired = false
+  try {
+    const deadline = Date.now() + 15000
+    while (Date.now() < deadline) {
+      const staleBefore = new Date(Date.now() - 120000)
+      const lock = await prisma.order.updateMany({
+        where: {
+          id: orderId,
+          OR: [
+            { paymentCreationToken: null },
+            { paymentCreationStartedAt: null },
+            { paymentCreationStartedAt: { lt: staleBefore } }
+          ]
+        },
+        data: { paymentCreationToken: token, paymentCreationStartedAt: new Date() }
+      })
+      if (lock.count) {
+        acquired = true
+        break
+      }
+      await new Promise(resolve => setTimeout(resolve, 250))
+    }
+    if (!acquired) return { success: false, httpStatus: 409, error: 'Ссылка на оплату создаётся. Повторите попытку через несколько секунд.' }
+    return await operation()
+  } finally {
+    try {
+      if (acquired) {
+        await prisma.order.updateMany({
+          where: { id: orderId, paymentCreationToken: token },
+          data: { paymentCreationToken: null, paymentCreationStartedAt: null }
+        })
+      }
+    } finally {
+      release()
+      if (paymentCreationLocks.get(orderId) === current) paymentCreationLocks.delete(orderId)
+    }
+  }
+}
+
+function amountInKopecks(value) {
+  const amount = Number(value)
+  return Number.isFinite(amount) ? Math.round(amount * 100) : NaN
+}
 
 const PAYMENT_SYNC_ORDER_SELECT = {
   id: true,
@@ -61,6 +114,7 @@ function normalizePaymentStatus(status) {
   const raw = String(status || '').trim().toUpperCase()
 
   if (!raw) return 'PENDING'
+  if (['UNPAID', 'NOT_PAID', 'NOT PAID'].includes(raw)) return 'PENDING'
   if (['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED', 'AUTHORIZED', 'CAPTURED', 'EXECUTED', 'SETTLED'].some(code => raw.includes(code))) {
     return 'PAID'
   }
@@ -143,50 +197,93 @@ function getRedirectUrls(orderId) {
   }
 }
 
-async function createPaymentForOrder(order, description) {
-  const amount = Math.max(0, Number(order.total || 0))
+async function createPaymentForOrder(orderId, amount, description) {
+  return withPaymentCreationLock(orderId, async () => {
+    // Re-read under the lock: two clicks must not both create a bank invoice.
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: CLOUD_KASSIR_ORDER_INCLUDE
+    })
+    if (!order) return { success: false, error: 'Заказ не найден' }
 
-  if (amount <= 0) {
-    return {
-      success: true,
-      alreadyPaid: true,
-      paymentStatus: order.paymentStatus || 'PAID'
+    const requestedKopecks = amountInKopecks(amount)
+    if (!Number.isSafeInteger(requestedKopecks) || requestedKopecks <= 0) {
+      return { success: false, error: 'Некорректная сумма платежа' }
     }
-  }
+    if (normalizePaymentStatus(order.paymentStatus) === 'PAID') {
+      return { success: true, alreadyPaid: true, paymentStatus: 'PAID' }
+    }
+    if (String(order.paymentStatus || '').toUpperCase() === 'CASH_ON_DELIVERY') {
+      return { success: false, error: 'Этот заказ оплачивается при получении' }
+    }
+    const expectedKopecks = amountInKopecks(order.paymentAmount ?? order.total)
+    if (requestedKopecks !== expectedKopecks) {
+      return { success: false, error: 'Сумма платежа не совпадает с неоплаченной суммой заказа' }
+    }
 
-  const { redirectUrl, failRedirectUrl } = getRedirectUrls(order.id)
-  const result = await tochkaService.createPayment(
-    amount,
-    order.id,
-    description || `Оплата заказа #${order.id}`,
-    redirectUrl,
-    failRedirectUrl,
-    order
-  )
+    const sameAmount = amountInKopecks(order.paymentAmount) === requestedKopecks
+    if (sameAmount && order.paymentUrl && !order.paymentId) {
+      return { success: true, reused: true, paymentUrl: order.paymentUrl, paymentId: null }
+    }
+    if (order.paymentId && (sameAmount || order.paymentAmount == null)) {
+      const statusResult = await tochkaService.getPaymentStatus(order.paymentId)
+      if (statusResult.success) {
+        const status = normalizePaymentStatus(statusResult.status)
+        if (status === 'PAID') {
+          const updated = await prisma.order.update({
+            where: { id: orderId },
+            data: { paymentStatus: 'PAID' }
+          })
+          await syncPartnerCommissionForOrder(prisma, orderId)
+          queueCdekWaybillAfterPayment(updated, order.paymentStatus)
+          await grantConsultationRewardsForPaidOrder(prisma, updated)
+          return { success: true, alreadyPaid: true, paymentStatus: 'PAID' }
+        }
+        const bankAmountMatches = statusResult.amount == null || amountInKopecks(statusResult.amount) === requestedKopecks
+        const reusableUrl = order.paymentUrl || statusResult.paymentUrl
+        if (status === 'PENDING' && bankAmountMatches && reusableUrl) {
+          if (!order.paymentUrl) {
+            await prisma.order.update({
+              where: { id: orderId },
+              data: { paymentUrl: reusableUrl, paymentAmount: requestedKopecks / 100 }
+            })
+          }
+          return { success: true, reused: true, paymentUrl: reusableUrl, paymentId: order.paymentId }
+        }
+      } else if (order.paymentUrl && sameAmount) {
+        // A temporary status API failure is not a reason to mint a duplicate invoice.
+        return { success: true, reused: true, paymentUrl: order.paymentUrl, paymentId: order.paymentId }
+      }
+    }
 
-  if (!result.success || !result.paymentUrl) {
-    return result
-  }
+    const { redirectUrl, failRedirectUrl } = getRedirectUrls(orderId)
+    const result = await tochkaService.createPayment(
+      requestedKopecks / 100,
+      orderId,
+      description || `Оплата заказа #${orderId}`,
+      redirectUrl,
+      failRedirectUrl,
+      order
+    )
+    if (!result.success || !result.paymentUrl) return result
 
-  const resolvedPaymentId = result.paymentId || extractUuidFromPaymentUrl(result.paymentUrl)
-  if (resolvedPaymentId) {
+    const paymentId = result.paymentId || extractUuidFromPaymentUrl(result.paymentUrl)
     await prisma.order.update({
-      where: { id: order.id },
+      where: { id: orderId },
       data: {
-        paymentId: String(resolvedPaymentId),
+        paymentId: paymentId ? String(paymentId) : null,
+        paymentUrl: result.paymentUrl,
+        paymentAmount: requestedKopecks / 100,
+        paymentLinkId: result.paymentLinkId || null,
         paymentStatus: 'PENDING'
       }
     })
-  }
-
-  return {
-    ...result,
-    paymentId: resolvedPaymentId || null
-  }
+    return { success: true, paymentUrl: result.paymentUrl, paymentId: paymentId ? String(paymentId) : null, reused: false }
+  })
 }
 
 // Create payment link
-router.post('/create', async (req, res, next) => {
+router.post('/create', authenticate, async (req, res, next) => {
   try {
     const { orderId, amount, description } = req.body
     console.log('[PAYMENT] /create request', JSON.stringify({
@@ -212,39 +309,21 @@ router.post('/create', async (req, res, next) => {
     if (!order) {
       return res.status(404).json({ error: 'Заказ не найден' })
     }
+    if (order.userId !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Доступ запрещён' })
+    }
 
-    const { redirectUrl, failRedirectUrl } = getRedirectUrls(parsedOrderId)
-
-    const result = await tochkaService.createPayment(
-      amount,
-      parsedOrderId,
-      description || `Оплата заказа #${parsedOrderId}`,
-      redirectUrl,
-      failRedirectUrl,
-      order
-    )
+    const result = await createPaymentForOrder(parsedOrderId, amount, description)
 
     if (result.success && result.paymentUrl) {
-      const resolvedPaymentId = result.paymentId || extractUuidFromPaymentUrl(result.paymentUrl)
-      if (resolvedPaymentId) {
-        await prisma.order.update({
-          where: { id: parsedOrderId },
-          data: {
-            paymentId: String(resolvedPaymentId),
-            paymentStatus: 'PENDING'
-          }
-        })
-      }
-
       console.log('[PAYMENT] /create success', JSON.stringify({
         orderId,
-        paymentId: resolvedPaymentId || null
+        paymentId: result.paymentId,
+        reused: result.reused
       }))
-      res.json({ 
-        success: true, 
-        paymentUrl: result.paymentUrl,
-        paymentId: resolvedPaymentId || null
-      })
+      res.json(result)
+    } else if (result.alreadyPaid) {
+      res.json(result)
     } else {
       console.error('[PAYMENT] /create failed', JSON.stringify({
         orderId,
@@ -255,7 +334,7 @@ router.post('/create', async (req, res, next) => {
       if (process.env.NODE_ENV !== 'production' && result.debug) {
         response.details = result.debug
       }
-      res.status(500).json(response)
+      res.status(result.httpStatus || 500).json(response)
     }
   } catch (error) {
     next(error)
@@ -278,7 +357,7 @@ router.post('/create-for-order/:orderId', authenticate, async (req, res, next) =
       return res.status(404).json({ error: 'Заказ не найден' })
     }
 
-    if (order.userId && order.userId !== req.user.id && req.user.role !== 'ADMIN') {
+    if (order.userId !== req.user.id && req.user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Доступ запрещён' })
     }
 
@@ -293,14 +372,18 @@ router.post('/create-for-order/:orderId', authenticate, async (req, res, next) =
     if (String(order.paymentStatus || '').toUpperCase() === 'CASH_ON_DELIVERY') {
       return res.status(400).json({ error: 'Этот заказ оплачивается наличными при получении' })
     }
+    if (Number(order.total) <= 0) {
+      return res.json({ success: true, alreadyPaid: true, paymentStatus: 'PAID' })
+    }
 
-    const result = await createPaymentForOrder(order, req.body?.description)
+    const result = await createPaymentForOrder(orderId, order.paymentAmount ?? order.total, req.body?.description)
 
     if (result.success && result.paymentUrl) {
       return res.json({
         success: true,
         paymentUrl: result.paymentUrl,
-        paymentId: result.paymentId || null
+        paymentId: result.paymentId || null,
+        reused: result.reused
       })
     }
 
@@ -308,7 +391,7 @@ router.post('/create-for-order/:orderId', authenticate, async (req, res, next) =
       return res.json(result)
     }
 
-    res.status(500).json({ error: result.error || 'Ошибка создания платежа' })
+    res.status(result.httpStatus || 500).json({ error: result.error || 'Ошибка создания платежа' })
   } catch (error) {
     next(error)
   }
@@ -327,7 +410,10 @@ router.get('/status/:paymentId', async (req, res, next) => {
         select: { id: true, userId: true, paymentStatus: true, cdekOrderUuid: true }
       })
       const updateResult = await prisma.order.updateMany({
-        where: { paymentId: String(paymentId) },
+        where: {
+          paymentId: String(paymentId),
+          ...(paymentStatus !== 'PAID' ? { paymentStatus: { not: 'PAID' } } : {})
+        },
         data: { paymentStatus }
       })
       if (updateResult.count > 0) {
@@ -382,6 +468,7 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
     }
 
     const paymentStatus = normalizePaymentStatus(result.status)
+    const effectiveStatus = normalizePaymentStatus(order.paymentStatus) === 'PAID' ? 'PAID' : paymentStatus
     console.log('[PAYMENT] /sync-order status resolved', JSON.stringify({
       orderId: order.id,
       paymentId: order.paymentId,
@@ -390,18 +477,18 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
     }))
     const updatedOrder = await prisma.order.update({
       where: { id: order.id },
-      data: { paymentStatus },
+      data: { paymentStatus: effectiveStatus },
       select: PAYMENT_SYNC_ORDER_SELECT
     })
     await syncPartnerCommissionForOrder(prisma, order.id)
     queueCdekWaybillAfterPayment(updatedOrder, order.paymentStatus)
-    if (paymentStatus === 'PAID') await grantConsultationRewardsForPaidOrder(prisma, updatedOrder)
+    if (effectiveStatus === 'PAID') await grantConsultationRewardsForPaidOrder(prisma, updatedOrder)
 
     const orderForResponse = await attachPromoCode(updatedOrder)
 
     res.json({
       success: true,
-      paymentStatus,
+      paymentStatus: effectiveStatus,
       status: result.status,
       order: orderForResponse
     })
@@ -434,18 +521,28 @@ router.post('/webhook', async (req, res, next) => {
       if (Number.isFinite(orderId)) {
         const existingOrder = await prisma.order.findUnique({
           where: { id: orderId },
-          select: { paymentId: true, paymentStatus: true, cdekOrderUuid: true }
+          select: { paymentId: true, paymentLinkId: true, paymentStatus: true, cdekOrderUuid: true }
         })
-        updatedOrder = await prisma.order.update({
-          where: { id: orderId },
-          data: {
-            paymentStatus: normalized,
-            ...(paymentId && !existingOrder?.paymentId
-              ? { paymentId: String(paymentId) }
-              : {})
+        if (existingOrder) {
+          const currentLink = !existingOrder.paymentLinkId || !paymentLinkId || existingOrder.paymentLinkId === paymentLinkId
+          const currentPayment = !existingOrder.paymentId || !paymentId || existingOrder.paymentId === String(paymentId)
+          // Only the active attempt can change the order. A late success from
+          // an old invoice needs manual reconciliation, not automatic marking
+          // of a different (possibly larger) payment as complete.
+          if (currentLink && currentPayment) {
+            const effectiveStatus = normalizePaymentStatus(existingOrder.paymentStatus) === 'PAID' ? 'PAID' : normalized
+            updatedOrder = await prisma.order.update({
+              where: { id: orderId },
+              data: {
+                paymentStatus: effectiveStatus,
+                ...(paymentId && !existingOrder.paymentId ? { paymentId: String(paymentId) } : {})
+              }
+            })
+            updatedOrder.previousPaymentStatus = existingOrder.paymentStatus
+          } else if (normalized === 'PAID') {
+            console.error('[PAYMENT] Paid superseded invoice requires reconciliation', { orderId, paymentLinkId, paymentId })
           }
-        })
-        updatedOrder.previousPaymentStatus = existingOrder?.paymentStatus || null
+        }
       }
     }
 
@@ -457,7 +554,7 @@ router.post('/webhook', async (req, res, next) => {
       if (found) {
         updatedOrder = await prisma.order.update({
           where: { id: found.id },
-          data: { paymentStatus: normalized }
+          data: { paymentStatus: normalizePaymentStatus(found.paymentStatus) === 'PAID' ? 'PAID' : normalized }
         })
         updatedOrder.previousPaymentStatus = found.paymentStatus
       }

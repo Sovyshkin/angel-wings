@@ -863,6 +863,7 @@ router.post('/', authenticate, async (req, res, next) => {
         notes,
         total: finalOrderTotal,
         paymentStatus: finalOrderTotal <= 0 ? 'PAID' : (isCashOnDelivery ? 'CASH_ON_DELIVERY' : 'PENDING'),
+        paymentAmount: finalOrderTotal > 0 && !isCashOnDelivery ? finalOrderTotal : null,
         userId: actualUserId,
         promoCodeId,
         discountAmount: totalDiscountAmount,
@@ -1209,7 +1210,10 @@ router.post('/:id/add-items', authenticate, async (req, res, next) => {
           total: quote.newOrderTotal,
           deliveryPrice: quote.nextDeliveryPrice,
           paymentStatus,
-          paymentId: quote.paymentAmount > 0 && quote.paymentMode !== 'cash_on_delivery' ? null : quote.order.paymentId
+          paymentId: quote.paymentAmount > 0 && quote.paymentMode !== 'cash_on_delivery' ? null : quote.order.paymentId,
+          ...(quote.paymentAmount > 0 && quote.paymentMode !== 'cash_on_delivery'
+            ? { paymentUrl: null, paymentAmount: quote.paymentAmount, paymentLinkId: null }
+            : {})
         },
         include: {
           items: {

@@ -339,7 +339,8 @@ class TochkaService {
       return {
         success: true,
         paymentUrl,
-        paymentId
+        paymentId,
+        paymentLinkId: requestData.Data.paymentLinkId
       }
     } catch (error) {
       console.error('Tochka payment creation error:', error.response?.data || error.message)
@@ -383,7 +384,8 @@ class TochkaService {
       return {
         success: true,
         status,
-        amount: response.data?.Data?.amount || response.data?.Data?.Amount || response.data?.amount
+        amount: response.data?.Data?.amount || response.data?.Data?.Amount || response.data?.amount,
+        paymentUrl: this.extractPaymentUrl(response.data)
       }
     } catch (error) {
       console.error('Tochka payment status error:', error.response?.data || error.message)

@@ -2546,6 +2546,14 @@ async function placeOrder() {
           window.location.href = paymentResponse.data.paymentUrl
           return
         }
+        if (paymentResponse.data.alreadyPaid) {
+          const paidOrderId = additionOrder.value.id
+          clearCheckoutRequestGuard()
+          cartStore.clear()
+          clearOrderAdditionContext()
+          router.push({ path: '/order-success', query: { orderId: paidOrderId } })
+          return
+        }
 
         paymentRedirecting.value = false
       }
@@ -2839,6 +2847,13 @@ async function placeOrder() {
         // Redirect to Tochka payment page
         window.location.href = paymentResponse.data.paymentUrl
         return // Don't clear cart - user will return from payment
+      }
+      if (paymentResponse.data.alreadyPaid) {
+        clearPendingUnpaidOrder(lastOrderId.value)
+        clearCheckoutRequestGuard()
+        cartStore.clear()
+        router.push({ path: '/order-success', query: { orderId: lastOrderId.value } })
+        return
       }
 
       paymentRedirecting.value = false
