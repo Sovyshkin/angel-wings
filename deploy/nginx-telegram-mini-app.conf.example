@@ -1,9 +1,25 @@
-# Separate virtual host for the Mini App. Replace root, certificate paths and
-# backend port with the values used on the production server.
+# Add these two server blocks to /etc/nginx/sites-available/default,
+# or save them as a separate enabled site. Keep the existing website,
+# admin and API blocks unchanged.
+#
+# Before enabling the HTTPS block, issue a certificate for app.angel-wings.ru.
+# With only the HTTP block enabled:
+#   sudo certbot certonly --webroot \
+#     -w /var/www/angel-wings/telegram-mini-app/dist \
+#     -d app.angel-wings.ru
+
 server {
     listen 80;
     server_name app.angel-wings.ru;
-    return 301 https://$host$request_uri;
+    root /var/www/angel-wings/telegram-mini-app/dist;
+
+    location ^~ /.well-known/acme-challenge/ {
+        try_files $uri =404;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
 }
 
 server {
@@ -12,12 +28,21 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/app.angel-wings.ru/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/app.angel-wings.ru/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
 
-    root /srv/angel-wings/telegram-mini-app/dist;
+    client_max_body_size 20m;
+    root /var/www/angel-wings/telegram-mini-app/dist;
     index index.html;
 
-    location ^~ /api/ {
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_comp_level 6;
+    gzip_types application/javascript application/json application/xml image/svg+xml text/css text/javascript text/plain font/woff2;
+
+    location /api/ {
         proxy_pass http://127.0.0.1:3005;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -26,6 +51,7 @@ server {
 
     location ^~ /uploads/ {
         proxy_pass http://127.0.0.1:3005;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -34,12 +60,22 @@ server {
 
     location ^~ /assets/ {
         try_files $uri =404;
-        expires 1y;
         add_header Cache-Control "public, max-age=31536000, immutable" always;
+        access_log off;
+    }
+
+    location ^~ /fonts/ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        access_log off;
+    }
+
+    location = /index.html {
+        try_files $uri =404;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 
     location / {
         try_files $uri $uri/ /index.html;
-        add_header Cache-Control "no-cache, must-revalidate" always;
     }
 }

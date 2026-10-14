@@ -30,39 +30,55 @@ function getPublicUser(user) {
 }
 
 // Telegram Mini App data is signed by the bot. Never trust initDataUnsafe.
-export function verifyTelegramInitData(initData, botToken, now = Date.now()) {
-  if (typeof initData !== 'string' || !initData || initData.length > 8192 || !botToken) return null
+function inspectTelegramInitData(initData, botToken, now = Date.now()) {
+  if (typeof initData !== 'string' || !initData || initData.length > 8192) return { reason: 'MISSING_DATA' }
+  if (!botToken) return { reason: 'BOT_TOKEN_MISSING' }
   const params = new URLSearchParams(initData)
   const entries = [...params.entries()]
-  if (new Set(entries.map(([key]) => key)).size !== entries.length) return null
+  if (new Set(entries.map(([key]) => key)).size !== entries.length) return { reason: 'DUPLICATE_FIELDS' }
   const hash = params.get('hash') || ''
   const authDate = Number(params.get('auth_date'))
-  if (!/^[a-f\d]{64}$/i.test(hash) || !Number.isSafeInteger(authDate)) return null
+  if (!/^[a-f\d]{64}$/i.test(hash) || !Number.isSafeInteger(authDate)) return { reason: 'INVALID_FORMAT' }
   const age = now / 1000 - authDate
-  if (age < -60 || age > 3600) return null
+  if (age < -60 || age > 24 * 60 * 60) return { reason: 'EXPIRED' }
   const checkString = entries
-    .filter(([key]) => key !== 'hash' && key !== 'signature')
+    // Bot-token validation includes signature when Telegram supplies it.
+    // Excluding signature applies only to third-party Ed25519 validation.
+    .filter(([key]) => key !== 'hash')
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
     .map(([key, value]) => `${key}=${value}`)
     .join('\n')
   const secret = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest()
   const expected = crypto.createHmac('sha256', secret).update(checkString).digest()
-  if (!crypto.timingSafeEqual(Buffer.from(hash, 'hex'), expected)) return null
+  if (!crypto.timingSafeEqual(Buffer.from(hash, 'hex'), expected)) return { reason: 'INVALID_SIGNATURE' }
   try {
     const user = JSON.parse(params.get('user') || 'null')
-    if (!user || !/^[1-9]\d*$/.test(String(user.id))) return null
-    return user
+    if (!user || !/^[1-9]\d*$/.test(String(user.id))) return { reason: 'INVALID_USER' }
+    return { user }
   } catch {
-    return null
+    return { reason: 'INVALID_USER' }
   }
+}
+
+export function verifyTelegramInitData(initData, botToken, now = Date.now()) {
+  return inspectTelegramInitData(initData, botToken, now).user || null
 }
 
 router.post('/telegram', async (req, res, next) => {
   try {
-    const botToken = process.env.TELEGRAM_MINI_APP_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN
+    const botToken = String(process.env.TELEGRAM_MINI_APP_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim()
     if (!botToken) return res.status(503).json({ error: 'Telegram авторизация не настроена' })
-    const telegramUser = verifyTelegramInitData(req.body?.initData, botToken)
-    if (!telegramUser) return res.status(401).json({ error: 'Данные Telegram недействительны или устарели' })
+    const validation = inspectTelegramInitData(req.body?.initData, botToken)
+    if (!validation.user) {
+      console.warn('[AUTH] Telegram initData rejected', validation.reason)
+      const error = validation.reason === 'EXPIRED'
+        ? 'Сессия Telegram устарела. Закройте приложение и откройте снова через бота.'
+        : validation.reason === 'INVALID_SIGNATURE'
+          ? 'Подпись Telegram не совпадает. Проверьте токен бота мини-приложения на сервере.'
+          : 'Не удалось проверить данные Telegram. Откройте приложение снова через бота.'
+      return res.status(401).json({ error, code: validation.reason })
+    }
+    const telegramUser = validation.user
     const telegramId = String(telegramUser.id)
     const name = [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(' ').trim().slice(0, 120) || 'Пользователь Telegram'
     const user = await prisma.user.upsert({
