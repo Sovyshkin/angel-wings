@@ -1,102 +1,41 @@
 <template>
   <div class="catalog">
-    <div class="catalog__hero" data-aos="fade-up">
-      <div class="container">
-        <h1 class="page-title">Каталог</h1>
-        <p class="page-subtitle">Выберите категорию для просмотра пептидов</p>
-      </div>
+    <div class="catalog-hero" aria-hidden="true">
+      <img class="catalog-hero__molecule" :src="catalogMolecule" alt="" width="1254" height="1254" fetchpriority="high" decoding="async">
     </div>
-
     <div class="container">
       <div class="catalog__layout">
-        <aside class="sidebar" :class="{ 'sidebar--open': mobileFiltersOpen }">
-          <div class="sidebar-header">
-            <h3>Фильтры</h3>
-            <button class="sidebar-close" type="button" @click="closeMobileFilters" aria-label="Закрыть фильтры">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-          </div>
+        <div class="catalog-categories" role="group" aria-label="Категории товаров">
+          <button class="category-chip" :class="{ 'is-active': !selectedCategory }" type="button" :aria-pressed="!selectedCategory" @click="selectCategory(null)">
+            <span class="category-chip__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            </span>
+            <span class="category-chip__label">Все товары</span>
+            <span class="category-chip__count">{{ products.length }}</span>
+          </button>
+          <button v-for="cat in categories" :key="getCategoryKey(cat)" class="category-chip" :class="{ 'is-active': isCategorySelected(cat) }" type="button" :aria-pressed="isCategorySelected(cat)" @click="selectCategory(cat)">
+            <span class="category-chip__icon" aria-hidden="true">
+              <img v-if="cat.image && !brokenCategoryIcons.has(getCategoryKey(cat))" :src="cat.image" alt="" width="32" height="32" loading="lazy" decoding="async" @error="handleCategoryIconError(getCategoryKey(cat))">
+              <span v-else v-html="getCategoryIcon(cat.slug)"></span>
+            </span>
+            <span class="category-chip__label">{{ cat.name }}</span>
+            <span class="category-chip__count">{{ getCategoryCount(cat) }}</span>
+          </button>
+          <button class="category-chip category-chip--price" :class="{ 'is-active': mobileFiltersOpen || priceMin || priceMax }" type="button" :aria-expanded="mobileFiltersOpen" @click="toggleMobileFilters">
+            <span class="category-chip__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v20M17 6H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H6"/></svg></span>
+            <span class="category-chip__label">Цена</span>
+          </button>
+        </div>
 
-          <div class="filter-section">
-            <h3 class="filter-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-              </svg>
-              Категории
-            </h3>
-            <div class="filter-list">
-              <button 
-                class="filter-item"
-                :class="{ active: !selectedCategory }"
-                @click="selectCategory(null)"
-              >
-                <span class="filter-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="7" height="7"/>
-                    <rect x="14" y="3" width="7" height="7"/>
-                    <rect x="14" y="14" width="7" height="7"/>
-                    <rect x="3" y="14" width="7" height="7"/>
-                  </svg>
-                </span>
-                Все товары
-                <span class="filter-count">{{ products.length }}</span>
-              </button>
-              <button 
-                v-for="cat in categories" 
-                :key="getCategoryKey(cat)"
-                class="filter-item"
-                :class="{ active: isCategorySelected(cat) }"
-                @click="selectCategory(cat)"
-              >
-                <span class="filter-icon">
-                  <img
-                    v-if="cat.image && !brokenCategoryIcons.has(cat.term_id)"
-                    :src="cat.image"
-                    :alt="cat.name"
-                    width="48"
-                    height="48"
-                    loading="lazy"
-                    decoding="async"
-                    @error="handleCategoryIconError(cat.term_id)"
-                  >
-                  <span v-else v-html="getCategoryIcon(cat.slug)"></span>
-                </span>
-                {{ cat.name }}
-                <span class="filter-count">{{ getCategoryCount(cat) }}</span>
-              </button>
-            </div>
-          </div>
-          
-          <div class="filter-section filter-price">
-            <h3 class="filter-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="1" x2="12" y2="23"/>
-                <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
-              </svg>
-              Цена
-            </h3>
-            <div class="price-range">
-              <input type="number" v-model="priceMin" class="input price-input" placeholder="От">
-              <span class="price-separator">—</span>
-              <input type="number" v-model="priceMax" class="input price-input" placeholder="До">
-            </div>
-          </div>
-        </aside>
+        <div v-if="mobileFiltersOpen" class="catalog-price-filter">
+          <label>От <input v-model.number="priceMin" type="number" min="0" inputmode="numeric" placeholder="0 ₽"></label>
+          <label>До <input v-model.number="priceMax" type="number" min="0" inputmode="numeric" placeholder="Любая"></label>
+          <button type="button" @click="closeMobileFilters">Готово</button>
+        </div>
 
-        <div v-if="mobileFiltersOpen" class="filters-overlay" @click="closeMobileFilters"></div>
-        
         <div class="catalog__main">
           <div class="catalog__bar">
             <div class="catalog__bar-left">
-              <button class="catalog__filters-toggle" type="button" @click="toggleMobileFilters">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-                </svg>
-                Фильтры
-              </button>
               <label class="catalog-search" aria-label="Поиск по названию товара">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="11" cy="11" r="8"/>
@@ -175,9 +114,9 @@
                     <circle cx="12" cy="7" r="4"/>
                   </svg>
                 </div>
-                <div class="product-overlay">
-                  <span class="view-btn">Подробнее</span>
-                </div>
+                <button class="product-favorite" type="button" disabled aria-label="Избранное пока недоступно">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 8.5c0 4.2-5.7 8.2-8.8 10.6C8.9 16.7 3.2 12.7 3.2 8.5a4.8 4.8 0 0 1 8.8-2.6 4.8 4.8 0 0 1 8.8 2.6Z"/></svg>
+                </button>
               </div>
               <div class="product-content">
                 <div class="product-card-meta">
@@ -205,8 +144,8 @@
                     @click.prevent="increaseCatalogQty(product)"
                     :disabled="!product.stock"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M12 5v14M5 12h14"/>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M2.5 3.5h2l2.2 11.2a2 2 0 0 0 2 1.6h10.4a2 2 0 0 0 2-1.6l1.2-7.2H5.4"/>
                     </svg>
                   </button>
                   <div v-else class="catalog-qty-control" @click.prevent>
@@ -247,6 +186,7 @@ import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
 import Loader from '../components/Loader.vue'
 import { trackProductEvent } from '../api/analytics'
+import catalogMolecule from '../assets/catalog-molecule.png'
 
 const route = useRoute()
 const productStore = useProductStore()
@@ -553,14 +493,37 @@ watch(() => route.query.category, (newCat) => {
 
 <style scoped>
 .catalog {
+  position: relative;
+  padding-top: 0;
   padding-bottom: 6rem;
+  background: linear-gradient(180deg, #040916 0%, #070c18 31rem, #090d17 100%);
 }
 
-.catalog__hero {
-  padding: 4rem 0;
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 3rem;
+.catalog-hero {
+  position: relative;
+  height: clamp(12rem, 25vw, 17rem);
+  background: radial-gradient(ellipse 30rem 13rem at 55% 55%, rgba(10, 72, 165, 0.12), transparent 75%);
+  pointer-events: none;
+}
+
+.catalog-hero__molecule {
+  position: absolute;
+  z-index: 0;
+  top: -11rem;
+  left: 54%;
+  display: block;
+  width: min(44rem, 82vw);
+  height: auto;
+  max-width: none;
+  object-fit: contain;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 0 20px rgba(29, 126, 255, 0.34));
+}
+
+.catalog > .container {
+  position: relative;
+  z-index: 1;
+  margin-top: -2.7rem;
 }
 
 .catalog__layout {
@@ -839,272 +802,267 @@ watch(() => route.query.category, (newCat) => {
   margin-bottom: 1.5rem;
 }
 
+
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.7rem, 1.5vw, 1.1rem);
+  align-items: stretch;
 }
 
 .product-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 20px;
+  display: grid;
+  grid-template-rows: 50% minmax(0, 1fr);
+  min-width: 0;
+  min-height: 310px;
+  aspect-ratio: 0.785;
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  isolation: isolate;
+  border: 1px solid #5caaff;
+  border-radius: 24px;
+  background: #071225;
+  color: #fff;
+  text-decoration: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(162, 210, 255, 0.16),
+    0 0 0 1px rgba(52, 149, 255, 0.14),
+    0 0 15px rgba(27, 113, 245, 0.32),
+    0 8px 18px rgba(1, 8, 25, 0.52);
+  transition: transform 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
 }
 
-.product-card:hover {
-  border-color: rgba(166, 185, 248, 0.3);
-  transform: translateY(-8px);
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
+@media (hover: hover) and (pointer: fine) {
+  .product-card:hover {
+    transform: translateY(-4px);
+    border-color: #9ed3ff;
+    box-shadow:
+      inset 0 0 0 1px rgba(190, 225, 255, 0.2),
+      0 0 0 1px rgba(81, 172, 255, 0.2),
+      0 0 21px rgba(27, 113, 245, 0.42),
+      0 12px 23px rgba(1, 8, 25, 0.56);
+  }
+
+  .product-card:hover .product-image img { transform: scale(1.025); }
+}
+
+.product-card:focus-visible {
+  outline: 2px solid #b5dcff;
+  outline-offset: 3px;
 }
 
 .product-image {
   position: relative;
-  aspect-ratio: 4/3;
-  background: var(--bg-secondary);
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: clamp(0.55rem, 1.5vw, 1rem);
   overflow: hidden;
+  border-radius: 23px 23px 0 0;
+  background: linear-gradient(180deg, #fff 0%, #f6f8fc 100%);
+  border-bottom: 1px solid rgba(86, 172, 255, 0.8);
+  box-shadow: 0 2px 13px rgba(33, 129, 255, 0.3);
 }
 
 .product-image img {
+  position: absolute;
+  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  transition: transform 0.6s ease;
-}
-
-.product-card:hover .product-image img {
-  transform: scale(1.08);
+  padding: clamp(0.55rem, 1.5vw, 1rem);
+  object-fit: contain;
+  object-position: center;
+  transition: transform 0.35s ease;
 }
 
 .product-placeholder {
+  display: grid;
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
+  place-items: center;
+  color: #6b8abc;
 }
 
-.product-overlay {
+.product-favorite {
   position: absolute;
-  inset: 0;
-  background: rgba(10, 10, 16, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-}
-
-.product-card:hover .product-overlay {
+  top: 0.7rem;
+  right: 0.7rem;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid rgba(127, 156, 193, 0.52);
+  border-radius: 50%;
+  background: rgba(95, 114, 143, 0.46);
+  color: #b7c9e4;
+  backdrop-filter: blur(7px);
   opacity: 1;
 }
 
-.view-btn {
-  padding: 0.75rem 1.5rem;
-  background: var(--accent);
-  color: var(--bg-primary);
-  font-size: 0.8rem;
-  font-weight: 700;
-  border-radius: 10px;
-  transform: translateY(10px);
-  transition: transform 0.4s ease;
-}
-
-.product-card:hover .view-btn {
-  transform: translateY(0);
-}
+.product-favorite svg { width: 19px; height: 19px; }
 
 .product-content {
-  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(0.72rem, 1.45vw, 1.05rem);
+  background: linear-gradient(155deg, #0b1d34 0%, #081326 53%, #050d1d 100%);
 }
 
 .product-card-meta {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  gap: 0.35rem;
+  min-height: 1.7rem;
+  margin-bottom: 0.5rem;
 }
 
 .product-category-badge {
   display: inline-block;
-  font-size: 0.65rem;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.34rem 0.65rem;
+  border: 1px solid rgba(83, 158, 255, 0.34);
+  border-radius: 999px;
+  background: linear-gradient(130deg, rgba(35, 78, 136, 0.82), rgba(18, 48, 89, 0.66));
+  box-shadow: inset 0 1px 0 rgba(146, 199, 255, 0.18), inset 0 0 8px rgba(60, 143, 255, 0.15);
+  color: #bad9ff;
+  font-size: clamp(0.56rem, 0.65vw, 0.67rem);
   font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.09em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--accent);
-  background: var(--accent-dim);
-  padding: 0.35rem 0.7rem;
-  border-radius: 6px;
+  white-space: nowrap;
 }
 
 .product-low-stock {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.28);
-  border-radius: 999px;
-  padding: 0.32rem 0.62rem;
+  display: none;
 }
 
 .product-title {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  line-height: 1.3;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: clamp(0.95rem, 1.25vw, 1.1rem);
+  font-weight: 650;
+  line-height: 1.23;
+  margin: 0 0 0.35rem;
 }
 
 .product-desc {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  margin-bottom: 1.25rem;
-  white-space: pre-line;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  color: #9faec7;
+  font-size: clamp(0.76rem, 0.9vw, 0.86rem);
+  font-weight: 400;
+  line-height: 1.33;
+  margin: 0 0 0.4rem;
+  white-space: normal;
   word-break: break-word;
 }
 
 .product-footer {
   display: flex;
-  align-items: center;
+  align-items: end;
   justify-content: space-between;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0;
+  margin-top: auto;
+  border: 0;
 }
 
 .product-price {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.25rem;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
 .price-current {
   display: flex;
   align-items: baseline;
-  gap: 0.25rem;
+  gap: 0.2rem;
+  white-space: nowrap;
 }
 
 .price-value {
-  font-family: var(--font-mono);
-  font-size: 1.5rem;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: clamp(1.18rem, 1.65vw, 1.5rem);
   font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1;
 }
 
-.price-currency {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
-.price-discount-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.price-old {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  text-decoration: line-through;
-}
-
-.price-discount-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 999px;
-  padding: 0.12rem 0.45rem;
-}
+.price-currency { color: #fff; font-size: 0.9em; font-weight: 600; }
+.price-discount-row { display: flex; align-items: center; gap: 0.25rem; }
+.price-old { color: #879ab8; font-size: 0.65rem; text-decoration: line-through; }
+.price-discount-badge { color: #ffb5bd; font-size: 0.6rem; font-weight: 700; }
 
 .add-to-cart-btn {
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text-primary);
-  transition: all 0.3s ease;
+  display: grid;
+  flex: 0 0 auto;
+  width: 54px;
+  height: 50px;
+  place-items: center;
+  border: 1px solid rgba(86, 169, 255, 0.86);
+  border-radius: 18px;
+  background: linear-gradient(150deg, #1b477b, #0b2a58 65%, #091b3f);
+  box-shadow: inset 0 1px 0 rgba(192, 225, 255, 0.28), inset 0 0 11px rgba(58, 147, 255, 0.14), 0 0 10px rgba(22, 109, 242, 0.35);
+  color: #fff;
+  transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
 }
 
-.add-to-cart-btn:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg-primary);
-}
-
-.add-to-cart-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+.add-to-cart-btn svg { width: 24px; height: 24px; }
+.add-to-cart-btn:hover:not(:disabled) { border-color: #afd9ff; background: linear-gradient(150deg, #22558f, #10396e); box-shadow: inset 0 1px 0 rgba(220, 237, 255, 0.33), 0 0 14px rgba(49, 143, 255, 0.48); }
+.add-to-cart-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .catalog-qty-control {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-secondary);
+  gap: 0.1rem;
+  min-height: 42px;
+  padding: 0.18rem;
+  border: 1px solid rgba(86, 169, 255, 0.75);
+  border-radius: 15px;
+  background: linear-gradient(150deg, #1b477b, #0b2a58);
+  box-shadow: inset 0 1px 0 rgba(192, 225, 255, 0.22), 0 0 9px rgba(22, 109, 242, 0.26);
 }
 
 .qty-btn {
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  width: 28px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--text-primary);
+  color: #fff;
   font-size: 1.1rem;
+  font-weight: 700;
   line-height: 1;
-  font-weight: 700;
-  transition: all 0.3s ease;
 }
 
-.qty-btn:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg-primary);
-}
-
-.qty-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.qty-value {
-  min-width: 20px;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
+.qty-btn:hover:not(:disabled) { background: rgba(156, 208, 255, 0.19); }
+.qty-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.qty-value { min-width: 0.8rem; color: #fff; font-size: 0.78rem; font-weight: 700; text-align: center; }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .catalog__hero {
-    animation: catalog-reveal-down 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
   .sidebar {
     animation: catalog-reveal-side 0.6s 0.08s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
@@ -1168,13 +1126,7 @@ watch(() => route.query.category, (newCat) => {
 }
 
 @media (max-width: 640px) {
-  .catalog__hero {
-    padding: 2rem 0;
-  }
-
-  .page-title {
-    font-size: 1.75rem;
-  }
+  .catalog { padding-top: 1.5rem; }
 
   .filter-section {
     padding: 1rem;
@@ -1398,5 +1350,209 @@ watch(() => route.query.category, (newCat) => {
     width: 34px;
     height: 34px;
   }
+}
+
+/* Mini App catalog layout: scrollable categories, compact controls, two-card rows. */
+.catalog__layout {
+  display: block;
+}
+
+.catalog-categories {
+  display: flex;
+  gap: 0.625rem;
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  padding: 0.25rem 0 0.25rem;
+  margin-bottom: 0.25rem;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.catalog-categories::-webkit-scrollbar { display: none; }
+
+.category-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 15rem;
+  min-height: 3rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid rgba(80, 145, 229, 0.46);
+  border-radius: 1rem;
+  background: rgba(7, 21, 44, 0.88);
+  color: #d2def3;
+  backdrop-filter: blur(12px);
+  white-space: nowrap;
+  scroll-snap-align: start;
+}
+
+.category-chip.is-active {
+  border-color: #70baff;
+  background: linear-gradient(135deg, rgba(18, 70, 132, 0.94), rgba(7, 32, 72, 0.92));
+  color: #f1f7ff;
+  box-shadow: inset 0 1px 0 rgba(185, 222, 255, 0.22), 0 0 0.8rem rgba(55, 150, 255, 0.36);
+}
+
+.category-chip__icon {
+  display: grid;
+  flex: 0 0 1.9rem;
+  width: 1.9rem;
+  height: 1.9rem;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.55rem;
+  background: var(--bg-secondary);
+}
+
+.category-chip__icon svg,
+.category-chip__icon :deep(svg) {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.category-chip__icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.category-chip__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.category-chip__count {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+}
+
+.catalog-price-filter {
+  display: flex;
+  align-items: end;
+  gap: 0.6rem;
+  padding: 0.7rem;
+  margin-bottom: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--bg-card);
+}
+
+.catalog-price-filter label {
+  flex: 1 1 0;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.catalog-price-filter input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0.25rem;
+  padding: 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.catalog-price-filter button {
+  flex: 0 0 auto;
+  padding: 0.6rem;
+  border-radius: 0.55rem;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.catalog__bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  margin-bottom: 0.45rem;
+  padding-bottom: 0.35rem;
+}
+
+.catalog__bar-left {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.catalog-search {
+  order: 0;
+  width: 100%;
+  min-width: 0;
+  border-color: rgba(66, 134, 226, 0.4);
+  background: rgba(7, 23, 47, 0.88);
+  backdrop-filter: blur(12px);
+}
+
+.results-count {
+  white-space: nowrap;
+  color: #b3c7e5;
+}
+
+.sort-select { width: auto; min-width: 0; }
+.sort-select select { width: 100%; min-width: 0; border-color: rgba(66, 134, 226, 0.4); background: rgba(7, 23, 47, 0.9); color: #f1f6ff; }
+
+@media (max-width: 1100px) {
+  .products-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 780px) {
+  .products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .catalog-hero { height: 6rem; }
+  .catalog-hero__molecule { top: -9rem; left: 57%; width: min(108vw, 27rem); }
+  .catalog > .container { margin-top: -2.5rem; }
+  .catalog > .container { padding-inline: 0.5rem; }
+  .catalog__bar { grid-template-columns: minmax(0, 1fr) minmax(5.7rem, 7.2rem); gap: 0.4rem; }
+  .catalog__bar-left { grid-template-columns: minmax(0, 1fr) auto; gap: 0.4rem; flex-wrap: nowrap; }
+  .catalog-search { padding: 0.55rem 0.65rem; }
+  .catalog-search input { font-size: 0.72rem; }
+  .catalog-search input::placeholder { text-overflow: ellipsis; }
+  .results-count { font-size: 0.7rem; }
+  .sort-select select { padding: 0.55rem 0.35rem; font-size: 0.68rem; }
+  .products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+  .product-card { width: 100%; height: 238px; min-height: 0; aspect-ratio: auto; grid-template-rows: 49% minmax(0, 1fr); border-radius: 23px; }
+  .product-image { border-radius: 22px 22px 0 0; padding: 0.42rem; }
+  .product-favorite { top: 0.48rem; right: 0.48rem; width: 34px; height: 34px; }
+  .product-content { padding: 0.52rem 0.6rem 0.58rem; }
+  .product-card-meta { min-height: 1.1rem; margin-bottom: 0.27rem; }
+  .product-category-badge { padding: 0.2rem 0.42rem; font-size: 0.48rem; letter-spacing: 0.04em; }
+  .product-title { font-size: 0.76rem; line-height: 1.2; margin-bottom: 0.25rem; }
+  .product-desc { display: -webkit-box; font-size: 0.64rem; line-height: 1.25; -webkit-line-clamp: 3; margin-bottom: 0.2rem; }
+  .product-footer { flex-wrap: nowrap; gap: 0.25rem; }
+  .price-value { font-size: 0.98rem; }
+  .price-currency { font-size: 0.79rem; }
+  .add-to-cart-btn { width: 42px; height: 38px; border-radius: 15px; }
+  .add-to-cart-btn svg { width: 20px; height: 20px; }
+  .catalog-qty-control { min-height: 34px; gap: 0; padding: 0.1rem; border-radius: 12px; }
+  .qty-btn { width: 20px; height: 27px; font-size: 0.95rem; }
+  .qty-value { min-width: 0.65rem; font-size: 0.67rem; }
+}
+
+@media (max-width: 360px) {
+  .product-card { height: 245px; }
+  .product-content { padding-inline: 0.45rem; }
+  .price-value { font-size: 0.86rem; }
+  .add-to-cart-btn { width: 36px; height: 34px; }
+  .catalog-qty-control .qty-btn { width: 18px; }
 }
 </style>

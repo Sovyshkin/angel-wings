@@ -1,11 +1,5 @@
 <template>
   <div class="profile">
-    <div class="profile__hero" data-aos="fade-up">
-      <div class="container">
-        <h1 class="page-title">Личный кабинет</h1>
-      </div>
-    </div>
-
     <div class="container">
       <div class="profile__layout">
         <aside class="profile__sidebar" data-aos="fade-right" data-aos-delay="100">
@@ -651,14 +645,8 @@ onMounted(async () => {
 
 <style scoped>
 .profile {
+  padding-top: 2rem;
   padding-bottom: 6rem;
-}
-
-.profile__hero {
-  padding: 3rem 0;
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 3rem;
 }
 
 .profile__layout {
@@ -1790,13 +1778,7 @@ onMounted(async () => {
 }
 
 @media (max-width: 640px) {
-  .profile__hero {
-    padding: 2rem 0;
-  }
-
-  .page-title {
-    font-size: 1.75rem;
-  }
+  .profile { padding-top: 1.5rem; }
 
   .profile-nav {
     flex-direction: column;

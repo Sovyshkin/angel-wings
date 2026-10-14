@@ -2,12 +2,6 @@
   <div class="product-detail">
     <Loader v-if="loading" text="Загрузка товара..." />
     <div class="container" v-else>
-      <div class="breadcrumb" data-aos="fade-up">
-                <router-link to="/catalog">Каталог</router-link>
-        <span>/</span>
-        <span>{{ product.title }}</span>
-      </div>
-
       <div class="product-layout" v-if="product" data-aos="fade-up" data-aos-delay="100">
         <div class="product-gallery" data-aos="fade-right" data-aos-delay="200">
           <div class="gallery-main">
@@ -522,28 +516,6 @@ onMounted(async () => {
   padding: 2rem 0 4rem;
 }
 
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 2rem;
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
-.breadcrumb a {
-  color: var(--text-secondary);
-  transition: color 0.3s;
-}
-
-.breadcrumb a:hover {
-  color: var(--accent);
-}
-
-.breadcrumb span:last-child {
-  color: var(--text-primary);
-}
-
 .product-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1042,10 +1014,6 @@ onMounted(async () => {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .breadcrumb {
-    animation: detail-reveal-down 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
   .product-gallery {
     animation: detail-gallery-reveal 0.7s 0.08s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
@@ -1166,13 +1134,6 @@ onMounted(async () => {
 
   .gallery-thumbs {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .breadcrumb {
-    font-size: 0.7rem;
-    gap: 0.375rem;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
   }
 
   .product-meta {

@@ -1,14 +1,5 @@
 <template>
   <div class="cart">
-    <div class="cart__hero" data-aos="fade-up">
-      <div class="container">
-        <h1 class="page-title">{{ isOrderAdditionMode ? `Дозаказ к заказу #${additionOrder?.id || ''}` : 'Корзина' }}</h1>
-        <p class="page-subtitle">
-          {{ isOrderAdditionMode ? 'Добавьте новые товары к уже оформленному заказу' : 'Оформите заказ на выбранные товары' }}
-        </p>
-      </div>
-    </div>
-
     <Transition name="modal">
       <div v-if="orderComplete" class="order-success-overlay">
         <div class="order-success-card">
@@ -3051,14 +3042,12 @@ onUnmounted(() => {
 
 <style scoped>
 .cart {
+  padding-top: 2rem;
   padding-bottom: 6rem;
 }
 
-.cart__hero {
-  padding: 4rem 0;
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 3rem;
+@media (max-width: 640px) {
+  .cart { padding-top: 1.5rem; }
 }
 
 .empty {
