@@ -17,6 +17,7 @@ const SESSION_TOKEN_TTL = process.env.SESSION_TOKEN_TTL || '30d'
 function getPublicUser(user) {
   return {
     id: user.id,
+    telegramId: user.telegramId,
     email: user.email,
     name: user.name,
     role: user.role,
@@ -27,6 +28,60 @@ function getPublicUser(user) {
     marketingConsent: Boolean(user.marketingConsentAt && !user.marketingUnsubscribedAt)
   }
 }
+
+// Telegram Mini App data is signed by the bot. Never trust initDataUnsafe.
+export function verifyTelegramInitData(initData, botToken, now = Date.now()) {
+  if (typeof initData !== 'string' || !initData || initData.length > 8192 || !botToken) return null
+  const params = new URLSearchParams(initData)
+  const entries = [...params.entries()]
+  if (new Set(entries.map(([key]) => key)).size !== entries.length) return null
+  const hash = params.get('hash') || ''
+  const authDate = Number(params.get('auth_date'))
+  if (!/^[a-f\d]{64}$/i.test(hash) || !Number.isSafeInteger(authDate)) return null
+  const age = now / 1000 - authDate
+  if (age < -60 || age > 3600) return null
+  const checkString = entries
+    .filter(([key]) => key !== 'hash' && key !== 'signature')
+    .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n')
+  const secret = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest()
+  const expected = crypto.createHmac('sha256', secret).update(checkString).digest()
+  if (!crypto.timingSafeEqual(Buffer.from(hash, 'hex'), expected)) return null
+  try {
+    const user = JSON.parse(params.get('user') || 'null')
+    if (!user || !/^[1-9]\d*$/.test(String(user.id))) return null
+    return user
+  } catch {
+    return null
+  }
+}
+
+router.post('/telegram', async (req, res, next) => {
+  try {
+    const botToken = process.env.TELEGRAM_MINI_APP_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN
+    if (!botToken) return res.status(503).json({ error: 'Telegram авторизация не настроена' })
+    const telegramUser = verifyTelegramInitData(req.body?.initData, botToken)
+    if (!telegramUser) return res.status(401).json({ error: 'Данные Telegram недействительны или устарели' })
+    const telegramId = String(telegramUser.id)
+    const name = [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(' ').trim().slice(0, 120) || 'Пользователь Telegram'
+    const user = await prisma.user.upsert({
+      where: { telegramId },
+      update: {},
+      create: {
+        telegramId,
+        email: `tg-${telegramId}@telegram.invalid`,
+        password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10),
+        name,
+        emailVerified: false
+      }
+    })
+    if (user.role === 'DELETED') return res.status(403).json({ error: 'Учётная запись недоступна' })
+    res.json({ user: getPublicUser(user), token: createSessionToken(user.id) })
+  } catch (error) {
+    next(error)
+  }
+})
 
 function createSessionToken(userId) {
   return jwt.sign({ userId, purpose: 'session' }, process.env.JWT_SECRET, { expiresIn: SESSION_TOKEN_TTL })
@@ -160,6 +215,7 @@ router.post('/register', async (req, res, next) => {
       },
       select: {
         id: true,
+        telegramId: true,
         email: true,
         name: true,
         phone: true,
@@ -570,6 +626,7 @@ router.put('/me', authenticate, async (req, res, next) => {
       data: { name, phone, address },
       select: {
         id: true,
+        telegramId: true,
         email: true,
         name: true,
         role: true,

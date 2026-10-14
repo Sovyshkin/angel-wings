@@ -9,6 +9,7 @@ datasource db {
 
 model User {
   id                          Int                     @id @default(autoincrement())
+  telegramId                  String?                 @unique
   email                       String                  @unique
   password                    String
   name                        String

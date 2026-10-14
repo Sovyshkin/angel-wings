@@ -178,15 +178,21 @@ function extractWebhookFields(payload) {
   return { paymentLinkId, paymentId, status }
 }
 
-function getRedirectUrls(orderId) {
-  const baseUrl = process.env.TOCHKA_REDIRECT_BASE_URL || process.env.CLIENT_URL || ''
+export function getRedirectUrls(orderId, miniApp = false) {
+  const baseUrl = String(
+    miniApp
+      ? process.env.TELEGRAM_MINI_APP_URL || ''
+      : process.env.TOCHKA_REDIRECT_BASE_URL || process.env.CLIENT_URL || ''
+  ).replace(/\/+$/, '')
   console.log('[PAYMENT] redirect baseUrl check', JSON.stringify({
     baseUrl,
     isHttps: baseUrl.startsWith('https://')
   }))
 
-  if (!baseUrl || !baseUrl.startsWith('https://')) {
-    const error = new Error('Для интеграции Точка требуется HTTPS URL для редиректов. Укажите TOCHKA_REDIRECT_BASE_URL=https://... в .env')
+  if (!baseUrl || !/^https:\/\/[^/?#]+$/.test(baseUrl)) {
+    const error = new Error(miniApp
+      ? 'Для оплаты в Telegram укажите TELEGRAM_MINI_APP_URL=https://app.angel-wings.ru в .env'
+      : 'Для интеграции Точка требуется HTTPS URL для редиректов. Укажите TOCHKA_REDIRECT_BASE_URL=https://... в .env')
     error.status = 400
     throw error
   }
@@ -197,7 +203,7 @@ function getRedirectUrls(orderId) {
   }
 }
 
-async function createPaymentForOrder(orderId, amount, description) {
+async function createPaymentForOrder(orderId, amount, description, miniApp = false) {
   return withPaymentCreationLock(orderId, async () => {
     // Re-read under the lock: two clicks must not both create a bank invoice.
     const order = await prisma.order.findUnique({
@@ -256,7 +262,7 @@ async function createPaymentForOrder(orderId, amount, description) {
       }
     }
 
-    const { redirectUrl, failRedirectUrl } = getRedirectUrls(orderId)
+    const { redirectUrl, failRedirectUrl } = getRedirectUrls(orderId, miniApp)
     const result = await tochkaService.createPayment(
       requestedKopecks / 100,
       orderId,
@@ -313,7 +319,7 @@ router.post('/create', authenticate, async (req, res, next) => {
       return res.status(403).json({ error: 'Доступ запрещён' })
     }
 
-    const result = await createPaymentForOrder(parsedOrderId, amount, description)
+    const result = await createPaymentForOrder(parsedOrderId, amount, description, req.body?.miniApp === true)
 
     if (result.success && result.paymentUrl) {
       console.log('[PAYMENT] /create success', JSON.stringify({
@@ -376,7 +382,7 @@ router.post('/create-for-order/:orderId', authenticate, async (req, res, next) =
       return res.json({ success: true, alreadyPaid: true, paymentStatus: 'PAID' })
     }
 
-    const result = await createPaymentForOrder(orderId, order.paymentAmount ?? order.total, req.body?.description)
+    const result = await createPaymentForOrder(orderId, order.paymentAmount ?? order.total, req.body?.description, req.body?.miniApp === true)
 
     if (result.success && result.paymentUrl) {
       return res.json({

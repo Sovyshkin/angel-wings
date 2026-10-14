@@ -1,0 +1,194 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import axios from 'axios'
+
+const API_URL = '/api'
+
+function persistMarketingConsent(user) {
+  if (typeof user?.marketingConsent === 'boolean') {
+    localStorage.setItem('aw_tg_marketing_consent', user.marketingConsent ? 'true' : 'false')
+  }
+}
+
+export const useAuthStore = defineStore('auth', () => {
+  const user = ref(JSON.parse(localStorage.getItem('aw_tg_user') || 'null'))
+  const token = ref(localStorage.getItem('aw_tg_token') || '')
+
+  const isAuthenticated = computed(() => !!user.value && !!token.value)
+
+  if (token.value) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
+  }
+
+  async function login(email, password) {
+    try {
+      const { data } = await axios.post(`${API_URL}/auth/login`, { email, password })
+      if (data.requiresLoginVerification) {
+        return data
+      }
+      user.value = data.user
+      token.value = data.token
+      localStorage.setItem('aw_tg_user', JSON.stringify(data.user))
+      persistMarketingConsent(data.user)
+      localStorage.setItem('aw_tg_token', data.token)
+      axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
+      return data
+    } catch (e) {
+      if (e.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        const error = new Error(e.response.data.error || 'Email не подтверждён')
+        error.code = 'EMAIL_NOT_VERIFIED'
+        error.email = e.response.data.email || email
+        throw error
+      }
+      const message = e.response?.data?.error || e.message || 'Ошибка авторизации'
+      throw new Error(translateError(message))
+    }
+  }
+
+  function translateError(message) {
+    // Order matters - more specific messages first
+    if (message.includes('Email уже зарегистрирован') || message.includes('Email already exists')) {
+      return 'Пользователь с таким email уже существует'
+    }
+    if (message.includes('Неверный формат')) {
+      return 'Неверный формат email'
+    }
+    
+    const errors = {
+      'Invalid credentials': 'Неверный email или пароль',
+      'User not found': 'Пользователь не найден',
+      'Incorrect password': 'Неверный пароль',
+      'Validation error': 'Ошибка валидации',
+      'password': 'Пароль должен содержать минимум 6 символов',
+      'Network Error': 'Ошибка сети. Проверьте подключение к интернету',
+    }
+    const lowerMessage = message.toLowerCase()
+    for (const [key, value] of Object.entries(errors)) {
+      if (lowerMessage.includes(key.toLowerCase())) {
+        return value
+      }
+    }
+    return message || 'Произошла ошибка. Попробуйте снова.'
+  }
+
+  async function register(userData) {
+    try {
+      const { data } = await axios.post(`${API_URL}/auth/register`, userData)
+      if (data.requiresEmailVerification) {
+        return data
+      }
+      user.value = data.user
+      token.value = data.token
+      localStorage.setItem('aw_tg_user', JSON.stringify(data.user))
+      persistMarketingConsent(data.user)
+      localStorage.setItem('aw_tg_token', data.token)
+      axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
+      return data
+    } catch (e) {
+      const message = e.response?.data?.error || e.response?.data?.message || e.message || 'Ошибка регистрации'
+      throw new Error(translateError(message))
+    }
+  }
+
+  function setAuth(newToken, newUser) {
+    token.value = newToken || ''
+    user.value = newUser || null
+
+    if (token.value) {
+      localStorage.setItem('aw_tg_token', token.value)
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
+    } else {
+      localStorage.removeItem('aw_tg_token')
+      delete axios.defaults.headers.common['Authorization']
+    }
+
+    if (user.value) {
+      localStorage.setItem('aw_tg_user', JSON.stringify(user.value))
+      persistMarketingConsent(user.value)
+    } else {
+      localStorage.removeItem('aw_tg_user')
+    }
+  }
+
+  async function verifyEmail(email, code, options = {}) {
+    const { data } = await axios.post(`${API_URL}/auth/verify-email`, {
+      email,
+      code,
+      purpose: options.purpose || 'email_verification',
+      challengeToken: options.challengeToken || undefined
+    })
+    user.value = data.user
+    token.value = data.token
+    localStorage.setItem('aw_tg_user', JSON.stringify(data.user))
+    persistMarketingConsent(data.user)
+    localStorage.setItem('aw_tg_token', data.token)
+    axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
+    return data
+  }
+
+  async function resendVerification(email, options = {}) {
+    const { data } = await axios.post(`${API_URL}/auth/resend-verification`, {
+      email,
+      purpose: options.purpose || 'email_verification',
+      challengeToken: options.challengeToken || undefined
+    })
+    return data
+  }
+
+  async function forgotPassword(email) {
+    const { data } = await axios.post(`${API_URL}/auth/forgot-password`, { email })
+    return data
+  }
+
+  async function resetPassword(tokenValue, password) {
+    const { data } = await axios.post(`${API_URL}/auth/reset-password`, {
+      token: tokenValue,
+      password
+    })
+    return data
+  }
+
+  function logout() {
+    user.value = null
+    token.value = ''
+    localStorage.removeItem('aw_tg_user')
+    localStorage.removeItem('aw_tg_token')
+    localStorage.removeItem('aw_tg_marketing_consent')
+    delete axios.defaults.headers.common['Authorization']
+  }
+
+  async function updateUser(data) {
+    const { data: updated } = await axios.put(`${API_URL}/auth/me`, data)
+    user.value = updated.user
+    localStorage.setItem('aw_tg_user', JSON.stringify(updated.user))
+    persistMarketingConsent(updated.user)
+  }
+
+  async function fetchUser() {
+    if (!token.value) return
+    try {
+      const { data } = await axios.get(`${API_URL}/auth/me`)
+      user.value = data.user
+      localStorage.setItem('aw_tg_user', JSON.stringify(data.user))
+      persistMarketingConsent(data.user)
+    } catch (e) {
+      logout()
+    }
+  }
+
+  return {
+    user,
+    token,
+    isAuthenticated,
+    login,
+    register,
+    verifyEmail,
+    resendVerification,
+    forgotPassword,
+    resetPassword,
+    setAuth,
+    logout,
+    updateUser,
+    fetchUser
+  }
+})
