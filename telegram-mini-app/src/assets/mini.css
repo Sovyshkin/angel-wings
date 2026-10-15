@@ -445,6 +445,21 @@
   box-shadow: var(--tg-glass-rim), var(--tg-glass-shadow);
 }
 
+.telegram-auth-diagnostics {
+  margin-top: 1.5rem;
+  text-align: left;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.telegram-auth-diagnostics summary { cursor: pointer; }
+.telegram-auth-diagnostics pre {
+  margin: 0.75rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+
 .telegram-app .main :is(
   .category-chip, .catalog-search, .sort-select select, .catalog-price-filter,
   .variant-card, .thumb-item, .delivery-type-option, .payment-method-option,

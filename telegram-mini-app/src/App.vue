@@ -29,6 +29,10 @@
         <h1>Не удалось войти через Telegram</h1>
         <p>{{ error }}</p>
         <button class="btn btn-primary" type="button" @click="authenticate">Повторить</button>
+        <details v-if="diagnostics" class="telegram-auth-diagnostics">
+          <summary>Диагностика запуска</summary>
+          <pre>{{ diagnostics }}</pre>
+        </details>
       </div>
       <p v-else>Входим через Telegram…</p>
     </main>
@@ -75,7 +79,7 @@ import axios from 'axios'
 import { useAuthStore } from './store/auth.js'
 import { useCartStore } from './store/cart.js'
 import { useThemeStore } from './store/theme.js'
-import { initialTelegramLaunchData } from './utils/telegramLaunch.js'
+import { initialTelegramLaunchData, initialTelegramLaunchSource } from './utils/telegramLaunch.js'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -83,7 +87,24 @@ const cart = useCartStore()
 const theme = useThemeStore()
 const ready = ref(false)
 const error = ref('')
+const diagnostics = ref('')
 const webApp = window.Telegram?.WebApp
+let authenticating = false
+
+function dataShape(value) {
+  if (typeof value !== 'string') return 'нет'
+  const params = new URLSearchParams(value)
+  return `длина ${value.length}; hash: ${params.has('hash') ? 'да' : 'нет'}; auth_date: ${params.has('auth_date') ? 'да' : 'нет'}; user: ${params.has('user') ? 'да' : 'нет'}`
+}
+
+function getDiagnostics() {
+  return [
+    `SDK: ${webApp ? 'есть' : 'нет'}; платформа: ${webApp?.platform || 'неизвестно'}; версия: ${webApp?.version || 'неизвестно'}`,
+    `SDK initData: ${dataShape(webApp?.initData)}`,
+    `URL tgWebAppData (${initialTelegramLaunchSource}): ${dataShape(initialTelegramLaunchData)}`,
+    `SDK user: ${webApp?.initDataUnsafe?.user?.id ? 'есть' : 'нет'}; сохранённая сессия: ${auth.isAuthenticated ? 'есть' : 'нет'}`
+  ].join('\n')
+}
 
 function hasSignedTelegramData(value) {
   if (typeof value !== 'string' || !value || value.length > 8192) return false
@@ -114,25 +135,33 @@ function isDockItemActive(item) {
 const activeDockIndex = computed(() => Math.max(0, dockItems.findIndex(isDockItemActive)))
 
 async function authenticate() {
+  if (authenticating) return
+  authenticating = true
   ready.value = false
   error.value = ''
-  const initData = getTelegramInitData()
-  if (!initData) {
-    // A bank may return to this URL in an ordinary browser. Preserve the
-    // already issued Telegram session solely for the payment result page.
-    if (/^\/order-(success|failed)$/.test(route.path) && auth.isAuthenticated) {
-      await auth.fetchUser()
-      if (auth.isAuthenticated) {
-        ready.value = true
-        return
-      }
-    }
-    error.value = webApp?.initData
-      ? 'Telegram передал неполные данные запуска. Полностью закройте приложение и откройте его заново через кнопку бота.'
-      : 'Откройте приложение из Telegram через кнопку бота.'
-    return
-  }
+  diagnostics.value = ''
   try {
+    const initData = getTelegramInitData()
+    if (!initData) {
+      // A signed session issued by our backend can be reused for the same
+      // Telegram account. initDataUnsafe only checks account continuity;
+      // the server still validates the saved session token via /auth/me.
+      const telegramId = webApp?.initDataUnsafe?.user?.id
+      const sameTelegramUser = telegramId && String(telegramId) === String(auth.user?.telegramId)
+      const paymentResult = /^\/order-(success|failed)$/.test(route.path)
+      if (auth.isAuthenticated && (sameTelegramUser || paymentResult)) {
+        await auth.fetchUser()
+        if (auth.isAuthenticated && (paymentResult || String(auth.user?.telegramId) === String(telegramId))) {
+          ready.value = true
+          return
+        }
+      }
+      error.value = webApp?.initData
+        ? 'Telegram передал неполные данные запуска. Полностью закройте приложение и откройте его заново через кнопку бота.'
+        : 'Откройте приложение из Telegram через кнопку бота.'
+      diagnostics.value = getDiagnostics()
+      return
+    }
     const { data } = await axios.post('/api/auth/telegram', { initData })
     const previousTelegramId = localStorage.getItem('aw_tg_last_user_id')
     if (previousTelegramId && previousTelegramId !== String(data.user.telegramId)) {
@@ -146,6 +175,9 @@ async function authenticate() {
     ready.value = true
   } catch (cause) {
     error.value = cause?.response?.data?.error || 'Проверьте подключение и попробуйте снова.'
+    diagnostics.value = getDiagnostics()
+  } finally {
+    authenticating = false
   }
 }
 
