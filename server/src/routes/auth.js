@@ -37,8 +37,10 @@ function inspectTelegramInitData(initData, botToken, now = Date.now()) {
   const entries = [...params.entries()]
   if (new Set(entries.map(([key]) => key)).size !== entries.length) return { reason: 'DUPLICATE_FIELDS' }
   const hash = params.get('hash') || ''
-  const authDate = Number(params.get('auth_date'))
-  if (!/^[a-f\d]{64}$/i.test(hash) || !Number.isSafeInteger(authDate)) return { reason: 'INVALID_FORMAT' }
+  if (!/^[a-f\d]{64}$/i.test(hash)) return { reason: 'INVALID_HASH_FORMAT' }
+  const authDateRaw = params.get('auth_date')
+  const authDate = Number(authDateRaw)
+  if (!authDateRaw || !/^\d+$/.test(authDateRaw) || !Number.isSafeInteger(authDate)) return { reason: 'INVALID_AUTH_DATE' }
   const age = now / 1000 - authDate
   if (age < -60 || age > 24 * 60 * 60) return { reason: 'EXPIRED' }
   const checkString = entries
@@ -70,7 +72,15 @@ router.post('/telegram', async (req, res, next) => {
     if (!botToken) return res.status(503).json({ error: 'Telegram авторизация не настроена' })
     const validation = inspectTelegramInitData(req.body?.initData, botToken)
     if (!validation.user) {
-      console.warn('[AUTH] Telegram initData rejected', validation.reason)
+      const params = typeof req.body?.initData === 'string' ? new URLSearchParams(req.body.initData) : null
+      console.warn('[AUTH] Telegram initData rejected', validation.reason, {
+        hasHash: params?.has('hash') || false,
+        hashLength: params?.get('hash')?.length || 0,
+        hasAuthDate: params?.has('auth_date') || false,
+        hasUser: params?.has('user') || false,
+        hasSignature: params?.has('signature') || false,
+        dataLength: typeof req.body?.initData === 'string' ? req.body.initData.length : 0
+      })
       const error = validation.reason === 'EXPIRED'
         ? 'Сессия Telegram устарела. Закройте приложение и откройте снова через бота.'
         : validation.reason === 'INVALID_SIGNATURE'
