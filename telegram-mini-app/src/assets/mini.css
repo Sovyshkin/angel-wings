@@ -378,3 +378,161 @@
   .telegram-app .global-dock__item svg { width: 1.14rem; height: 1.14rem; }
   .telegram-app .global-dock__label { font-size: 0.53rem; }
 }
+
+/* Liquid glass is scoped to the Telegram storefront. Large repeated panels use
+   layered translucent paint; blur is reserved for floating controls. */
+.telegram-app {
+  --tg-glass-panel: linear-gradient(150deg, rgba(117, 150, 220, 0.15), rgba(14, 29, 58, 0.3) 43%, rgba(3, 10, 24, 0.4)), rgba(12, 22, 43, 0.76);
+  --tg-glass-control: linear-gradient(145deg, rgba(143, 179, 246, 0.2), rgba(38, 77, 142, 0.11) 52%, rgba(2, 12, 32, 0.12)), rgba(12, 28, 55, 0.78);
+  --tg-glass-active: linear-gradient(145deg, rgba(110, 171, 252, 0.34), rgba(27, 76, 143, 0.28) 60%, rgba(8, 31, 75, 0.38)), rgba(14, 42, 86, 0.82);
+  --tg-glass-edge: rgba(155, 195, 255, 0.31);
+  --tg-glass-rim: inset 0 1px 0 rgba(237, 247, 255, 0.22), inset 0 -1px 0 rgba(61, 124, 230, 0.14);
+  --tg-glass-shadow: 0 12px 30px rgba(0, 7, 24, 0.22);
+  --tg-glass-focus: rgba(108, 171, 255, 0.62);
+  --tg-glass-product: linear-gradient(155deg, rgba(34, 68, 118, 0.76), rgba(8, 24, 48, 0.94) 55%, rgba(4, 14, 31, 0.97));
+}
+
+[data-theme="light"] .telegram-app {
+  --tg-glass-panel: linear-gradient(150deg, rgba(255, 255, 255, 0.91), rgba(232, 242, 255, 0.75) 55%, rgba(218, 231, 251, 0.68)), rgba(250, 252, 255, 0.8);
+  --tg-glass-control: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(230, 240, 255, 0.82) 60%, rgba(207, 225, 251, 0.62)), rgba(247, 250, 255, 0.83);
+  --tg-glass-active: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(211, 231, 255, 0.88) 58%, rgba(181, 211, 249, 0.76)), rgba(225, 239, 255, 0.9);
+  --tg-glass-edge: rgba(90, 139, 207, 0.32);
+  --tg-glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.97), inset 0 -1px 0 rgba(95, 145, 211, 0.12);
+  --tg-glass-shadow: 0 12px 28px rgba(48, 82, 135, 0.11);
+  --tg-glass-focus: rgba(58, 121, 208, 0.58);
+  --tg-glass-product: linear-gradient(155deg, rgba(255, 255, 255, 0.96), rgba(238, 247, 255, 0.92) 55%, rgba(224, 239, 255, 0.9));
+}
+
+.telegram-app .header {
+  background: var(--tg-glass-panel);
+  border-bottom-color: var(--tg-glass-edge);
+  box-shadow: var(--tg-glass-rim), 0 8px 24px rgba(0, 7, 24, 0.1);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.telegram-app .global-dock {
+  border-color: var(--tg-glass-edge);
+  box-shadow: var(--tg-glass-rim), 0 0 0 1px rgba(103, 160, 250, 0.08), 0 14px 35px rgba(0, 7, 24, 0.3);
+}
+
+[data-theme="light"] .telegram-app .global-dock {
+  box-shadow: var(--tg-glass-rim), 0 0 0 1px rgba(92, 139, 205, 0.08), 0 14px 30px rgba(48, 82, 135, 0.16);
+}
+
+.telegram-app .main :is(
+  .cart__items, .cart__summary, .checkout-support-notice, .addition-mode-card,
+  .existing-order-item, .promo-code-card, .addition-checkout-card,
+  .pending-payment-card, .delivery-details-card, .addition-delivery-card,
+  .payment-method-card, .pickup-section, .pickup-map-card, .selected-pickup,
+  .courier-details, .courier-detail,
+  .user-card, .section-card, .order-card, .order-expanded, .order-addition-panel,
+  .addition-draft, .addition-quote, .points-overview, .points-history,
+  .gallery-main, .product-price-block, .product-description,
+  .product-attributes, .product-specs, .product-guarantee,
+  .order-success-card, .order-error-card, .login-modal-card, .result-card
+) {
+  background: var(--tg-glass-panel);
+  border-color: var(--tg-glass-edge);
+  box-shadow: var(--tg-glass-rim), var(--tg-glass-shadow);
+}
+
+.telegram-app .telegram-auth-state > div {
+  padding: 1.5rem;
+  border: 1px solid var(--tg-glass-edge);
+  border-radius: 1.4rem;
+  background: var(--tg-glass-panel);
+  box-shadow: var(--tg-glass-rim), var(--tg-glass-shadow);
+}
+
+.telegram-app .main :is(
+  .category-chip, .catalog-search, .sort-select select, .catalog-price-filter,
+  .variant-card, .thumb-item, .delivery-type-option, .payment-method-option,
+  .courier-home-type__option, .pickup-point, .profile-nav__item,
+  .quantity-selector, .catalog-qty-control, .info-item, .attribute-item,
+  .order-product-card, .order-metric, .points-history__item,
+  .input, .login-input, .promo-code-input, .price-input,
+  .form-group input, .form-group select, .form-group textarea
+) {
+  background: var(--tg-glass-control);
+  border-color: var(--tg-glass-edge);
+  box-shadow: var(--tg-glass-rim), 0 5px 14px rgba(0, 9, 29, 0.08);
+}
+
+.telegram-app :is(
+  .theme-toggle, .cart-btn, .btn, .add-to-cart-btn, .btn-add-cart,
+  .btn-submit, .btn-clear, .btn-change-pickup, .btn-cancel-addition,
+  .profile-nav__item, .order-pay-button, .order-toggle,
+  .catalog-price-filter button, .catalog-search__clear
+) {
+  border-color: var(--tg-glass-edge);
+  box-shadow: var(--tg-glass-rim), 0 5px 15px rgba(0, 9, 29, 0.12);
+}
+
+.telegram-app .theme-toggle,
+.telegram-app .cart-btn,
+.telegram-app .main :is(.btn-secondary, .btn-clear, .btn-change-pickup, .btn-cancel-addition, .order-toggle, .catalog-price-filter button, .catalog-search__clear) {
+  background: var(--tg-glass-control);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+}
+
+.telegram-app .main :is(.btn-primary, .btn-submit, .btn-add-cart, .order-pay-button) {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.24), transparent 42%, rgba(42, 84, 160, 0.15)), var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), inset 0 -1px 0 rgba(48, 69, 145, 0.18), 0 8px 20px rgba(58, 94, 181, 0.19);
+  color: #142549;
+}
+
+.telegram-app .main :is(.category-chip, .catalog-search, .sort-select select, .profile-nav__item, .delivery-type-option, .payment-method-option) {
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+}
+
+.telegram-app .main :is(
+  .category-chip.is-active, .variant-card.active, .delivery-type-option.selected,
+  .payment-method-option.selected, .profile-nav__item.active
+) {
+  background: var(--tg-glass-active);
+  border-color: var(--tg-glass-focus);
+  box-shadow: var(--tg-glass-rim), inset 0 0 16px rgba(79, 153, 248, 0.13), 0 0 14px rgba(66, 143, 240, 0.16);
+}
+
+.telegram-app .main .profile-nav__item.logout-btn {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.telegram-app .main .product-card {
+  background: var(--tg-glass-panel);
+  box-shadow: var(--tg-glass-rim), 0 0 14px rgba(36, 130, 249, 0.28), var(--tg-glass-shadow);
+}
+
+.telegram-app .main .product-content {
+  background: var(--tg-glass-product);
+}
+
+.telegram-app .main :is(.product-category-badge, .category-chip__count, .item-count, .product-category, .country-badge) {
+  border-color: var(--tg-glass-edge);
+  box-shadow: var(--tg-glass-rim), inset 0 0 10px rgba(76, 143, 236, 0.12);
+}
+
+.telegram-app .main :is(input, select, textarea):focus-visible,
+.telegram-app .main :is(button, a):focus-visible {
+  outline: 2px solid var(--tg-glass-focus);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .telegram-app .main :is(.variant-card, .delivery-type-option, .payment-method-option, .profile-nav__item, .pickup-point):hover {
+    border-color: var(--tg-glass-focus);
+    box-shadow: var(--tg-glass-rim), 0 9px 20px rgba(28, 99, 185, 0.16);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .telegram-app .global-dock,
+  .telegram-app .global-dock__active-pill {
+    animation: none;
+    transition-duration: 0.01ms;
+  }
+}

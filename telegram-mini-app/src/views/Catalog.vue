@@ -851,7 +851,6 @@ watch(() => route.query.category, (newCat) => {
   min-height: 0;
   display: grid;
   place-items: center;
-  padding: clamp(0.55rem, 1.5vw, 1rem);
   overflow: hidden;
   border-radius: 23px 23px 0 0;
   background: linear-gradient(180deg, #fff 0%, #f6f8fc 100%);
@@ -865,8 +864,7 @@ watch(() => route.query.category, (newCat) => {
   display: block;
   width: 100%;
   height: 100%;
-  padding: clamp(0.55rem, 1.5vw, 1rem);
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
   transition: transform 0.35s ease;
 }
@@ -1512,7 +1510,7 @@ watch(() => route.query.category, (newCat) => {
   .sort-select select { padding: 0.55rem 0.35rem; font-size: 0.68rem; }
   .products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
   .product-card { width: 100%; height: 286px; min-height: 0; aspect-ratio: auto; grid-template-rows: 49% minmax(0, 1fr); border-radius: 23px; }
-  .product-image { border-radius: 22px 22px 0 0; padding: 0.42rem; }
+  .product-image { border-radius: 22px 22px 0 0; }
   .product-content { padding: 0.52rem 0.6rem 0.58rem; }
   .product-card-meta { min-height: 1.1rem; margin-bottom: 0.27rem; }
   .product-category-badge { padding: 0.2rem 0.42rem; font-size: 0.48rem; letter-spacing: 0.04em; }
