@@ -10,3 +10,19 @@ export const initialTelegramLaunchData = hashParams.get('tgWebAppData') || query
 export const initialTelegramLaunchSource = hashParams.has('tgWebAppData')
   ? 'hash'
   : queryParams.has('tgWebAppData') ? 'query' : 'absent'
+
+// Some Telegram clients currently supply only the user field. It is not an
+// authentication credential, but can identify which existing session to
+// validate against our server.
+export function getUnsignedLaunchUserId() {
+  if (!initialTelegramLaunchData || initialTelegramLaunchData.length > 8192) return ''
+  const rawUser = new URLSearchParams(initialTelegramLaunchData).get('user')
+  if (!rawUser) return ''
+  try {
+    const user = JSON.parse(rawUser)
+    const id = String(user?.id || '')
+    return /^[1-9]\d*$/.test(id) ? id : ''
+  } catch {
+    return ''
+  }
+}

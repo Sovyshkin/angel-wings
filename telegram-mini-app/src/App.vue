@@ -79,7 +79,7 @@ import axios from 'axios'
 import { useAuthStore } from './store/auth.js'
 import { useCartStore } from './store/cart.js'
 import { useThemeStore } from './store/theme.js'
-import { initialTelegramLaunchData, initialTelegramLaunchSource } from './utils/telegramLaunch.js'
+import { initialTelegramLaunchData, initialTelegramLaunchSource, getUnsignedLaunchUserId } from './utils/telegramLaunch.js'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -102,7 +102,7 @@ function getDiagnostics() {
     `SDK: ${webApp ? 'есть' : 'нет'}; платформа: ${webApp?.platform || 'неизвестно'}; версия: ${webApp?.version || 'неизвестно'}`,
     `SDK initData: ${dataShape(webApp?.initData)}`,
     `URL tgWebAppData (${initialTelegramLaunchSource}): ${dataShape(initialTelegramLaunchData)}`,
-    `SDK user: ${webApp?.initDataUnsafe?.user?.id ? 'есть' : 'нет'}; сохранённая сессия: ${auth.isAuthenticated ? 'есть' : 'нет'}`
+    `SDK user: ${webApp?.initDataUnsafe?.user?.id ? 'есть' : 'нет'}; URL user: ${getUnsignedLaunchUserId() ? 'есть' : 'нет'}; сохранённая сессия: ${auth.isAuthenticated ? 'есть' : 'нет'}`
   ].join('\n')
 }
 
@@ -146,7 +146,7 @@ async function authenticate() {
       // A signed session issued by our backend can be reused for the same
       // Telegram account. initDataUnsafe only checks account continuity;
       // the server still validates the saved session token via /auth/me.
-      const telegramId = webApp?.initDataUnsafe?.user?.id
+      const telegramId = webApp?.initDataUnsafe?.user?.id || getUnsignedLaunchUserId()
       const sameTelegramUser = telegramId && String(telegramId) === String(auth.user?.telegramId)
       const paymentResult = /^\/order-(success|failed)$/.test(route.path)
       if (auth.isAuthenticated && (sameTelegramUser || paymentResult)) {
