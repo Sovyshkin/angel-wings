@@ -30,7 +30,7 @@
         
         <div class="profile__content" data-aos="fade-left" data-aos-delay="200">
           <div v-if="activeTab === 'info'" class="tab-content">
-            <div class="section-card">
+            <div class="section-card section-card--personal">
               <h2 class="section-title">Личные данные</h2>
               <div class="info-grid">
                 <div class="info-item">

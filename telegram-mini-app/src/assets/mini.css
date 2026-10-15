@@ -474,6 +474,68 @@
   box-shadow: var(--tg-glass-rim), 0 5px 14px rgba(0, 9, 29, 0.08);
 }
 
+/* Personal details use calm, readable glass tiles instead of edge-to-edge rows. */
+.telegram-app .main .section-card--personal {
+  padding: clamp(1.1rem, 3vw, 1.75rem);
+  border-radius: 1.5rem;
+}
+
+.telegram-app .main .section-card--personal .section-title {
+  margin-bottom: 1.25rem;
+  font-size: clamp(1.15rem, 2.5vw, 1.45rem);
+  line-height: 1.25;
+}
+
+.telegram-app .main .section-card--personal .info-grid {
+  gap: 0.8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.telegram-app .main .section-card--personal .info-item {
+  min-width: 0;
+  min-height: 5.3rem;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.95rem 1.05rem;
+  border: 1px solid var(--tg-glass-edge);
+  border-radius: 1rem;
+  background: var(--tg-glass-control);
+  box-shadow: var(--tg-glass-rim), 0 8px 18px rgba(0, 8, 27, 0.12);
+}
+
+.telegram-app .main .section-card--personal .info-label {
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  line-height: 1.25;
+}
+
+.telegram-app .main .section-card--personal .info-value {
+  color: var(--text-primary);
+  font-size: clamp(0.88rem, 1.8vw, 1rem);
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1024px) {
+  .telegram-app .main .section-card--personal .info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .telegram-app .main .section-card--personal .info-item {
+    min-height: 4.7rem;
+    padding: 0.8rem 0.9rem;
+  }
+}
+
+[data-theme="light"] .telegram-app .main .section-card--personal .info-item {
+  box-shadow: var(--tg-glass-rim), 0 7px 16px rgba(69, 108, 164, 0.1);
+}
+
 .telegram-app :is(
   .theme-toggle, .cart-btn, .btn, .add-to-cart-btn, .btn-add-cart,
   .btn-submit, .btn-clear, .btn-change-pickup, .btn-cancel-addition,
