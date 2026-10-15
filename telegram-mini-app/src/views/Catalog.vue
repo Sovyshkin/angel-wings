@@ -114,9 +114,6 @@
                     <circle cx="12" cy="7" r="4"/>
                   </svg>
                 </div>
-                <button class="product-favorite" type="button" disabled aria-label="Избранное пока недоступно">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 8.5c0 4.2-5.7 8.2-8.8 10.6C8.9 16.7 3.2 12.7 3.2 8.5a4.8 4.8 0 0 1 8.8-2.6 4.8 4.8 0 0 1 8.8 2.6Z"/></svg>
-                </button>
               </div>
               <div class="product-content">
                 <div class="product-card-meta">
@@ -502,17 +499,16 @@ watch(() => route.query.category, (newCat) => {
 .catalog-hero {
   position: relative;
   height: clamp(12rem, 25vw, 17rem);
-  background: radial-gradient(ellipse 30rem 13rem at 55% 55%, rgba(10, 72, 165, 0.12), transparent 75%);
   pointer-events: none;
 }
 
 .catalog-hero__molecule {
   position: absolute;
   z-index: 0;
-  top: -11rem;
-  left: 54%;
+  top: -7rem;
+  left: 58%;
   display: block;
-  width: min(44rem, 82vw);
+  width: min(34rem, 70vw);
   height: auto;
   max-width: none;
   object-fit: contain;
@@ -883,24 +879,6 @@ watch(() => route.query.category, (newCat) => {
   color: #6b8abc;
 }
 
-.product-favorite {
-  position: absolute;
-  top: 0.7rem;
-  right: 0.7rem;
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border: 1px solid rgba(127, 156, 193, 0.52);
-  border-radius: 50%;
-  background: rgba(95, 114, 143, 0.46);
-  color: #b7c9e4;
-  backdrop-filter: blur(7px);
-  opacity: 1;
-}
-
-.product-favorite svg { width: 19px; height: 19px; }
-
 .product-content {
   display: flex;
   flex-direction: column;
@@ -912,6 +890,7 @@ watch(() => route.query.category, (newCat) => {
 
 .product-card-meta {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.35rem;
@@ -944,6 +923,7 @@ watch(() => route.query.category, (newCat) => {
 
 .product-title {
   display: -webkit-box;
+  flex-shrink: 0;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -971,6 +951,7 @@ watch(() => route.query.category, (newCat) => {
 
 .product-footer {
   display: flex;
+  flex-shrink: 0;
   align-items: end;
   justify-content: space-between;
   gap: 0.4rem;
@@ -1519,7 +1500,7 @@ watch(() => route.query.category, (newCat) => {
 
 @media (max-width: 640px) {
   .catalog-hero { height: 6rem; }
-  .catalog-hero__molecule { top: -9rem; left: 57%; width: min(108vw, 27rem); }
+  .catalog-hero__molecule { top: -5rem; left: 59%; width: min(74vw, 20rem); }
   .catalog > .container { margin-top: -2.5rem; }
   .catalog > .container { padding-inline: 0.5rem; }
   .catalog__bar { grid-template-columns: minmax(0, 1fr) minmax(5.7rem, 7.2rem); gap: 0.4rem; }
@@ -1530,14 +1511,13 @@ watch(() => route.query.category, (newCat) => {
   .results-count { font-size: 0.7rem; }
   .sort-select select { padding: 0.55rem 0.35rem; font-size: 0.68rem; }
   .products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
-  .product-card { width: 100%; height: 238px; min-height: 0; aspect-ratio: auto; grid-template-rows: 49% minmax(0, 1fr); border-radius: 23px; }
+  .product-card { width: 100%; height: 286px; min-height: 0; aspect-ratio: auto; grid-template-rows: 49% minmax(0, 1fr); border-radius: 23px; }
   .product-image { border-radius: 22px 22px 0 0; padding: 0.42rem; }
-  .product-favorite { top: 0.48rem; right: 0.48rem; width: 34px; height: 34px; }
   .product-content { padding: 0.52rem 0.6rem 0.58rem; }
   .product-card-meta { min-height: 1.1rem; margin-bottom: 0.27rem; }
   .product-category-badge { padding: 0.2rem 0.42rem; font-size: 0.48rem; letter-spacing: 0.04em; }
-  .product-title { font-size: 0.76rem; line-height: 1.2; margin-bottom: 0.25rem; }
-  .product-desc { display: -webkit-box; font-size: 0.64rem; line-height: 1.25; -webkit-line-clamp: 3; margin-bottom: 0.2rem; }
+  .product-title { font-size: 0.76rem; line-height: 1.3; margin-bottom: 0.25rem; }
+  .product-desc { display: -webkit-box; font-size: 0.64rem; line-height: 1.25; -webkit-line-clamp: 2; margin-bottom: 0.2rem; }
   .product-footer { flex-wrap: nowrap; gap: 0.25rem; }
   .price-value { font-size: 0.98rem; }
   .price-currency { font-size: 0.79rem; }
@@ -1549,10 +1529,138 @@ watch(() => route.query.category, (newCat) => {
 }
 
 @media (max-width: 360px) {
-  .product-card { height: 245px; }
+  .product-card { height: 292px; }
   .product-content { padding-inline: 0.45rem; }
   .price-value { font-size: 0.86rem; }
   .add-to-cart-btn { width: 36px; height: 34px; }
   .catalog-qty-control .qty-btn { width: 18px; }
+}
+
+</style>
+
+<style>
+[data-theme="light"] .catalog {
+  background: linear-gradient(180deg, #f8fbff 0%, #f5f7fb 31rem, #f5f5f7 100%);
+}
+
+[data-theme="light"] .catalog .catalog-hero__molecule {
+  filter: drop-shadow(0 0 16px rgba(34, 120, 218, 0.16));
+}
+
+[data-theme="light"] .catalog .category-chip {
+  border-color: rgba(85, 136, 198, 0.32);
+  background: rgba(255, 255, 255, 0.88);
+  color: #263b59;
+}
+
+[data-theme="light"] .catalog .category-chip.is-active {
+  border-color: #5aa2ea;
+  background: linear-gradient(135deg, #e7f3ff, #dbeaff);
+  color: #15345c;
+  box-shadow: inset 0 1px 0 #fff, 0 0 12px rgba(57, 137, 228, 0.18);
+}
+
+[data-theme="light"] .catalog .category-chip__icon {
+  background: #eaf2fc;
+  color: #24476f;
+}
+
+[data-theme="light"] .catalog .category-chip.is-active .category-chip__icon {
+  background: #d5e8fb;
+  color: #143d70;
+}
+
+[data-theme="light"] .catalog .category-chip__count {
+  background: #eaf2fb;
+  color: #405773;
+}
+
+[data-theme="light"] .catalog .catalog-search,
+[data-theme="light"] .catalog .sort-select select {
+  border-color: rgba(85, 136, 198, 0.34);
+  background: rgba(255, 255, 255, 0.94);
+  color: #1c304e;
+}
+
+[data-theme="light"] .catalog .catalog-search svg {
+  color: #315f96;
+}
+
+[data-theme="light"] .catalog .catalog-search input::placeholder {
+  color: #718099;
+}
+
+[data-theme="light"] .catalog .results-count {
+  color: #506580;
+}
+
+[data-theme="light"] .catalog .results-count span {
+  color: #295b9d;
+}
+
+[data-theme="light"] .catalog .product-card {
+  border-color: #69aef0;
+  background: #f7fbff;
+  color: #142943;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8), 0 0 12px rgba(64, 144, 227, 0.2), 0 8px 19px rgba(31, 75, 130, 0.12);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="light"] .catalog .product-card:hover {
+    border-color: #3e96ed;
+    box-shadow: inset 0 0 0 1px #fff, 0 0 16px rgba(47, 138, 232, 0.28), 0 11px 22px rgba(31, 75, 130, 0.16);
+  }
+}
+
+[data-theme="light"] .catalog .product-content {
+  background: linear-gradient(155deg, #fff 0%, #f3f8ff 58%, #eaf3ff 100%);
+}
+
+[data-theme="light"] .catalog .product-category-badge {
+  border-color: rgba(63, 128, 205, 0.3);
+  background: linear-gradient(130deg, #e7f3ff, #dbeafc);
+  box-shadow: inset 0 1px 0 #fff, inset 0 0 8px rgba(73, 153, 240, 0.1);
+  color: #2c5688;
+}
+
+[data-theme="light"] .catalog .product-title,
+[data-theme="light"] .catalog .price-value,
+[data-theme="light"] .catalog .price-currency {
+  color: #142943;
+}
+
+[data-theme="light"] .catalog .product-desc {
+  color: #5d708c;
+}
+
+[data-theme="light"] .catalog .price-old {
+  color: #7389a5;
+}
+
+[data-theme="light"] .catalog .price-discount-badge {
+  color: #b73d51;
+}
+
+[data-theme="light"] .catalog .add-to-cart-btn,
+[data-theme="light"] .catalog .catalog-qty-control {
+  border-color: #73afea;
+  background: linear-gradient(150deg, #eaf5ff, #d6eaff);
+  box-shadow: inset 0 1px 0 #fff, 0 0 9px rgba(63, 142, 228, 0.22);
+  color: #214e80;
+}
+
+[data-theme="light"] .catalog .add-to-cart-btn:hover:not(:disabled) {
+  border-color: #3e96ed;
+  background: linear-gradient(150deg, #e1f1ff, #c8e2ff);
+  box-shadow: inset 0 1px 0 #fff, 0 0 12px rgba(63, 142, 228, 0.3);
+}
+
+[data-theme="light"] .catalog .qty-btn,
+[data-theme="light"] .catalog .qty-value {
+  color: #214e80;
+}
+
+[data-theme="light"] .catalog .qty-btn:hover:not(:disabled) {
+  background: rgba(45, 118, 200, 0.12);
 }
 </style>

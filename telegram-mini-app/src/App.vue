@@ -9,7 +9,6 @@
           <router-link class="nav-link" to="/catalog">Каталог</router-link>
           <router-link class="nav-link" to="/cart">Корзина</router-link>
           <router-link class="nav-link" to="/profile">Профиль</router-link>
-          <router-link class="nav-link" to="/orders">Заказы</router-link>
         </nav>
         <div class="header__actions">
           <button class="theme-toggle" type="button" @click="theme.toggle()" :aria-label="theme.isDark ? 'Светлая тема' : 'Тёмная тема'">
@@ -59,10 +58,6 @@
           <path d="M6 3.5h12l2 4v12.25a.75.75 0 0 1-.75.75H4.75a.75.75 0 0 1-.75-.75V7.5l2-4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
           <path d="M4.5 7.5h15M15.5 10.5a3.5 3.5 0 0 1-7 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
         </svg>
-        <svg v-else-if="item.icon === 'orders'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M5 3.5h14v17l-2.5-1.5-2.5 1.5-2.5-1.5L9 20.5l-2.5-1.5L5 20.5v-17Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-          <path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-        </svg>
         <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.7"/>
           <path d="M4.5 21c.7-4.1 3.2-6.3 7.5-6.3s6.8 2.2 7.5 6.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
@@ -91,13 +86,11 @@ const webApp = window.Telegram?.WebApp
 const dockItems = [
   { to: '/catalog', label: 'Каталог', icon: 'catalog' },
   { to: '/cart', label: 'Корзина', icon: 'cart' },
-  { to: '/profile', label: 'Профиль', icon: 'user' },
-  { to: '/orders', label: 'Заказы', icon: 'orders' }
+  { to: '/profile', label: 'Профиль', icon: 'user' }
 ]
 function isDockItemActive(item) {
   if (item.to === '/catalog') return route.path === '/catalog' || route.path.startsWith('/product/')
-  if (item.to === '/orders') return route.path === '/orders' || (route.path === '/profile' && route.query.tab === 'orders') || route.path === '/order-success'
-  if (item.to === '/profile') return route.path === '/profile' && route.query.tab !== 'orders'
+  if (item.to === '/profile') return route.path === '/profile' || route.path === '/orders' || route.path === '/order-success'
   return item.to === '/cart' && (route.path === '/cart' || route.path === '/order-failed')
 }
 const activeDockIndex = computed(() => Math.max(0, dockItems.findIndex(isDockItemActive)))
