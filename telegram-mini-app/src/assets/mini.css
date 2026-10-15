@@ -561,6 +561,23 @@
   .telegram-app .main .section-card--personal .info-grid {
     grid-template-columns: 1fr;
   }
+
+  .telegram-app .main .points-overview {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.1rem;
+    padding: 1.25rem;
+  }
+
+  .telegram-app .main .points-overview > div { min-width: 0; }
+
+  .telegram-app .main .points-overview .btn {
+    width: 100%;
+    min-height: 3.25rem;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+  }
 }
 
 @media (max-width: 640px) {
@@ -641,6 +658,29 @@
   .telegram-app .main :is(.variant-card, .delivery-type-option, .payment-method-option, .profile-nav__item, .pickup-point):hover {
     border-color: var(--tg-glass-focus);
     box-shadow: var(--tg-glass-rim), 0 9px 20px rgba(28, 99, 185, 0.16);
+  }
+}
+
+@media (max-width: 768px) {
+  .telegram-app .main .cart__summary {
+    padding: 1rem;
+  }
+
+  .telegram-app .main .pickup-section {
+    margin: 1.5rem 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .telegram-app .main .pickup-section--error h4 {
+    color: var(--danger);
+  }
+
+  .telegram-app .main .pickup-section--error .delivery-type-option {
+    border-color: rgba(239, 68, 68, 0.45);
   }
 }
 
