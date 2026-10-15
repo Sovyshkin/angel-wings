@@ -30,7 +30,7 @@
         
         <div class="profile__content" data-aos="fade-left" data-aos-delay="200">
           <div v-if="activeTab === 'info'" class="tab-content">
-            <div class="section-card section-card--personal">
+            <div class="section-card section-card--personal section-card--list">
               <h2 class="section-title">Личные данные</h2>
               <div class="info-grid">
                 <div class="info-item">
@@ -58,7 +58,7 @@
           </div>
           
           <div v-if="activeTab === 'orders'" class="tab-content">
-            <div class="section-card">
+            <div class="section-card section-card--list">
               <h2 class="section-title">История заказов</h2>
               <div v-if="orders.length === 0" class="empty-state">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -236,7 +236,7 @@
               <router-link to="/cart" class="btn btn-primary">Перейти в корзину</router-link>
             </div>
 
-            <div class="section-card">
+            <div class="section-card section-card--list">
               <h2 class="section-title">История баллов</h2>
               <div v-if="pointsLoading" class="empty-state">
                 <div class="spinner"></div>

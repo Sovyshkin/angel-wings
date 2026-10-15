@@ -421,15 +421,14 @@
 }
 
 .telegram-app .main :is(
-  .cart__items, .cart__summary, .checkout-support-notice, .addition-mode-card,
+  .cart__summary, .checkout-support-notice, .addition-mode-card,
   .existing-order-item, .promo-code-card, .addition-checkout-card,
   .pending-payment-card, .delivery-details-card, .addition-delivery-card,
   .payment-method-card, .pickup-section, .pickup-map-card, .selected-pickup,
   .courier-details, .courier-detail,
-  .user-card, .section-card, .order-card, .order-expanded, .order-addition-panel,
-  .addition-draft, .addition-quote, .points-overview, .points-history,
-  .gallery-main, .product-price-block, .product-description,
-  .product-attributes, .product-specs, .product-guarantee,
+  .user-card, .section-card, .order-card, .order-addition-panel,
+  .addition-draft, .addition-quote, .points-overview,
+  .gallery-main, .product-price-block, .product-description, .product-actions,
   .order-success-card, .order-error-card, .login-modal-card, .result-card
 ) {
   background: var(--tg-glass-panel);
@@ -464,7 +463,7 @@
   .category-chip, .catalog-search, .sort-select select, .catalog-price-filter,
   .variant-card, .thumb-item, .delivery-type-option, .payment-method-option,
   .courier-home-type__option, .pickup-point, .profile-nav__item,
-  .quantity-selector, .catalog-qty-control, .info-item, .attribute-item,
+  .catalog-qty-control, .info-item, .attribute-item,
   .order-product-card, .order-metric, .points-history__item,
   .input, .login-input, .promo-code-input, .price-input,
   .form-group input, .form-group select, .form-group textarea
@@ -474,11 +473,50 @@
   box-shadow: var(--tg-glass-rim), 0 5px 14px rgba(0, 9, 29, 0.08);
 }
 
-/* Personal details use calm, readable glass tiles instead of edge-to-edge rows. */
-.telegram-app .main .section-card--personal {
-  padding: clamp(1.1rem, 3vw, 1.75rem);
-  border-radius: 1.5rem;
+/* A complete purchase panel gets one glass surface; its quantity control
+   sits directly on that surface. Repeated content gets one surface per row. */
+.telegram-app .main .product-actions .quantity-selector {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
+
+.telegram-app .main :is(.product-guarantee, .product-specs, .product-attributes, .cart__items) {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.telegram-app .main .product-guarantee { gap: 0.7rem; }
+.telegram-app .main .product-specs .specs-table { gap: 0.7rem; }
+.telegram-app .main .cart__items { display: grid; gap: 0.75rem; overflow: visible; }
+
+.telegram-app .main :is(.guarantee-item, .product-specs .spec-row, .cart__items .cart-item) {
+  margin: 0;
+  background: var(--tg-glass-control);
+  border: 1px solid var(--tg-glass-edge);
+  border-radius: 0.95rem;
+  box-shadow: var(--tg-glass-rim), 0 5px 14px rgba(0, 9, 29, 0.08);
+}
+
+.telegram-app .main .section-card--list {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.telegram-app .main .section-card--list .empty-state {
+  padding: 1.5rem;
+  background: var(--tg-glass-panel);
+  border: 1px solid var(--tg-glass-edge);
+  border-radius: 1rem;
+  box-shadow: var(--tg-glass-rim), var(--tg-glass-shadow);
+}
+
+/* Personal details use calm, readable glass tiles instead of edge-to-edge rows. */
+.telegram-app .main .section-card--personal { border-radius: 0; }
 
 .telegram-app .main .section-card--personal .section-title {
   margin-bottom: 1.25rem;

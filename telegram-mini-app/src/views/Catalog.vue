@@ -11,7 +11,6 @@
           role="group"
           aria-label="Категории товаров"
           tabindex="0"
-          @wheel="onCategoryWheel"
           @pointerdown="onCategoryPointerDown"
           @click.capture="onCategoryClickCapture"
           @keydown="onCategoryKeydown"
@@ -221,8 +220,8 @@ function onCategoryWheel(event) {
   const delta = (Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY) * unit
   const maxScroll = scroller.scrollWidth - scroller.clientWidth
   const next = Math.max(0, Math.min(maxScroll, scroller.scrollLeft + delta))
-  if (Math.abs(next - scroller.scrollLeft) < 0.5) return
-  event.preventDefault()
+  if (next === scroller.scrollLeft) return
+  if (event.cancelable) event.preventDefault()
   scroller.scrollLeft = next
 }
 
@@ -546,6 +545,7 @@ function handleImageError(e) {
 }
 
 onMounted(async () => {
+  categoriesScroller.value?.addEventListener('wheel', onCategoryWheel, { passive: false, capture: true })
   const historyState = typeof window !== 'undefined' ? window.history.state : null
   shouldRestoreCatalogScroll = typeof historyState?.forward === 'string' && historyState.forward.startsWith('/product/')
   loading.value = true
@@ -561,6 +561,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  categoriesScroller.value?.removeEventListener('wheel', onCategoryWheel, true)
   stopCategoryDrag()
   clearTimeout(categoryClickTimer)
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/product/')) {
@@ -605,6 +606,7 @@ watch(() => route.query.category, (newCat) => {
   position: relative;
   z-index: 1;
   margin-top: 0;
+  padding-top: 20px;
 }
 
 .catalog__layout {
@@ -1431,7 +1433,6 @@ watch(() => route.query.category, (newCat) => {
   scrollbar-color: rgba(112, 186, 255, 0.5) transparent;
   padding: 0 0 0.25rem;
   margin-bottom: 0.25rem;
-  scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   cursor: grab;
 }
@@ -1444,7 +1445,6 @@ watch(() => route.query.category, (newCat) => {
 .catalog-categories::-webkit-scrollbar-track { background: transparent; }
 .catalog-categories.is-dragging {
   cursor: grabbing;
-  scroll-snap-type: none;
   user-select: none;
 }
 .catalog-categories.is-dragging * { cursor: grabbing; }
@@ -1463,7 +1463,6 @@ watch(() => route.query.category, (newCat) => {
   color: #d2def3;
   backdrop-filter: blur(12px);
   white-space: nowrap;
-  scroll-snap-align: start;
 }
 
 .category-chip.is-active {
