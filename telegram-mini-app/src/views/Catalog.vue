@@ -5,7 +5,17 @@
     </div>
     <div class="container">
       <div class="catalog__layout">
-        <div class="catalog-categories" role="group" aria-label="Категории товаров">
+        <div
+          ref="categoriesScroller"
+          class="catalog-categories"
+          role="group"
+          aria-label="Категории товаров"
+          tabindex="0"
+          @wheel="onCategoryWheel"
+          @pointerdown="onCategoryPointerDown"
+          @click.capture="onCategoryClickCapture"
+          @keydown="onCategoryKeydown"
+        >
           <button class="category-chip" :class="{ 'is-active': !selectedCategory }" type="button" :aria-pressed="!selectedCategory" @click="selectCategory(null)">
             <span class="category-chip__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -197,8 +207,81 @@ const priceMax = ref(null)
 const loading = ref(false)
 const mobileFiltersOpen = ref(false)
 const brokenCategoryIcons = ref(new Set())
+const categoriesScroller = ref(null)
 const CATALOG_SCROLL_KEY = 'angel-wings:catalog-scroll'
 let shouldRestoreCatalogScroll = false
+let categoryDrag = null
+let suppressCategoryClick = false
+let categoryClickTimer = null
+
+function onCategoryWheel(event) {
+  const scroller = categoriesScroller.value
+  if (!scroller || event.ctrlKey || scroller.scrollWidth <= scroller.clientWidth + 1) return
+  const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? scroller.clientWidth : 1
+  const delta = (Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY) * unit
+  const maxScroll = scroller.scrollWidth - scroller.clientWidth
+  const next = Math.max(0, Math.min(maxScroll, scroller.scrollLeft + delta))
+  if (Math.abs(next - scroller.scrollLeft) < 0.5) return
+  event.preventDefault()
+  scroller.scrollLeft = next
+}
+
+function onCategoryPointerDown(event) {
+  if (categoryDrag || event.pointerType === 'touch' || event.button !== 0) return
+  clearTimeout(categoryClickTimer)
+  suppressCategoryClick = false
+  const scroller = categoriesScroller.value
+  if (!scroller || scroller.scrollWidth <= scroller.clientWidth + 1) return
+  categoryDrag = { id: event.pointerId, x: event.clientX, scrollLeft: scroller.scrollLeft, moved: false }
+  window.addEventListener('pointermove', onCategoryPointerMove, { passive: false })
+  window.addEventListener('pointerup', stopCategoryDrag)
+  window.addEventListener('pointercancel', stopCategoryDrag)
+  window.addEventListener('blur', stopCategoryDrag)
+}
+
+function onCategoryPointerMove(event) {
+  if (!categoryDrag || event.pointerId !== categoryDrag.id) return
+  const distance = event.clientX - categoryDrag.x
+  if (!categoryDrag.moved && Math.abs(distance) < 6) return
+  categoryDrag.moved = true
+  categoriesScroller.value.classList.add('is-dragging')
+  event.preventDefault()
+  categoriesScroller.value.scrollLeft = categoryDrag.scrollLeft - distance
+}
+
+function stopCategoryDrag(event) {
+  if (event?.pointerId != null && categoryDrag && event.pointerId !== categoryDrag.id) return
+  categoriesScroller.value?.classList.remove('is-dragging')
+  if (categoryDrag?.moved) {
+    suppressCategoryClick = true
+    clearTimeout(categoryClickTimer)
+    categoryClickTimer = window.setTimeout(() => { suppressCategoryClick = false }, 160)
+  }
+  categoryDrag = null
+  window.removeEventListener('pointermove', onCategoryPointerMove)
+  window.removeEventListener('pointerup', stopCategoryDrag)
+  window.removeEventListener('pointercancel', stopCategoryDrag)
+  window.removeEventListener('blur', stopCategoryDrag)
+}
+
+function onCategoryClickCapture(event) {
+  if (!suppressCategoryClick) return
+  event.preventDefault()
+  event.stopPropagation()
+  suppressCategoryClick = false
+}
+
+function onCategoryKeydown(event) {
+  const scroller = categoriesScroller.value
+  if (!scroller) return
+  const step = Math.max(160, scroller.clientWidth * 0.7)
+  if (event.key === 'ArrowRight' || event.key === 'PageDown') scroller.scrollBy({ left: step, behavior: 'smooth' })
+  else if (event.key === 'ArrowLeft' || event.key === 'PageUp') scroller.scrollBy({ left: -step, behavior: 'smooth' })
+  else if (event.key === 'Home') scroller.scrollTo({ left: 0, behavior: 'smooth' })
+  else if (event.key === 'End') scroller.scrollTo({ left: scroller.scrollWidth, behavior: 'smooth' })
+  else return
+  event.preventDefault()
+}
 
 const products = computed(() => productStore.products)
 const categories = computed(() => productStore.categories)
@@ -478,6 +561,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  stopCategoryDrag()
+  clearTimeout(categoryClickTimer)
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/product/')) {
     rememberCatalogScroll()
   }
@@ -498,14 +583,14 @@ watch(() => route.query.category, (newCat) => {
 
 .catalog-hero {
   position: relative;
-  height: clamp(12rem, 25vw, 17rem);
+  height: 0;
   pointer-events: none;
 }
 
 .catalog-hero__molecule {
   position: absolute;
   z-index: 0;
-  top: -7rem;
+  top: -2rem;
   left: 58%;
   display: block;
   width: min(34rem, 70vw);
@@ -519,7 +604,7 @@ watch(() => route.query.category, (newCat) => {
 .catalog > .container {
   position: relative;
   z-index: 1;
-  margin-top: -2.7rem;
+  margin-top: 0;
 }
 
 .catalog__layout {
@@ -1342,14 +1427,27 @@ watch(() => route.query.category, (newCat) => {
   width: 100%;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
-  scrollbar-width: none;
-  padding: 0.25rem 0 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(112, 186, 255, 0.5) transparent;
+  padding: 0 0 0.25rem;
   margin-bottom: 0.25rem;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
+  cursor: grab;
 }
 
-.catalog-categories::-webkit-scrollbar { display: none; }
+.catalog-categories::-webkit-scrollbar { height: 4px; }
+.catalog-categories::-webkit-scrollbar-thumb {
+  background: rgba(112, 186, 255, 0.5);
+  border-radius: 999px;
+}
+.catalog-categories::-webkit-scrollbar-track { background: transparent; }
+.catalog-categories.is-dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  user-select: none;
+}
+.catalog-categories.is-dragging * { cursor: grabbing; }
 
 .category-chip {
   display: inline-flex;
@@ -1497,10 +1595,11 @@ watch(() => route.query.category, (newCat) => {
 }
 
 @media (max-width: 640px) {
-  .catalog-hero { height: 6rem; }
-  .catalog-hero__molecule { top: -5rem; left: 59%; width: min(74vw, 20rem); }
-  .catalog > .container { margin-top: -2.5rem; }
+  .catalog { padding-top: 0; }
+  .catalog-hero__molecule { top: -3rem; left: 59%; width: min(74vw, 20rem); }
   .catalog > .container { padding-inline: 0.5rem; }
+  .catalog-categories { scrollbar-width: none; }
+  .catalog-categories::-webkit-scrollbar { display: none; }
   .catalog__bar { grid-template-columns: minmax(0, 1fr) minmax(5.7rem, 7.2rem); gap: 0.4rem; }
   .catalog__bar-left { grid-template-columns: minmax(0, 1fr) auto; gap: 0.4rem; flex-wrap: nowrap; }
   .catalog-search { padding: 0.55rem 0.65rem; }
