@@ -75,6 +75,7 @@ import axios from 'axios'
 import { useAuthStore } from './store/auth.js'
 import { useCartStore } from './store/cart.js'
 import { useThemeStore } from './store/theme.js'
+import { initialTelegramLaunchData } from './utils/telegramLaunch.js'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -83,6 +84,23 @@ const theme = useThemeStore()
 const ready = ref(false)
 const error = ref('')
 const webApp = window.Telegram?.WebApp
+
+function hasSignedTelegramData(value) {
+  if (typeof value !== 'string' || !value || value.length > 8192) return false
+  const params = new URLSearchParams(value)
+  return /^[a-f\d]{64}$/i.test(params.get('hash') || '')
+    && /^\d+$/.test(params.get('auth_date') || '')
+    && params.has('user')
+}
+
+function getTelegramInitData() {
+  if (hasSignedTelegramData(webApp?.initData)) return webApp.initData
+
+  // Telegram also provides the original, URL-encoded launch data in the
+  // tgWebAppData parameter. The backend still verifies its signature.
+  return hasSignedTelegramData(initialTelegramLaunchData) ? initialTelegramLaunchData : ''
+}
+
 const dockItems = [
   { to: '/catalog', label: 'Каталог', icon: 'catalog' },
   { to: '/cart', label: 'Корзина', icon: 'cart' },
@@ -98,7 +116,8 @@ const activeDockIndex = computed(() => Math.max(0, dockItems.findIndex(isDockIte
 async function authenticate() {
   ready.value = false
   error.value = ''
-  if (!webApp?.initData) {
+  const initData = getTelegramInitData()
+  if (!initData) {
     // A bank may return to this URL in an ordinary browser. Preserve the
     // already issued Telegram session solely for the payment result page.
     if (/^\/order-(success|failed)$/.test(route.path) && auth.isAuthenticated) {
@@ -108,11 +127,13 @@ async function authenticate() {
         return
       }
     }
-    error.value = 'Откройте приложение из Telegram через кнопку бота.'
+    error.value = webApp?.initData
+      ? 'Telegram передал неполные данные запуска. Полностью закройте приложение и откройте его заново через кнопку бота.'
+      : 'Откройте приложение из Telegram через кнопку бота.'
     return
   }
   try {
-    const { data } = await axios.post('/api/auth/telegram', { initData: webApp.initData })
+    const { data } = await axios.post('/api/auth/telegram', { initData })
     const previousTelegramId = localStorage.getItem('aw_tg_last_user_id')
     if (previousTelegramId && previousTelegramId !== String(data.user.telegramId)) {
       for (const key of Object.keys(localStorage)) {
