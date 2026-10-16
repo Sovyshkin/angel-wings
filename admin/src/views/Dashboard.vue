@@ -6,7 +6,22 @@
           <img src="../assets/angel-wings-logo-light.svg" alt="Angel Wings" class="logo-img">
         </router-link>
 
-        <nav class="admin-nav">
+        <nav
+          ref="adminNav"
+          class="admin-nav"
+          :class="{ 'is-dragging': isNavDragging }"
+          aria-label="Разделы админ-панели"
+          tabindex="0"
+          @wheel="handleNavWheel"
+          @keydown="handleNavKeydown"
+          @pointerdown="handleNavPointerDown"
+          @pointermove="handleNavPointerMove"
+          @pointerup="handleNavPointerUp"
+          @pointercancel="cancelNavDrag"
+          @lostpointercapture="cancelNavDrag"
+          @dragstart.prevent
+          @click.capture="handleNavClick"
+        >
           <router-link to="/dashboard" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
@@ -257,7 +272,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
@@ -269,6 +284,112 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const mobileMenuOpen = ref(false)
 const pendingApplicationsCount = ref(0)
+const adminNav = ref(null)
+const isNavDragging = ref(false)
+let navDrag = null
+let suppressNavClick = false
+
+function handleNavWheel(event) {
+  const nav = adminNav.value
+  if (!nav || event.ctrlKey || nav.scrollWidth <= nav.clientWidth) return
+
+  const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? nav.clientWidth : 1
+  const horizontal = event.deltaX * unit
+  const vertical = event.deltaY * unit
+  const delta = Math.abs(horizontal) > Math.abs(vertical) ? horizontal : vertical
+  const maxScroll = nav.scrollWidth - nav.clientWidth
+  const next = Math.max(0, Math.min(maxScroll, nav.scrollLeft + delta))
+
+  // Let the page scroll normally when the menu has reached either edge.
+  if (next === nav.scrollLeft) return
+  event.preventDefault()
+  nav.scrollLeft = next
+}
+
+function handleNavKeydown(event) {
+  const nav = adminNav.value
+  if (!nav || nav.scrollWidth <= nav.clientWidth) return
+
+  const step = Math.max(120, Math.round(nav.clientWidth * 0.7))
+  const directions = {
+    ArrowLeft: -120,
+    ArrowRight: 120,
+    PageUp: -step,
+    PageDown: step
+  }
+  let target = nav.scrollLeft + directions[event.key]
+  if (event.key === 'Home') target = 0
+  if (event.key === 'End') target = nav.scrollWidth - nav.clientWidth
+  if (!Number.isFinite(target)) return
+
+  event.preventDefault()
+  nav.scrollLeft = Math.max(0, Math.min(nav.scrollWidth - nav.clientWidth, target))
+}
+
+function handleNavPointerDown(event) {
+  const nav = adminNav.value
+  if (!nav || event.pointerType === 'touch' || event.button !== 0) return
+  navDrag = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    scrollLeft: nav.scrollLeft,
+    moved: false
+  }
+}
+
+function handleNavPointerMove(event) {
+  const nav = adminNav.value
+  if (!navDrag || !nav || event.pointerId !== navDrag.pointerId) return
+  if (!event.buttons) {
+    cancelNavDrag()
+    return
+  }
+
+  const distance = event.clientX - navDrag.startX
+  if (!navDrag.moved && Math.abs(distance) < 6) return
+  if (!navDrag.moved) {
+    navDrag.moved = true
+    isNavDragging.value = true
+    nav.setPointerCapture(event.pointerId)
+  }
+  event.preventDefault()
+  nav.scrollLeft = navDrag.scrollLeft - distance
+}
+
+function handleNavPointerUp(event) {
+  if (!navDrag || event.pointerId !== navDrag.pointerId) return
+  if (navDrag.moved) {
+    suppressNavClick = true
+    window.setTimeout(() => { suppressNavClick = false }, 0)
+  }
+  cancelNavDrag()
+}
+
+function cancelNavDrag() {
+  navDrag = null
+  isNavDragging.value = false
+}
+
+function handleNavClick(event) {
+  if (!suppressNavClick) return
+  event.preventDefault()
+  event.stopPropagation()
+  suppressNavClick = false
+}
+
+function revealActiveNavItem() {
+  const nav = adminNav.value
+  const active = nav?.querySelector('.router-link-active')
+  if (!nav || !active) return
+
+  const navBounds = nav.getBoundingClientRect()
+  const activeBounds = active.getBoundingClientRect()
+  if (activeBounds.left < navBounds.left) {
+    nav.scrollLeft -= navBounds.left - activeBounds.left + 8
+  } else if (activeBounds.right > navBounds.right) {
+    nav.scrollLeft += activeBounds.right - navBounds.right + 8
+  }
+}
 
 async function fetchPendingApplicationsCount() {
   try {
@@ -309,6 +430,7 @@ function logout() {
 onMounted(() => {
   fetchPendingApplicationsCount()
   window.addEventListener('partner-applications-count', handlePartnerApplicationsCount)
+  nextTick(revealActiveNavItem)
 })
 
 onBeforeUnmount(() => {
@@ -317,6 +439,7 @@ onBeforeUnmount(() => {
 
 watch(() => route.fullPath, () => {
   fetchPendingApplicationsCount()
+  nextTick(revealActiveNavItem)
 })
 </script>
 
@@ -368,11 +491,32 @@ watch(() => route.fullPath, () => {
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
+  cursor: grab;
 }
 
 .admin-nav::-webkit-scrollbar {
-  display: none;
+  height: 4px;
+}
+
+.admin-nav::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.admin-nav.is-dragging,
+.admin-nav.is-dragging * {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.admin-nav:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
 }
 
 .nav-item {
