@@ -428,7 +428,7 @@
   .courier-details, .courier-detail,
   .user-card, .section-card, .order-card, .order-addition-panel,
   .addition-draft, .addition-quote, .points-overview,
-  .gallery-main, .product-price-block, .product-description, .product-actions,
+  .gallery-main, .product-actions,
   .order-success-card, .order-error-card, .login-modal-card, .result-card
 ) {
   background: var(--tg-glass-panel);
@@ -664,6 +664,86 @@
 @media (max-width: 768px) {
   .telegram-app .main .cart__summary {
     padding: 1rem;
+  }
+
+  .telegram-app .main .cart__items .cart-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "product remove"
+      "price price"
+      "quantity total";
+    align-items: center;
+    gap: 0.75rem 0.5rem;
+    padding: 0.9rem;
+  }
+
+  .telegram-app .main .cart-item .col-product {
+    grid-area: product;
+    min-width: 0;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .telegram-app .main .cart-item .item-info { min-width: 0; }
+  .telegram-app .main .cart-item .item-info h4 { overflow-wrap: anywhere; }
+
+  .telegram-app .main .cart-item .col-price {
+    grid-area: price;
+    display: flex;
+    justify-content: flex-start;
+    width: auto;
+    gap: 0.4rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--tg-glass-edge);
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .telegram-app .main .cart-item .col-price::before {
+    content: 'За штуку:';
+    color: var(--text-muted);
+    font-size: inherit;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .telegram-app .main .cart-item .col-quantity {
+    grid-area: quantity;
+    min-width: 0;
+  }
+
+  .telegram-app .main .cart-item .quantity-selector button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .telegram-app .main .cart-item .col-total {
+    grid-area: total;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    width: auto;
+    gap: 0.1rem;
+    font-family: var(--font-body);
+    font-size: clamp(1rem, 4vw, 1.15rem);
+    white-space: nowrap;
+  }
+
+  .telegram-app .main .cart-item .col-total::before {
+    content: 'Итого';
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .telegram-app .main .cart-item .item-remove.col-remove {
+    grid-area: remove;
+    align-self: start;
+    justify-self: end;
   }
 
   .telegram-app .main .pickup-section {

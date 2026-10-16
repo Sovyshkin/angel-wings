@@ -235,14 +235,14 @@
             </div>
             <div class="col-price">{{ item.price.toLocaleString() }} ₽</div>
             <div class="col-quantity">
-              <div class="quantity-selector">
-                <button @click="decreaseQty(item)" :disabled="item.quantity <= 1">
+              <div class="quantity-selector" role="group" aria-label="Количество товара">
+                <button aria-label="Уменьшить количество" @click="decreaseQty(item)" :disabled="item.quantity <= 1">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="5" y1="12" x2="19" y2="12"/>
                   </svg>
                 </button>
                 <span>{{ item.quantity }}</span>
-                <button @click="increaseQty(item)">
+                <button aria-label="Увеличить количество" @click="increaseQty(item)">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19"/>
                     <line x1="5" y1="12" x2="19" y2="12"/>
@@ -251,7 +251,7 @@
               </div>
             </div>
             <div class="col-total">{{ (item.price * item.quantity).toLocaleString() }} ₽</div>
-            <button class="col-remove item-remove" @click="cartStore.removeItem(item.id, item.selectedDosage)">
+            <button class="col-remove item-remove" type="button" aria-label="Удалить товар из корзины" @click="cartStore.removeItem(item.id, item.selectedDosage)">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
