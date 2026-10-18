@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { encryptMarketingPayload } from '../utils/marketingToken.js'
+import { getOrderItemUnitCost } from '../utils/productCost.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -208,7 +209,7 @@ function getAttributionChannel(order) {
 
 function calculateOrderMargin(order) {
   const productCost = (order.items || []).reduce((sum, item) => {
-    const unitCost = Math.max(0, Number(item.product?.costPrice || 0))
+    const unitCost = getOrderItemUnitCost(item)
     return sum + unitCost * Math.max(0, Number(item.quantity || 0))
   }, 0)
   const acquiringFee = getAcquiringFee(order)
@@ -1108,6 +1109,7 @@ router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
                   title: true,
                   sku: true,
                   costPrice: true,
+                  specs: true,
                   categories: { select: { id: true, name: true, slug: true } }
                 }
               }
@@ -1172,7 +1174,7 @@ router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
         const productId = item.productId
         const quantity = Math.max(0, Number(item.quantity || 0))
         const itemRevenue = getOrderItemNetRevenue(item, order)
-        const itemCost = Math.max(0, Number(item.product?.costPrice || 0)) * quantity
+        const itemCost = getOrderItemUnitCost(item) * quantity
         const metric = productMap.get(productId) || {
           productId,
           title: item.product?.title || `Товар #${productId}`,
@@ -1210,7 +1212,7 @@ router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
           title: item.product?.title || `Товар #${item.productId}`,
           quantity: item.quantity,
           revenue: toMoney(getOrderItemNetRevenue(item, order)),
-          cost: toMoney(Math.max(0, Number(item.product?.costPrice || 0)) * Math.max(0, Number(item.quantity || 0)))
+          cost: toMoney(getOrderItemUnitCost(item) * Math.max(0, Number(item.quantity || 0)))
         })),
         ...margin
       }

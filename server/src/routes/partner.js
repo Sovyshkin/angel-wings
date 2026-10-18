@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 import emailService from '../services/email.js'
+import { allocateOrderItems, getOrderReportAmounts, PARTNER_REPORT_TAX_RATE } from '../utils/partnerOrdersReport.js'
+import { createPartnerOrdersDocx, createPartnerOrdersPdf } from '../utils/partnerOrdersDocuments.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -941,8 +943,165 @@ router.put('/:id', authenticate, requireAdmin, async (req, res, next) => {
   }
 })
 
+router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const format = String(req.query.format || 'xlsx').toLowerCase()
+    if (!['xlsx', 'docx', 'pdf'].includes(format)) {
+      return res.status(400).json({ error: 'Доступные форматы: xlsx, docx, pdf' })
+    }
+    const partners = await prisma.partner.findMany({
+      select: {
+        id: true,
+        user: { select: { name: true, email: true } },
+        promoCodes: { select: { id: true, code: true } }
+      }
+    })
+    const partnerById = new Map(partners.map(partner => [partner.id, partner]))
+    const promoById = new Map(partners.flatMap(partner => partner.promoCodes.map(promo => [promo.id, { partnerId: partner.id, code: promo.code }])))
+    const orders = await prisma.order.findMany({
+      where: {
+        OR: [
+          { partnerId: { not: null } },
+          { commission: { isNot: null } },
+          { promoCodeId: { in: [...promoById.keys()] } }
+        ]
+      },
+      include: {
+        items: { include: { product: { select: { title: true, sku: true } } } },
+        commission: { select: { partnerId: true, amount: true } }
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+    })
+
+    const configuredPercent = Number.parseFloat(process.env.ACQUIRING_FEE_PERCENT || '2.7')
+    const acquiringPercent = Number.isFinite(configuredPercent) && configuredPercent >= 0 ? configuredPercent : 2.7
+    const reportOrders = orders.map(order => {
+      const promo = promoById.get(order.promoCodeId)
+      const partnerId = order.partnerId || order.commission?.partnerId || promo?.partnerId
+      const partner = partnerById.get(partnerId)
+      const amounts = getOrderReportAmounts(order, acquiringPercent)
+      return {
+        id: order.id,
+        createdAt: order.createdAt,
+        partnerName: partner?.user?.name || `Партнёр #${partnerId || '—'}`,
+        partnerEmail: partner?.user?.email || '',
+        customerName: order.customerName || '',
+        promoCode: promo?.code || '',
+        status: getOrderStatusLabel(order.status),
+        paymentStatus: getPaymentStatusLabel(order.paymentStatus),
+        total: Number(order.total || 0),
+        ...amounts,
+        commission: amounts.revenue ? Number(order.commission?.amount || 0) : 0,
+        items: allocateOrderItems(order).map(line => ({
+          title: line.item.product?.title || `Товар #${line.item.productId}`,
+          sku: line.item.product?.sku || '',
+          quantity: line.item.quantity,
+          price: Number(line.item.price || 0),
+          gross: line.gross,
+          discount: line.discount,
+          net: line.net
+        }))
+      }
+    })
+    const totals = reportOrders.reduce((result, order) => {
+      result.revenue += order.revenue
+      result.tax += order.tax
+      result.acquiring += order.acquiring
+      if (order.paymentStatus === 'Оплачен') result.paidCount++
+      if (order.acquiringSource.startsWith('Оценка')) result.estimatedCount++
+      return result
+    }, { revenue: 0, tax: 0, acquiring: 0, paidCount: 0, estimatedCount: 0 })
+    if (format !== 'xlsx') {
+      const report = { orders: reportOrders, totals }
+      const file = format === 'pdf' ? await createPartnerOrdersPdf(report) : await createPartnerOrdersDocx(report)
+      const contentType = format === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      const fileName = `partners-orders-${new Date().toISOString().slice(0, 10)}.${format}`
+      res.setHeader('Content-Type', contentType)
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
+      res.setHeader('Cache-Control', 'no-store')
+      return res.send(file)
+    }
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'Angel Wings'
+    workbook.created = new Date()
+    const summary = workbook.addWorksheet('Заказы', { views: [{ state: 'frozen', ySplit: 6 }] })
+    const detail = workbook.addWorksheet('Состав заказов', { views: [{ state: 'frozen', ySplit: 1 }] })
+    summary.addRow(['Отчёт по заказам всех партнёров'])
+    summary.addRow(['Налог — расчётная сумма от оплаченного заказа', PARTNER_REPORT_TAX_RATE])
+    summary.getCell('B2').numFmt = '0.000%'
+    summary.addRow(['Эквайринг: фактическая сумма из заказа или оценка по ставке', acquiringPercent / 100])
+    summary.getCell('B3').numFmt = '0.00%'
+    summary.addRow(['Остаток = оплачено − расчётный налог − эквайринг; себестоимость и партнёрская комиссия не вычтены'])
+    summary.addRow([])
+    summary.getRow(6).values = ['Заказ', 'Дата', 'Партнёр', 'Email партнёра', 'Клиент', 'Промокод', 'Статус заказа', 'Статус оплаты', 'Сумма заказа', 'Оплачено', 'Налог 11,412%', 'Эквайринг', 'Источник эквайринга', 'Комиссия партнёра', 'Остаток после налога и эквайринга']
+    detail.columns = [
+      { header: 'Заказ', width: 12 }, { header: 'Дата', width: 19 }, { header: 'Партнёр', width: 28 },
+      { header: 'Товар', width: 44 }, { header: 'Артикул', width: 18 }, { header: 'Количество', width: 14 },
+      { header: 'Цена за шт.', width: 16 }, { header: 'Сумма товара', width: 19 },
+      { header: 'Доля скидки', width: 17 }, { header: 'После скидки', width: 19 }
+    ]
+
+    for (const order of reportOrders) {
+      summary.addRow([
+        order.id, order.createdAt, order.partnerName, order.partnerEmail,
+        order.customerName, order.promoCode, order.status, order.paymentStatus,
+        order.total, order.revenue, order.tax, order.acquiring,
+        order.acquiringSource, order.commission, order.balance
+      ])
+      for (const item of order.items) {
+        detail.addRow([
+          order.id, order.createdAt, order.partnerName,
+          item.title, item.sku, item.quantity, item.price,
+          item.gross, item.discount, item.net
+        ])
+      }
+    }
+
+    summary.spliceRows(5, 0, ['Итого оплачено', totals.revenue, 'Налог', totals.tax, 'Эквайринг', totals.acquiring, 'Оплаченных заказов', totals.paidCount, 'Оценок эквайринга', totals.estimatedCount])
+    // Row insertion moves the header to row 7.
+    summary.views = [{ state: 'frozen', ySplit: 7 }]
+    summary.columns = [
+      { width: 12 }, { width: 19 }, { width: 28 }, { width: 32 }, { width: 25 },
+      { width: 18 }, { width: 19 }, { width: 19 }, { width: 18 }, { width: 18 },
+      { width: 18 }, { width: 18 }, { width: 25 }, { width: 22 }, { width: 25 }
+    ]
+    for (const [sheet, headerRow] of [[summary, 7], [detail, 1]]) {
+      const header = sheet.getRow(headerRow)
+      header.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF20283F' } }
+      header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+      header.height = 32
+      sheet.autoFilter = { from: `A${headerRow}`, to: `${sheet === summary ? 'O' : 'J'}${headerRow}` }
+      for (let rowIndex = headerRow + 1; rowIndex <= sheet.rowCount; rowIndex++) {
+        const row = sheet.getRow(rowIndex)
+        row.getCell(2).numFmt = 'dd.mm.yyyy hh:mm'
+        for (const col of sheet === summary ? [9, 10, 11, 12, 14, 15] : [7, 8, 9, 10]) {
+          row.getCell(col).numFmt = '#,##0.00 [$₽-419]'
+        }
+      }
+    }
+    for (const col of [2, 4, 6]) summary.getRow(5).getCell(col).numFmt = '#,##0.00 [$₽-419]'
+    summary.getRow(1).font = { bold: true, size: 16 }
+
+    const fileName = `partners-orders-${new Date().toISOString().slice(0, 10)}.xlsx`
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
+    res.setHeader('Cache-Control', 'no-store')
+    await workbook.xlsx.write(res)
+    res.end()
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, next) => {
   try {
+    const format = String(req.query.format || 'xlsx').toLowerCase()
+    if (!['xlsx', 'docx', 'pdf'].includes(format)) {
+      return res.status(400).json({ error: 'Доступные форматы: xlsx, docx, pdf' })
+    }
     const partnerId = parseInt(req.params.id, 10)
     if (!Number.isInteger(partnerId)) {
       return res.status(400).json({ error: 'Некорректный ID партнёра' })
@@ -981,6 +1140,52 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
       },
       orderBy: { createdAt: 'desc' }
     })
+
+    if (format !== 'xlsx') {
+      const configuredPercent = Number.parseFloat(process.env.ACQUIRING_FEE_PERCENT || '2.7')
+      const acquiringPercent = Number.isFinite(configuredPercent) && configuredPercent >= 0 ? configuredPercent : 2.7
+      const promoCodeById = new Map(partner.promoCodes.map(promoCode => [promoCode.id, promoCode.code]))
+      const reportOrders = orders.map(order => {
+        const amounts = getOrderReportAmounts(order, acquiringPercent)
+        return {
+          id: order.id,
+          createdAt: order.createdAt,
+          partnerName: partner.user?.name || `Партнёр #${partner.id}`,
+          promoCode: promoCodeById.get(order.promoCodeId) || '',
+          status: getOrderStatusLabel(order.status),
+          paymentStatus: getPaymentStatusLabel(order.paymentStatus),
+          total: Number(order.total || 0),
+          ...amounts,
+          commission: amounts.revenue ? Number(order.commission?.amount || 0) : 0,
+          items: allocateOrderItems(order).map(line => ({
+            title: line.item.product?.title || `Товар #${line.item.productId}`,
+            quantity: line.item.quantity,
+            price: Number(line.item.price || 0),
+            gross: line.gross,
+            discount: line.discount,
+            net: line.net
+          }))
+        }
+      })
+      const totals = reportOrders.reduce((result, order) => {
+        result.revenue += order.revenue
+        result.tax += order.tax
+        result.acquiring += order.acquiring
+        if (order.paymentStatus === 'Оплачен') result.paidCount++
+        if (order.acquiringSource.startsWith('Оценка')) result.estimatedCount++
+        return result
+      }, { revenue: 0, tax: 0, acquiring: 0, paidCount: 0, estimatedCount: 0 })
+      const report = { title: `Отчёт по заказам партнёра ${partner.user?.name || `№${partner.id}`}`, orders: reportOrders, totals }
+      const file = format === 'pdf' ? await createPartnerOrdersPdf(report) : await createPartnerOrdersDocx(report)
+      const contentType = format === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      const fileName = `partner-${partnerId}-orders-${new Date().toISOString().slice(0, 10)}.${format}`
+      res.setHeader('Content-Type', contentType)
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
+      res.setHeader('Cache-Control', 'no-store')
+      return res.send(file)
+    }
 
     const promoCodeById = new Map(partner.promoCodes.map(promoCode => [promoCode.id, promoCode.code]))
     const workbook = new ExcelJS.Workbook()

@@ -36,8 +36,8 @@
         
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Себестоимость</label>
-            <input type="number" v-model.number="form.costPrice" min="0" class="input" placeholder="Например 1800">
+            <label class="form-label">Себестоимость по умолчанию</label>
+            <input type="number" v-model.number="form.costPrice" min="0" step="0.01" class="input" placeholder="Например 1800">
           </div>
           <div class="form-group">
             <label class="form-label">Старая цена</label>
@@ -134,7 +134,8 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Дозировки, цены и остатки</label>
+          <label class="form-label">Дозировки, цены, себестоимость и остатки</label>
+          <p class="dosage-cost-hint">Если себестоимость дозировки не указана, используется себестоимость по умолчанию.</p>
           <div class="specs-editor">
             <div class="specs-list">
               <div class="spec-row dosage-row" v-for="(item, index) in dosageVariants" :key="index">
@@ -155,8 +156,18 @@
                   type="number"
                   v-model.number="item.price"
                   min="0"
+                  step="0.01"
                   class="input dosage-price-input"
                   placeholder="Цена"
+                >
+                <input
+                  type="number"
+                  v-model.number="item.costPrice"
+                  min="0"
+                  step="0.01"
+                  class="input dosage-cost-input"
+                  :aria-label="`Себестоимость дозировки ${item.dosage || index + 1}`"
+                  placeholder="Себестоимость"
                 >
                 <button type="button" @click="removeDosage(index)" class="btn-remove-spec">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -423,7 +434,7 @@ function removeSpec(index) {
 }
 
 function addDosage() {
-  dosageVariants.value.push({ dosage: '', quantity: 0, price: null })
+  dosageVariants.value.push({ dosage: '', quantity: 0, price: null, costPrice: null })
 }
 
 function removeDosage(index) {
@@ -437,7 +448,8 @@ function parseDosageVariants(specs) {
     .map(item => ({
       dosage: typeof item?.dosage === 'string' ? item.dosage : '',
       quantity: Math.max(0, parseInt(item?.quantity) || 0),
-      price: item?.price !== undefined && item?.price !== null ? Math.max(0, parseFloat(item.price) || 0) : null
+      price: item?.price !== undefined && item?.price !== null ? Math.max(0, parseFloat(item.price) || 0) : null,
+      costPrice: item?.costPrice !== undefined && item?.costPrice !== null && item?.costPrice !== '' ? Math.max(0, parseFloat(item.costPrice) || 0) : null
     }))
     .filter(item => item.dosage.trim() || item.quantity > 0)
 }
@@ -449,7 +461,10 @@ function normalizeDosageVariants() {
       quantity: Math.max(0, parseInt(item.quantity) || 0),
       price: item.price === '' || item.price === null || item.price === undefined
         ? null
-        : Math.max(0, parseFloat(item.price) || 0)
+        : Math.max(0, parseFloat(item.price) || 0),
+      costPrice: item.costPrice === '' || item.costPrice === null || item.costPrice === undefined
+        ? null
+        : Math.max(0, parseFloat(item.costPrice) || 0)
     }))
     .filter(item => item.dosage || item.quantity > 0)
 }
@@ -948,6 +963,17 @@ onMounted(() => {
   flex: 0 0 150px;
 }
 
+.dosage-cost-input {
+  flex: 0 0 170px;
+}
+
+.dosage-cost-hint {
+  margin: -.15rem 0 .75rem;
+  color: var(--text-secondary);
+  font-size: .8125rem;
+  line-height: 1.45;
+}
+
 .dosage-actions {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -1082,7 +1108,8 @@ onMounted(() => {
   .spec-key-input,
   .spec-value-input,
   .dosage-qty-input,
-  .dosage-price-input {
+  .dosage-price-input,
+  .dosage-cost-input {
     flex: 1 1 100%;
     min-width: unset;
   }

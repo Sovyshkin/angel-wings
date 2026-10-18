@@ -6,6 +6,7 @@
         <p class="page-subtitle">Управление заказами</p>
       </div>
       <div class="header-actions">
+        <button type="button" class="btn btn-primary" @click="openManualOrder">+ Добавить заказ</button>
         <button
           type="button"
           :class="['favorite-filter', { active: filterFavorites }]"
@@ -98,6 +99,7 @@
               <th>Доставка</th>
               <th>Товары</th>
               <th>Сумма</th>
+              <th>Начисления</th>
               <th>Статус</th>
               <th>Оплата</th>
               <th>Промокод</th>
@@ -143,7 +145,11 @@
               <td class="cell-items">{{ order.items?.length || 0 }} шт</td>
               <td class="cell-price">
                 <div class="price-main">{{ formatPrice(order.total) }}</div>
-                <div v-if="order.deliveryPrice" class="price-delivery">+{{ formatPrice(order.deliveryPrice) }} доставка</div>
+              </td>
+              <td class="cell-accruals">
+                <div v-if="order.commission">Партнёру: +{{ formatPrice(order.commission.amount) }}</div>
+                <div v-if="earnedCustomerPoints(order)">Клиенту: +{{ earnedCustomerPoints(order).toLocaleString('ru-RU') }} баллов</div>
+                <span v-if="!order.commission && !earnedCustomerPoints(order)" class="promo-empty">—</span>
               </td>
               <td>
                 <select :value="order.status" @change="updateStatus(order.id, $event.target.value)" class="status-select">
@@ -240,6 +246,8 @@
               <span class="order-card__label">Сумма</span>
               <span class="order-card__value">{{ formatPrice(order.total) }}</span>
             </div>
+            <div v-if="order.commission" class="order-card__row"><span class="order-card__label">Партнёру</span><span class="order-card__value">+{{ formatPrice(order.commission.amount) }}</span></div>
+            <div v-if="earnedCustomerPoints(order)" class="order-card__row"><span class="order-card__label">Клиенту</span><span class="order-card__value">+{{ earnedCustomerPoints(order).toLocaleString('ru-RU') }} баллов</span></div>
             <div class="order-card__row">
               <span class="order-card__label">Статус</span>
               <span class="order-card__value">{{ getStatusLabel(order.status) }}</span>
@@ -304,18 +312,117 @@
       />
     </div>
 
-    <div v-if="selectedOrder" class="modal-overlay" @click.self="selectedOrder = null">
-      <div class="modal card">
+    <div v-if="showManualOrder" class="modal-overlay" @click.self="closeManualOrder">
+      <div class="modal modal--editing card" role="dialog" aria-modal="true" aria-label="Добавить заказ">
+        <div class="modal-header">
+          <h3 class="modal-title">Новый заказ</h3>
+          <button type="button" class="modal-close" aria-label="Закрыть" @click="closeManualOrder">×</button>
+        </div>
+        <form class="order-edit-form" @submit.prevent="createManualOrder">
+          <div class="edit-section-title">Клиент</div>
+          <label class="manual-user-search">Найти зарегистрированного клиента (необязательно)
+            <input v-model.trim="manualUserQuery" class="input" type="search" placeholder="Начните вводить имя или email">
+          </label>
+          <div v-if="manualUsers.length && manualUserQuery" class="manual-user-results">
+            <button v-for="user in manualUsers" :key="user.id" type="button" :class="{ active: manualDraft.userId === user.id }" @click="selectManualUser(user)">
+              {{ user.name }} · {{ user.email }} <small>#{{ user.id }}</small>
+            </button>
+          </div>
+          <p v-if="manualDraft.userId" class="edit-notice">Выбран аккаунт #{{ manualDraft.userId }}. {{ manualBoundPartnerId ? `Закреплён за партнёром #${manualBoundPartnerId}.` : 'При необходимости укажите партнёра ниже.' }} <button type="button" class="manual-clear-user" @click="clearManualUser">Оформить без аккаунта</button></p>
+          <p v-else class="edit-notice">Можно оформить заказ без аккаунта. В этом случае партнёрские и клиентские баллы не начисляются.</p>
+          <div class="edit-grid">
+            <label>Имя<input v-model.trim="manualDraft.customerName" class="input" required></label>
+            <label>Email<input v-model.trim="manualDraft.customerEmail" class="input" type="email" required></label>
+            <label>Телефон<input v-model.trim="manualDraft.customerPhone" class="input" type="tel" required></label>
+            <label>ID партнёра<input v-model.number="manualDraft.partnerId" class="input" type="number" min="1" :disabled="Boolean(manualBoundPartnerId) || !manualDraft.userId" placeholder="Не указан"></label>
+            <label>Статус заказа<select v-model="manualDraft.status" class="input"><option value="PENDING">Ожидает</option><option value="PROCESSING">В обработке</option><option value="SHIPPED">Отправлен</option><option value="DELIVERED">Доставлен</option></select></label>
+            <label>Статус оплаты<select v-model="manualDraft.paymentStatus" class="input"><option value="PENDING">Не оплачен</option><option value="PAID">Оплачен</option><option value="FAILED">Ошибка оплаты</option><option value="CASH_ON_DELIVERY">Наличными курьеру</option></select></label>
+          </div>
+          <div class="edit-section-title">Товары</div>
+          <div v-for="(item, index) in manualDraft.items" :key="item.key" class="edit-item">
+            <label>Товар<select v-model.number="item.productId" class="input" required @change="setManualProductPrice(item)"><option v-for="product in manualProducts" :key="product.id" :value="product.id">{{ product.title }}</option></select></label>
+            <label>Дозировка<input v-model.trim="item.dosage" class="input"></label>
+            <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" required></label>
+            <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" required></label>
+            <button type="button" class="edit-remove" :disabled="manualDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="manualDraft.items.splice(index, 1)">×</button>
+          </div>
+          <button type="button" class="btn btn-secondary" :disabled="!manualProducts.length" @click="addManualItem">+ Добавить товар</button>
+          <div class="edit-section-title">Доставка и комментарий</div>
+          <div class="edit-grid">
+            <label>Стоимость доставки, ₽<input v-model.number="manualDraft.deliveryPrice" class="input" type="number" min="0" step="0.01"></label>
+            <label>Тариф<input v-model.trim="manualDraft.deliveryTariffName" class="input"></label>
+            <label>Код тарифа СДЭК<input v-model.number="manualDraft.deliveryTariffCode" class="input" type="number" min="0"></label>
+            <label>Город<input v-model.trim="manualDraft.deliveryCity" class="input"></label>
+            <label>Код ПВЗ<input v-model.trim="manualDraft.deliveryPickupPoint" class="input"></label>
+            <label>Название ПВЗ<input v-model.trim="manualDraft.deliveryPickupName" class="input"></label>
+            <label class="edit-wide">Адрес<input v-model.trim="manualDraft.shippingAddress" class="input"></label>
+            <label class="edit-wide">Комментарий<textarea v-model.trim="manualDraft.notes" class="input" rows="2"></textarea></label>
+          </div>
+          <div class="edit-summary">Итого: {{ formatPrice(manualDraftTotal) }}</div>
+          <p class="edit-notice">Партнёрское начисление появится после статуса «Оплачен». Клиентские баллы — только при выполнении условий завершённой консультации.</p>
+          <p v-if="manualError" class="edit-error" role="alert">{{ manualError }}</p>
+          <div class="order-edit-actions"><button type="button" class="btn btn-secondary" @click="closeManualOrder">Отмена</button><button type="submit" class="btn btn-primary" :disabled="manualSaving || !manualDraft.items.length">{{ manualSaving ? 'Создаём…' : 'Создать заказ' }}</button></div>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="selectedOrder" class="modal-overlay" @click.self="closeOrder">
+      <div :class="['modal', 'card', { 'modal--editing': editingOrder }]">
         <div class="modal-header">
           <h3 class="modal-title">Заказ #{{ selectedOrder.id }}</h3>
-          <button @click="selectedOrder = null" class="modal-close">
+          <button @click="closeOrder" class="modal-close">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
         </div>
 
-        <div class="order-details">
+        <div class="order-edit-actions">
+          <button v-if="!editingOrder" type="button" class="btn btn-secondary" @click="startEditingOrder">Редактировать заказ</button>
+          <template v-if="!editingOrder">
+            <button type="button" class="btn btn-secondary" :disabled="downloadingWaybill" @click="downloadWaybill('pdf')">Накладная PDF</button>
+            <button type="button" class="btn btn-secondary" :disabled="downloadingWaybill" @click="downloadWaybill('docx')">Накладная Word</button>
+          </template>
+          <template v-else>
+            <button type="button" class="btn btn-secondary" :disabled="savingOrder" @click="editingOrder = false">Отмена</button>
+            <button type="submit" form="order-edit-form" class="btn btn-primary" :disabled="savingOrder">{{ savingOrder ? 'Сохраняем…' : 'Сохранить изменения' }}</button>
+          </template>
+        </div>
+
+        <form v-if="editingOrder" id="order-edit-form" class="order-edit-form" @submit.prevent="saveOrder">
+          <div class="edit-section-title">Клиент и доставка</div>
+          <div class="edit-grid">
+            <label>Имя<input v-model.trim="orderDraft.customerName" class="input" required maxlength="500" :disabled="Boolean(selectedOrder.cdekOrderUuid)"></label>
+            <label>Email<input v-model.trim="orderDraft.customerEmail" class="input" type="email" required maxlength="500" :disabled="Boolean(selectedOrder.cdekOrderUuid)"></label>
+            <label>Телефон<input v-model.trim="orderDraft.customerPhone" class="input" type="tel" required maxlength="500" :disabled="Boolean(selectedOrder.cdekOrderUuid)"></label>
+            <label>Город<input v-model.trim="orderDraft.deliveryCity" class="input" maxlength="500" :disabled="Boolean(selectedOrder.cdekOrderUuid)"></label>
+            <label>Тариф доставки<input v-model.trim="orderDraft.deliveryTariffName" class="input" maxlength="500" :disabled="!canEditOrderAmount"></label>
+            <label>Код тарифа<input v-model.number="orderDraft.deliveryTariffCode" class="input" type="number" min="0" :disabled="!canEditOrderAmount"></label>
+            <label>Стоимость доставки, ₽<input v-model.number="orderDraft.deliveryPrice" class="input" type="number" min="0" step="0.01" :disabled="!canEditOrderAmount"></label>
+            <label>Код ПВЗ<input v-model.trim="orderDraft.deliveryPickupPoint" class="input" maxlength="500" :disabled="!canEditOrderAmount"></label>
+            <label class="edit-wide">Название ПВЗ<input v-model.trim="orderDraft.deliveryPickupName" class="input" maxlength="500" :disabled="Boolean(selectedOrder.cdekOrderUuid)"></label>
+            <label class="edit-wide">Адрес доставки<input v-model.trim="orderDraft.shippingAddress" class="input" maxlength="500" :disabled="Boolean(selectedOrder.cdekOrderUuid)"></label>
+            <label class="edit-wide">Комментарий<textarea v-model.trim="orderDraft.notes" class="input" rows="3" maxlength="4000"></textarea></label>
+          </div>
+          <div class="edit-section-title">Состав заказа</div>
+          <p v-if="!canEditOrderAmount" class="edit-notice">Состав и стоимость заблокированы: по заказу уже создан счёт, прошла оплата или оформлена отправка в СДЭК. Остальные данные можно изменить.</p>
+          <div v-for="(item, index) in orderDraft.items" :key="item.key" class="edit-item">
+            <label>Товар
+              <select v-model.number="item.productId" class="input" :disabled="!canEditOrderAmount" required @change="setDraftProductPrice(item)">
+                <option v-for="product in editProducts" :key="product.id" :value="product.id">{{ product.title }}</option>
+              </select>
+            </label>
+            <label>Дозировка<input v-model.trim="item.dosage" class="input" :disabled="!canEditOrderAmount" maxlength="200"></label>
+            <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" :disabled="!canEditOrderAmount" required></label>
+            <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" :disabled="!canEditOrderAmount" required></label>
+            <button v-if="canEditOrderAmount" type="button" class="edit-remove" :disabled="orderDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="orderDraft.items.splice(index, 1)">×</button>
+          </div>
+          <button v-if="canEditOrderAmount" type="button" class="btn btn-secondary" @click="addOrderItem">+ Добавить товар</button>
+          <div class="edit-summary">Итого после скидок: {{ formatPrice(draftTotal) }}</div>
+          <p v-if="editError" class="edit-error" role="alert">{{ editError }}</p>
+        </form>
+
+        <div v-else class="order-details">
           <div class="detail-section">
             <h4 class="section-title">Клиент</h4>
             <div class="detail-row">
@@ -383,6 +490,14 @@
                 <strong>{{ formatPrice(getPartnerAvailableBalance(selectedOrder)) }}</strong>
               </div>
             </div>
+          </div>
+
+          <div class="detail-section">
+            <h4 class="section-title">Начисления после покупки</h4>
+            <div class="detail-row"><span class="detail-label">Партнёру</span><span class="detail-value">{{ selectedOrder.commission ? `+${formatPrice(selectedOrder.commission.amount)} (${selectedOrder.commission.percentage}%)` : 'Нет начисления' }}</span></div>
+            <div v-if="selectedOrder.commission?.partner" class="detail-row"><span class="detail-label">Партнёр</span><span class="detail-value">{{ selectedOrder.commission.partner.user?.name || selectedOrder.commission.partner.user?.email || `#${selectedOrder.commission.partner.id}` }}</span></div>
+            <div class="detail-row"><span class="detail-label">Клиенту</span><span class="detail-value">{{ earnedCustomerPoints(selectedOrder) ? `+${earnedCustomerPoints(selectedOrder).toLocaleString('ru-RU')} баллов` : 'Нет начисления' }}</span></div>
+            <p class="edit-notice">Клиентские баллы начисляются за завершённую консультацию после первой успешной покупки, а не за каждую покупку.</p>
           </div>
 
           <div class="detail-section" v-if="selectedOrder.deliveryTariffName">
@@ -549,7 +664,7 @@
           >
             Удалить заказ
           </button>
-          <button @click="selectedOrder = null" class="btn btn-secondary btn-full">Закрыть</button>
+          <button @click="closeOrder" class="btn btn-secondary btn-full">Закрыть</button>
         </div>
       </div>
     </div>
@@ -557,7 +672,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import deliveryApi from '../api/delivery'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
@@ -573,6 +688,37 @@ const filterFavorites = ref(false)
 const search = ref('')
 const favoriteSavingId = ref(null)
 const selectedOrder = ref(null)
+const downloadingWaybill = ref(false)
+const showManualOrder = ref(false)
+const manualSaving = ref(false)
+const manualError = ref('')
+const manualUserQuery = ref('')
+const manualSelectedUserLabel = ref('')
+const manualUsers = ref([])
+const manualProducts = ref([])
+const manualBoundPartnerId = ref(null)
+const manualDraft = ref(emptyManualDraft())
+const manualDraftTotal = computed(() => {
+  const draft = manualDraft.value
+  const subtotal = draft.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0)
+  return subtotal + (draft.deliveryTariffCode || draft.deliveryPickupPoint ? 0 : (Number(draft.deliveryPrice) || 0))
+})
+const editingOrder = ref(false)
+const savingOrder = ref(false)
+const orderDraft = ref(null)
+const editProducts = ref([])
+const editError = ref('')
+const canEditOrderAmount = computed(() => {
+  const order = selectedOrder.value
+  return Boolean(order && !order.paymentId && !order.paymentLinkId && !order.paymentUrl && !order.cdekOrderUuid && !isOrderPaid(order.paymentStatus) && !['CANCELLED', 'RETURNED'].includes(order.status))
+})
+const draftTotal = computed(() => {
+  if (!orderDraft.value) return 0
+  if (!canEditOrderAmount.value) return selectedOrder.value?.total || 0
+  const subtotal = orderDraft.value.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0)
+  const delivery = orderDraft.value.deliveryTariffCode || orderDraft.value.deliveryPickupPoint ? 0 : (Number(orderDraft.value.deliveryPrice) || 0)
+  return Math.max(0, subtotal + delivery - Number(selectedOrder.value?.discountAmount || 0))
+})
 const creatingCdek = ref(false)
 const syncingCdek = ref(false)
 const cdekStatus = ref(null)
@@ -595,6 +741,95 @@ const stats = ref({
 })
 
 let searchTimer = null
+let manualSearchTimer = null
+
+function emptyManualDraft() {
+  return { userId: null, partnerId: '', customerName: '', customerEmail: '', customerPhone: '', status: 'PENDING', paymentStatus: 'PENDING',
+    items: [], deliveryPrice: 0, deliveryTariffName: '', deliveryTariffCode: '', deliveryCity: '', deliveryPickupPoint: '', deliveryPickupName: '', shippingAddress: '', notes: '' }
+}
+
+function earnedCustomerPoints(order) {
+  return (order?.pointTransactions || []).reduce((sum, transaction) => sum + Math.max(0, Number(transaction.amount) || 0), 0)
+}
+
+async function openManualOrder() {
+  manualDraft.value = emptyManualDraft()
+  manualUserQuery.value = ''
+  manualSelectedUserLabel.value = ''
+  manualUsers.value = []
+  manualProducts.value = []
+  manualBoundPartnerId.value = null
+  manualError.value = ''
+  showManualOrder.value = true
+  try {
+    const { data } = await axios.get(`${API_URL}/products`, { params: { limit: 1000 } })
+    manualProducts.value = data.products || []
+    if (manualProducts.value.length) addManualItem()
+  } catch {
+    manualError.value = 'Не удалось загрузить товары'
+  }
+}
+
+function closeManualOrder() {
+  if (!manualSaving.value) showManualOrder.value = false
+}
+
+async function selectManualUser(user) {
+  manualDraft.value.userId = user.id
+  manualDraft.value.customerName = user.name || ''
+  manualDraft.value.customerEmail = user.email || ''
+  manualDraft.value.customerPhone = user.phone || ''
+  manualSelectedUserLabel.value = `${user.name} · ${user.email}`
+  manualUserQuery.value = manualSelectedUserLabel.value
+  manualUsers.value = []
+  try {
+    const { data } = await axios.get(`${API_URL}/users/${user.id}`)
+    manualBoundPartnerId.value = data.user?.partnerUser?.partner?.id || null
+    manualDraft.value.partnerId = manualBoundPartnerId.value || ''
+    manualDraft.value.shippingAddress = data.user?.address || ''
+  } catch {
+    manualError.value = 'Не удалось проверить закрепление клиента за партнёром'
+  }
+}
+
+function clearManualUser() {
+  manualDraft.value.userId = null
+  manualDraft.value.partnerId = ''
+  manualBoundPartnerId.value = null
+  manualSelectedUserLabel.value = ''
+  manualUserQuery.value = ''
+  manualUsers.value = []
+}
+
+function addManualItem() {
+  const product = manualProducts.value[0]
+  if (!product) return
+  manualDraft.value.items.push({ key: `manual-${Date.now()}-${Math.random()}`, productId: product.id, dosage: '', quantity: 1, price: Number(product.price) || 0 })
+}
+
+function setManualProductPrice(item) {
+  const product = manualProducts.value.find(product => product.id === item.productId)
+  if (product) item.price = Number(product.price) || 0
+}
+
+async function createManualOrder() {
+  if (manualSaving.value) return
+  manualSaving.value = true
+  manualError.value = ''
+  try {
+    const payload = { ...manualDraft.value, items: manualDraft.value.items.map(({ productId, dosage, quantity, price }) => ({ productId, dosage, quantity, price })) }
+    delete payload.partnerId
+    if (manualDraft.value.partnerId) payload.partnerId = Number(manualDraft.value.partnerId)
+    await axios.post(`${API_URL}/orders`, payload)
+    showManualOrder.value = false
+    if (currentPage.value !== 1) currentPage.value = 1
+    else await fetchOrders()
+  } catch (error) {
+    manualError.value = error.response?.data?.error || 'Не удалось создать заказ'
+  } finally {
+    manualSaving.value = false
+  }
+}
 
 async function fetchOrders() {
   loading.value = true
@@ -745,6 +980,10 @@ async function markAsPaid(order) {
     if (selectedOrder.value?.id === order.id) {
       selectedOrder.value.paymentStatus = 'PAID'
     }
+    await fetchOrders()
+    if (selectedOrder.value?.id === order.id) {
+      selectedOrder.value = orders.value.find(item => item.id === order.id) || selectedOrder.value
+    }
   } catch (e) {
     alert(e.response?.data?.error || 'Не удалось обновить статус оплаты')
   }
@@ -752,11 +991,107 @@ async function markAsPaid(order) {
 
 function viewOrder(order) {
   selectedOrder.value = order
+  editingOrder.value = false
   cdekStatus.value = null
   cdekMessages.value = []
   cdekStatusChangeBlocked.value = false
 
   if (order.cdekOrderUuid) void syncCdekStatus()
+}
+
+async function downloadWaybill(format) {
+  if (!selectedOrder.value || downloadingWaybill.value) return
+  downloadingWaybill.value = true
+  try {
+    const id = selectedOrder.value.id
+    const { data } = await axios.get(`${API_URL}/orders/${id}/waybill`, {
+      params: { format },
+      responseType: 'blob'
+    })
+    const url = URL.createObjectURL(data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `Накладная-заказ-${id}.${format}`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch (error) {
+    let message = 'Не удалось скачать накладную'
+    if (error.response?.data instanceof Blob) {
+      try { message = JSON.parse(await error.response.data.text()).error || message } catch { /* fallback */ }
+    }
+    alert(message)
+  } finally {
+    downloadingWaybill.value = false
+  }
+}
+
+function closeOrder() {
+  if (savingOrder.value) return
+  editingOrder.value = false
+  selectedOrder.value = null
+}
+
+async function startEditingOrder() {
+  if (!selectedOrder.value) return
+  editError.value = ''
+  const order = selectedOrder.value
+  orderDraft.value = {
+    customerName: order.customerName || '', customerEmail: order.customerEmail || '', customerPhone: order.customerPhone || '',
+    shippingAddress: order.shippingAddress || '', notes: order.notes || '', deliveryTariffName: order.deliveryTariffName || '',
+    deliveryTariffCode: order.deliveryTariffCode ?? '', deliveryPrice: order.deliveryPrice ?? 0,
+    deliveryCity: order.deliveryCity || '', deliveryPickupPoint: order.deliveryPickupPoint || '', deliveryPickupName: order.deliveryPickupName || '',
+    items: order.items.map((item, index) => ({ key: `existing-${index}`, productId: item.productId, dosage: item.dosage || '', quantity: item.quantity, price: item.price }))
+  }
+  editProducts.value = order.items.map(item => ({ id: item.productId, title: item.product?.title || `Товар #${item.productId}` }))
+  editingOrder.value = true
+  if (!canEditOrderAmount.value) return
+  try {
+    const { data } = await axios.get(`${API_URL}/products`, { params: { limit: 1000 } })
+    editProducts.value = [...new Map([...editProducts.value, ...(data.products || [])].map(product => [product.id, product])).values()]
+  } catch {
+    editError.value = 'Не удалось загрузить каталог. Уже выбранные товары доступны для редактирования.'
+  }
+}
+
+function addOrderItem() {
+  if (!canEditOrderAmount.value || !editProducts.value.length) return
+  orderDraft.value.items.push({ key: `new-${Date.now()}-${Math.random()}`, productId: editProducts.value[0].id, dosage: '', quantity: 1, price: editProducts.value[0].price ?? 0 })
+}
+
+function setDraftProductPrice(item) {
+  const product = editProducts.value.find(product => product.id === item.productId)
+  if (product?.price != null) item.price = Number(product.price)
+}
+
+async function saveOrder() {
+  if (!orderDraft.value || savingOrder.value) return
+  editError.value = ''
+  const draft = orderDraft.value
+  const payload = {
+    customerName: draft.customerName, customerEmail: draft.customerEmail, customerPhone: draft.customerPhone,
+    shippingAddress: draft.shippingAddress, notes: draft.notes, deliveryTariffName: draft.deliveryTariffName,
+    deliveryCity: draft.deliveryCity, deliveryPickupPoint: draft.deliveryPickupPoint, deliveryPickupName: draft.deliveryPickupName,
+    deliveryTariffCode: draft.deliveryTariffCode === '' ? null : draft.deliveryTariffCode
+  }
+  if (canEditOrderAmount.value) {
+    payload.deliveryPrice = draft.deliveryPrice
+    payload.items = draft.items.map(({ productId, dosage, quantity, price }) => ({ productId, dosage, quantity, price }))
+  }
+  savingOrder.value = true
+  try {
+    const { data } = await axios.put(`${API_URL}/orders/${selectedOrder.value.id}`, payload)
+    const updated = { ...selectedOrder.value, ...data.order }
+    selectedOrder.value = updated
+    const index = orders.value.findIndex(order => order.id === updated.id)
+    if (index !== -1) orders.value[index] = updated
+    editingOrder.value = false
+  } catch (error) {
+    editError.value = error.response?.data?.error || 'Не удалось сохранить заказ'
+  } finally {
+    savingOrder.value = false
+  }
 }
 
 function getDeliveryType(order) {
@@ -949,6 +1284,22 @@ onMounted(fetchOrders)
 
 watch(currentPage, fetchOrders)
 watch(search, scheduleOrdersSearch)
+watch(manualUserQuery, query => {
+  clearTimeout(manualSearchTimer)
+  if (manualDraft.value.userId && query !== manualSelectedUserLabel.value) {
+    manualDraft.value.userId = null
+    manualDraft.value.partnerId = ''
+    manualBoundPartnerId.value = null
+    manualSelectedUserLabel.value = ''
+  }
+  if (!showManualOrder.value || query.length < 2 || query.includes(' · ')) { manualUsers.value = []; return }
+  manualSearchTimer = setTimeout(async () => {
+    try {
+      const { data } = await axios.get(`${API_URL}/users`, { params: { q: query, limit: 10 } })
+      if (manualUserQuery.value === query) manualUsers.value = data.users || []
+    } catch { manualUsers.value = [] }
+  }, 250)
+})
 </script>
 
 <style scoped>
@@ -1208,12 +1559,6 @@ watch(search, scheduleOrdersSearch)
 
 .price-main {
   font-family: var(--font-mono);
-}
-
-.price-delivery {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-weight: normal;
 }
 
 .cell-date {
@@ -1491,6 +1836,8 @@ watch(search, scheduleOrdersSearch)
   animation: modalIn 0.3s ease;
 }
 
+.modal--editing { max-width: 820px; }
+
 @keyframes modalIn {
   from {
     opacity: 0;
@@ -1514,6 +1861,130 @@ watch(search, scheduleOrdersSearch)
   font-size: 1.25rem;
   font-weight: 700;
 }
+
+.order-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: .65rem;
+  margin-bottom: 1.25rem;
+}
+
+.order-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.edit-section-title {
+  padding-bottom: .55rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .85rem;
+}
+
+.edit-grid label,
+.edit-item label {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: .8rem;
+  font-weight: 600;
+}
+
+.edit-grid .input,
+.edit-item .input {
+  width: 100%;
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.edit-wide { grid-column: 1 / -1; }
+.edit-grid textarea { resize: vertical; }
+.edit-grid :disabled,
+.edit-item :disabled { opacity: .55; cursor: not-allowed; }
+
+.edit-item {
+  display: grid;
+  grid-template-columns: minmax(130px, 2fr) minmax(80px, 1fr) 75px 100px 30px;
+  gap: .55rem;
+  align-items: end;
+}
+
+.edit-remove {
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--danger);
+  font-size: 1.3rem;
+}
+
+.edit-summary {
+  padding: .8rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-align: right;
+  font-weight: 700;
+}
+
+.edit-notice,
+.edit-error { font-size: .85rem; line-height: 1.45; }
+.edit-notice { color: var(--text-secondary); }
+.edit-error { color: var(--danger); }
+
+.manual-user-search {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  color: var(--text-secondary);
+  font-size: .8rem;
+  font-weight: 600;
+}
+
+.manual-user-results {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.manual-user-results button {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .65rem .85rem;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.manual-user-results button:hover,
+.manual-user-results button.active { background: var(--accent-dim); }
+
+.manual-clear-user {
+  margin-left: .4rem;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.manual-clear-user:hover { color: var(--text-primary); }
+
+.cell-accruals { min-width: 145px; font-size: .78rem; line-height: 1.55; color: var(--text-secondary); }
 
 .modal-close {
   width: 36px;
@@ -2020,6 +2491,11 @@ watch(search, scheduleOrdersSearch)
     padding: 1.25rem;
     margin: 1rem;
   }
+
+  .edit-grid { grid-template-columns: 1fr; }
+  .edit-wide { grid-column: auto; }
+  .edit-item { grid-template-columns: repeat(2, minmax(0, 1fr)) 30px; }
+  .edit-item label:first-child { grid-column: 1 / -1; }
 
   .order-item-card {
     grid-template-columns: 44px 1fr;

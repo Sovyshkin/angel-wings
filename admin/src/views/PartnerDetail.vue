@@ -14,14 +14,19 @@
         </div>
       </div>
       <div v-if="partner" class="header-actions">
-        <button type="button" class="btn btn-secondary" :disabled="exportLoading" @click="exportPartnerOrders">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M12 3v12"/>
-            <path d="m7 10 5 5 5-5"/>
-            <path d="M5 21h14"/>
-          </svg>
-          {{ exportLoading ? 'Формируем файл...' : 'Выгрузить заказы' }}
-        </button>
+        <div class="export-picker">
+          <button type="button" class="btn btn-secondary" :disabled="exportLoading" :aria-expanded="showExportFormats" aria-controls="single-partner-report-formats" @click="showExportFormats = !showExportFormats">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>
+            </svg>
+            {{ exportLoading ? 'Формируем файл...' : 'Выгрузить заказы' }}
+          </button>
+          <div v-if="showExportFormats" id="single-partner-report-formats" class="export-menu" role="group" aria-label="Формат отчёта">
+            <button type="button" @click="exportPartnerOrders('xlsx')">Excel <span>.xlsx</span></button>
+            <button type="button" @click="exportPartnerOrders('pdf')">PDF <span>.pdf</span></button>
+            <button type="button" @click="exportPartnerOrders('docx')">Word <span>.docx</span></button>
+          </div>
+        </div>
         <label class="toggle">
           <input type="checkbox" :checked="partner?.isActive" @change="toggleActive">
           <span class="toggle-slider"></span>
@@ -507,6 +512,7 @@ const historyHasMore = ref(false)
 const historyLoading = ref(false)
 const historyError = ref('')
 const exportLoading = ref(false)
+const showExportFormats = ref(false)
 let historyRequestId = 0
 
 const hasAvailableBalance = computed(() => Number(partner.value?.balance?.availableBalance || 0) > 0)
@@ -601,23 +607,25 @@ async function toggleActive() {
   }
 }
 
-async function exportPartnerOrders() {
+async function exportPartnerOrders(format) {
   if (!partner.value || exportLoading.value) return
 
+  showExportFormats.value = false
   exportLoading.value = true
   try {
     const response = await axios.get(`${API_URL}/${route.params.id}/orders-export`, {
+      params: { format },
       responseType: 'blob',
-      headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+      headers: { Accept: format === 'pdf' ? 'application/pdf' : format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
     })
     const fileUrl = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = fileUrl
-    link.download = `partner-${partner.value.id}-orders.xlsx`
+    link.download = `partner-${partner.value.id}-orders.${format}`
     document.body.appendChild(link)
     link.click()
     link.remove()
-    window.URL.revokeObjectURL(fileUrl)
+    window.setTimeout(() => window.URL.revokeObjectURL(fileUrl), 1000)
   } catch (error) {
     alert(error?.response?.data?.error || 'Не удалось сформировать выгрузку заказов')
   } finally {
@@ -854,6 +862,47 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 1rem;
+}
+
+.export-picker {
+  position: relative;
+}
+
+.export-menu {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  right: 0;
+  z-index: 20;
+  width: 220px;
+  padding: 0.35rem;
+  border: 1px solid var(--border-color, rgba(158, 180, 230, 0.22));
+  border-radius: 14px;
+  background: var(--bg-card, #1c2030);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+}
+
+.export-menu button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 0.8rem;
+  color: var(--text-primary, #f7f8ff);
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.export-menu button:hover,
+.export-menu button:focus-visible {
+  background: var(--accent-dim, rgba(142, 166, 255, 0.16));
+}
+
+.export-menu span {
+  color: var(--text-muted, #98a0b5);
+  font-size: 0.8rem;
 }
 
 .stats-grid {
@@ -1478,6 +1527,21 @@ onBeforeUnmount(() => {
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
+  }
+
+  .header-actions,
+  .export-picker {
+    width: 100%;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+  }
+
+  .export-menu {
+    left: 0;
+    right: auto;
+    width: 100%;
   }
 
   .header-left {

@@ -5,12 +5,27 @@
         <h1 class="page-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">Партнёры</h1>
         <p class="page-subtitle">Управление партнёрской программой</p>
       </div>
-      <button @click="openModal()" class="btn btn-primary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        <span class="btn-text">Добавить партнёра</span>
-      </button>
+      <div class="page-actions">
+        <div class="export-picker">
+          <button type="button" class="btn btn-secondary" :disabled="exportLoading" :aria-expanded="showExportFormats" aria-controls="partner-report-formats" @click="showExportFormats = !showExportFormats">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>
+            </svg>
+            {{ exportLoading ? 'Формируем отчёт...' : 'Выгрузить отчёт' }}
+          </button>
+          <div v-if="showExportFormats" id="partner-report-formats" class="export-menu" role="group" aria-label="Формат отчёта">
+            <button type="button" @click="exportAllPartnerOrders('xlsx')">Excel <span>.xlsx</span></button>
+            <button type="button" @click="exportAllPartnerOrders('pdf')">PDF <span>.pdf</span></button>
+            <button type="button" @click="exportAllPartnerOrders('docx')">Word <span>.docx</span></button>
+          </div>
+        </div>
+        <button @click="openModal()" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span class="btn-text">Добавить партнёра</span>
+        </button>
+      </div>
     </div>
 
     <div class="stats-grid" style="margin-bottom: 2rem;">
@@ -210,6 +225,33 @@ const showModal = ref(false)
 const error = ref('')
 const loadingForm = ref(false)
 const search = ref('')
+const exportLoading = ref(false)
+const showExportFormats = ref(false)
+
+async function exportAllPartnerOrders(format) {
+  if (exportLoading.value) return
+  showExportFormats.value = false
+  exportLoading.value = true
+  try {
+    const response = await axios.get(`${API_URL}/orders-export/all`, {
+      params: { format },
+      responseType: 'blob',
+      headers: { Accept: format === 'pdf' ? 'application/pdf' : format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+    })
+    const fileUrl = window.URL.createObjectURL(response.data)
+    const link = document.createElement('a')
+    link.href = fileUrl
+    link.download = `partners-orders-${new Date().toISOString().slice(0, 10)}.${format}`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => window.URL.revokeObjectURL(fileUrl), 1000)
+  } catch (error) {
+    alert('Не удалось сформировать отчёт по партнёрам')
+  } finally {
+    exportLoading.value = false
+  }
+}
 
 const form = ref({ name: '', email: '', password: '', phone: '', percentage: 5 })
 
@@ -340,6 +382,54 @@ onMounted(() => {
   align-items: flex-start;
   gap: 1rem;
   margin-bottom: 2rem;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.export-picker {
+  position: relative;
+}
+
+.export-menu {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  right: 0;
+  z-index: 20;
+  width: 220px;
+  padding: 0.35rem;
+  border: 1px solid var(--border-color, rgba(158, 180, 230, 0.22));
+  border-radius: 14px;
+  background: var(--bg-card, #1c2030);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+}
+
+.export-menu button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 0.8rem;
+  color: var(--text-primary, #f7f8ff);
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.export-menu button:hover,
+.export-menu button:focus-visible {
+  background: var(--accent-dim, rgba(142, 166, 255, 0.16));
+}
+
+.export-menu span {
+  color: var(--text-muted, #98a0b5);
+  font-size: 0.8rem;
 }
 
 .stats-grid {
@@ -717,6 +807,21 @@ onMounted(() => {
   .page-header .btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .page-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .export-picker {
+    width: 100%;
+  }
+
+  .export-menu {
+    left: 0;
+    right: auto;
+    width: 100%;
   }
 
   .stats-grid {

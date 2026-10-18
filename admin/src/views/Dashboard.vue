@@ -491,20 +491,14 @@ watch(() => route.fullPath, () => {
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-inline: contain;
   cursor: grab;
 }
 
 .admin-nav::-webkit-scrollbar {
-  height: 4px;
-}
-
-.admin-nav::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 999px;
+  display: none;
 }
 
 .admin-nav.is-dragging,

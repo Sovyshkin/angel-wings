@@ -13,11 +13,11 @@ function isSuccessfulOrder(order) {
 // consultation earns its reward only after an admin marks it completed and the
 // account makes its first later successful purchase. The guarded update makes
 // repeated payment webhooks safe: exactly one request can claim the reward.
-export async function grantConsultationRewardsForPaidOrder(prisma, order) {
+export async function grantConsultationRewardsForPaidOrder(prisma, order, { transaction = false } = {}) {
   if (!isSuccessfulOrder(order)) return { granted: 0 }
 
   const now = new Date()
-  return prisma.$transaction(async (tx) => {
+  const award = async (tx) => {
     const eligible = await tx.consultationRequest.findMany({
       where: {
         userId: Number(order.userId),
@@ -47,7 +47,8 @@ export async function grantConsultationRewardsForPaidOrder(prisma, order) {
     }
 
     return { granted, points: granted * CONSULTATION_REWARD_POINTS }
-  })
+  }
+  return transaction ? award(prisma) : prisma.$transaction(award)
 }
 
 export { CONSULTATION_REWARD_POINTS }

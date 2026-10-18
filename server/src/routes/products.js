@@ -4,6 +4,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
 import { generateUniqueSlug } from '../utils/slug.js'
 import { deleteProductForAdmin } from '../utils/productDeletion.js'
+import { stripInternalProductFields, publicProductSpecs } from '../utils/publicProduct.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -40,17 +41,6 @@ async function generateUniqueProductSlug(title) {
     slug => prisma.product.findUnique({ where: { slug } }),
     'product'
   )
-}
-
-function stripInternalProductFields(product) {
-  const {
-    costPrice,
-    packageLength,
-    packageWidth,
-    packageHeight,
-    ...publicProduct
-  } = product
-  return publicProduct
 }
 
 function parsePackageDimension(value) {
@@ -131,7 +121,7 @@ router.get('/', async (req, res, next) => {
       const publicProduct = stripInternalProductFields(p)
       return {
         ...publicProduct,
-        specs: p.specs ? JSON.parse(p.specs) : {},
+        specs: publicProductSpecs(p.specs),
         images: parseImagesField(p.images)
       }
     })
@@ -160,7 +150,7 @@ router.get('/:slug', async (req, res, next) => {
     const publicProduct = stripInternalProductFields(product)
     const parsedProduct = {
       ...publicProduct,
-      specs: product.specs ? JSON.parse(product.specs) : {},
+      specs: publicProductSpecs(product.specs),
       images: parseImagesField(product.images)
     }
     

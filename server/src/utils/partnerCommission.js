@@ -17,6 +17,9 @@ export async function ensurePartnerCommissionForPaidOrder(prismaLike, orderId) {
       paymentStatus: true,
       total: true,
       deliveryPrice: true,
+      deliveryTariffCode: true,
+      deliveryPickupPoint: true,
+      cdekOrderUuid: true,
       commission: { select: { id: true, percentage: true } }
     }
   })
@@ -32,7 +35,9 @@ export async function ensurePartnerCommissionForPaidOrder(prismaLike, orderId) {
   if (!partner?.isActive) return null
 
   const percentage = Number(partner.percentage) > 0 ? Number(partner.percentage) : 5.0
-  const deliveryPart = Math.max(0, Number(order.deliveryPrice || 0))
+  // CDEK is paid separately and is not included in order.total.
+  const isExternalDelivery = Boolean(order.deliveryTariffCode || order.deliveryPickupPoint || order.cdekOrderUuid)
+  const deliveryPart = isExternalDelivery ? 0 : Math.max(0, Number(order.deliveryPrice || 0))
   const commissionBase = Math.max(0, Number(order.total || 0) - deliveryPart)
   const amount = commissionBase * (percentage / 100)
 

@@ -16,6 +16,7 @@ import { refundUserPointsForOrder } from '../utils/userPoints.js'
 import emailService from '../services/email.js'
 import { queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
+import { buildOrderWaybill, createOrderWaybillDocx, createOrderWaybillPdf } from '../utils/orderWaybill.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -979,6 +980,118 @@ router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, nex
   }
 })
 
+router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const rawUserId = req.body.userId
+    const userId = rawUserId === null || rawUserId === undefined || rawUserId === '' ? null : Number(rawUserId)
+    const paymentStatus = String(req.body.paymentStatus || 'PENDING').toUpperCase()
+    const status = String(req.body.status || 'PENDING').toUpperCase()
+    const items = req.body.items
+    if (userId !== null && (!Number.isInteger(userId) || userId <= 0)) return res.status(400).json({ error: 'Некорректный клиент' })
+    if (!['PENDING', 'PAID', 'FAILED', 'CASH_ON_DELIVERY'].includes(paymentStatus)) return res.status(400).json({ error: 'Некорректный статус оплаты' })
+    if (!['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED'].includes(status)) return res.status(400).json({ error: 'Некорректный статус заказа' })
+    if (!Array.isArray(items) || !items.length || items.length > 100 || items.some(item => !item || !Number.isInteger(Number(item.productId)) || !Number.isInteger(Number(item.quantity)) || Number(item.quantity) <= 0 || !Number.isFinite(Number(item.price)) || Number(item.price) < 0 || Math.abs(Math.round(Number(item.price) * 100) - Number(item.price) * 100) > 1e-6 || String(item.dosage || '').length > 200)) {
+      return res.status(400).json({ error: 'Проверьте состав заказа' })
+    }
+    const deliveryPrice = Number(req.body.deliveryPrice || 0)
+    if (!Number.isFinite(deliveryPrice) || deliveryPrice < 0) return res.status(400).json({ error: 'Некорректная стоимость доставки' })
+    const user = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, address: true, role: true, partnerUser: { select: { partnerId: true } } } }) : null
+    if (userId && (!user || user.role === 'DELETED')) return res.status(404).json({ error: 'Клиент не найден' })
+    const requestedPartnerId = req.body.partnerId ? Number(req.body.partnerId) : null
+    if (requestedPartnerId && (!Number.isInteger(requestedPartnerId) || requestedPartnerId <= 0)) return res.status(400).json({ error: 'Некорректный партнёр' })
+    if (requestedPartnerId && !userId) return res.status(400).json({ error: 'Для начисления партнёру выберите зарегистрированного клиента' })
+    const historical = user && !user.partnerUser ? await prisma.order.findFirst({ where: { userId, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
+    const boundPartnerId = user?.partnerUser?.partnerId || historical?.partnerId || null
+    if (boundPartnerId && requestedPartnerId && boundPartnerId !== requestedPartnerId) return res.status(409).json({ error: 'Клиент уже закреплён за другим партнёром' })
+    const partnerId = boundPartnerId || requestedPartnerId
+    if (partnerId) {
+      const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { isActive: true } })
+      if (!partner?.isActive) return res.status(400).json({ error: 'Партнёр не найден или неактивен' })
+    }
+    const productIds = [...new Set(items.map(item => Number(item.productId)))]
+    const products = await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true } })
+    if (products.length !== productIds.length) return res.status(400).json({ error: 'Один из товаров не найден' })
+    const customerName = String(req.body.customerName || user?.name || '').trim()
+    const customerEmail = String(req.body.customerEmail || user?.email || '').trim()
+    const customerPhone = String(req.body.customerPhone || user?.phone || '').trim()
+    if (!customerName || !customerEmail || !customerPhone) return res.status(400).json({ error: 'Укажите имя, email и телефон клиента' })
+    if ([customerName, customerEmail, customerPhone].some(value => value.length > 500) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) return res.status(400).json({ error: 'Проверьте данные клиента' })
+    const normalizedItems = items.map(item => ({ productId: Number(item.productId), quantity: Number(item.quantity), price: Number(item.price), dosage: String(item.dosage || '').trim() || null }))
+    const subtotal = normalizedItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
+    const deliveryTariffCode = req.body.deliveryTariffCode === '' || req.body.deliveryTariffCode == null ? null : Number(req.body.deliveryTariffCode)
+    if (deliveryTariffCode !== null && (!Number.isInteger(deliveryTariffCode) || deliveryTariffCode < 0)) return res.status(400).json({ error: 'Некорректный тариф доставки' })
+    const deliveryPickupPoint = String(req.body.deliveryPickupPoint || '').trim() || null
+    const siteDelivery = deliveryTariffCode || deliveryPickupPoint ? 0 : deliveryPrice
+    const total = Math.round((subtotal + siteDelivery) * 100) / 100
+    if (paymentStatus === 'PAID' && total <= 0) return res.status(400).json({ error: 'Для оплаченного заказа сумма должна быть больше нуля' })
+    const order = await prisma.$transaction(async tx => {
+      const counts = new Map()
+      for (const item of normalizedItems) counts.set(item.productId, (counts.get(item.productId) || 0) + item.quantity)
+      for (const [productId, quantity] of counts) {
+        const result = await tx.product.updateMany({ where: { id: productId, stock: { gte: quantity } }, data: { stock: { decrement: quantity } } })
+        if (!result.count) throw Object.assign(new Error(`Недостаточно товара #${productId} на складе`), { status: 409 })
+      }
+      if (partnerId && !user?.partnerUser && !historical) {
+        await tx.partnerUser.create({ data: { userId, partnerId, referralSource: 'admin' } })
+      }
+      const created = await tx.order.create({
+        data: {
+          userId, partnerId, customerName, customerEmail, customerPhone,
+          shippingAddress: String(req.body.shippingAddress || '').trim() || null,
+          notes: String(req.body.notes || '').trim() || null,
+          status, paymentStatus, total, paymentAmount: paymentStatus === 'PAID' ? total : null,
+          deliveryPrice, deliveryTariffCode,
+          deliveryTariffName: String(req.body.deliveryTariffName || '').trim() || null,
+          deliveryCity: String(req.body.deliveryCity || '').trim() || null,
+          deliveryPickupPoint,
+          deliveryPickupName: String(req.body.deliveryPickupName || '').trim() || null,
+          items: { create: normalizedItems }
+        }
+      })
+      if (paymentStatus === 'PAID') {
+        await syncPartnerCommissionForOrder(tx, created.id)
+        await grantConsultationRewardsForPaidOrder(tx, created, { transaction: true })
+      }
+      return created
+    })
+    if (paymentStatus === 'PAID') {
+      try {
+        await sendCloudKassirIncomeReceiptOnPaidTransition(prisma, order.id, 'PENDING', 'PAID', 'admin-manual-order')
+      } catch (receiptError) {
+        console.error('[ADMIN] Manual order receipt failed', { orderId: order.id, error: receiptError })
+      }
+    }
+    res.status(201).json({ order })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/orders/:id/waybill', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10)
+    const format = String(req.query.format || '').toLowerCase()
+    if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректный номер заказа' })
+    if (!['pdf', 'docx'].includes(format)) return res.status(400).json({ error: 'Доступны форматы pdf и docx' })
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { items: { include: { product: { select: { title: true } } }, orderBy: { id: 'asc' } } }
+    })
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' })
+    const data = buildOrderWaybill(order)
+    const buffer = format === 'pdf' ? await createOrderWaybillPdf(data) : await createOrderWaybillDocx(data)
+    res.set({
+      'Content-Type': format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Disposition': `attachment; filename="waybill-order-${id}.${format}"`,
+      'Content-Length': buffer.length,
+      'Cache-Control': 'no-store'
+    })
+    res.send(buffer)
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { status, favorites, limit = 50, offset = 0, q = '' } = req.query
@@ -1022,6 +1135,17 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
             include: {
               product: { select: { title: true, image: true } }
             }
+          },
+          commission: {
+            select: {
+              amount: true,
+              percentage: true,
+              partner: { select: { id: true, user: { select: { name: true, email: true } } } }
+            }
+          },
+          pointTransactions: {
+            where: { type: 'CONSULTATION_REWARD', amount: { gt: 0 } },
+            select: { id: true, amount: true, type: true, createdAt: true }
           },
           user: {
             select: {
@@ -1245,19 +1369,100 @@ router.put('/orders/:id/payment-status', authenticate, requireAdmin, async (req,
 
 router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { cdekOrderUuid, deliveryTariffCode, deliveryTariffName, deliveryPrice, deliveryCity, deliveryPickupPoint, deliveryPickupName } = req.body
+    const orderId = Number(req.params.id)
+    if (!Number.isInteger(orderId) || orderId <= 0) return res.status(400).json({ error: 'Некорректный ID заказа' })
 
-    const order = await prisma.order.update({
-      where: { id: parseInt(req.params.id) },
-      data: {
-        ...(cdekOrderUuid !== undefined && { cdekOrderUuid }),
-        ...(deliveryTariffCode !== undefined && { deliveryTariffCode }),
-        ...(deliveryTariffName !== undefined && { deliveryTariffName }),
-        ...(deliveryPrice !== undefined && { deliveryPrice }),
-        ...(deliveryCity !== undefined && { deliveryCity }),
-        ...(deliveryPickupPoint !== undefined && { deliveryPickupPoint }),
-        ...(deliveryPickupName !== undefined && { deliveryPickupName })
+    const editableText = ['customerName', 'customerEmail', 'customerPhone', 'shippingAddress', 'notes', 'deliveryTariffName', 'deliveryCity', 'deliveryPickupPoint', 'deliveryPickupName']
+    const data = {}
+    for (const field of editableText) {
+      if (req.body[field] === undefined) continue
+      if (req.body[field] !== null && typeof req.body[field] !== 'string') return res.status(400).json({ error: `Некорректное поле ${field}` })
+      const value = String(req.body[field] || '').trim()
+      if (value.length > (field === 'notes' ? 4000 : 500)) return res.status(400).json({ error: `Поле ${field} слишком длинное` })
+      if (['customerName', 'customerEmail', 'customerPhone'].includes(field) && !value) return res.status(400).json({ error: `Поле ${field} обязательно` })
+      data[field] = value || (['customerName', 'customerEmail', 'customerPhone'].includes(field) ? value : null)
+    }
+    if (data.customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.customerEmail)) return res.status(400).json({ error: 'Некорректный email' })
+    if (req.body.cdekOrderUuid !== undefined) {
+      if (req.body.cdekOrderUuid !== null && typeof req.body.cdekOrderUuid !== 'string') return res.status(400).json({ error: 'Некорректный UUID СДЭК' })
+      data.cdekOrderUuid = req.body.cdekOrderUuid || null
+    }
+    if (req.body.deliveryTariffCode !== undefined) {
+      const code = Number(req.body.deliveryTariffCode)
+      if (req.body.deliveryTariffCode !== null && (!Number.isInteger(code) || code < 0)) return res.status(400).json({ error: 'Некорректный код тарифа' })
+      data.deliveryTariffCode = req.body.deliveryTariffCode === null ? null : code
+    }
+    if (req.body.deliveryPrice !== undefined) {
+      const price = Number(req.body.deliveryPrice)
+      if (req.body.deliveryPrice !== null && (!Number.isFinite(price) || price < 0)) return res.status(400).json({ error: 'Некорректная стоимость доставки' })
+      data.deliveryPrice = req.body.deliveryPrice === null ? null : Math.round(price * 100) / 100
+    }
+
+    const wantsItems = req.body.items !== undefined
+    if (wantsItems && (!Array.isArray(req.body.items) || !req.body.items.length || req.body.items.length > 100)) {
+      return res.status(400).json({ error: 'Добавьте хотя бы один товар' })
+    }
+    const order = await prisma.$transaction(async tx => {
+      const previous = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } })
+      if (!previous) throw Object.assign(new Error('Заказ не найден'), { status: 404 })
+      const changesAmount = wantsItems || (data.deliveryPrice !== undefined && data.deliveryPrice !== previous.deliveryPrice) ||
+        (data.deliveryTariffCode !== undefined && data.deliveryTariffCode !== previous.deliveryTariffCode) ||
+        (data.deliveryPickupPoint !== undefined && data.deliveryPickupPoint !== previous.deliveryPickupPoint)
+      if (changesAmount && (previous.paymentId || previous.paymentLinkId || previous.paymentUrl || previous.cdekOrderUuid || ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].includes(String(previous.paymentStatus || '').toUpperCase()) || ['CANCELLED', 'RETURNED'].includes(previous.status))) {
+        throw Object.assign(new Error('Состав и стоимость нельзя менять после создания счёта, оплаты или отправки в СДЭК'), { status: 409 })
       }
+      if (previous.cdekOrderUuid && ['customerName', 'customerEmail', 'customerPhone', 'shippingAddress', 'deliveryTariffCode', 'deliveryTariffName', 'deliveryCity', 'deliveryPickupPoint', 'deliveryPickupName'].some(field => data[field] !== undefined && data[field] !== previous[field])) {
+        throw Object.assign(new Error('Данные доставки уже переданы в СДЭК. Измените их сначала в СДЭК'), { status: 409 })
+      }
+      if (wantsItems) {
+        if (req.body.items.some(item => !item || typeof item !== 'object' || Array.isArray(item))) {
+          throw Object.assign(new Error('Некорректный состав заказа'), { status: 400 })
+        }
+        const nextItems = req.body.items.map(item => ({
+          productId: Number(item.productId),
+          quantity: Number(item.quantity),
+          price: Number(item.price),
+          dosage: item.dosage ? String(item.dosage).trim() : null
+        }))
+        if (nextItems.some(item => !Number.isInteger(item.productId) || item.productId <= 0 || !Number.isInteger(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.price) || item.price < 0 || Math.abs(Math.round(item.price * 100) - item.price * 100) > 1e-6 || (item.dosage && item.dosage.length > 200))) {
+          throw Object.assign(new Error('Проверьте товары, количество и цены'), { status: 400 })
+        }
+        const productIds = [...new Set(nextItems.map(item => item.productId))]
+        const products = await tx.product.findMany({ where: { id: { in: productIds } }, select: { id: true } })
+        if (products.length !== productIds.length) throw Object.assign(new Error('Один из товаров не найден'), { status: 400 })
+        const oldCounts = new Map()
+        const newCounts = new Map()
+        for (const item of previous.items) oldCounts.set(item.productId, (oldCounts.get(item.productId) || 0) + item.quantity)
+        for (const item of nextItems) newCounts.set(item.productId, (newCounts.get(item.productId) || 0) + item.quantity)
+        for (const productId of new Set([...oldCounts.keys(), ...newCounts.keys()])) {
+          const delta = (newCounts.get(productId) || 0) - (oldCounts.get(productId) || 0)
+          if (delta > 0) {
+            const updated = await tx.product.updateMany({ where: { id: productId, stock: { gte: delta } }, data: { stock: { decrement: delta } } })
+            if (!updated.count) throw Object.assign(new Error(`Недостаточно товара #${productId} на складе`), { status: 409 })
+          } else if (delta < 0) {
+            await tx.product.update({ where: { id: productId }, data: { stock: { increment: -delta } } })
+          }
+        }
+        await tx.orderItem.deleteMany({ where: { orderId } })
+        await tx.orderItem.createMany({ data: nextItems.map(item => ({ ...item, orderId })) })
+        const subtotal = nextItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
+        const delivery = data.deliveryPrice ?? previous.deliveryPrice ?? 0
+        const nextTariffCode = data.deliveryTariffCode !== undefined ? data.deliveryTariffCode : previous.deliveryTariffCode
+        const nextPickupPoint = data.deliveryPickupPoint !== undefined ? data.deliveryPickupPoint : previous.deliveryPickupPoint
+        const siteDelivery = nextTariffCode || nextPickupPoint ? 0 : delivery
+        if (subtotal + siteDelivery < Number(previous.discountAmount || 0)) throw Object.assign(new Error('Скидка и списанные баллы превышают новую стоимость заказа'), { status: 400 })
+        data.total = Math.round(Math.max(0, subtotal + siteDelivery - Number(previous.discountAmount || 0)) * 100) / 100
+        data.paymentAmount = data.total
+      } else if (changesAmount) {
+        const subtotal = previous.items.reduce((sum, item) => sum + item.quantity * item.price, 0)
+        const nextTariffCode = data.deliveryTariffCode !== undefined ? data.deliveryTariffCode : previous.deliveryTariffCode
+        const nextPickupPoint = data.deliveryPickupPoint !== undefined ? data.deliveryPickupPoint : previous.deliveryPickupPoint
+        const siteDelivery = nextTariffCode || nextPickupPoint ? 0 : (data.deliveryPrice ?? previous.deliveryPrice ?? 0)
+        if (subtotal + siteDelivery < Number(previous.discountAmount || 0)) throw Object.assign(new Error('Скидка и списанные баллы превышают новую стоимость заказа'), { status: 400 })
+        data.total = Math.round(Math.max(0, subtotal + siteDelivery - Number(previous.discountAmount || 0)) * 100) / 100
+        data.paymentAmount = data.total
+      }
+      return tx.order.update({ where: { id: orderId }, data, include: { items: { include: { product: { select: { title: true, image: true } } } } } })
     })
 
     res.json({ order })
