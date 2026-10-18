@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 import emailService from '../services/email.js'
-import { allocateOrderItems, getOrderReportAmounts, PARTNER_REPORT_TAX_RATE } from '../utils/partnerOrdersReport.js'
+import { allocateOrderItems, formatOrderComposition, getOrderReportAmounts, PARTNER_REPORT_TAX_RATE } from '../utils/partnerOrdersReport.js'
 import { createPartnerOrdersDocx, createPartnerOrdersPdf } from '../utils/partnerOrdersDocuments.js'
 
 const router = Router()
@@ -993,7 +993,7 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
         ...amounts,
         commission: amounts.revenue ? Number(order.commission?.amount || 0) : 0,
         items: allocateOrderItems(order).map(line => ({
-          title: line.item.product?.title || `Товар #${line.item.productId}`,
+          title: `${line.item.product?.title || `Товар #${line.item.productId}`}${line.item.dosage ? `, ${line.item.dosage}` : ''}`,
           sku: line.item.product?.sku || '',
           quantity: line.item.quantity,
           price: Number(line.item.price || 0),
@@ -1034,8 +1034,8 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
     summary.addRow(['Эквайринг: фактическая сумма из заказа или оценка по ставке', acquiringPercent / 100])
     summary.getCell('B3').numFmt = '0.00%'
     summary.addRow(['Остаток = оплачено − расчётный налог − эквайринг; себестоимость и партнёрская комиссия не вычтены'])
-    summary.addRow([])
-    summary.getRow(6).values = ['Заказ', 'Дата', 'Партнёр', 'Email партнёра', 'Клиент', 'Промокод', 'Статус заказа', 'Статус оплаты', 'Сумма заказа', 'Оплачено', 'Налог 11,412%', 'Эквайринг', 'Источник эквайринга', 'Комиссия партнёра', 'Остаток после налога и эквайринга']
+    summary.getRow(5).values = ['Итого оплачено', totals.revenue, 'Налог', totals.tax, 'Эквайринг', totals.acquiring, 'Оплаченных заказов', totals.paidCount, 'Оценок эквайринга', totals.estimatedCount]
+    summary.getRow(7).values = ['Заказ', 'Дата', 'Партнёр', 'Email партнёра', 'Клиент', 'Состав заказа', 'Промокод', 'Статус заказа', 'Статус оплаты', 'Сумма заказа', 'Оплачено', 'Налог 11,412%', 'Эквайринг', 'Источник эквайринга', 'Комиссия партнёра', 'Остаток после налога и эквайринга']
     detail.columns = [
       { header: 'Заказ', width: 12 }, { header: 'Дата', width: 19 }, { header: 'Партнёр', width: 28 },
       { header: 'Товар', width: 44 }, { header: 'Артикул', width: 18 }, { header: 'Количество', width: 14 },
@@ -1044,12 +1044,16 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
     ]
 
     for (const order of reportOrders) {
-      summary.addRow([
+      const composition = formatOrderComposition(order.items)
+      const summaryRow = summary.addRow([
         order.id, order.createdAt, order.partnerName, order.partnerEmail,
-        order.customerName, order.promoCode, order.status, order.paymentStatus,
+        order.customerName, composition, order.promoCode, order.status, order.paymentStatus,
         order.total, order.revenue, order.tax, order.acquiring,
         order.acquiringSource, order.commission, order.balance
       ])
+      summaryRow.getCell(6).alignment = { vertical: 'top', wrapText: true }
+      const compositionLines = composition.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length / 55)), 0)
+      summaryRow.height = Math.min(390, Math.max(30, compositionLines * 17 + 10))
       for (const item of order.items) {
         detail.addRow([
           order.id, order.createdAt, order.partnerName,
@@ -1059,13 +1063,11 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
       }
     }
 
-    summary.spliceRows(5, 0, ['Итого оплачено', totals.revenue, 'Налог', totals.tax, 'Эквайринг', totals.acquiring, 'Оплаченных заказов', totals.paidCount, 'Оценок эквайринга', totals.estimatedCount])
-    // Row insertion moves the header to row 7.
     summary.views = [{ state: 'frozen', ySplit: 7 }]
     summary.columns = [
       { width: 12 }, { width: 19 }, { width: 28 }, { width: 32 }, { width: 25 },
-      { width: 18 }, { width: 19 }, { width: 19 }, { width: 18 }, { width: 18 },
-      { width: 18 }, { width: 18 }, { width: 25 }, { width: 22 }, { width: 25 }
+      { width: 60 }, { width: 18 }, { width: 19 }, { width: 19 }, { width: 18 },
+      { width: 18 }, { width: 18 }, { width: 18 }, { width: 25 }, { width: 22 }, { width: 25 }
     ]
     for (const [sheet, headerRow] of [[summary, 7], [detail, 1]]) {
       const header = sheet.getRow(headerRow)
@@ -1073,11 +1075,11 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
       header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF20283F' } }
       header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
       header.height = 32
-      sheet.autoFilter = { from: `A${headerRow}`, to: `${sheet === summary ? 'O' : 'J'}${headerRow}` }
+      sheet.autoFilter = { from: `A${headerRow}`, to: `${sheet === summary ? 'P' : 'J'}${headerRow}` }
       for (let rowIndex = headerRow + 1; rowIndex <= sheet.rowCount; rowIndex++) {
         const row = sheet.getRow(rowIndex)
         row.getCell(2).numFmt = 'dd.mm.yyyy hh:mm'
-        for (const col of sheet === summary ? [9, 10, 11, 12, 14, 15] : [7, 8, 9, 10]) {
+        for (const col of sheet === summary ? [10, 11, 12, 13, 15, 16] : [7, 8, 9, 10]) {
           row.getCell(col).numFmt = '#,##0.00 [$₽-419]'
         }
       }

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { allocateOrderItems, getOrderReportAmounts } from './partnerOrdersReport.js'
+import { allocateOrderItems, formatOrderComposition, getOrderReportAmounts } from './partnerOrdersReport.js'
 
 test('item discounts reconcile to the order total to the kopeck', () => {
   const order = {
@@ -37,4 +37,14 @@ test('financial columns include only paid orders and label estimated acquiring',
   const actual = getOrderReportAmounts({ total: 10000, paymentStatus: 'PAID', paymentId: 'pay-3', acquiringFee: 125.43 }, 2.7)
   assert.equal(actual.acquiring, 125.43)
   assert.equal(actual.acquiringSource, 'Фактическая сумма')
+})
+
+test('main Excel report shows every item with quantity, dosage, price and discount', () => {
+  const composition = formatOrderComposition([
+    { title: 'Эпиталон, 10 мг', quantity: 1, price: 5000, gross: 5000, discount: 500, net: 4500 },
+    { title: 'Товар 2', quantity: 2, price: 1500, gross: 3000, discount: 0, net: 3000 }
+  ])
+  assert.match(composition, /Эпиталон, 10 мг — 1 шт\. × 5\s?000 ₽ = 5\s?000 ₽ \(после скидки 4\s?500 ₽\)/)
+  assert.match(composition, /Товар 2 — 2 шт\. × 1\s?500 ₽ = 3\s?000 ₽/)
+  assert.equal(composition.split('\n').length, 2)
 })

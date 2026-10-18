@@ -41,3 +41,10 @@ export function getOrderReportAmounts(order, acquiringPercent) {
     ? 'Фактическая сумма' : `Оценка: ${acquiringPercent}%`
   return { revenue, tax, acquiring, acquiringSource, balance: fromCents(toCents(revenue) - toCents(tax) - toCents(acquiring)) }
 }
+
+export function formatOrderComposition(items = []) {
+  const money = value => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(Number(value || 0))
+  return items.length
+    ? items.map(item => `${item.title} — ${item.quantity} шт. × ${money(item.price)} ₽ = ${money(item.gross)} ₽${item.discount ? ` (после скидки ${money(item.net)} ₽)` : ''}`).join('\n')
+    : 'Нет позиций'
+}

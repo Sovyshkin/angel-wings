@@ -90,21 +90,23 @@
       </div>
 
       <div class="orders-table-wrapper card">
-        <table class="data-table">
+        <table class="data-table orders-table">
+          <colgroup>
+            <col class="orders-table__favorite-col">
+            <col class="orders-table__customer-col">
+            <col class="orders-table__delivery-col">
+            <col class="orders-table__amount-col">
+            <col class="orders-table__status-col">
+            <col class="orders-table__actions-col">
+          </colgroup>
           <thead>
             <tr>
               <th class="favorite-column"><span class="sr-only">Избранное</span></th>
-              <th>ID</th>
-              <th>Клиент</th>
+              <th>Заказ и клиент</th>
               <th>Доставка</th>
-              <th>Товары</th>
-              <th>Сумма</th>
-              <th>Начисления</th>
-              <th>Статус</th>
-              <th>Оплата</th>
-              <th>Промокод</th>
-              <th>Дата</th>
-              <th></th>
+              <th>Сумма и начисления</th>
+              <th>Статус и оплата</th>
+              <th><span class="sr-only">Действия</span></th>
             </tr>
           </thead>
           <tbody>
@@ -121,38 +123,44 @@
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.8 2.53 5.13 5.66.82-4.1 4 .97 5.64L12 16.73 6.94 19.4l.97-5.64-4.1-4 5.66-.82L12 3.8Z"/></svg>
                 </button>
               </td>
-              <td class="cell-id">#{{ order.id }}</td>
-              <td class="cell-customer">
-                <div>{{ order.customerName }}</div>
-                <div class="cell-phone">{{ order.customerPhone }}</div>
+              <td class="order-summary-cell">
+                <div class="order-summary-cell__meta">
+                  <button type="button" class="order-number-link" @click="viewOrder(order)">#{{ order.id }}</button>
+                  <span>{{ formatDate(order.createdAt) }}</span>
+                </div>
+                <div class="order-summary-cell__name">{{ order.customerName }}</div>
+                <div class="order-summary-cell__phone">{{ order.customerPhone }}</div>
+                <div v-if="order.promoCode?.code" class="order-summary-cell__promo">
+                  <span class="promo-code-tag" :title="order.promoCode.code">{{ order.promoCode.code }}</span>
+                  <router-link
+                    v-if="order.promoCode.partner?.id"
+                    :to="`/partners/${order.promoCode.partner.id}`"
+                    class="promo-partner-link"
+                    :title="order.promoCode.partner.user?.email || ''"
+                  >{{ order.promoCode.partner.user?.name || `Партнёр #${order.promoCode.partner.id}` }}</router-link>
+                </div>
               </td>
-              <td class="cell-delivery">
-                <div v-if="order.deliveryTariffName" class="delivery-badge">
+              <td class="order-delivery-cell">
+                <div v-if="order.deliveryTariffName" class="delivery-badge" :title="order.deliveryTariffName">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
                   </svg>
-                  {{ order.deliveryTariffName }}
+                  <span>{{ order.deliveryTariffName }}</span>
                 </div>
-                <div v-if="order.deliveryCity" class="delivery-city">{{ order.deliveryCity }}</div>
-                <div v-if="order.deliveryPickupName" class="delivery-pvz">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
-                  </svg>
-                  {{ order.deliveryPickupName }}
+                <div v-else class="order-delivery-cell__type">Адресная доставка</div>
+                <div v-if="order.deliveryCity" class="order-delivery-cell__city">{{ order.deliveryCity }}</div>
+                <div v-if="order.deliveryPickupName || order.shippingAddress" class="order-delivery-cell__detail" :title="order.deliveryPickupName || order.shippingAddress">{{ order.deliveryPickupName || order.shippingAddress }}</div>
+              </td>
+              <td class="order-amount-cell">
+                <div class="order-amount-cell__total">{{ formatPrice(order.total) }} ₽</div>
+                <div class="order-amount-cell__items">{{ order.items?.length || 0 }} позиций</div>
+                <div v-if="order.commission || earnedCustomerPoints(order)" class="order-amount-cell__rewards">
+                  <div v-if="order.commission">Партнёру <strong>+{{ formatPrice(order.commission.amount) }} ₽</strong></div>
+                  <div v-if="earnedCustomerPoints(order)">Клиенту <strong>+{{ earnedCustomerPoints(order).toLocaleString('ru-RU') }} баллов</strong></div>
                 </div>
-                <span v-else class="no-delivery">Адресная доставка</span>
               </td>
-              <td class="cell-items">{{ order.items?.length || 0 }} шт</td>
-              <td class="cell-price">
-                <div class="price-main">{{ formatPrice(order.total) }}</div>
-              </td>
-              <td class="cell-accruals">
-                <div v-if="order.commission">Партнёру: +{{ formatPrice(order.commission.amount) }}</div>
-                <div v-if="earnedCustomerPoints(order)">Клиенту: +{{ earnedCustomerPoints(order).toLocaleString('ru-RU') }} баллов</div>
-                <span v-if="!order.commission && !earnedCustomerPoints(order)" class="promo-empty">—</span>
-              </td>
-              <td>
-                <select :value="order.status" @change="updateStatus(order.id, $event.target.value)" class="status-select">
+              <td class="order-state-cell">
+                <select :value="order.status" :aria-label="`Статус заказа #${order.id}`" @change="updateStatus(order.id, $event.target.value)" class="status-select">
                   <option value="PENDING">Ожидает</option>
                   <option value="PROCESSING">В обработке</option>
                   <option value="SHIPPED">Отправлен</option>
@@ -160,8 +168,6 @@
                   <option value="RETURNED">Возврат</option>
                   <option value="CANCELLED">Отменён</option>
                 </select>
-              </td>
-              <td>
                 <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
                   {{ getPaymentLabel(order.paymentStatus) }}
                 </span>
@@ -173,27 +179,13 @@
                   Отметить как оплаченный
                 </button>
               </td>
-              <td>
-                <div class="promo-meta">
-                  <span v-if="order.promoCode?.code" class="promo-code-tag">{{ order.promoCode.code }}</span>
-                  <span v-else class="promo-empty">—</span>
-                  <router-link
-                    v-if="order.promoCode?.partner?.id"
-                    :to="`/partners/${order.promoCode.partner.id}`"
-                    class="promo-partner-link"
-                    :title="order.promoCode.partner.user?.email || ''"
-                  >
-                    {{ order.promoCode.partner.user?.name || `Партнёр #${order.promoCode.partner.id}` }}
-                  </router-link>
-                </div>
-              </td>
-              <td class="cell-date">{{ formatDate(order.createdAt) }}</td>
-              <td>
-                <div class="row-actions">
-                  <button @click="viewOrder(order)" class="action-btn" title="Просмотр">
+              <td class="order-actions-cell">
+                <div class="order-actions-cell__buttons">
+                  <button @click="viewOrder(order)" class="order-open-btn" :aria-label="`Открыть заказ #${order.id}`">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                     </svg>
+                    Подробнее
                   </button>
                   <button
                     v-if="order.status === 'CANCELLED'"
@@ -313,55 +305,124 @@
     </div>
 
     <div v-if="showManualOrder" class="modal-overlay" @click.self="closeManualOrder">
-      <div class="modal modal--editing card" role="dialog" aria-modal="true" aria-label="Добавить заказ">
-        <div class="modal-header">
-          <h3 class="modal-title">Новый заказ</h3>
+      <div class="modal manual-order-modal card" role="dialog" aria-modal="true" aria-label="Добавить заказ">
+        <div class="modal-header manual-order-header">
+          <div>
+            <span class="manual-order-kicker">Оформление в админке</span>
+            <h3 class="modal-title">Новый заказ</h3>
+            <p>Выберите клиента, товары и способ доставки.</p>
+          </div>
           <button type="button" class="modal-close" aria-label="Закрыть" @click="closeManualOrder">×</button>
         </div>
-        <form class="order-edit-form" @submit.prevent="createManualOrder">
-          <div class="edit-section-title">Клиент</div>
-          <label class="manual-user-search">Найти зарегистрированного клиента (необязательно)
-            <input v-model.trim="manualUserQuery" class="input" type="search" placeholder="Начните вводить имя или email">
-          </label>
-          <div v-if="manualUsers.length && manualUserQuery" class="manual-user-results">
-            <button v-for="user in manualUsers" :key="user.id" type="button" :class="{ active: manualDraft.userId === user.id }" @click="selectManualUser(user)">
-              {{ user.name }} · {{ user.email }} <small>#{{ user.id }}</small>
-            </button>
-          </div>
-          <p v-if="manualDraft.userId" class="edit-notice">Выбран аккаунт #{{ manualDraft.userId }}. {{ manualBoundPartnerId ? `Закреплён за партнёром #${manualBoundPartnerId}.` : 'При необходимости укажите партнёра ниже.' }} <button type="button" class="manual-clear-user" @click="clearManualUser">Оформить без аккаунта</button></p>
-          <p v-else class="edit-notice">Можно оформить заказ без аккаунта. В этом случае партнёрские и клиентские баллы не начисляются.</p>
-          <div class="edit-grid">
-            <label>Имя<input v-model.trim="manualDraft.customerName" class="input" required></label>
-            <label>Email<input v-model.trim="manualDraft.customerEmail" class="input" type="email" required></label>
-            <label>Телефон<input v-model.trim="manualDraft.customerPhone" class="input" type="tel" required></label>
-            <label>ID партнёра<input v-model.number="manualDraft.partnerId" class="input" type="number" min="1" :disabled="Boolean(manualBoundPartnerId) || !manualDraft.userId" placeholder="Не указан"></label>
-            <label>Статус заказа<select v-model="manualDraft.status" class="input"><option value="PENDING">Ожидает</option><option value="PROCESSING">В обработке</option><option value="SHIPPED">Отправлен</option><option value="DELIVERED">Доставлен</option></select></label>
-            <label>Статус оплаты<select v-model="manualDraft.paymentStatus" class="input"><option value="PENDING">Не оплачен</option><option value="PAID">Оплачен</option><option value="FAILED">Ошибка оплаты</option><option value="CASH_ON_DELIVERY">Наличными курьеру</option></select></label>
-          </div>
-          <div class="edit-section-title">Товары</div>
-          <div v-for="(item, index) in manualDraft.items" :key="item.key" class="edit-item">
-            <label>Товар<select v-model.number="item.productId" class="input" required @change="setManualProductPrice(item)"><option v-for="product in manualProducts" :key="product.id" :value="product.id">{{ product.title }}</option></select></label>
-            <label>Дозировка<input v-model.trim="item.dosage" class="input"></label>
-            <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" required></label>
-            <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" required></label>
-            <button type="button" class="edit-remove" :disabled="manualDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="manualDraft.items.splice(index, 1)">×</button>
-          </div>
-          <button type="button" class="btn btn-secondary" :disabled="!manualProducts.length" @click="addManualItem">+ Добавить товар</button>
-          <div class="edit-section-title">Доставка и комментарий</div>
-          <div class="edit-grid">
-            <label>Стоимость доставки, ₽<input v-model.number="manualDraft.deliveryPrice" class="input" type="number" min="0" step="0.01"></label>
-            <label>Тариф<input v-model.trim="manualDraft.deliveryTariffName" class="input"></label>
-            <label>Код тарифа СДЭК<input v-model.number="manualDraft.deliveryTariffCode" class="input" type="number" min="0"></label>
-            <label>Город<input v-model.trim="manualDraft.deliveryCity" class="input"></label>
-            <label>Код ПВЗ<input v-model.trim="manualDraft.deliveryPickupPoint" class="input"></label>
-            <label>Название ПВЗ<input v-model.trim="manualDraft.deliveryPickupName" class="input"></label>
-            <label class="edit-wide">Адрес<input v-model.trim="manualDraft.shippingAddress" class="input"></label>
-            <label class="edit-wide">Комментарий<textarea v-model.trim="manualDraft.notes" class="input" rows="2"></textarea></label>
-          </div>
-          <div class="edit-summary">Итого: {{ formatPrice(manualDraftTotal) }}</div>
-          <p class="edit-notice">Партнёрское начисление появится после статуса «Оплачен». Клиентские баллы — только при выполнении условий завершённой консультации.</p>
+        <form class="order-edit-form manual-order-form" @submit.prevent="createManualOrder">
+          <section class="manual-order-section">
+            <div class="manual-section-heading"><span>1</span><div><h4>Клиент</h4><p>Можно выбрать аккаунт или оформить без регистрации</p></div></div>
+            <label class="manual-user-search">Поиск клиента
+              <input v-model.trim="manualUserQuery" class="input" type="search" autocomplete="off" placeholder="Имя, телефон или email">
+            </label>
+            <div v-if="manualUsers.length && manualUserQuery && !manualDraft.userId" class="manual-user-results">
+              <button v-for="user in manualUsers" :key="user.id" type="button" @click="selectManualUser(user)">
+                {{ user.name || 'Без имени' }} · {{ user.email }} <small>#{{ user.id }}</small>
+              </button>
+            </div>
+            <div v-if="manualDraft.userId" class="manual-selected-user">
+              <span>Аккаунт #{{ manualDraft.userId }} выбран{{ manualBoundPartnerId ? ` · партнёр #${manualBoundPartnerId}` : '' }}</span>
+              <button type="button" @click="clearManualUser">Сбросить</button>
+            </div>
+            <div class="edit-grid manual-customer-fields">
+              <label>Имя<input v-model.trim="manualDraft.customerName" class="input" required placeholder="Имя получателя"></label>
+              <label>Email<input v-model.trim="manualDraft.customerEmail" class="input" type="email" required placeholder="email@example.com"></label>
+              <label>Телефон<input v-model.trim="manualDraft.customerPhone" class="input" type="tel" required placeholder="+7 999 999-99-99"></label>
+            </div>
+          </section>
+
+          <section class="manual-order-section">
+            <div class="manual-section-heading"><span>2</span><div><h4>Товары</h4><p>Цена за штуку подставляется из каталога, её можно изменить</p></div></div>
+            <div v-for="(item, index) in manualDraft.items" :key="item.key" class="edit-item manual-item">
+              <label>Товар<select v-model.number="item.productId" class="input" required @change="setManualProductPrice(item)"><option v-for="product in manualProducts" :key="product.id" :value="product.id">{{ product.title }}</option></select></label>
+              <label>Дозировка<input v-model.trim="item.dosage" class="input" placeholder="Если есть"></label>
+              <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" required></label>
+              <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" required></label>
+              <button type="button" class="edit-remove" :disabled="manualDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="manualDraft.items.splice(index, 1)">×</button>
+            </div>
+            <button type="button" class="btn btn-secondary manual-add-item" :disabled="!manualProducts.length" @click="addManualItem">+ Добавить товар</button>
+          </section>
+
+          <section class="manual-order-section">
+            <div class="manual-section-heading"><span>3</span><div><h4>Доставка</h4><p>Выберите способ, затем заполните только нужные поля</p></div></div>
+            <div class="manual-delivery-choices" role="radiogroup" aria-label="Способ доставки">
+              <label :class="['manual-delivery-choice', { selected: manualDeliveryMode === 'cdek' }]">
+                <input type="radio" name="manual-delivery" value="cdek" :checked="manualDeliveryMode === 'cdek'" @change="setManualDeliveryMode('cdek')">
+                <strong>ПВЗ СДЭК</strong><small>Найдите город и пункт выдачи</small>
+              </label>
+              <label :class="['manual-delivery-choice', { selected: manualDeliveryMode === 'address' }]">
+                <input type="radio" name="manual-delivery" value="address" :checked="manualDeliveryMode === 'address'" @change="setManualDeliveryMode('address')">
+                <strong>Доставка по адресу</strong><small>Курьер или другой способ</small>
+              </label>
+            </div>
+
+            <div v-if="manualDeliveryMode === 'cdek'" class="manual-cdek-panel">
+              <label class="manual-field">Город получателя
+                <input v-model="manualCityQuery" class="input" type="search" autocomplete="off" placeholder="Начните вводить город, например Казань" @keydown.enter.prevent="searchManualCities">
+              </label>
+              <div v-if="manualCityLoading" class="manual-search-state">Ищем города СДЭК…</div>
+              <div v-else-if="manualCityResults.length" class="manual-city-results">
+                <button v-for="city in manualCityResults" :key="`${city.code}-${city.city}`" type="button" @click="selectManualCity(city)">
+                  <strong>{{ city.city }}</strong><span>{{ [city.region, city.country].filter(Boolean).join(', ') }}</span>
+                </button>
+              </div>
+              <p v-else-if="manualCityQuery.trim().length >= 3 && !manualSelectedCity && manualCitySearched" class="manual-search-state">Город не найден. Уточните название.</p>
+
+              <div v-if="manualSelectedCity" class="manual-cdek-selected-city">Выбран город: <strong>{{ manualSelectedCity.city }}</strong><span v-if="manualPointsLoading"> · загружаем ПВЗ…</span></div>
+              <template v-if="manualSelectedCity && !manualPointsLoading">
+                <div v-if="manualSelectedPoint" class="manual-selected-point">
+                  <div><strong>{{ manualSelectedPoint.name }}</strong><span>{{ manualSelectedPoint.address }}</span></div>
+                  <button type="button" @click="clearManualPoint">Изменить ПВЗ</button>
+                </div>
+                <template v-else>
+                  <label class="manual-field">Найти пункт выдачи
+                    <input v-model="manualPointQuery" class="input" type="search" placeholder="Улица, дом, название или код ПВЗ">
+                  </label>
+                  <p class="manual-search-state">{{ manualPointMatchCount ? `Найдено ${manualPointMatchCount} ПВЗ. Выберите нужный.` : 'По запросу ПВЗ не найдены.' }}</p>
+                  <div v-if="manualFilteredPoints.length" class="manual-point-list">
+                    <button v-for="point in manualFilteredPoints" :key="point.code" type="button" @click="selectManualPoint(point)">
+                      <strong>{{ point.name }}</strong><span>{{ point.address }}</span><small v-if="point.work_time">{{ point.work_time }}</small>
+                    </button>
+                  </div>
+                  <p v-if="manualPointMatchCount > manualFilteredPoints.length" class="manual-search-state">Показаны первые {{ manualFilteredPoints.length }} — уточните улицу или дом в поиске.</p>
+                </template>
+              </template>
+              <label class="manual-field">Стоимость доставки СДЭК, ₽
+                <input v-model.number="manualDraft.deliveryPrice" class="input" type="number" min="0" step="0.01" @input="manualDeliveryPriceEdited = true">
+              </label>
+              <p class="manual-delivery-note">{{ manualCdekCalculating ? 'Рассчитываем доставку…' : 'Доставка оплачивается клиентом напрямую СДЭКу и не входит в сумму заказа.' }}</p>
+              <button v-if="manualSelectedPoint" type="button" class="manual-recalculate" :disabled="manualCdekCalculating" @click="calculateManualCdekPrice">Пересчитать стоимость</button>
+            </div>
+            <div v-else class="edit-grid manual-address-fields">
+              <label>Город<input v-model.trim="manualDraft.deliveryCity" class="input" required placeholder="Город доставки"></label>
+              <label>Стоимость доставки, ₽<input v-model.number="manualDraft.deliveryPrice" class="input" type="number" min="0" step="0.01"></label>
+              <label class="edit-wide">Адрес доставки<input v-model.trim="manualDraft.shippingAddress" class="input" required placeholder="Улица, дом, квартира"></label>
+              <p class="manual-delivery-note edit-wide">Стоимость доставки по адресу включается в сумму заказа.</p>
+            </div>
+            <p v-if="manualCdekError" class="edit-error" role="status">{{ manualCdekError }}</p>
+          </section>
+
+          <section class="manual-order-section manual-final-section">
+            <div class="manual-section-heading"><span>4</span><div><h4>Оплата и детали</h4><p>Выберите текущий статус; его можно изменить позже</p></div></div>
+            <div class="edit-grid">
+              <label>Статус оплаты<select v-model="manualDraft.paymentStatus" class="input"><option value="PENDING">Не оплачен</option><option value="PAID">Оплачен</option><option value="FAILED">Ошибка оплаты</option><option value="CASH_ON_DELIVERY">Наличными курьеру</option></select></label>
+              <label>Статус заказа<select v-model="manualDraft.status" class="input"><option value="PENDING">Ожидает</option><option value="PROCESSING">В обработке</option><option value="SHIPPED">Отправлен</option><option value="DELIVERED">Доставлен</option></select></label>
+              <label v-if="manualDraft.userId && !manualBoundPartnerId">ID партнёра (необязательно)<input v-model.number="manualDraft.partnerId" class="input" type="number" min="1" placeholder="Если нужно начисление партнёру"></label>
+              <label class="edit-wide">Комментарий к заказу<textarea v-model.trim="manualDraft.notes" class="input" rows="2" placeholder="Необязательно"></textarea></label>
+            </div>
+            <p class="edit-notice">Начисления партнёру выполняются после оплаты. Клиентские баллы — после завершённой консультации и покупки.</p>
+          </section>
+
           <p v-if="manualError" class="edit-error" role="alert">{{ manualError }}</p>
-          <div class="order-edit-actions"><button type="button" class="btn btn-secondary" @click="closeManualOrder">Отмена</button><button type="submit" class="btn btn-primary" :disabled="manualSaving || !manualDraft.items.length">{{ manualSaving ? 'Создаём…' : 'Создать заказ' }}</button></div>
+          <div class="manual-order-footer">
+            <div><small>Итого по заказу</small><strong>{{ formatPrice(manualDraftTotal) }}</strong><span v-if="manualDeliveryMode === 'cdek'">Без оплаты доставки СДЭК</span></div>
+            <div class="manual-order-footer__actions"><button type="button" class="btn btn-secondary" @click="closeManualOrder">Отмена</button><button type="submit" class="btn btn-primary" :disabled="manualSaving || manualCdekCalculating || manualPointsLoading || !manualDraft.items.length">{{ manualSaving ? 'Создаём…' : 'Создать заказ' }}</button></div>
+          </div>
         </form>
       </div>
     </div>
@@ -697,7 +758,28 @@ const manualSelectedUserLabel = ref('')
 const manualUsers = ref([])
 const manualProducts = ref([])
 const manualBoundPartnerId = ref(null)
+const manualDeliveryMode = ref('cdek')
+const manualCityQuery = ref('')
+const manualCityResults = ref([])
+const manualCityLoading = ref(false)
+const manualCitySearched = ref(false)
+const manualSelectedCity = ref(null)
+const manualPoints = ref([])
+const manualPointsLoading = ref(false)
+const manualPointQuery = ref('')
+const manualSelectedPoint = ref(null)
+const manualCdekCalculating = ref(false)
+const manualCdekError = ref('')
+const manualCdekQuoteKey = ref('')
+const manualDeliveryPriceEdited = ref(false)
 const manualDraft = ref(emptyManualDraft())
+const manualMatchedPoints = computed(() => {
+  const query = manualPointQuery.value.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').trim()
+  if (!query) return manualPoints.value
+  return manualPoints.value.filter(point => `${point.name || ''} ${point.address || ''} ${point.code || ''}`.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').includes(query))
+})
+const manualPointMatchCount = computed(() => manualMatchedPoints.value.length)
+const manualFilteredPoints = computed(() => manualMatchedPoints.value.slice(0, manualPointQuery.value ? 60 : 12))
 const manualDraftTotal = computed(() => {
   const draft = manualDraft.value
   const subtotal = draft.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0)
@@ -742,6 +824,9 @@ const stats = ref({
 
 let searchTimer = null
 let manualSearchTimer = null
+let manualCitySearchTimer = null
+let manualCityRequestId = 0
+let manualQuoteRequestId = 0
 
 function emptyManualDraft() {
   return { userId: null, partnerId: '', customerName: '', customerEmail: '', customerPhone: '', status: 'PENDING', paymentStatus: 'PENDING',
@@ -754,6 +839,24 @@ function earnedCustomerPoints(order) {
 
 async function openManualOrder() {
   manualDraft.value = emptyManualDraft()
+  manualDraft.value.deliveryTariffCode = 136
+  manualDraft.value.deliveryTariffName = 'ПВЗ СДЭК'
+  manualDeliveryMode.value = 'cdek'
+  manualCityQuery.value = ''
+  manualCityResults.value = []
+  manualCityLoading.value = false
+  manualCitySearched.value = false
+  manualSelectedCity.value = null
+  manualPoints.value = []
+  manualPointsLoading.value = false
+  manualPointQuery.value = ''
+  manualSelectedPoint.value = null
+  manualCdekCalculating.value = false
+  manualCdekError.value = ''
+  manualCdekQuoteKey.value = ''
+  manualDeliveryPriceEdited.value = false
+  manualCityRequestId++
+  manualQuoteRequestId++
   manualUserQuery.value = ''
   manualSelectedUserLabel.value = ''
   manualUsers.value = []
@@ -771,7 +874,159 @@ async function openManualOrder() {
 }
 
 function closeManualOrder() {
-  if (!manualSaving.value) showManualOrder.value = false
+  if (!manualSaving.value) {
+    showManualOrder.value = false
+    clearTimeout(manualCitySearchTimer)
+    manualCityRequestId++
+    manualQuoteRequestId++
+  }
+}
+
+function clearManualCdekSelection() {
+  manualQuoteRequestId++
+  manualCdekCalculating.value = false
+  manualSelectedPoint.value = null
+  manualDraft.value.deliveryPickupPoint = ''
+  manualDraft.value.deliveryPickupName = ''
+  manualDraft.value.shippingAddress = ''
+  manualDraft.value.deliveryPrice = 0
+  manualCdekQuoteKey.value = ''
+  manualDeliveryPriceEdited.value = false
+}
+
+function setManualDeliveryMode(mode) {
+  if (manualDeliveryMode.value === mode) return
+  manualDeliveryMode.value = mode
+  manualCdekError.value = ''
+  clearManualCdekSelection()
+  if (mode === 'cdek') {
+    manualDraft.value.deliveryTariffCode = 136
+    manualDraft.value.deliveryTariffName = 'ПВЗ СДЭК'
+    manualDraft.value.deliveryCity = ''
+  } else {
+    manualCityRequestId++
+    clearTimeout(manualCitySearchTimer)
+    manualCityQuery.value = ''
+    manualCityResults.value = []
+    manualSelectedCity.value = null
+    manualPoints.value = []
+    manualDraft.value.deliveryTariffCode = ''
+    manualDraft.value.deliveryTariffName = 'Доставка по адресу'
+    manualDraft.value.deliveryCity = ''
+  }
+}
+
+async function searchManualCities() {
+  const query = manualCityQuery.value.trim()
+  if (!showManualOrder.value || manualDeliveryMode.value !== 'cdek' || query.length < 3) return
+  const requestId = ++manualCityRequestId
+  manualCityLoading.value = true
+  manualCitySearched.value = false
+  manualCdekError.value = ''
+  try {
+    const { data } = await deliveryApi.post('/find-city', { name: query })
+    if (requestId !== manualCityRequestId) return
+    manualCityResults.value = Array.isArray(data) ? data.slice(0, 20) : []
+    manualCitySearched.value = true
+  } catch (error) {
+    if (requestId !== manualCityRequestId) return
+    manualCityResults.value = []
+    manualCdekError.value = error.response?.data?.error || 'Не удалось найти город СДЭК. Попробуйте ещё раз.'
+  } finally {
+    if (requestId === manualCityRequestId) manualCityLoading.value = false
+  }
+}
+
+async function selectManualCity(city) {
+  const requestId = ++manualCityRequestId
+  manualSelectedCity.value = city
+  manualCityQuery.value = city.city
+  manualCityResults.value = []
+  manualCitySearched.value = false
+  manualPoints.value = []
+  manualPointQuery.value = ''
+  clearManualCdekSelection()
+  manualDraft.value.deliveryCity = city.city
+  manualDraft.value.deliveryTariffCode = 136
+  manualDraft.value.deliveryTariffName = 'ПВЗ СДЭК'
+  manualPointsLoading.value = true
+  manualCdekError.value = ''
+  try {
+    const { data } = await deliveryApi.get('/pickup-points', { params: { city_code: city.code, limit: 1000 } })
+    if (requestId !== manualCityRequestId) return
+    manualPoints.value = Array.isArray(data) ? data : []
+    if (!manualPoints.value.length) manualCdekError.value = 'В этом городе ПВЗ не найдены. Выберите другой город.'
+  } catch (error) {
+    if (requestId !== manualCityRequestId) return
+    manualCdekError.value = error.response?.data?.error || 'Не удалось загрузить пункты выдачи СДЭК.'
+  } finally {
+    if (requestId === manualCityRequestId) manualPointsLoading.value = false
+  }
+}
+
+function clearManualPoint() {
+  clearManualCdekSelection()
+  manualCdekError.value = ''
+}
+
+function manualCdekCurrentQuoteKey() {
+  return JSON.stringify({
+    city: manualSelectedCity.value?.code,
+    point: manualSelectedPoint.value?.code,
+    items: manualDraft.value.items.map(item => [item.productId, item.quantity, item.price])
+  })
+}
+
+async function selectManualPoint(point) {
+  manualSelectedPoint.value = point
+  manualDraft.value.deliveryPickupPoint = point.code
+  manualDraft.value.deliveryPickupName = point.name
+  manualDraft.value.shippingAddress = point.address || ''
+  manualCdekError.value = ''
+  await calculateManualCdekPrice()
+}
+
+async function calculateManualCdekPrice() {
+  if (!manualSelectedCity.value || !manualSelectedPoint.value) return false
+  const requestId = ++manualQuoteRequestId
+  const quoteKey = manualCdekCurrentQuoteKey()
+  const weight = manualDraft.value.items.reduce((sum, item) => {
+    const product = manualProducts.value.find(product => product.id === item.productId)
+    return sum + Math.max(1, Number(item.quantity) || 0) * Math.max(0, Number.parseInt(product?.weight, 10) || 0)
+  }, 0)
+  const subtotal = manualDraft.value.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0)
+  manualCdekCalculating.value = true
+  manualCdekError.value = ''
+  try {
+    const { data } = await deliveryApi.post('/calculate-by-tariff', {
+      tariff_code: 136,
+      from_code: 44,
+      to_code: manualSelectedCity.value.code,
+      to_location: {
+        code: manualSelectedCity.value.code,
+        city: manualSelectedCity.value.city,
+        country: manualSelectedCity.value.country || manualSelectedCity.value.country_name || '',
+        country_code: manualSelectedCity.value.country_code || manualSelectedCity.value.countryCode || ''
+      },
+      weight: Math.max(1, Math.round(weight)),
+      declared_value: Math.max(0, subtotal)
+    })
+    if (requestId !== manualQuoteRequestId || quoteKey !== manualCdekCurrentQuoteKey()) return false
+    const price = Number(data?.total_sum ?? data?.total_price ?? data?.delivery_sum)
+    if (!Number.isFinite(price) || price < 0) throw new Error('СДЭК не вернул стоимость доставки')
+    manualDraft.value.deliveryPrice = price
+    manualDraft.value.deliveryTariffCode = Number(data?.selected_tariff_code || data?.tariff_code || 136)
+    manualDraft.value.deliveryTariffName = data?.selected_tariff_name || data?.tariff_name || 'ПВЗ СДЭК'
+    manualCdekQuoteKey.value = quoteKey
+    manualDeliveryPriceEdited.value = false
+    return true
+  } catch (error) {
+    if (requestId !== manualQuoteRequestId) return false
+    manualCdekError.value = error.response?.data?.error || error.message || 'Не удалось рассчитать доставку. Укажите стоимость вручную.'
+    return false
+  } finally {
+    if (requestId === manualQuoteRequestId) manualCdekCalculating.value = false
+  }
 }
 
 async function selectManualUser(user) {
@@ -786,7 +1041,7 @@ async function selectManualUser(user) {
     const { data } = await axios.get(`${API_URL}/users/${user.id}`)
     manualBoundPartnerId.value = data.user?.partnerUser?.partner?.id || null
     manualDraft.value.partnerId = manualBoundPartnerId.value || ''
-    manualDraft.value.shippingAddress = data.user?.address || ''
+    if (manualDeliveryMode.value === 'address') manualDraft.value.shippingAddress = data.user?.address || ''
   } catch {
     manualError.value = 'Не удалось проверить закрепление клиента за партнёром'
   }
@@ -814,8 +1069,21 @@ function setManualProductPrice(item) {
 
 async function createManualOrder() {
   if (manualSaving.value) return
-  manualSaving.value = true
   manualError.value = ''
+  if (manualDeliveryMode.value === 'cdek') {
+    if (!manualSelectedCity.value || !manualSelectedPoint.value) {
+      manualError.value = 'Выберите город и пункт выдачи СДЭК'
+      return
+    }
+    if (!manualDeliveryPriceEdited.value && manualCdekQuoteKey.value !== manualCdekCurrentQuoteKey()) {
+      const calculated = await calculateManualCdekPrice()
+      if (!calculated) {
+        manualError.value = 'Не удалось обновить стоимость доставки. Повторите расчёт или укажите цену вручную.'
+        return
+      }
+    }
+  }
+  manualSaving.value = true
   try {
     const payload = { ...manualDraft.value, items: manualDraft.value.items.map(({ productId, dosage, quantity, price }) => ({ productId, dosage, quantity, price })) }
     delete payload.partnerId
@@ -1300,6 +1568,24 @@ watch(manualUserQuery, query => {
     } catch { manualUsers.value = [] }
   }, 250)
 })
+watch(manualCityQuery, query => {
+  clearTimeout(manualCitySearchTimer)
+  if (!showManualOrder.value || manualDeliveryMode.value !== 'cdek') return
+  if (manualSelectedCity.value && query.trim() === manualSelectedCity.value.city) return
+  manualCityRequestId++
+  manualCityLoading.value = false
+  manualCitySearched.value = false
+  manualCityResults.value = []
+  if (manualSelectedCity.value) {
+    manualSelectedCity.value = null
+    manualPoints.value = []
+    manualPointsLoading.value = false
+    manualPointQuery.value = ''
+    clearManualCdekSelection()
+    manualDraft.value.deliveryCity = ''
+  }
+  if (query.trim().length >= 3) manualCitySearchTimer = setTimeout(searchManualCities, 300)
+})
 </script>
 
 <style scoped>
@@ -1313,15 +1599,27 @@ watch(manualUserQuery, query => {
 
 .header-actions {
   display: flex;
-  gap: 1rem;
+  align-items: center;
+  gap: .6rem;
+  flex-shrink: 0;
+}
+
+.header-actions .btn {
+  min-height: 40px;
+  padding: .5rem .85rem;
+  border-radius: 10px;
+  font-size: .8rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .favorite-filter {
   display: inline-flex;
-  min-height: 42px;
+  min-height: 40px;
   align-items: center;
-  gap: .5rem;
-  padding: .55rem .8rem;
+  gap: .4rem;
+  padding: .5rem .75rem;
   border: 1px solid rgba(148, 163, 184, .28);
   border-radius: 10px;
   background: rgba(148, 163, 184, .06);
@@ -1330,6 +1628,7 @@ watch(manualUserQuery, query => {
   font: inherit;
   font-size: .82rem;
   font-weight: 650;
+  white-space: nowrap;
   transition: border-color .22s ease, background .22s ease, color .22s ease, box-shadow .22s ease;
 }
 
@@ -1357,8 +1656,12 @@ watch(manualUserQuery, query => {
 }
 
 .status-filter {
-  padding: 0.625rem 1rem;
-  min-width: 180px;
+  width: 168px;
+  min-width: 0;
+  min-height: 40px;
+  padding: .5rem .7rem;
+  font-size: .82rem;
+  line-height: 1.2;
 }
 
 .orders-stats {
@@ -1415,6 +1718,202 @@ watch(manualUserQuery, query => {
   width: 100%;
   border-collapse: collapse;
   min-width: 1100px;
+}
+
+.orders-table {
+  min-width: 920px;
+  table-layout: fixed;
+}
+
+.orders-table__favorite-col { width: 5%; }
+.orders-table__customer-col { width: 24%; }
+.orders-table__delivery-col { width: 23%; }
+.orders-table__amount-col { width: 20%; }
+.orders-table__status-col { width: 17%; }
+.orders-table__actions-col { width: 11%; }
+
+.orders-table th,
+.orders-table td {
+  padding: 1.1rem .9rem;
+  vertical-align: top;
+}
+
+.orders-table tbody tr {
+  transition: background .2s ease;
+}
+
+.orders-table tbody tr:hover {
+  background: rgba(166, 185, 248, .035);
+}
+
+.order-summary-cell,
+.order-delivery-cell,
+.order-amount-cell,
+.order-state-cell {
+  min-width: 0;
+}
+
+.order-summary-cell__meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: .35rem .7rem;
+  color: var(--text-muted);
+  font-size: .72rem;
+  margin-bottom: .6rem;
+}
+
+.order-number-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font: 700 .86rem var(--font-mono);
+  cursor: pointer;
+}
+
+.order-number-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.order-summary-cell__name {
+  font-size: .95rem;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.order-summary-cell__phone {
+  margin-top: .2rem;
+  font-size: .78rem;
+  color: var(--text-secondary);
+}
+
+.order-summary-cell__promo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .35rem .55rem;
+  margin-top: .8rem;
+  min-width: 0;
+}
+
+.order-summary-cell__promo .promo-code-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-summary-cell__promo .promo-partner-link {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-delivery-cell .delivery-badge {
+  max-width: 100%;
+  border-radius: 9px;
+  margin: 0 0 .5rem;
+  padding: .38rem .55rem;
+  line-height: 1.3;
+}
+
+.order-delivery-cell .delivery-badge svg { flex: 0 0 14px; }
+.order-delivery-cell .delivery-badge span {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.order-delivery-cell__type,
+.order-delivery-cell__city {
+  font-size: .82rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.order-delivery-cell__detail {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: .3rem;
+  color: var(--text-muted);
+  font-size: .75rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.order-amount-cell__total {
+  font: 700 1.05rem var(--font-mono);
+  white-space: nowrap;
+}
+
+.order-amount-cell__items {
+  margin-top: .22rem;
+  color: var(--text-muted);
+  font-size: .75rem;
+}
+
+.order-amount-cell__rewards {
+  margin-top: .75rem;
+  padding-top: .55rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: .72rem;
+  line-height: 1.6;
+}
+
+.order-amount-cell__rewards strong { color: var(--accent); font-weight: 700; }
+
+.order-state-cell .status-select {
+  display: block;
+  width: 100%;
+  max-width: 180px;
+  min-height: 36px;
+  margin: 0 0 .55rem;
+  padding: .4rem .55rem;
+}
+
+.order-state-cell .payment-badge {
+  min-width: 0;
+  padding: .3rem .65rem;
+}
+
+.order-state-cell .pay-now-btn {
+  max-width: 180px;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.order-actions-cell__buttons {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.order-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 36px;
+  padding: .4rem .55rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color .2s ease, color .2s ease, background .2s ease;
+}
+
+.order-open-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
 }
 
 .favorite-column,
@@ -1984,6 +2483,179 @@ watch(manualUserQuery, query => {
 
 .manual-clear-user:hover { color: var(--text-primary); }
 
+.manual-order-modal {
+  max-width: 900px;
+  max-height: 92vh;
+  padding: 0;
+  background: var(--bg-card);
+}
+
+.manual-order-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  align-items: flex-start;
+  margin: 0;
+  padding: 1.3rem 1.65rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.manual-order-kicker {
+  display: block;
+  margin-bottom: .25rem;
+  color: var(--accent);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.manual-order-header .modal-title { font-size: 1.5rem; }
+.manual-order-header p { margin-top: .25rem; color: var(--text-secondary); font-size: .85rem; }
+.manual-order-form { gap: 0; }
+
+.manual-order-section {
+  padding: 1.5rem 1.65rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.manual-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: .8rem;
+  margin-bottom: 1.15rem;
+}
+
+.manual-section-heading > span {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(163, 180, 255, .38);
+  border-radius: 9px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+.manual-section-heading h4 { font-size: 1rem; line-height: 1.2; }
+.manual-section-heading p { margin-top: .25rem; color: var(--text-muted); font-size: .78rem; }
+.manual-customer-fields { margin-top: .9rem; }
+.manual-customer-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.manual-order-section .input { min-height: 42px; }
+.manual-order-section .edit-item { margin-bottom: .7rem; }
+.manual-add-item { margin-top: .25rem; }
+
+.manual-selected-user,
+.manual-selected-point {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-top: .7rem;
+  padding: .7rem .85rem;
+  border: 1px solid rgba(163, 180, 255, .32);
+  border-radius: 11px;
+  background: var(--accent-dim);
+  font-size: .82rem;
+}
+
+.manual-selected-user button,
+.manual-selected-point button,
+.manual-recalculate { flex: 0 0 auto; color: var(--accent); font-size: .78rem; font-weight: 700; cursor: pointer; }
+.manual-selected-user button:hover,
+.manual-selected-point button:hover,
+.manual-recalculate:hover { text-decoration: underline; text-underline-offset: 3px; }
+.manual-selected-point > div { display: flex; flex-direction: column; gap: .2rem; }
+.manual-selected-point span { color: var(--text-secondary); }
+
+.manual-delivery-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+.manual-delivery-choice {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  column-gap: .7rem;
+  align-items: center;
+  padding: .85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease;
+}
+.manual-delivery-choice:hover { border-color: rgba(163, 180, 255, .45); }
+.manual-delivery-choice.selected { border-color: var(--accent); background: var(--accent-dim); }
+.manual-delivery-choice input { grid-row: 1 / 3; accent-color: var(--accent); }
+.manual-delivery-choice strong { font-size: .88rem; }
+.manual-delivery-choice small { margin-top: .2rem; color: var(--text-secondary); font-size: .72rem; }
+
+.manual-cdek-panel {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-secondary);
+}
+.manual-field { display: flex; flex-direction: column; gap: .4rem; color: var(--text-secondary); font-size: .8rem; font-weight: 600; }
+.manual-city-results,
+.manual-point-list {
+  max-height: 230px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+}
+.manual-city-results button,
+.manual-point-list button {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: .15rem;
+  padding: .6rem .8rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.manual-city-results button:last-child,
+.manual-point-list button:last-child { border-bottom: 0; }
+.manual-city-results button:hover,
+.manual-point-list button:hover { background: var(--accent-dim); }
+.manual-city-results button span,
+.manual-point-list button span,
+.manual-point-list button small { color: var(--text-secondary); font-size: .75rem; line-height: 1.35; }
+.manual-search-state { color: var(--text-muted); font-size: .76rem; }
+.manual-cdek-selected-city { color: var(--text-secondary); font-size: .8rem; }
+.manual-cdek-selected-city strong { color: var(--text-primary); }
+.manual-delivery-note { color: var(--text-muted); font-size: .77rem; line-height: 1.4; }
+.manual-address-fields { margin-top: 1rem; }
+.manual-order-section .edit-notice { margin-top: 1rem; }
+
+.manual-order-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.65rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: 0 -10px 25px rgba(0, 0, 0, .12);
+}
+.manual-order-footer > div:first-child { display: flex; flex-direction: column; gap: .1rem; }
+.manual-order-footer small,
+.manual-order-footer span { color: var(--text-muted); font-size: .7rem; }
+.manual-order-footer strong { color: var(--text-primary); font: 750 1.2rem var(--font-display); }
+.manual-order-footer__actions { display: flex; gap: .6rem; }
+.manual-order-footer__actions .btn { min-height: 42px; padding: .55rem 1rem; }
+
 .cell-accruals { min-width: 145px; font-size: .78rem; line-height: 1.55; color: var(--text-secondary); }
 
 .modal-close {
@@ -2447,6 +3119,15 @@ watch(manualUserQuery, query => {
   width: 100%;
 }
 
+@media (max-width: 1100px) {
+  .orders-table-wrapper { display: none; }
+  .orders-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
@@ -2459,7 +3140,19 @@ watch(manualUserQuery, query => {
 
   .header-actions {
     width: 100%;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .55rem;
+  }
+
+  .header-actions .btn,
+  .header-actions .favorite-filter {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .header-actions .status-filter {
+    grid-column: 1 / -1;
   }
 
   .favorite-filter {
@@ -2491,6 +3184,15 @@ watch(manualUserQuery, query => {
     padding: 1.25rem;
     margin: 1rem;
   }
+
+  .manual-order-modal { padding: 0; max-height: 96vh; margin: .5rem; }
+  .manual-order-header { padding: 1rem; }
+  .manual-order-section { padding: 1.2rem 1rem; }
+  .manual-customer-fields { grid-template-columns: 1fr; }
+  .manual-delivery-choices { grid-template-columns: 1fr; }
+  .manual-order-footer { align-items: stretch; flex-direction: column; padding: .85rem 1rem; }
+  .manual-order-footer__actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .manual-order-footer__actions .btn { width: 100%; }
 
   .edit-grid { grid-template-columns: 1fr; }
   .edit-wide { grid-column: auto; }
