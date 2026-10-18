@@ -1212,27 +1212,29 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
           const statusResult = await tochkaService.getPaymentStatus(order.paymentId)
           if (!statusResult.success) return null
           const normalized = normalizePaymentStatus(statusResult.status)
-          if (normalized === order.paymentStatus) return null
+          const paymentType = normalized === 'PAID' ? statusResult.paymentType : null
+          if (normalized === order.paymentStatus && (!paymentType || order.paymentType === paymentType)) return null
 
           await prisma.order.update({
             where: { id: order.id },
-            data: { paymentStatus: normalized }
+            data: { paymentStatus: normalized, ...(paymentType ? { paymentType } : {}) }
           })
           await syncPartnerCommissionForOrder(prisma, order.id)
           queueCdekWaybillAfterPayment({ ...order, paymentStatus: normalized }, order.paymentStatus)
-          return { id: order.id, paymentStatus: normalized }
+          return { id: order.id, paymentStatus: normalized, paymentType }
         })
       )
 
       const updates = new Map(
         syncResults
           .filter(item => item.status === 'fulfilled' && item.value)
-          .map(item => [item.value.id, item.value.paymentStatus])
+          .map(item => [item.value.id, item.value])
       )
       if (updates.size) {
         for (const order of orders) {
           if (updates.has(order.id)) {
-            order.paymentStatus = updates.get(order.id)
+            order.paymentStatus = updates.get(order.id).paymentStatus
+            if (updates.get(order.id).paymentType) order.paymentType = updates.get(order.id).paymentType
           }
         }
       }

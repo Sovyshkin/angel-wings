@@ -171,6 +171,7 @@
                 <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
                   {{ getPaymentLabel(order.paymentStatus) }}
                 </span>
+                <small v-if="isOrderPaid(order.paymentStatus) && order.paymentType" class="payment-method-label">{{ getPaymentTypeLabel(order.paymentType) }}</small>
                 <button
                   v-if="!isOrderPaid(order.paymentStatus)"
                   @click="markAsPaid(order)"
@@ -223,6 +224,7 @@
             <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
               {{ getPaymentLabel(order.paymentStatus) }}
             </span>
+            <small v-if="isOrderPaid(order.paymentStatus) && order.paymentType" class="payment-method-label">{{ getPaymentTypeLabel(order.paymentType) }}</small>
           </div>
 
           <div class="order-card__body">
@@ -516,6 +518,10 @@
                   Отметить как оплаченный
                 </button>
               </div>
+            </div>
+            <div v-if="isOrderPaid(selectedOrder.paymentStatus)" class="detail-row">
+              <span class="detail-label">Способ оплаты</span>
+              <span class="detail-value">{{ getPaymentTypeLabel(selectedOrder.paymentType) }}</span>
             </div>
             <div v-if="selectedOrder.status === 'CANCELLED'" class="detail-row">
               <span class="detail-label">Причина отмены</span>
@@ -1538,6 +1544,10 @@ function getPaymentLabel(status) {
   return 'Ожидает оплату'
 }
 
+function getPaymentTypeLabel(type) {
+  return ({ sbp: 'СБП', card: 'Карта', tinkoff: 'Т-Pay', dolyame: 'Долями', digitalruble: 'Цифровой рубль' })[String(type || '').toLowerCase()] || 'Неизвестен'
+}
+
 function getCancelReasonLabel(reason) {
   const option = cancelReasonOptions.find(item => item.value === reason)
   return option?.label || 'Причина не указана'
@@ -2218,6 +2228,13 @@ watch(manualCityQuery, query => {
 .payment-badge.payment-failed {
   background: #ef444422;
   color: #ef4444;
+}
+
+.payment-method-label {
+  display: block;
+  margin-top: .3rem;
+  color: var(--text-secondary);
+  font-size: .72rem;
 }
 
 .pay-now-btn {

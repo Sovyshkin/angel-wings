@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { extractTochkaPaymentType } from '../utils/paymentAcquiring.js'
 import cloudKassirService from './cloudKassir.js'
 
 const TOCHKA_API_URL = 'https://enter.tochka.com/uapi/acquiring/v1.0'
@@ -381,10 +382,12 @@ class TochkaService {
       )
 
       const status = this.extractPaymentStatus(response.data)
+      const operation = response.data?.Data?.Operation?.[0] || response.data?.Data?.operation?.[0]
       return {
         success: true,
         status,
-        amount: response.data?.Data?.amount || response.data?.Data?.Amount || response.data?.amount,
+        amount: operation?.amount ?? response.data?.Data?.amount ?? response.data?.Data?.Amount ?? response.data?.amount,
+        paymentType: extractTochkaPaymentType(response.data),
         paymentUrl: this.extractPaymentUrl(response.data)
       }
     } catch (error) {

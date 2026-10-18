@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { encryptMarketingPayload } from '../utils/marketingToken.js'
 import { getOrderItemUnitCost } from '../utils/productCost.js'
+import { getAcquiringEstimate } from '../utils/paymentAcquiring.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -180,10 +181,6 @@ function emptyMoneyMetric(key, label = key) {
 }
 
 function getAcquiringFee(order) {
-  if (Number.isFinite(Number(order?.acquiringFee))) {
-    return Math.max(0, Number(order.acquiringFee))
-  }
-
   const paymentStatus = normalizeOrderStatus(order?.paymentStatus)
   if (!SUCCESS_PAYMENT_STATUSES.has(paymentStatus) || paymentStatus === 'CASH_ON_DELIVERY') {
     return 0
@@ -191,7 +188,7 @@ function getAcquiringFee(order) {
 
   const percent = Math.max(0, Number.parseFloat(process.env.ACQUIRING_FEE_PERCENT || '2.7') || 0)
   const fixed = Math.max(0, Number.parseFloat(process.env.ACQUIRING_FEE_FIXED || '0') || 0)
-  return toMoney((Number(order?.total || 0) * percent) / 100 + fixed)
+  return getAcquiringEstimate(order, percent, fixed).amount
 }
 
 function getSellerDeliveryCost(order) {

@@ -1011,7 +1011,7 @@ router.get('/my', authenticate, async (req, res, next) => {
     // A webhook can be delayed or lost while the bank has already confirmed
     // payment. Reconcile pending orders here too, so the customer never sees
     // an outdated “awaiting payment” state in their account.
-    const paymentStatusByOrderId = new Map()
+    const paymentSyncByOrderId = new Map()
     const paymentSyncResults = await Promise.allSettled(
       orders
         .filter(order => order.paymentId && !isPaidStatus(order.paymentStatus))
@@ -1020,26 +1020,27 @@ router.get('/my', authenticate, async (req, res, next) => {
           if (!statusResult.success) return null
 
           const paymentStatus = normalizeGatewayPaymentStatus(statusResult.status)
-          if (paymentStatus === normalizePaymentStatusValue(order.paymentStatus)) {
-            return { id: order.id, paymentStatus }
+          const paymentType = paymentStatus === 'PAID' ? statusResult.paymentType : null
+          if (paymentStatus === normalizePaymentStatusValue(order.paymentStatus) && (!paymentType || order.paymentType === paymentType)) {
+            return { id: order.id, paymentStatus, paymentType }
           }
 
           await prisma.order.update({
             where: { id: order.id },
-            data: { paymentStatus }
+            data: { paymentStatus, ...(paymentType ? { paymentType } : {}) }
           })
 
           await syncPartnerCommissionForOrder(prisma, order.id)
           if (paymentStatus === 'PAID') {
             await grantConsultationRewardsForPaidOrder(prisma, { ...order, paymentStatus })
           }
-          return { id: order.id, paymentStatus }
+          return { id: order.id, paymentStatus, paymentType }
         })
     )
 
     paymentSyncResults.forEach((result) => {
       if (result.status === 'fulfilled' && result.value) {
-        paymentStatusByOrderId.set(result.value.id, result.value.paymentStatus)
+        paymentSyncByOrderId.set(result.value.id, result.value)
       }
     })
 
@@ -1106,7 +1107,8 @@ router.get('/my', authenticate, async (req, res, next) => {
       const partnerBonusAmount = Math.max(0, Number(order.partnerBonusAmount || 0))
       return {
         ...order,
-        paymentStatus: paymentStatusByOrderId.get(order.id) || order.paymentStatus,
+        paymentStatus: paymentSyncByOrderId.get(order.id)?.paymentStatus || order.paymentStatus,
+        paymentType: paymentSyncByOrderId.get(order.id)?.paymentType || order.paymentType,
         status: effectiveStatus,
         partnerBonusInfo: partnerBonusAmount > 0 && buyerPartner
           ? {

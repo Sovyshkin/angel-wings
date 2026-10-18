@@ -38,7 +38,7 @@ export async function createPartnerOrdersDocx(report) {
       keepWithNext: true,
       spacing: { before: 200, after: 80 }
     }))
-    children.push(new Paragraph({ text: `${date(order.createdAt)}  ·  ${order.status}  ·  ${order.paymentStatus}  ·  ${order.promoCode || 'без промокода'}`, spacing: { after: 100 } }))
+    children.push(new Paragraph({ text: `${date(order.createdAt)}  ·  ${order.status}  ·  ${order.paymentStatus}  ·  ${order.paymentType || 'Способ неизвестен'}  ·  ${order.promoCode || 'без промокода'}`, spacing: { after: 100 } }))
     children.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
@@ -111,7 +111,7 @@ export async function createPartnerOrdersPdf(report) {
     textWithFont(doc, `Заказ №${order.id}  ·  ${order.partnerName}`, { x: 50, y: startY + 7, width: pageWidth - 16 })
     doc.y = Math.max(doc.y, startY + 36)
     doc.fillColor('#647087').fontSize(8.5)
-    textWithFont(doc, `${date(order.createdAt)}  ·  ${order.status}  ·  ${order.paymentStatus}  ·  ${order.promoCode || 'без промокода'}`, { x: 50, y: doc.y, width: pageWidth - 16 })
+    textWithFont(doc, `${date(order.createdAt)}  ·  ${order.status}  ·  ${order.paymentStatus}  ·  ${order.paymentType || 'Способ неизвестен'}  ·  ${order.promoCode || 'без промокода'}`, { x: 50, y: doc.y, width: pageWidth - 16 })
     doc.moveDown(0.25).fillColor('#17223C').fontSize(9)
     textWithFont(doc, `Сумма: ${money(order.total)}    Оплачено: ${money(order.revenue)}    Налог: ${money(order.tax)}`, { x: 50, y: doc.y, width: pageWidth - 16 })
     textWithFont(doc, `Эквайринг: ${money(order.acquiring)} (${order.acquiringSource})    Остаток: ${money(order.balance)}`, { x: 50, y: doc.y, width: pageWidth - 16 })

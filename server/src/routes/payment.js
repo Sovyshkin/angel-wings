@@ -7,6 +7,7 @@ import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { CLOUD_KASSIR_ORDER_INCLUDE } from '../utils/cloudKassirReceipt.js'
 import { queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
+import { extractTochkaPaymentType, normalizePaymentType } from '../utils/paymentAcquiring.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -67,6 +68,7 @@ const PAYMENT_SYNC_ORDER_SELECT = {
   id: true,
   userId: true,
   paymentId: true,
+  paymentType: true,
   paymentStatus: true,
   total: true,
   discountAmount: true,
@@ -175,7 +177,7 @@ function extractWebhookFields(payload) {
     data?.PaymentStatus
   ])
 
-  return { paymentLinkId, paymentId, status }
+  return { paymentLinkId, paymentId, status, paymentType: extractTochkaPaymentType(payload) }
 }
 
 export function getRedirectUrls(orderId, miniApp = false) {
@@ -238,7 +240,7 @@ async function createPaymentForOrder(orderId, amount, description, miniApp = fal
         if (status === 'PAID') {
           const updated = await prisma.order.update({
             where: { id: orderId },
-            data: { paymentStatus: 'PAID' }
+            data: { paymentStatus: 'PAID', ...(normalizePaymentType(statusResult.paymentType) ? { paymentType: normalizePaymentType(statusResult.paymentType) } : {}) }
           })
           await syncPartnerCommissionForOrder(prisma, orderId)
           queueCdekWaybillAfterPayment(updated, order.paymentStatus)
@@ -281,7 +283,9 @@ async function createPaymentForOrder(orderId, amount, description, miniApp = fal
         paymentUrl: result.paymentUrl,
         paymentAmount: requestedKopecks / 100,
         paymentLinkId: result.paymentLinkId || null,
-        paymentStatus: 'PENDING'
+        paymentStatus: 'PENDING',
+        paymentType: null,
+        acquiringFee: null
       }
     })
     return { success: true, paymentUrl: result.paymentUrl, paymentId: paymentId ? String(paymentId) : null, reused: false }
@@ -411,6 +415,7 @@ router.get('/status/:paymentId', async (req, res, next) => {
     
     if (result.success) {
       const paymentStatus = normalizePaymentStatus(result.status)
+      const paymentType = paymentStatus === 'PAID' ? normalizePaymentType(result.paymentType) : null
       const matchedOrders = await prisma.order.findMany({
         where: { paymentId: String(paymentId) },
         select: { id: true, userId: true, paymentStatus: true, cdekOrderUuid: true }
@@ -420,7 +425,7 @@ router.get('/status/:paymentId', async (req, res, next) => {
           paymentId: String(paymentId),
           ...(paymentStatus !== 'PAID' ? { paymentStatus: { not: 'PAID' } } : {})
         },
-        data: { paymentStatus }
+        data: { paymentStatus, ...(paymentType ? { paymentType } : {}) }
       })
       if (updateResult.count > 0) {
         await Promise.all(matchedOrders.map(async (order) => {
@@ -475,6 +480,7 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
 
     const paymentStatus = normalizePaymentStatus(result.status)
     const effectiveStatus = normalizePaymentStatus(order.paymentStatus) === 'PAID' ? 'PAID' : paymentStatus
+    const paymentType = effectiveStatus === 'PAID' ? normalizePaymentType(result.paymentType) : null
     console.log('[PAYMENT] /sync-order status resolved', JSON.stringify({
       orderId: order.id,
       paymentId: order.paymentId,
@@ -483,7 +489,7 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
     }))
     const updatedOrder = await prisma.order.update({
       where: { id: order.id },
-      data: { paymentStatus: effectiveStatus },
+      data: { paymentStatus: effectiveStatus, ...(paymentType ? { paymentType } : {}) },
       select: PAYMENT_SYNC_ORDER_SELECT
     })
     await syncPartnerCommissionForOrder(prisma, order.id)
@@ -506,7 +512,7 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
 // Webhook for Tochka notifications
 router.post('/webhook', async (req, res, next) => {
   try {
-    const { paymentLinkId, paymentId, status } = extractWebhookFields(req.body)
+    const { paymentLinkId, paymentId, status, paymentType: webhookPaymentType } = extractWebhookFields(req.body)
     console.log('Tochka webhook received:', {
       paymentLinkId,
       paymentId,
@@ -519,6 +525,13 @@ router.post('/webhook', async (req, res, next) => {
     
     // Process asynchronously
     const normalized = normalizePaymentStatus(status)
+    let paymentType = normalized === 'PAID' ? webhookPaymentType : null
+    if (normalized === 'PAID' && !paymentType && paymentId) {
+      const bankResult = await tochkaService.getPaymentStatus(paymentId)
+      if (bankResult.success && normalizePaymentStatus(bankResult.status) === 'PAID') {
+        paymentType = normalizePaymentType(bankResult.paymentType)
+      }
+    }
 
     let updatedOrder = null
     const orderIdMatch = String(paymentLinkId || '').match(/order-(\d+)/i)
@@ -541,7 +554,8 @@ router.post('/webhook', async (req, res, next) => {
               where: { id: orderId },
               data: {
                 paymentStatus: effectiveStatus,
-                ...(paymentId && !existingOrder.paymentId ? { paymentId: String(paymentId) } : {})
+                ...(paymentId && !existingOrder.paymentId ? { paymentId: String(paymentId) } : {}),
+                ...(effectiveStatus === 'PAID' && paymentType ? { paymentType } : {})
               }
             })
             updatedOrder.previousPaymentStatus = existingOrder.paymentStatus
@@ -560,7 +574,10 @@ router.post('/webhook', async (req, res, next) => {
       if (found) {
         updatedOrder = await prisma.order.update({
           where: { id: found.id },
-          data: { paymentStatus: normalizePaymentStatus(found.paymentStatus) === 'PAID' ? 'PAID' : normalized }
+          data: {
+            paymentStatus: normalizePaymentStatus(found.paymentStatus) === 'PAID' ? 'PAID' : normalized,
+            ...(normalized === 'PAID' && paymentType ? { paymentType } : {})
+          }
         })
         updatedOrder.previousPaymentStatus = found.paymentStatus
       }

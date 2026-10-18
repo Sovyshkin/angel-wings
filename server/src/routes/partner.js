@@ -8,6 +8,7 @@ import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 import emailService from '../services/email.js'
 import { allocateOrderItems, formatOrderComposition, getOrderReportAmounts, PARTNER_REPORT_TAX_RATE } from '../utils/partnerOrdersReport.js'
+import { getPaymentTypeLabel } from '../utils/paymentAcquiring.js'
 import { createPartnerOrdersDocx, createPartnerOrdersPdf } from '../utils/partnerOrdersDocuments.js'
 
 const router = Router()
@@ -989,6 +990,7 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
         promoCode: promo?.code || '',
         status: getOrderStatusLabel(order.status),
         paymentStatus: getPaymentStatusLabel(order.paymentStatus),
+        paymentType: getPaymentTypeLabel(order.paymentType),
         total: Number(order.total || 0),
         ...amounts,
         commission: amounts.revenue ? Number(order.commission?.amount || 0) : 0,
@@ -1008,7 +1010,7 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
       result.tax += order.tax
       result.acquiring += order.acquiring
       if (order.paymentStatus === 'Оплачен') result.paidCount++
-      if (order.acquiringSource.startsWith('Оценка')) result.estimatedCount++
+      if (order.revenue && order.acquiringSource !== 'Фактическая сумма') result.estimatedCount++
       return result
     }, { revenue: 0, tax: 0, acquiring: 0, paidCount: 0, estimatedCount: 0 })
     if (format !== 'xlsx') {
@@ -1031,11 +1033,11 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
     summary.addRow(['Отчёт по заказам всех партнёров'])
     summary.addRow(['Налог — расчётная сумма от оплаченного заказа', PARTNER_REPORT_TAX_RATE])
     summary.getCell('B2').numFmt = '0.000%'
-    summary.addRow(['Эквайринг: фактическая сумма из заказа или оценка по ставке', acquiringPercent / 100])
+    summary.addRow(['Эквайринг: СБП 0,4%, карта 2,5%; неизвестный способ — резервная ставка', acquiringPercent / 100])
     summary.getCell('B3').numFmt = '0.00%'
     summary.addRow(['Остаток = оплачено − расчётный налог − эквайринг; себестоимость и партнёрская комиссия не вычтены'])
     summary.getRow(5).values = ['Итого оплачено', totals.revenue, 'Налог', totals.tax, 'Эквайринг', totals.acquiring, 'Оплаченных заказов', totals.paidCount, 'Оценок эквайринга', totals.estimatedCount]
-    summary.getRow(7).values = ['Заказ', 'Дата', 'Партнёр', 'Email партнёра', 'Клиент', 'Состав заказа', 'Промокод', 'Статус заказа', 'Статус оплаты', 'Сумма заказа', 'Оплачено', 'Налог 11,412%', 'Эквайринг', 'Источник эквайринга', 'Комиссия партнёра', 'Остаток после налога и эквайринга']
+    summary.getRow(7).values = ['Заказ', 'Дата', 'Партнёр', 'Email партнёра', 'Клиент', 'Состав заказа', 'Промокод', 'Статус заказа', 'Статус оплаты', 'Сумма заказа', 'Оплачено', 'Налог 11,412%', 'Эквайринг', 'Источник эквайринга', 'Комиссия партнёра', 'Остаток после налога и эквайринга', 'Способ оплаты']
     detail.columns = [
       { header: 'Заказ', width: 12 }, { header: 'Дата', width: 19 }, { header: 'Партнёр', width: 28 },
       { header: 'Товар', width: 44 }, { header: 'Артикул', width: 18 }, { header: 'Количество', width: 14 },
@@ -1049,7 +1051,7 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
         order.id, order.createdAt, order.partnerName, order.partnerEmail,
         order.customerName, composition, order.promoCode, order.status, order.paymentStatus,
         order.total, order.revenue, order.tax, order.acquiring,
-        order.acquiringSource, order.commission, order.balance
+        order.acquiringSource, order.commission, order.balance, order.paymentType
       ])
       summaryRow.getCell(6).alignment = { vertical: 'top', wrapText: true }
       const compositionLines = composition.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length / 55)), 0)
@@ -1067,7 +1069,7 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
     summary.columns = [
       { width: 12 }, { width: 19 }, { width: 28 }, { width: 32 }, { width: 25 },
       { width: 60 }, { width: 18 }, { width: 19 }, { width: 19 }, { width: 18 },
-      { width: 18 }, { width: 18 }, { width: 18 }, { width: 25 }, { width: 22 }, { width: 25 }
+      { width: 18 }, { width: 18 }, { width: 18 }, { width: 25 }, { width: 22 }, { width: 25 }, { width: 18 }
     ]
     for (const [sheet, headerRow] of [[summary, 7], [detail, 1]]) {
       const header = sheet.getRow(headerRow)
@@ -1075,7 +1077,7 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
       header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF20283F' } }
       header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
       header.height = 32
-      sheet.autoFilter = { from: `A${headerRow}`, to: `${sheet === summary ? 'P' : 'J'}${headerRow}` }
+      sheet.autoFilter = { from: `A${headerRow}`, to: `${sheet === summary ? 'Q' : 'J'}${headerRow}` }
       for (let rowIndex = headerRow + 1; rowIndex <= sheet.rowCount; rowIndex++) {
         const row = sheet.getRow(rowIndex)
         row.getCell(2).numFmt = 'dd.mm.yyyy hh:mm'
@@ -1143,9 +1145,9 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
       orderBy: { createdAt: 'desc' }
     })
 
+    const configuredPercent = Number.parseFloat(process.env.ACQUIRING_FEE_PERCENT || '2.7')
+    const acquiringPercent = Number.isFinite(configuredPercent) && configuredPercent >= 0 ? configuredPercent : 2.7
     if (format !== 'xlsx') {
-      const configuredPercent = Number.parseFloat(process.env.ACQUIRING_FEE_PERCENT || '2.7')
-      const acquiringPercent = Number.isFinite(configuredPercent) && configuredPercent >= 0 ? configuredPercent : 2.7
       const promoCodeById = new Map(partner.promoCodes.map(promoCode => [promoCode.id, promoCode.code]))
       const reportOrders = orders.map(order => {
         const amounts = getOrderReportAmounts(order, acquiringPercent)
@@ -1156,6 +1158,7 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
           promoCode: promoCodeById.get(order.promoCodeId) || '',
           status: getOrderStatusLabel(order.status),
           paymentStatus: getPaymentStatusLabel(order.paymentStatus),
+          paymentType: getPaymentTypeLabel(order.paymentType),
           total: Number(order.total || 0),
           ...amounts,
           commission: amounts.revenue ? Number(order.commission?.amount || 0) : 0,
@@ -1174,7 +1177,7 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
         result.tax += order.tax
         result.acquiring += order.acquiring
         if (order.paymentStatus === 'Оплачен') result.paidCount++
-        if (order.acquiringSource.startsWith('Оценка')) result.estimatedCount++
+        if (order.revenue && order.acquiringSource !== 'Фактическая сумма') result.estimatedCount++
         return result
       }, { revenue: 0, tax: 0, acquiring: 0, paidCount: 0, estimatedCount: 0 })
       const report = { title: `Отчёт по заказам партнёра ${partner.user?.name || `№${partner.id}`}`, orders: reportOrders, totals }
@@ -1210,11 +1213,16 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
       { header: 'Доставка', key: 'deliveryPrice', width: 14 },
       { header: 'Статус заказа', key: 'status', width: 20 },
       { header: 'Статус оплаты', key: 'paymentStatus', width: 20 },
+      { header: 'Способ оплаты', key: 'paymentType', width: 18 },
+      { header: 'Налог 11,412%', key: 'tax', width: 18 },
+      { header: 'Эквайринг', key: 'acquiring', width: 18 },
+      { header: 'Источник эквайринга', key: 'acquiringSource', width: 42 },
       { header: 'Комиссия', key: 'commissionAmount', width: 16 },
       { header: 'Процент комиссии', key: 'commissionPercentage', width: 20 }
     ]
 
     orders.forEach(order => {
+      const amounts = getOrderReportAmounts(order, acquiringPercent)
       const items = order.items
         .map(item => `${item.product?.title || `Товар #${item.productId}`} × ${item.quantity}`)
         .join('\n')
@@ -1232,6 +1240,10 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
         deliveryPrice: Number(order.deliveryPrice || order.deliveryCost || 0),
         status: getOrderStatusLabel(order.status),
         paymentStatus: getPaymentStatusLabel(order.paymentStatus),
+        paymentType: getPaymentTypeLabel(order.paymentType),
+        tax: amounts.tax,
+        acquiring: amounts.acquiring,
+        acquiringSource: amounts.acquiringSource,
         commissionAmount: Number(order.commission?.amount || 0),
         commissionPercentage: order.commission?.percentage == null ? null : Number(order.commission.percentage) / 100
       })
@@ -1242,13 +1254,13 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
     header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF20283F' } }
     header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
     header.height = 30
-    sheet.autoFilter = { from: 'A1', to: 'N1' }
+    sheet.autoFilter = { from: 'A1', to: 'R1' }
 
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return
       row.alignment = { vertical: 'top', wrapText: true }
       row.getCell('createdAt').numFmt = 'dd.mm.yyyy hh:mm'
-      ;['total', 'discountAmount', 'deliveryPrice', 'commissionAmount'].forEach(key => {
+      ;['total', 'discountAmount', 'deliveryPrice', 'tax', 'acquiring', 'commissionAmount'].forEach(key => {
         row.getCell(key).numFmt = '#,##0.00 [$₽-419]'
       })
       row.getCell('commissionPercentage').numFmt = '0.0%'

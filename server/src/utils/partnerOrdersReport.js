@@ -1,3 +1,5 @@
+import { getAcquiringEstimate } from './paymentAcquiring.js'
+
 export const PARTNER_REPORT_TAX_RATE = 0.11412
 
 const toCents = value => Math.round((Number(value) || 0) * 100)
@@ -33,12 +35,9 @@ export function getOrderReportAmounts(order, acquiringPercent) {
   const paid = String(order.paymentStatus || '').toUpperCase() === 'PAID'
   const revenue = paid ? fromCents(toCents(order.total)) : 0
   const tax = paid ? fromCents(Math.round(toCents(order.total) * PARTNER_REPORT_TAX_RATE)) : 0
-  const hasActualFee = order.acquiringFee !== null && order.acquiringFee !== undefined && Number.isFinite(Number(order.acquiringFee))
-  const acquiring = !paid ? 0 : hasActualFee
-    ? fromCents(Math.max(0, toCents(order.acquiringFee)))
-    : fromCents(Math.round(toCents(order.total) * acquiringPercent / 100))
-  const acquiringSource = !paid ? 'Не оплачен' : hasActualFee
-    ? 'Фактическая сумма' : `Оценка: ${acquiringPercent}%`
+  const estimate = getAcquiringEstimate(order, acquiringPercent)
+  const acquiring = estimate.amount
+  const acquiringSource = estimate.source
   return { revenue, tax, acquiring, acquiringSource, balance: fromCents(toCents(revenue) - toCents(tax) - toCents(acquiring)) }
 }
 

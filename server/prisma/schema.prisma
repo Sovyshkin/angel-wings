@@ -181,6 +181,7 @@ model Order {
   cancelReason           String?
   paymentStatus          String?                @default("PENDING")
   paymentId              String?
+  paymentType            String?
   paymentUrl             String?
   paymentAmount          Float?
   paymentLinkId          String?
