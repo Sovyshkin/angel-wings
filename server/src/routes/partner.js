@@ -1051,24 +1051,25 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
       itemRows.forEach((item, index) => {
         const composition = item ? formatOrderComposition([item]) : 'Нет позиций'
         const firstItem = index === 0
+        const orderValue = value => firstItem ? value : null
         const summaryRow = summary.addRow([
-          order.id, order.createdAt, order.partnerName, order.partnerEmail,
-          order.customerName, composition, order.promoCode, order.status, order.paymentStatus,
-          firstItem ? order.total : null, firstItem ? order.revenue : null,
-          firstItem ? order.tax : null, firstItem ? order.acquiring : null,
-          order.acquiringSource, firstItem ? order.commission : null,
-          firstItem ? order.balance : null, order.paymentType
+          orderValue(order.id), orderValue(order.createdAt), orderValue(order.partnerName), orderValue(order.partnerEmail),
+          orderValue(order.customerName), composition, orderValue(order.promoCode), orderValue(order.status), orderValue(order.paymentStatus),
+          orderValue(order.total), orderValue(order.revenue),
+          orderValue(order.tax), orderValue(order.acquiring),
+          orderValue(order.acquiringSource), orderValue(order.commission),
+          orderValue(order.balance), orderValue(order.paymentType)
         ])
         summaryRow.getCell(6).alignment = { vertical: 'top', wrapText: true }
         summaryRow.height = Math.max(30, Math.ceil(composition.length / 55) * 17 + 10)
       })
-      for (const item of order.items) {
+      order.items.forEach((item, index) => {
         detail.addRow([
-          order.id, order.createdAt, order.partnerName,
+          index === 0 ? order.id : null, index === 0 ? order.createdAt : null, index === 0 ? order.partnerName : null,
           item.title, item.sku, item.quantity, item.price,
           item.gross, item.discount, item.net
         ])
-      }
+      })
     }
 
     summary.views = [{ state: 'frozen', ySplit: 7 }]
@@ -1231,24 +1232,25 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
       const itemRows = order.items.length ? order.items : [null]
       itemRows.forEach((item, index) => {
         const firstItem = index === 0
+        const orderValue = value => firstItem ? value : null
         sheet.addRow({
-          id: order.id,
-          createdAt: order.createdAt,
-          customerName: order.user?.name || order.customerName || '—',
-          customerEmail: order.user?.email || order.customerEmail || '—',
-          customerPhone: order.user?.phone || order.customerPhone || '—',
-          promoCode: promoCodeById.get(order.promoCodeId) || '—',
+          id: orderValue(order.id),
+          createdAt: orderValue(order.createdAt),
+          customerName: orderValue(order.user?.name || order.customerName || '—'),
+          customerEmail: orderValue(order.user?.email || order.customerEmail || '—'),
+          customerPhone: orderValue(order.user?.phone || order.customerPhone || '—'),
+          promoCode: orderValue(promoCodeById.get(order.promoCodeId) || '—'),
           items: item ? `${item.product?.title || `Товар #${item.productId}`} × ${item.quantity}` : '—',
-          total: firstItem ? Number(order.total || 0) : null,
-          discountAmount: firstItem ? Number(order.discountAmount || 0) : null,
-          deliveryPrice: firstItem ? Number(order.deliveryPrice || order.deliveryCost || 0) : null,
-          status: getOrderStatusLabel(order.status),
-          paymentStatus: getPaymentStatusLabel(order.paymentStatus),
-          paymentType: getPaymentTypeLabel(order.paymentType),
-          tax: firstItem ? amounts.tax : null,
-          acquiring: firstItem ? amounts.acquiring : null,
-          acquiringSource: amounts.acquiringSource,
-          commissionAmount: firstItem ? Number(order.commission?.amount || 0) : null,
+          total: orderValue(Number(order.total || 0)),
+          discountAmount: orderValue(Number(order.discountAmount || 0)),
+          deliveryPrice: orderValue(Number(order.deliveryPrice || order.deliveryCost || 0)),
+          status: orderValue(getOrderStatusLabel(order.status)),
+          paymentStatus: orderValue(getPaymentStatusLabel(order.paymentStatus)),
+          paymentType: orderValue(getPaymentTypeLabel(order.paymentType)),
+          tax: orderValue(amounts.tax),
+          acquiring: orderValue(amounts.acquiring),
+          acquiringSource: orderValue(amounts.acquiringSource),
+          commissionAmount: orderValue(Number(order.commission?.amount || 0)),
           commissionPercentage: firstItem && order.commission?.percentage != null ? Number(order.commission.percentage) / 100 : null
         })
       })
