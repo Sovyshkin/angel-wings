@@ -38,23 +38,23 @@ test('discount allocation never makes a tiny line negative', () => {
 })
 
 test('financial columns include only paid orders and label estimated acquiring', () => {
-  const paid = getOrderReportAmounts({ total: 10000, paymentStatus: 'PAID', paymentId: 'pay-1', acquiringFee: null }, 2.7)
+  const paid = getOrderReportAmounts({ total: 10000, paymentStatus: 'PAID', paymentId: 'pay-1', acquiringFee: null })
   assert.deepEqual(paid, {
-    revenue: 10000, tax: 1141.2, acquiring: 270,
-    acquiringSource: 'Оценка: способ оплаты неизвестен, 2.7%', balance: 8588.8
+    revenue: 10000, tax: 1141.2, acquiring: 250,
+    acquiringSource: 'Оценка: способ оплаты неизвестен, 2.5%', balance: 8608.8
   })
-  const unpaid = getOrderReportAmounts({ total: 10000, paymentStatus: 'PENDING', paymentId: 'pay-2', acquiringFee: null }, 2.7)
+  const unpaid = getOrderReportAmounts({ total: 10000, paymentStatus: 'PENDING', paymentId: 'pay-2', acquiringFee: null })
   assert.equal(unpaid.revenue, 0)
   assert.equal(unpaid.tax, 0)
   assert.equal(unpaid.acquiring, 0)
-  const actual = getOrderReportAmounts({ total: 10000, paymentStatus: 'PAID', paymentId: 'pay-3', acquiringFee: 125.43 }, 2.7)
+  const actual = getOrderReportAmounts({ total: 10000, paymentStatus: 'PAID', paymentId: 'pay-3', acquiringFee: 125.43 })
   assert.equal(actual.acquiring, 125.43)
   assert.equal(actual.acquiringSource, 'Фактическая сумма')
 })
 
 test('partner report distinguishes card and SBP acquiring', () => {
-  const sbp = getOrderReportAmounts({ total: 10000, paymentAmount: 9000, paymentStatus: 'PAID', paymentType: 'sbp' }, 2.7)
-  const card = getOrderReportAmounts({ total: 10000, paymentStatus: 'PAID', paymentType: 'card' }, 2.7)
+  const sbp = getOrderReportAmounts({ total: 10000, paymentAmount: 9000, paymentStatus: 'PAID', paymentType: 'sbp' })
+  const card = getOrderReportAmounts({ total: 10000, paymentStatus: 'PAID', paymentType: 'card' })
   assert.equal(sbp.acquiring, 36)
   assert.equal(sbp.acquiringSource, 'Расчёт: СБП 0,4%')
   assert.equal(card.acquiring, 250)

@@ -897,13 +897,12 @@ const marginSummary = ref({ revenue: 0, netProfit: 0, productCost: 0, acquiringF
 const marginChannels = ref([])
 const marginProducts = ref([])
 const marginOrders = ref([])
-const marginAssumptions = ref({ acquiringFeePercent: 2.7, sellerPaysDelivery: false })
+const marginAssumptions = ref({ acquiringFeePercent: 2.5, sellerPaysDelivery: false })
 const acquiringFields = [
   { key: 'sbpPercent', label: 'СБП', hint: 'Оплата через Систему быстрых платежей' },
-  { key: 'cardPercent', label: 'Банковская карта', hint: 'Оплата картой' },
-  { key: 'fallbackPercent', label: 'Способ неизвестен', hint: 'Резервная ставка для старых и ручных заказов' }
+  { key: 'cardPercent', label: 'Банковская карта', hint: 'Оплата картой' }
 ]
-const acquiringDraft = ref({ sbpPercent: 0.4, cardPercent: 2.5, fallbackPercent: 2.7 })
+const acquiringDraft = ref({ sbpPercent: 0.4, cardPercent: 2.5 })
 const savedAcquiringSettings = ref({ ...acquiringDraft.value })
 const savingAcquiringSettings = ref(false)
 const acquiringSettingsMessage = ref('')
@@ -2569,7 +2568,7 @@ onMounted(fetchAnalytics)
 
 .acquiring-settings__intro h3 { margin: 0.3rem 0 0.45rem; font-size: 1.25rem; }
 .acquiring-settings__intro p { margin: 0; color: var(--text-secondary); line-height: 1.5; }
-.acquiring-settings__fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; }
+.acquiring-settings__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
 .acquiring-settings__field { display: grid; gap: 0.45rem; padding: 1rem; border: 1px solid var(--border); border-radius: 15px; background: rgba(8, 13, 29, 0.32); }
 .acquiring-settings__field > span:first-child { font-weight: 700; }
 .acquiring-settings__field small { color: var(--text-secondary); line-height: 1.35; }

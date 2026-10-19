@@ -9,7 +9,7 @@ import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 import emailService from '../services/email.js'
 import { allocateOrderItems, formatOrderComposition, getOrderReportAmounts, getReportOrderWhere, getReportPartnerName, PARTNER_REPORT_TAX_RATE } from '../utils/partnerOrdersReport.js'
 import { getPaymentTypeLabel } from '../utils/paymentAcquiring.js'
-import { getAcquiringSettings } from '../utils/acquiringSettings.js'
+import { getAcquiringSettings, UNKNOWN_PAYMENT_PERCENT } from '../utils/acquiringSettings.js'
 import { createPartnerOrdersDocx, createPartnerOrdersPdf } from '../utils/partnerOrdersDocuments.js'
 
 const router = Router()
@@ -1034,7 +1034,7 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
     summary.addRow([allOrders ? 'Отчёт по всем заказам' : 'Отчёт по заказам всех партнёров'])
     summary.addRow(['Налог — расчётная сумма от оплаченного заказа', PARTNER_REPORT_TAX_RATE])
     summary.getCell('B2').numFmt = '0.000%'
-    summary.addRow([`Эквайринг: СБП ${acquiringSettings.sbpPercent}%, карта ${acquiringSettings.cardPercent}%; неизвестный способ — резервная ставка`, acquiringSettings.fallbackPercent / 100])
+    summary.addRow([`Эквайринг: СБП ${acquiringSettings.sbpPercent}%, карта ${acquiringSettings.cardPercent}%; неизвестный способ — ${UNKNOWN_PAYMENT_PERCENT.toLocaleString('ru-RU')}%`, UNKNOWN_PAYMENT_PERCENT / 100])
     summary.getCell('B3').numFmt = '0.00%'
     summary.addRow(['Остаток = оплачено − расчётный налог − эквайринг; себестоимость и партнёрская комиссия не вычтены'])
     summary.getRow(5).values = ['Итого оплачено', totals.revenue, 'Налог', totals.tax, 'Эквайринг', totals.acquiring, 'Оплаченных заказов', totals.paidCount, 'Оценок эквайринга', totals.estimatedCount]

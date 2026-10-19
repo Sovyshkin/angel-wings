@@ -4,7 +4,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { encryptMarketingPayload } from '../utils/marketingToken.js'
 import { getOrderItemUnitCost } from '../utils/productCost.js'
 import { getAcquiringEstimate } from '../utils/paymentAcquiring.js'
-import { getAcquiringSettings } from '../utils/acquiringSettings.js'
+import { getAcquiringSettings, UNKNOWN_PAYMENT_PERCENT } from '../utils/acquiringSettings.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -1273,7 +1273,7 @@ router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
       products,
       orders: orderRows.slice(0, 100),
       assumptions: {
-        acquiringFeePercent: acquiringSettings.fallbackPercent,
+        acquiringFeePercent: UNKNOWN_PAYMENT_PERCENT,
         acquiringSettings,
         sellerPaysDelivery: String(process.env.ANALYTICS_SELLER_PAYS_DELIVERY || '').toLowerCase() === 'true'
       }

@@ -54,6 +54,7 @@ model AcquiringSettings {
   id              Int      @id @default(1)
   sbpPercent      Float    @default(0.4)
   cardPercent     Float    @default(2.5)
+  // Kept for compatibility with existing databases; calculation always uses 2.5%.
   fallbackPercent Float    @default(2.7)
   updatedAt       DateTime @updatedAt
 

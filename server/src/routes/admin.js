@@ -48,7 +48,7 @@ router.put('/acquiring-settings', authenticate, requireAdmin, async (req, res, n
       update: rates
     })
     res.set('Cache-Control', 'no-store')
-    res.json(settings)
+    res.json({ sbpPercent: settings.sbpPercent, cardPercent: settings.cardPercent })
   } catch (error) {
     next(error)
   }

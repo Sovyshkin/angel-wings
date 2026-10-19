@@ -22,8 +22,8 @@ test('uses payment amount and correct method-specific rate', () => {
 })
 
 test('does not guess a method for old or manual orders', () => {
-  assert.deepEqual(getAcquiringEstimate({ paymentStatus: 'PAID', total: 10000 }, 2.7),
-    { amount: 270, source: 'Оценка: способ оплаты неизвестен, 2.7%' })
+  assert.deepEqual(getAcquiringEstimate({ paymentStatus: 'PAID', total: 10000 }, { cardPercent: 3 }),
+    { amount: 250, source: 'Оценка: способ оплаты неизвестен, 2.5%' })
   assert.deepEqual(getAcquiringEstimate({ paymentStatus: 'PENDING', paymentType: 'card', total: 10000 }),
     { amount: 0, source: 'Не оплачен' })
 })

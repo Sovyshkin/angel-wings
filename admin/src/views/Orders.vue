@@ -588,7 +588,8 @@
                 </svg>
                 <div>
                   <strong>{{ selectedOrder.deliveryTariffName }}</strong>
-                  <span>{{ selectedOrder.deliveryPrice ? formatPrice(selectedOrder.deliveryPrice) + ' ₽' : 'Не рассчитана' }}</span>
+                  <span v-if="isCdekDelivery(selectedOrder)">Оплачивается отдельно в СДЭК</span>
+                  <span v-else>{{ selectedOrder.deliveryPrice ? formatPrice(selectedOrder.deliveryPrice) + ' ₽' : 'Не рассчитана' }}</span>
                 </div>
               </div>
               <div class="cdek-location">
@@ -700,7 +701,7 @@
           </div>
 
           <div class="order-totals">
-            <div class="total-row" v-if="selectedOrder.deliveryPrice">
+            <div class="total-row" v-if="selectedOrder.deliveryPrice && !isCdekDelivery(selectedOrder)">
               <span>Доставка</span>
               <span>{{ formatPrice(selectedOrder.deliveryPrice) }} ₽</span>
             </div>
@@ -713,8 +714,8 @@
               <span class="discount">-{{ formatPrice(getPartnerBonusAmount(selectedOrder)) }}</span>
             </div>
             <div class="total-row final">
-              <span>Итого</span>
-              <span class="total-value">{{ formatPrice(selectedOrder.total) }}</span>
+              <span>{{ isCdekDelivery(selectedOrder) ? 'Итого без доставки СДЭК' : 'Итого' }}</span>
+              <span class="total-value">{{ formatPrice(getOrderDetailTotal(selectedOrder)) }}</span>
             </div>
           </div>
 
@@ -1430,6 +1431,12 @@ function getDeliveryType(order) {
 
 function isCdekDelivery(order) {
   return getDeliveryType(order) === 'cdek'
+}
+
+function getOrderDetailTotal(order) {
+  if (!isCdekDelivery(order)) return Number(order?.total || 0)
+  const itemsTotal = (order?.items || []).reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0)
+  return Math.round(Math.max(0, itemsTotal - Number(order?.discountAmount || 0)) * 100) / 100
 }
 
 function getPartnerBonusAmount(order) {
