@@ -588,6 +588,29 @@
           <p>Чистая прибыль считается как выручка минус себестоимость, эквайринг, доставка продавца, партнерские бонусы и комиссии.</p>
         </div>
 
+        <form class="acquiring-settings" @submit.prevent="saveAcquiringSettings">
+          <div class="acquiring-settings__intro">
+            <span class="section-kicker">Параметры расчёта</span>
+            <h3>Комиссия эквайринга</h3>
+            <p>Ставки для оценки комиссии в отчётах и марже. Если фактическая комиссия по заказу известна, используется она.</p>
+          </div>
+          <div class="acquiring-settings__fields">
+            <label v-for="field in acquiringFields" :key="field.key" class="acquiring-settings__field">
+              <span>{{ field.label }}</span>
+              <span class="acquiring-settings__input-wrap">
+                <input v-model.number="acquiringDraft[field.key]" type="number" min="0" max="100" step="0.01" required :aria-label="field.label" />
+                <b>%</b>
+              </span>
+              <small>{{ field.hint }}</small>
+            </label>
+          </div>
+          <div class="acquiring-settings__footer">
+            <span v-if="acquiringSettingsMessage" :class="['acquiring-settings__message', { 'is-error': acquiringSettingsError }]" role="status">{{ acquiringSettingsMessage }}</span>
+            <button type="button" class="acquiring-settings__reset" :disabled="savingAcquiringSettings" @click="resetAcquiringDraft">Сбросить изменения</button>
+            <button type="submit" class="acquiring-settings__save" :disabled="savingAcquiringSettings">{{ savingAcquiringSettings ? 'Сохраняем…' : 'Сохранить ставки' }}</button>
+          </div>
+        </form>
+
         <div class="margin-summary-grid">
           <article class="margin-summary-card margin-summary-card--profit">
             <span>Чистая прибыль</span>
@@ -875,6 +898,16 @@ const marginChannels = ref([])
 const marginProducts = ref([])
 const marginOrders = ref([])
 const marginAssumptions = ref({ acquiringFeePercent: 2.7, sellerPaysDelivery: false })
+const acquiringFields = [
+  { key: 'sbpPercent', label: 'СБП', hint: 'Оплата через Систему быстрых платежей' },
+  { key: 'cardPercent', label: 'Банковская карта', hint: 'Оплата картой' },
+  { key: 'fallbackPercent', label: 'Способ неизвестен', hint: 'Резервная ставка для старых и ручных заказов' }
+]
+const acquiringDraft = ref({ sbpPercent: 0.4, cardPercent: 2.5, fallbackPercent: 2.7 })
+const savedAcquiringSettings = ref({ ...acquiringDraft.value })
+const savingAcquiringSettings = ref(false)
+const acquiringSettingsMessage = ref('')
+const acquiringSettingsError = ref(false)
 const morningDashboard = ref({
   yesterday: { revenue: 0, orders: 0 },
   dayBefore: { revenue: 0, orders: 0 },
@@ -1109,6 +1142,33 @@ async function fetchMarginAnalytics() {
   marginProducts.value = data.products || []
   marginOrders.value = data.orders || []
   marginAssumptions.value = data.assumptions || marginAssumptions.value
+  if (data.assumptions?.acquiringSettings) {
+    savedAcquiringSettings.value = { ...data.assumptions.acquiringSettings }
+    acquiringDraft.value = { ...savedAcquiringSettings.value }
+  }
+}
+
+function resetAcquiringDraft() {
+  acquiringDraft.value = { ...savedAcquiringSettings.value }
+  acquiringSettingsMessage.value = ''
+}
+
+async function saveAcquiringSettings() {
+  acquiringSettingsMessage.value = ''
+  acquiringSettingsError.value = false
+  savingAcquiringSettings.value = true
+  try {
+    const { data } = await axios.put('/api/admin/acquiring-settings', acquiringDraft.value)
+    savedAcquiringSettings.value = { ...data }
+    acquiringDraft.value = { ...data }
+    await fetchMarginAnalytics()
+    acquiringSettingsMessage.value = 'Ставки сохранены. Расчёты обновлены.'
+  } catch (error) {
+    acquiringSettingsError.value = true
+    acquiringSettingsMessage.value = error.response?.data?.error || 'Не удалось сохранить ставки'
+  } finally {
+    savingAcquiringSettings.value = false
+  }
 }
 
 async function fetchActionAnalytics() {
@@ -2496,6 +2556,41 @@ onMounted(fetchAnalytics)
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.acquiring-settings {
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.2rem, 2.4vw, 1.75rem);
+  border: 1px solid rgba(143, 170, 255, 0.24);
+  border-radius: 22px;
+  background: radial-gradient(circle at 100% 0%, rgba(110, 147, 255, 0.12), transparent 45%), var(--bg-card);
+}
+
+.acquiring-settings__intro h3 { margin: 0.3rem 0 0.45rem; font-size: 1.25rem; }
+.acquiring-settings__intro p { margin: 0; color: var(--text-secondary); line-height: 1.5; }
+.acquiring-settings__fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; }
+.acquiring-settings__field { display: grid; gap: 0.45rem; padding: 1rem; border: 1px solid var(--border); border-radius: 15px; background: rgba(8, 13, 29, 0.32); }
+.acquiring-settings__field > span:first-child { font-weight: 700; }
+.acquiring-settings__field small { color: var(--text-secondary); line-height: 1.35; }
+.acquiring-settings__input-wrap { display: flex; align-items: center; gap: 0.4rem; }
+.acquiring-settings__input-wrap input { width: 100%; min-width: 0; padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); color: var(--text-primary); font: inherit; font-variant-numeric: tabular-nums; }
+.acquiring-settings__input-wrap input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.acquiring-settings__input-wrap b { color: var(--accent); }
+.acquiring-settings__footer { display: flex; align-items: center; justify-content: flex-end; gap: 0.8rem; flex-wrap: wrap; }
+.acquiring-settings__message { margin-right: auto; color: #62d49d; font-size: 0.9rem; }
+.acquiring-settings__message.is-error { color: #ff8c91; }
+.acquiring-settings__reset, .acquiring-settings__save { min-height: 42px; padding: 0.55rem 1rem; border-radius: 11px; font: inherit; font-weight: 700; cursor: pointer; }
+.acquiring-settings__reset { border: 1px solid var(--border); background: transparent; color: var(--text-primary); }
+.acquiring-settings__save { border: 1px solid rgba(170, 190, 255, 0.7); background: #9fb3ff; color: #10152d; }
+.acquiring-settings__reset:disabled, .acquiring-settings__save:disabled { opacity: 0.6; cursor: wait; }
+.acquiring-settings__reset:not(:disabled):hover { border-color: var(--accent); }
+.acquiring-settings__save:not(:disabled):hover { background: #b3c3ff; }
+
+@media (max-width: 760px) {
+  .acquiring-settings__fields { grid-template-columns: 1fr; }
+  .acquiring-settings__footer { align-items: stretch; }
+  .acquiring-settings__message { flex-basis: 100%; }
 }
 
 .margin-summary-grid {

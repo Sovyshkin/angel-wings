@@ -1,6 +1,19 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { allocateOrderItems, formatOrderComposition, getOrderReportAmounts } from './partnerOrdersReport.js'
+import { allocateOrderItems, formatOrderComposition, getOrderReportAmounts, getReportOrderWhere, getReportPartnerName } from './partnerOrdersReport.js'
+
+test('all-orders report has no partner filter, while partner report retains it', () => {
+  assert.deepEqual(getReportOrderWhere(true, [7]), {})
+  assert.deepEqual(getReportOrderWhere(false, [7]), {
+    OR: [
+      { partnerId: { not: null } },
+      { commission: { isNot: null } },
+      { promoCodeId: { in: [7] } }
+    ]
+  })
+  assert.equal(getReportPartnerName(null, null), 'Без партнёра')
+  assert.equal(getReportPartnerName(null, 12), 'Партнёр #12')
+})
 
 test('item discounts reconcile to the order total to the kopeck', () => {
   const order = {

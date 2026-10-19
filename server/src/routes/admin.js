@@ -17,11 +17,42 @@ import emailService from '../services/email.js'
 import { queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
 import { buildOrderWaybill, createOrderWaybillDocx, createOrderWaybillPdf } from '../utils/orderWaybill.js'
+import { applyStockAdjustments, parseStockAdjustmentRequest } from '../utils/stockAdjustments.js'
+import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiringSettings.js'
 
 const router = Router()
 const prisma = new PrismaClient()
 const ALLOWED_USER_ROLES = ['USER', 'ADMIN', 'PARTNER']
 const ADMIN_PASSWORD_LENGTH = 18
+
+router.get('/acquiring-settings', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'no-store')
+    res.json(await getAcquiringSettings(prisma))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.put('/acquiring-settings', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    let rates
+    try {
+      rates = parseAcquiringSettings(req.body)
+    } catch (error) {
+      return res.status(400).json({ error: error.message })
+    }
+    const settings = await prisma.acquiringSettings.upsert({
+      where: { id: 1 },
+      create: { id: 1, ...rates },
+      update: rates
+    })
+    res.set('Cache-Control', 'no-store')
+    res.json(settings)
+  } catch (error) {
+    next(error)
+  }
+})
 
 function getAdminLoginUrl() {
   return String(process.env.ADMIN_LOGIN_URL || process.env.ADMIN_URL || 'https://admin.angel-wings.ru').trim()
@@ -1560,6 +1591,20 @@ router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
 
     res.json({ products: parsedProducts, total })
   } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/products/stock-adjustments', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { mode, entries } = parseStockAdjustmentRequest(req.body)
+    const changes = await prisma.$transaction(tx => applyStockAdjustments(tx, { mode, entries }))
+    res.json({ changes })
+  } catch (error) {
+    if (error.status === 409 && error.productId) {
+      const current = await prisma.product.findUnique({ where: { id: error.productId }, select: { stock: true } })
+      return res.status(409).json({ error: error.message, productId: error.productId, currentStock: current?.stock ?? null })
+    }
     next(error)
   }
 })

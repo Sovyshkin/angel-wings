@@ -7,6 +7,18 @@
       </div>
       <div class="header-actions">
         <button type="button" class="btn btn-primary" @click="openManualOrder">+ Добавить заказ</button>
+        <div class="orders-export-picker">
+          <button type="button" class="btn btn-secondary" :disabled="exportLoading" :aria-expanded="showExportFormats" aria-controls="all-orders-export-formats" @click="showExportFormats = !showExportFormats">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/></svg>
+            {{ exportLoading ? 'Формируем…' : 'Выгрузить все' }}
+          </button>
+          <div v-if="showExportFormats" id="all-orders-export-formats" class="orders-export-menu" role="group" aria-label="Формат отчёта по всем заказам">
+            <p>Все заказы, включая без партнёра</p>
+            <button type="button" @click="exportAllOrders('xlsx')">Excel <span>.xlsx</span></button>
+            <button type="button" @click="exportAllOrders('pdf')">PDF <span>.pdf</span></button>
+            <button type="button" @click="exportAllOrders('docx')">Word <span>.docx</span></button>
+          </div>
+        </div>
         <button
           type="button"
           :class="['favorite-filter', { active: filterFavorites }]"
@@ -756,6 +768,8 @@ const search = ref('')
 const favoriteSavingId = ref(null)
 const selectedOrder = ref(null)
 const downloadingWaybill = ref(false)
+const exportLoading = ref(false)
+const showExportFormats = ref(false)
 const showManualOrder = ref(false)
 const manualSaving = ref(false)
 const manualError = ref('')
@@ -1301,6 +1315,34 @@ async function downloadWaybill(format) {
   }
 }
 
+async function exportAllOrders(format) {
+  if (exportLoading.value) return
+  showExportFormats.value = false
+  exportLoading.value = true
+  try {
+    const { data } = await axios.get('/api/admin/partners/orders-export/all-orders', {
+      params: { format },
+      responseType: 'blob'
+    })
+    const url = URL.createObjectURL(data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `all-orders-${new Date().toISOString().slice(0, 10)}.${format}`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch (error) {
+    let message = 'Не удалось выгрузить все заказы'
+    if (error.response?.data instanceof Blob) {
+      try { message = JSON.parse(await error.response.data.text()).error || message } catch { /* fallback */ }
+    }
+    alert(message)
+  } finally {
+    exportLoading.value = false
+  }
+}
+
 function closeOrder() {
   if (savingOrder.value) return
   editingOrder.value = false
@@ -1623,6 +1665,14 @@ watch(manualCityQuery, query => {
   letter-spacing: 0;
   white-space: nowrap;
 }
+
+.orders-export-picker { position: relative; }
+.orders-export-picker > .btn { display: inline-flex; align-items: center; gap: .45rem; }
+.orders-export-menu { position: absolute; z-index: 30; top: calc(100% + 8px); right: 0; min-width: 175px; padding: 5px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-secondary); box-shadow: 0 15px 35px #0007; }
+.orders-export-menu p { margin: 4px 8px 6px; max-width: 150px; color: var(--text-muted); font-size: .7rem; line-height: 1.35; }
+.orders-export-menu button { display: flex; justify-content: space-between; gap: 16px; width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text-primary); cursor: pointer; font: inherit; font-size: .84rem; text-align: left; }
+.orders-export-menu button:hover, .orders-export-menu button:focus-visible { background: var(--bg-hover); }
+.orders-export-menu span { color: var(--text-muted); }
 
 .favorite-filter {
   display: inline-flex;
@@ -3167,6 +3217,9 @@ watch(manualCityQuery, query => {
     width: 100%;
     min-width: 0;
   }
+
+  .orders-export-picker { min-width: 0; }
+  .orders-export-picker > .btn { justify-content: center; }
 
   .header-actions .status-filter {
     grid-column: 1 / -1;

@@ -5,13 +5,23 @@
         <h1 class="page-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">Товары</h1>
         <p class="page-subtitle">Управление каталогом товаров</p>
       </div>
-      <router-link to="/products/new" class="btn btn-primary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        <span class="btn-text">Добавить товар</span>
-      </router-link>
+      <div class="header-actions">
+        <button type="button" class="btn btn-secondary stock-open-btn" @click="openStockDialog">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/><path d="M12 6v4m-2-2h4"/>
+          </svg>
+          <span>Изменить остатки</span>
+        </button>
+        <router-link to="/products/new" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span class="btn-text">Добавить товар</span>
+        </router-link>
+      </div>
     </div>
+
+    <div v-if="stockNotice" class="stock-notice" role="status">{{ stockNotice }}</div>
 
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
@@ -36,7 +46,7 @@
               <th>Название</th>
               <th>Категория</th>
               <th>Цена</th>
-              <th>Stock</th>
+              <th>Остаток</th>
               <th>Упаковка</th>
               <th>Статус</th>
               <th></th>
@@ -136,11 +146,90 @@
         <router-link to="/products/new" class="btn btn-primary btn-sm">Добавить первый</router-link>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="stockDialogOpen" class="stock-overlay" @click.self="closeStockDialog">
+        <section class="stock-dialog" role="dialog" aria-modal="true" aria-labelledby="stock-dialog-title">
+          <div class="stock-dialog__header">
+            <div>
+              <span class="stock-dialog__eyebrow">УПРАВЛЕНИЕ СКЛАДОМ</span>
+              <h2 id="stock-dialog-title">Изменить остатки</h2>
+              <p>Выберите товары и укажите количество. Изменения применятся ко всем выбранным за один раз.</p>
+            </div>
+            <button type="button" class="stock-icon-button" aria-label="Закрыть" :disabled="stockSaving" @click="closeStockDialog">×</button>
+          </div>
+
+          <div class="stock-mode" role="group" aria-label="Способ изменения остатка">
+            <button type="button" :class="{ active: stockMode === 'increase' }" :aria-pressed="stockMode === 'increase'" :disabled="stockSaving" @click="stockMode = 'increase'">+ Поступление</button>
+            <button type="button" :class="{ active: stockMode === 'set' }" :aria-pressed="stockMode === 'set'" :disabled="stockSaving" @click="stockMode = 'set'">Установить остаток</button>
+          </div>
+          <p class="stock-mode-hint">{{ stockMode === 'increase' ? 'Количество прибавится к текущему остатку каждого товара.' : 'Указанное число станет новым общим остатком товара. Можно указать 0.' }}</p>
+
+          <div class="stock-dialog__grid" :class="{ 'is-saving': stockSaving }">
+            <div class="stock-picker">
+              <div class="stock-section-heading"><strong>Каталог</strong><span>{{ stockResultsTotal }} товаров</span></div>
+              <label class="stock-search-label" for="stock-search">Найти товар</label>
+              <input id="stock-search" v-model="stockSearch" class="stock-search-input" type="search" placeholder="Название, ID или артикул" autocomplete="off">
+              <div class="stock-list" aria-label="Найденные товары">
+                <div v-if="stockResultsLoading" class="stock-list-state">Загружаем товары…</div>
+                <div v-else-if="stockResultsError" class="stock-list-state stock-list-state--error">{{ stockResultsError }}</div>
+                <div v-else-if="!stockResults.length" class="stock-list-state">Товары не найдены</div>
+                <template v-else>
+                  <label v-for="product in stockResults" :key="product.id" class="stock-product" :class="{ selected: selectedStockIds.has(product.id) }">
+                    <input type="checkbox" :checked="selectedStockIds.has(product.id)" @change="toggleStockProduct(product)">
+                    <span class="stock-product__name">{{ product.title }}<small>#{{ product.id }}{{ product.sku ? ` · ${product.sku}` : '' }}</small></span>
+                    <span class="stock-product__count">{{ product.stock }} шт.</span>
+                  </label>
+                </template>
+              </div>
+              <button v-if="stockResults.length && !stockResultsLoading" type="button" class="stock-select-visible" @click="selectVisibleStockProducts">Выбрать показанные товары</button>
+              <p v-if="stockResultsTotal > stockResults.length" class="stock-picker-note">Показаны первые {{ stockResults.length }} результатов. Уточните поиск для остальных.</p>
+            </div>
+
+            <div class="stock-selected">
+              <div class="stock-section-heading"><strong>К изменению</strong><span>{{ selectedStockProducts.length }} выбрано</span></div>
+              <div class="stock-common">
+                <label for="stock-common-quantity">Одно количество для всех</label>
+                <div class="stock-common__controls">
+                  <input id="stock-common-quantity" v-model="stockCommonQuantity" type="number" inputmode="numeric" :min="stockMode === 'increase' ? 1 : 0" step="1" placeholder="Например, 30">
+                  <button type="button" :disabled="!selectedStockProducts.length" @click="applyCommonStockQuantity">Применить</button>
+                </div>
+                <small>После применения количество можно поправить у любого товара отдельно.</small>
+              </div>
+              <div class="stock-selected-list">
+                <div v-if="!selectedStockProducts.length" class="stock-list-state">Выберите товары слева — они появятся здесь.</div>
+                <div v-for="item in selectedStockProducts" :key="item.id" class="stock-selected-item">
+                  <div class="stock-selected-item__top">
+                    <span>{{ item.title }}<small>#{{ item.id }} · сейчас {{ item.stock }} шт.</small></span>
+                    <button type="button" class="stock-remove" :aria-label="`Убрать ${item.title}`" @click="removeStockProduct(item.id)">×</button>
+                  </div>
+                  <div class="stock-selected-item__bottom">
+                    <label :for="`stock-qty-${item.id}`">{{ stockMode === 'increase' ? 'Пришло' : 'Новый остаток' }}</label>
+                    <input :id="`stock-qty-${item.id}`" v-model="item.quantity" type="number" inputmode="numeric" :min="stockMode === 'increase' ? 1 : 0" step="1" placeholder="шт.">
+                    <span class="stock-preview">→ {{ previewStock(item) }} шт.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p class="stock-scope-note">Меняется общий остаток товара. Количество в карточках дозировок этим действием не меняется.</p>
+          <div v-if="stockError" class="stock-save-error" role="alert">{{ stockError }}</div>
+          <div class="stock-dialog__footer">
+            <span>{{ selectedStockProducts.length ? `Будет изменено товаров: ${selectedStockProducts.length}` : 'Выберите хотя бы один товар' }}</span>
+            <div>
+              <button type="button" class="btn btn-secondary" :disabled="stockSaving" @click="closeStockDialog">Отмена</button>
+              <button type="button" class="btn btn-primary" :disabled="stockSaving || !selectedStockProducts.length" @click="saveStockAdjustments">{{ stockSaving ? 'Сохраняем…' : 'Сохранить остатки' }}</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import axios from 'axios'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 import AdminPagination from '../components/AdminPagination.vue'
@@ -155,6 +244,135 @@ const search = ref('')
 const currentPage = ref(1)
 const PRODUCTS_PER_PAGE = 20
 let searchTimer = null
+
+const stockDialogOpen = ref(false)
+const stockMode = ref('increase')
+const stockSearch = ref('')
+const stockResults = ref([])
+const stockResultsTotal = ref(0)
+const stockResultsLoading = ref(false)
+const stockResultsError = ref('')
+const stockCommonQuantity = ref('')
+const selectedStockProducts = ref([])
+const selectedStockIds = computed(() => new Set(selectedStockProducts.value.map(item => item.id)))
+const stockSaving = ref(false)
+const stockError = ref('')
+const stockNotice = ref('')
+let stockSearchTimer = null
+let stockRequestId = 0
+
+function isValidStockQuantity(value) {
+  if (value === '' || value === null || value === undefined) return false
+  const number = Number(value)
+  return Number.isSafeInteger(number) && number >= (stockMode.value === 'increase' ? 1 : 0) && number <= 2147483647
+}
+
+function previewStock(item) {
+  if (!isValidStockQuantity(item.quantity)) return '—'
+  const result = stockMode.value === 'increase' ? item.stock + Number(item.quantity) : Number(item.quantity)
+  return result <= 2147483647 ? result : '—'
+}
+
+async function fetchStockResults() {
+  const requestId = ++stockRequestId
+  stockResultsLoading.value = true
+  stockResultsError.value = ''
+  try {
+    const { data } = await axios.get(API_URL, { params: { q: stockSearch.value.trim(), limit: 50, offset: 0 } })
+    if (requestId !== stockRequestId || !stockDialogOpen.value) return
+    stockResults.value = data.products || []
+    stockResultsTotal.value = data.total || 0
+  } catch (e) {
+    if (requestId !== stockRequestId || !stockDialogOpen.value) return
+    stockResultsError.value = 'Не удалось загрузить товары. Повторите поиск.'
+  } finally {
+    if (requestId === stockRequestId) stockResultsLoading.value = false
+  }
+}
+
+function openStockDialog() {
+  stockDialogOpen.value = true
+  stockMode.value = 'increase'
+  stockSearch.value = ''
+  stockCommonQuantity.value = ''
+  selectedStockProducts.value = []
+  stockError.value = ''
+  fetchStockResults()
+}
+
+function closeStockDialog() {
+  if (stockSaving.value) return
+  stockDialogOpen.value = false
+  stockRequestId++
+  clearTimeout(stockSearchTimer)
+}
+
+function toggleStockProduct(product) {
+  if (selectedStockIds.value.has(product.id)) {
+    removeStockProduct(product.id)
+  } else if (selectedStockProducts.value.length < 100) {
+    selectedStockProducts.value.push({ id: product.id, title: product.title, stock: product.stock, quantity: isValidStockQuantity(stockCommonQuantity.value) ? String(stockCommonQuantity.value) : '' })
+  } else {
+    stockError.value = 'За один раз можно изменить не более 100 товаров.'
+  }
+}
+
+function removeStockProduct(id) {
+  selectedStockProducts.value = selectedStockProducts.value.filter(item => item.id !== id)
+}
+
+function selectVisibleStockProducts() {
+  for (const product of stockResults.value) {
+    if (selectedStockProducts.value.length >= 100) break
+    if (!selectedStockIds.value.has(product.id)) toggleStockProduct(product)
+  }
+}
+
+function applyCommonStockQuantity() {
+  if (!isValidStockQuantity(stockCommonQuantity.value)) {
+    stockError.value = stockMode.value === 'increase' ? 'Введите целое количество поступивших товаров больше нуля.' : 'Введите новый целый остаток от нуля.'
+    return
+  }
+  stockError.value = ''
+  selectedStockProducts.value.forEach(item => { item.quantity = String(stockCommonQuantity.value) })
+}
+
+async function saveStockAdjustments() {
+  if (!selectedStockProducts.value.length) return
+  if (selectedStockProducts.value.some(item => !isValidStockQuantity(item.quantity) || previewStock(item) === '—')) {
+    stockError.value = 'Проверьте количество и новый остаток каждого выбранного товара.'
+    return
+  }
+  stockSaving.value = true
+  stockError.value = ''
+  try {
+    const entries = selectedStockProducts.value.map(item => ({
+      productId: item.id,
+      quantity: Number(item.quantity),
+      ...(stockMode.value === 'set' ? { expectedStock: item.stock } : {})
+    }))
+    const { data } = await axios.post(`${API_URL}/stock-adjustments`, { mode: stockMode.value, entries })
+    stockNotice.value = `Остатки обновлены: ${data.changes.length} товаров.`
+    stockSaving.value = false
+    closeStockDialog()
+    await fetchProducts()
+  } catch (e) {
+    const conflict = e.response?.data
+    if (e.response?.status === 409 && Number.isInteger(conflict?.currentStock)) {
+      const selected = selectedStockProducts.value.find(item => item.id === conflict.productId)
+      if (selected) selected.stock = conflict.currentStock
+      const result = stockResults.value.find(item => item.id === conflict.productId)
+      if (result) result.stock = conflict.currentStock
+    }
+    stockError.value = e.response?.data?.error || 'Не удалось обновить остатки. Попробуйте ещё раз.'
+  } finally {
+    stockSaving.value = false
+  }
+}
+
+function handleStockEscape(event) {
+  if (event.key === 'Escape' && stockDialogOpen.value) closeStockDialog()
+}
 
 async function fetchProducts() {
   try {
@@ -205,7 +423,28 @@ function formatPackageSize(product) {
   return `${length || 0}×${width || 0}×${height || 0} см`
 }
 
-onMounted(fetchProducts)
+onMounted(() => {
+  fetchProducts()
+  window.addEventListener('keydown', handleStockEscape)
+})
+
+onUnmounted(() => {
+  clearTimeout(searchTimer)
+  clearTimeout(stockSearchTimer)
+  window.removeEventListener('keydown', handleStockEscape)
+})
+
+watch(stockMode, () => {
+  stockCommonQuantity.value = ''
+  selectedStockProducts.value.forEach(item => { item.quantity = '' })
+  stockError.value = ''
+})
+
+watch(stockSearch, () => {
+  if (!stockDialogOpen.value) return
+  clearTimeout(stockSearchTimer)
+  stockSearchTimer = setTimeout(fetchStockResults, 250)
+})
 
 watch(currentPage, fetchProducts)
 
@@ -229,6 +468,68 @@ watch(search, () => {
   gap: 1rem;
   margin-bottom: 2rem;
 }
+
+.header-actions { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
+.header-actions .btn { white-space: nowrap; }
+.stock-open-btn { border: 1px solid var(--border); }
+.stock-notice { margin: -0.7rem 0 1.25rem; padding: 0.85rem 1rem; border: 1px solid #49bb8c66; border-radius: 12px; color: #9fe5c4; background: #14372a88; }
+
+.stock-overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(4, 7, 17, 0.78); backdrop-filter: blur(9px); }
+.stock-dialog { width: min(940px, 100%); max-height: min(90vh, 950px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #445172; border-radius: 22px; background: linear-gradient(145deg, #1b2030, #111522 70%); color: var(--text-primary); box-shadow: 0 30px 90px #0009, 0 0 42px #6386d016; }
+.stock-dialog__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding: 27px 30px 16px; }
+.stock-dialog__eyebrow { color: #9db6ef; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.16em; }
+.stock-dialog__header h2 { font-size: clamp(1.35rem, 3vw, 1.85rem); line-height: 1.1; margin: 8px 0 9px; }
+.stock-dialog__header p { margin: 0; max-width: 620px; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
+.stock-icon-button { flex: none; width: 36px; height: 36px; border: 1px solid #4b5268; border-radius: 10px; color: var(--text-secondary); background: #ffffff08; font-size: 1.45rem; line-height: 1; cursor: pointer; }
+.stock-icon-button:hover { color: white; border-color: #91aaf0; }
+.stock-mode { display: flex; align-self: flex-start; gap: 4px; margin: 0 30px; padding: 4px; border: 1px solid #3b4561; border-radius: 12px; background: #0b1020; }
+.stock-mode button { padding: 10px 17px; border: 0; border-radius: 9px; background: transparent; color: var(--text-secondary); cursor: pointer; font-weight: 650; transition: background .18s, color .18s; }
+.stock-mode button.active { background: #9fb6f4; color: #0a1530; box-shadow: 0 2px 12px #779dff31; }
+.stock-mode button:disabled { cursor: wait; }
+.stock-mode-hint { margin: 10px 30px 18px; color: #aeb9d1; font-size: 0.82rem; }
+.stock-dialog__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-height: 0; padding: 0 30px; }
+.stock-dialog__grid.is-saving { opacity: .68; pointer-events: none; }
+.stock-picker, .stock-selected { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 17px; border: 1px solid #343c52; border-radius: 15px; background: #0d1220a9; }
+.stock-section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 15px; }
+.stock-section-heading strong { font-size: 0.98rem; }
+.stock-section-heading span { color: #a4b8e9; font-size: 0.8rem; }
+.stock-search-label, .stock-common label { display: block; margin-bottom: 7px; color: var(--text-secondary); font-size: 0.79rem; font-weight: 600; }
+.stock-search-input, .stock-common input, .stock-selected-item input { min-width: 0; border: 1px solid #3c4560; border-radius: 10px; background: #0d101b; color: #f1f5ff; outline: none; }
+.stock-search-input:focus, .stock-common input:focus, .stock-selected-item input:focus { border-color: #9bb5fb; box-shadow: 0 0 0 3px #92b0f523; }
+.stock-search-input { width: 100%; padding: 11px 12px; }
+.stock-list { min-height: 145px; max-height: 305px; overflow-y: auto; margin-top: 11px; scrollbar-width: thin; scrollbar-color: #4b5b81 transparent; }
+.stock-list-state { display: grid; place-items: center; min-height: 115px; padding: 15px; color: var(--text-secondary); text-align: center; font-size: 0.85rem; }
+.stock-list-state--error { color: #ff9a9a; }
+.stock-product { display: flex; align-items: center; gap: 11px; padding: 10px 8px; border-bottom: 1px solid #32394b; cursor: pointer; }
+.stock-product:hover, .stock-product.selected { background: #6688cf14; }
+.stock-product input { width: 17px; height: 17px; flex: none; accent-color: #9eb9fa; }
+.stock-product__name { min-width: 0; flex: 1; font-weight: 600; line-height: 1.3; }
+.stock-product__name small, .stock-selected-item__top small { display: block; margin-top: 4px; color: var(--text-muted); font-size: 0.72rem; font-weight: 400; }
+.stock-product__count { flex: none; color: #a8bdf1; font-size: 0.79rem; }
+.stock-select-visible { align-self: flex-start; margin-top: 12px; padding: 0; border: 0; background: none; color: #a9c3ff; cursor: pointer; font-size: 0.82rem; font-weight: 650; }
+.stock-select-visible:hover { text-decoration: underline; }
+.stock-picker-note { margin: 8px 0 0; color: var(--text-muted); font-size: 0.72rem; }
+.stock-common { padding: 12px; border: 1px solid #4e608c; border-radius: 12px; background: linear-gradient(115deg, #1c2c50a3, #141c31a0); }
+.stock-common__controls { display: flex; gap: 8px; }
+.stock-common input { width: 100%; flex: 1; padding: 9px 10px; }
+.stock-common button { padding: 9px 13px; border: 1px solid #9cb5f0; border-radius: 9px; color: #dfe9ff; background: #39599a; cursor: pointer; font-weight: 650; }
+.stock-common button:disabled { opacity: .45; cursor: not-allowed; }
+.stock-common small { display: block; margin-top: 7px; color: #aebbd7; font-size: 0.7rem; line-height: 1.35; }
+.stock-selected-list { min-height: 120px; max-height: 300px; overflow-y: auto; margin-top: 11px; scrollbar-width: thin; scrollbar-color: #4b5b81 transparent; }
+.stock-selected-item { padding: 11px 2px 13px; border-bottom: 1px solid #32394b; }
+.stock-selected-item__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; font-size: 0.87rem; font-weight: 650; }
+.stock-remove { border: 0; color: #99a6c2; background: none; cursor: pointer; font-size: 1.2rem; line-height: 1; }
+.stock-remove:hover { color: #ff9d9d; }
+.stock-selected-item__bottom { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+.stock-selected-item__bottom label { min-width: 105px; color: var(--text-secondary); font-size: 0.76rem; }
+.stock-selected-item input { width: 85px; padding: 8px 9px; }
+.stock-preview { margin-left: auto; color: #bad0ff; white-space: nowrap; font-size: 0.8rem; }
+.stock-scope-note { margin: 13px 30px 0; color: #9ba7c1; font-size: 0.76rem; }
+.stock-save-error { margin: 10px 30px 0; padding: 9px 12px; border: 1px solid #dc6c7775; border-radius: 9px; color: #ffb3ba; background: #64202b4a; font-size: 0.83rem; }
+.stock-dialog__footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 16px; padding: 17px 30px; border-top: 1px solid #343c52; }
+.stock-dialog__footer > span { color: var(--text-secondary); font-size: 0.8rem; }
+.stock-dialog__footer > div { display: flex; gap: 9px; }
+.stock-dialog__footer .btn { white-space: nowrap; }
 
 .products-table-wrapper {
   overflow-x: auto;
@@ -507,6 +808,18 @@ watch(search, () => {
     justify-content: center;
   }
 
+  .header-actions { width: 100%; }
+  .header-actions .btn { flex: 1; }
+  .stock-dialog__grid { grid-template-columns: 1fr; overflow-y: auto; }
+  .stock-list, .stock-selected-list { max-height: 210px; }
+  .stock-dialog__header { padding: 20px 18px 13px; }
+  .stock-mode { margin: 0 18px; }
+  .stock-mode-hint { margin: 9px 18px 14px; }
+  .stock-dialog__grid { padding: 0 18px; }
+  .stock-scope-note { margin: 12px 18px 0; }
+  .stock-save-error { margin: 10px 18px 0; }
+  .stock-dialog__footer { padding: 14px 18px; }
+
   .products-table-wrapper {
     display: none;
   }
@@ -525,13 +838,13 @@ watch(search, () => {
 }
 
 @media (max-width: 480px) {
-  .btn-text {
-    display: none;
-  }
-
-  .page-header .btn {
-    width: auto;
-    padding: 0.75rem;
-  }
+  .header-actions { flex-direction: column; align-items: stretch; }
+  .header-actions .btn { width: 100%; padding: 0.75rem; }
+  .stock-overlay { padding: 8px; }
+  .stock-dialog { max-height: 96vh; border-radius: 14px; }
+  .stock-mode { align-self: stretch; }
+  .stock-mode button { flex: 1; padding: 9px; font-size: 0.82rem; }
+  .stock-dialog__footer { flex-direction: column; align-items: stretch; }
+  .stock-dialog__footer > div .btn { flex: 1; }
 }
 </style>

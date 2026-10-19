@@ -7,8 +7,9 @@ import { v4 as uuidv4 } from 'uuid'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 import emailService from '../services/email.js'
-import { allocateOrderItems, formatOrderComposition, getOrderReportAmounts, PARTNER_REPORT_TAX_RATE } from '../utils/partnerOrdersReport.js'
+import { allocateOrderItems, formatOrderComposition, getOrderReportAmounts, getReportOrderWhere, getReportPartnerName, PARTNER_REPORT_TAX_RATE } from '../utils/partnerOrdersReport.js'
 import { getPaymentTypeLabel } from '../utils/paymentAcquiring.js'
+import { getAcquiringSettings } from '../utils/acquiringSettings.js'
 import { createPartnerOrdersDocx, createPartnerOrdersPdf } from '../utils/partnerOrdersDocuments.js'
 
 const router = Router()
@@ -944,8 +945,9 @@ router.put('/:id', authenticate, requireAdmin, async (req, res, next) => {
   }
 })
 
-router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, next) => {
+router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, requireAdmin, async (req, res, next) => {
   try {
+    const allOrders = req.path === '/orders-export/all-orders'
     const format = String(req.query.format || 'xlsx').toLowerCase()
     if (!['xlsx', 'docx', 'pdf'].includes(format)) {
       return res.status(400).json({ error: 'Доступные форматы: xlsx, docx, pdf' })
@@ -960,13 +962,7 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
     const partnerById = new Map(partners.map(partner => [partner.id, partner]))
     const promoById = new Map(partners.flatMap(partner => partner.promoCodes.map(promo => [promo.id, { partnerId: partner.id, code: promo.code }])))
     const orders = await prisma.order.findMany({
-      where: {
-        OR: [
-          { partnerId: { not: null } },
-          { commission: { isNot: null } },
-          { promoCodeId: { in: [...promoById.keys()] } }
-        ]
-      },
+      where: getReportOrderWhere(allOrders, [...promoById.keys()]),
       include: {
         items: { include: { product: { select: { title: true, sku: true } } } },
         commission: { select: { partnerId: true, amount: true } }
@@ -974,17 +970,16 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
     })
 
-    const configuredPercent = Number.parseFloat(process.env.ACQUIRING_FEE_PERCENT || '2.7')
-    const acquiringPercent = Number.isFinite(configuredPercent) && configuredPercent >= 0 ? configuredPercent : 2.7
+    const acquiringSettings = await getAcquiringSettings(prisma)
     const reportOrders = orders.map(order => {
       const promo = promoById.get(order.promoCodeId)
       const partnerId = order.partnerId || order.commission?.partnerId || promo?.partnerId
       const partner = partnerById.get(partnerId)
-      const amounts = getOrderReportAmounts(order, acquiringPercent)
+      const amounts = getOrderReportAmounts(order, acquiringSettings)
       return {
         id: order.id,
         createdAt: order.createdAt,
-        partnerName: partner?.user?.name || `Партнёр #${partnerId || '—'}`,
+        partnerName: getReportPartnerName(partner, partnerId),
         partnerEmail: partner?.user?.email || '',
         customerName: order.customerName || '',
         promoCode: promo?.code || '',
@@ -1014,12 +1009,18 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
       return result
     }, { revenue: 0, tax: 0, acquiring: 0, paidCount: 0, estimatedCount: 0 })
     if (format !== 'xlsx') {
-      const report = { orders: reportOrders, totals }
+      const report = {
+        title: allOrders ? 'Отчёт по всем заказам' : 'Отчёт по заказам всех партнёров',
+        emptyMessage: allOrders ? 'Заказов пока нет.' : 'Заказов партнёров пока нет.',
+        showCustomer: allOrders,
+        orders: reportOrders,
+        totals
+      }
       const file = format === 'pdf' ? await createPartnerOrdersPdf(report) : await createPartnerOrdersDocx(report)
       const contentType = format === 'pdf'
         ? 'application/pdf'
         : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      const fileName = `partners-orders-${new Date().toISOString().slice(0, 10)}.${format}`
+      const fileName = `${allOrders ? 'all-orders' : 'partners-orders'}-${new Date().toISOString().slice(0, 10)}.${format}`
       res.setHeader('Content-Type', contentType)
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
       res.setHeader('Cache-Control', 'no-store')
@@ -1030,10 +1031,10 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
     workbook.created = new Date()
     const summary = workbook.addWorksheet('Заказы', { views: [{ state: 'frozen', ySplit: 6 }] })
     const detail = workbook.addWorksheet('Состав заказов', { views: [{ state: 'frozen', ySplit: 1 }] })
-    summary.addRow(['Отчёт по заказам всех партнёров'])
+    summary.addRow([allOrders ? 'Отчёт по всем заказам' : 'Отчёт по заказам всех партнёров'])
     summary.addRow(['Налог — расчётная сумма от оплаченного заказа', PARTNER_REPORT_TAX_RATE])
     summary.getCell('B2').numFmt = '0.000%'
-    summary.addRow(['Эквайринг: СБП 0,4%, карта 2,5%; неизвестный способ — резервная ставка', acquiringPercent / 100])
+    summary.addRow([`Эквайринг: СБП ${acquiringSettings.sbpPercent}%, карта ${acquiringSettings.cardPercent}%; неизвестный способ — резервная ставка`, acquiringSettings.fallbackPercent / 100])
     summary.getCell('B3').numFmt = '0.00%'
     summary.addRow(['Остаток = оплачено − расчётный налог − эквайринг; себестоимость и партнёрская комиссия не вычтены'])
     summary.getRow(5).values = ['Итого оплачено', totals.revenue, 'Налог', totals.tax, 'Эквайринг', totals.acquiring, 'Оплаченных заказов', totals.paidCount, 'Оценок эквайринга', totals.estimatedCount]
@@ -1046,16 +1047,21 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
     ]
 
     for (const order of reportOrders) {
-      const composition = formatOrderComposition(order.items)
-      const summaryRow = summary.addRow([
-        order.id, order.createdAt, order.partnerName, order.partnerEmail,
-        order.customerName, composition, order.promoCode, order.status, order.paymentStatus,
-        order.total, order.revenue, order.tax, order.acquiring,
-        order.acquiringSource, order.commission, order.balance, order.paymentType
-      ])
-      summaryRow.getCell(6).alignment = { vertical: 'top', wrapText: true }
-      const compositionLines = composition.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length / 55)), 0)
-      summaryRow.height = Math.min(390, Math.max(30, compositionLines * 17 + 10))
+      const itemRows = order.items.length ? order.items : [null]
+      itemRows.forEach((item, index) => {
+        const composition = item ? formatOrderComposition([item]) : 'Нет позиций'
+        const firstItem = index === 0
+        const summaryRow = summary.addRow([
+          order.id, order.createdAt, order.partnerName, order.partnerEmail,
+          order.customerName, composition, order.promoCode, order.status, order.paymentStatus,
+          firstItem ? order.total : null, firstItem ? order.revenue : null,
+          firstItem ? order.tax : null, firstItem ? order.acquiring : null,
+          order.acquiringSource, firstItem ? order.commission : null,
+          firstItem ? order.balance : null, order.paymentType
+        ])
+        summaryRow.getCell(6).alignment = { vertical: 'top', wrapText: true }
+        summaryRow.height = Math.max(30, Math.ceil(composition.length / 55) * 17 + 10)
+      })
       for (const item of order.items) {
         detail.addRow([
           order.id, order.createdAt, order.partnerName,
@@ -1089,7 +1095,7 @@ router.get('/orders-export/all', authenticate, requireAdmin, async (req, res, ne
     for (const col of [2, 4, 6]) summary.getRow(5).getCell(col).numFmt = '#,##0.00 [$₽-419]'
     summary.getRow(1).font = { bold: true, size: 16 }
 
-    const fileName = `partners-orders-${new Date().toISOString().slice(0, 10)}.xlsx`
+    const fileName = `${allOrders ? 'all-orders' : 'partners-orders'}-${new Date().toISOString().slice(0, 10)}.xlsx`
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
     res.setHeader('Cache-Control', 'no-store')
@@ -1145,12 +1151,11 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
       orderBy: { createdAt: 'desc' }
     })
 
-    const configuredPercent = Number.parseFloat(process.env.ACQUIRING_FEE_PERCENT || '2.7')
-    const acquiringPercent = Number.isFinite(configuredPercent) && configuredPercent >= 0 ? configuredPercent : 2.7
+    const acquiringSettings = await getAcquiringSettings(prisma)
     if (format !== 'xlsx') {
       const promoCodeById = new Map(partner.promoCodes.map(promoCode => [promoCode.id, promoCode.code]))
       const reportOrders = orders.map(order => {
-        const amounts = getOrderReportAmounts(order, acquiringPercent)
+        const amounts = getOrderReportAmounts(order, acquiringSettings)
         return {
           id: order.id,
           createdAt: order.createdAt,
@@ -1222,30 +1227,30 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
     ]
 
     orders.forEach(order => {
-      const amounts = getOrderReportAmounts(order, acquiringPercent)
-      const items = order.items
-        .map(item => `${item.product?.title || `Товар #${item.productId}`} × ${item.quantity}`)
-        .join('\n')
-
-      sheet.addRow({
-        id: order.id,
-        createdAt: order.createdAt,
-        customerName: order.user?.name || order.customerName || '—',
-        customerEmail: order.user?.email || order.customerEmail || '—',
-        customerPhone: order.user?.phone || order.customerPhone || '—',
-        promoCode: promoCodeById.get(order.promoCodeId) || '—',
-        items: items || '—',
-        total: Number(order.total || 0),
-        discountAmount: Number(order.discountAmount || 0),
-        deliveryPrice: Number(order.deliveryPrice || order.deliveryCost || 0),
-        status: getOrderStatusLabel(order.status),
-        paymentStatus: getPaymentStatusLabel(order.paymentStatus),
-        paymentType: getPaymentTypeLabel(order.paymentType),
-        tax: amounts.tax,
-        acquiring: amounts.acquiring,
-        acquiringSource: amounts.acquiringSource,
-        commissionAmount: Number(order.commission?.amount || 0),
-        commissionPercentage: order.commission?.percentage == null ? null : Number(order.commission.percentage) / 100
+      const amounts = getOrderReportAmounts(order, acquiringSettings)
+      const itemRows = order.items.length ? order.items : [null]
+      itemRows.forEach((item, index) => {
+        const firstItem = index === 0
+        sheet.addRow({
+          id: order.id,
+          createdAt: order.createdAt,
+          customerName: order.user?.name || order.customerName || '—',
+          customerEmail: order.user?.email || order.customerEmail || '—',
+          customerPhone: order.user?.phone || order.customerPhone || '—',
+          promoCode: promoCodeById.get(order.promoCodeId) || '—',
+          items: item ? `${item.product?.title || `Товар #${item.productId}`} × ${item.quantity}` : '—',
+          total: firstItem ? Number(order.total || 0) : null,
+          discountAmount: firstItem ? Number(order.discountAmount || 0) : null,
+          deliveryPrice: firstItem ? Number(order.deliveryPrice || order.deliveryCost || 0) : null,
+          status: getOrderStatusLabel(order.status),
+          paymentStatus: getPaymentStatusLabel(order.paymentStatus),
+          paymentType: getPaymentTypeLabel(order.paymentType),
+          tax: firstItem ? amounts.tax : null,
+          acquiring: firstItem ? amounts.acquiring : null,
+          acquiringSource: amounts.acquiringSource,
+          commissionAmount: firstItem ? Number(order.commission?.amount || 0) : null,
+          commissionPercentage: firstItem && order.commission?.percentage != null ? Number(order.commission.percentage) / 100 : null
+        })
       })
     })
 

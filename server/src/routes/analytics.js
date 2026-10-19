@@ -4,6 +4,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { encryptMarketingPayload } from '../utils/marketingToken.js'
 import { getOrderItemUnitCost } from '../utils/productCost.js'
 import { getAcquiringEstimate } from '../utils/paymentAcquiring.js'
+import { getAcquiringSettings } from '../utils/acquiringSettings.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -180,15 +181,13 @@ function emptyMoneyMetric(key, label = key) {
   return { key, label, revenue: 0, orders: 0, units: 0 }
 }
 
-function getAcquiringFee(order) {
+function getAcquiringFee(order, acquiringSettings) {
   const paymentStatus = normalizeOrderStatus(order?.paymentStatus)
   if (!SUCCESS_PAYMENT_STATUSES.has(paymentStatus) || paymentStatus === 'CASH_ON_DELIVERY') {
     return 0
   }
 
-  const percent = Math.max(0, Number.parseFloat(process.env.ACQUIRING_FEE_PERCENT || '2.7') || 0)
-  const fixed = Math.max(0, Number.parseFloat(process.env.ACQUIRING_FEE_FIXED || '0') || 0)
-  return getAcquiringEstimate(order, percent, fixed).amount
+  return getAcquiringEstimate(order, acquiringSettings).amount
 }
 
 function getSellerDeliveryCost(order) {
@@ -204,12 +203,12 @@ function getAttributionChannel(order) {
   return String(order?.utmSource || order?.utmCampaign || 'Прямые / без UTM').trim() || 'Прямые / без UTM'
 }
 
-function calculateOrderMargin(order) {
+function calculateOrderMargin(order, acquiringSettings) {
   const productCost = (order.items || []).reduce((sum, item) => {
     const unitCost = getOrderItemUnitCost(item)
     return sum + unitCost * Math.max(0, Number(item.quantity || 0))
   }, 0)
-  const acquiringFee = getAcquiringFee(order)
+  const acquiringFee = getAcquiringFee(order, acquiringSettings)
   const deliveryCost = getSellerDeliveryCost(order)
   const partnerBonus = Math.max(0, Number(order.partnerBonusAmount || 0))
   const partnerCommission = Math.max(0, Number(order.commission?.amount || 0))
@@ -1088,6 +1087,7 @@ router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const days = Math.max(7, Math.min(365, Number.parseInt(req.query.days, 10) || 30))
     const periodStart = startOfDaysAgo(days)
+    const acquiringSettings = await getAcquiringSettings(prisma)
 
     const [orders, marketingEvents] = await Promise.all([
       prisma.order.findMany({
@@ -1143,7 +1143,7 @@ router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
     }
 
     const orderRows = orders.map(order => {
-      const margin = calculateOrderMargin(order)
+      const margin = calculateOrderMargin(order, acquiringSettings)
       const channel = getAttributionChannel(order)
       const channelMetric = channelMap.get(channel) || {
         channel,
@@ -1273,7 +1273,8 @@ router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
       products,
       orders: orderRows.slice(0, 100),
       assumptions: {
-        acquiringFeePercent: Math.max(0, Number.parseFloat(process.env.ACQUIRING_FEE_PERCENT || '2.7') || 0),
+        acquiringFeePercent: acquiringSettings.fallbackPercent,
+        acquiringSettings,
         sellerPaysDelivery: String(process.env.ANALYTICS_SELLER_PAYS_DELIVERY || '').toLowerCase() === 'true'
       }
     })

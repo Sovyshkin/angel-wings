@@ -39,6 +39,7 @@ export async function createPartnerOrdersDocx(report) {
       spacing: { before: 200, after: 80 }
     }))
     children.push(new Paragraph({ text: `${date(order.createdAt)}  ·  ${order.status}  ·  ${order.paymentStatus}  ·  ${order.paymentType || 'Способ неизвестен'}  ·  ${order.promoCode || 'без промокода'}`, spacing: { after: 100 } }))
+    if (report.showCustomer) children.push(new Paragraph({ text: `Клиент: ${order.customerName || 'Не указан'}`, spacing: { after: 100 } }))
     children.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
@@ -104,7 +105,7 @@ export async function createPartnerOrdersPdf(report) {
   doc.moveDown(0.8)
 
   for (const order of report.orders) {
-    ensureSpace(125)
+    ensureSpace(report.showCustomer ? 145 : 125)
     const startY = doc.y
     doc.roundedRect(42, startY, pageWidth, 29, 5).fill('#E8EDF7')
     doc.fillColor('#17223C').fontSize(11)
@@ -112,6 +113,7 @@ export async function createPartnerOrdersPdf(report) {
     doc.y = Math.max(doc.y, startY + 36)
     doc.fillColor('#647087').fontSize(8.5)
     textWithFont(doc, `${date(order.createdAt)}  ·  ${order.status}  ·  ${order.paymentStatus}  ·  ${order.paymentType || 'Способ неизвестен'}  ·  ${order.promoCode || 'без промокода'}`, { x: 50, y: doc.y, width: pageWidth - 16 })
+    if (report.showCustomer) textWithFont(doc, `Клиент: ${order.customerName || 'Не указан'}`, { x: 50, y: doc.y, width: pageWidth - 16 })
     doc.moveDown(0.25).fillColor('#17223C').fontSize(9)
     textWithFont(doc, `Сумма: ${money(order.total)}    Оплачено: ${money(order.revenue)}    Налог: ${money(order.tax)}`, { x: 50, y: doc.y, width: pageWidth - 16 })
     textWithFont(doc, `Эквайринг: ${money(order.acquiring)} (${order.acquiringSource})    Остаток: ${money(order.balance)}`, { x: 50, y: doc.y, width: pageWidth - 16 })
@@ -126,7 +128,7 @@ export async function createPartnerOrdersPdf(report) {
     if (!order.items.length) textWithFont(doc, 'Нет позиций', { x: 58, y: doc.y, width: pageWidth - 30 })
     doc.moveDown(1.1)
   }
-  if (!report.orders.length) textWithFont(doc, 'Заказов партнёров пока нет.', { width: pageWidth })
+  if (!report.orders.length) textWithFont(doc, report.emptyMessage || 'Заказов партнёров пока нет.', { width: pageWidth })
   const pages = doc.bufferedPageRange().count
   for (let index = 0; index < pages; index++) {
     doc.switchToPage(index)

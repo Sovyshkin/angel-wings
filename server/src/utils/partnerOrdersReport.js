@@ -2,6 +2,21 @@ import { getAcquiringEstimate } from './paymentAcquiring.js'
 
 export const PARTNER_REPORT_TAX_RATE = 0.11412
 
+export function getReportOrderWhere(includeAllOrders, promoCodeIds = []) {
+  if (includeAllOrders) return {}
+  return {
+    OR: [
+      { partnerId: { not: null } },
+      { commission: { isNot: null } },
+      { promoCodeId: { in: promoCodeIds } }
+    ]
+  }
+}
+
+export function getReportPartnerName(partner, partnerId) {
+  return partner?.user?.name || (partnerId ? `Партнёр #${partnerId}` : 'Без партнёра')
+}
+
 const toCents = value => Math.round((Number(value) || 0) * 100)
 const fromCents = value => value / 100
 
@@ -31,11 +46,11 @@ export function allocateOrderItems(order) {
   })
 }
 
-export function getOrderReportAmounts(order, acquiringPercent) {
+export function getOrderReportAmounts(order, acquiringSettings) {
   const paid = String(order.paymentStatus || '').toUpperCase() === 'PAID'
   const revenue = paid ? fromCents(toCents(order.total)) : 0
   const tax = paid ? fromCents(Math.round(toCents(order.total) * PARTNER_REPORT_TAX_RATE)) : 0
-  const estimate = getAcquiringEstimate(order, acquiringPercent)
+  const estimate = getAcquiringEstimate(order, acquiringSettings)
   const acquiring = estimate.amount
   const acquiringSource = estimate.source
   return { revenue, tax, acquiring, acquiringSource, balance: fromCents(toCents(revenue) - toCents(tax) - toCents(acquiring)) }
