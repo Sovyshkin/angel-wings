@@ -64,20 +64,6 @@
               </svg>
             </a>
           </div>
-          <div class="hero__stats">
-            <div class="stat">
-              <span class="stat-value">99.9%</span>
-              <span class="stat-label">Чистота</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">20+</span>
-              <span class="stat-label">Продуктов</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">24/7</span>
-              <span class="stat-label">Поддержка</span>
-            </div>
-          </div>
         </div>
 
         <div ref="heroVisual" class="hero__visual" aria-hidden="true">
@@ -1550,7 +1536,6 @@ function queueHeroScrollProgress() {
 .hero__actions {
   display: flex;
   gap: 1rem;
-  margin-bottom: 5rem;
   animation: slideUp 0.8s ease-out 0.3s both;
 }
 
@@ -1606,39 +1591,6 @@ function queueHeroScrollProgress() {
 
 .btn:hover .btn-icon {
   transform: translateX(5px);
-}
-
-.hero__stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(1.25rem, 2.6vw, 3rem);
-  max-width: 560px;
-  animation: slideUp 0.8s ease-out 0.4s both;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  min-width: 0;
-}
-
-.stat-value {
-  font-family: var(--font-mono);
-  font-size: 2.75rem;
-  font-weight: 700;
-  color: var(--accent);
-  line-height: 1;
-}
-
-.stat-label {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin-top: 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  white-space: nowrap;
 }
 
 .hero__visual {
@@ -4795,20 +4747,10 @@ function queueHeroScrollProgress() {
 
   .hero__actions {
     gap: 0.75rem;
-    margin-bottom: 3.5rem;
   }
 
   .hero__actions .btn {
     padding: 0.95rem 1.5rem;
-  }
-
-  .hero__stats {
-    max-width: 480px;
-    gap: 1.5rem;
-  }
-
-  .stat-value {
-    font-size: 2.25rem;
   }
 
   .hero-pen-wrap {
@@ -4902,14 +4844,6 @@ function queueHeroScrollProgress() {
     margin-bottom: 1.6rem;
   }
 
-  .hero__actions {
-    margin-bottom: 2.25rem;
-  }
-
-  .hero__stats {
-    max-width: 520px;
-  }
-
   .hero-orbits {
     right: -6%;
     top: 23%;
@@ -4987,8 +4921,7 @@ function queueHeroScrollProgress() {
   .hero__title,
   .hero__desc,
   .hero__chips,
-  .hero__actions,
-  .hero__stats {
+  .hero__actions {
     animation: none;
   }
 
@@ -5196,24 +5129,6 @@ function queueHeroScrollProgress() {
     padding: 0.36rem 0.52rem;
     letter-spacing: 0.03em;
     text-align: center;
-  }
-
-  .hero__stats {
-    width: 100%;
-    max-width: 360px;
-    gap: 0.35rem;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    overflow: hidden;
-  }
-
-  .stat-value {
-    font-size: clamp(1.42rem, 6.8vw, 1.76rem);
-  }
-
-  .stat-label {
-    font-size: clamp(0.5rem, 2.25vw, 0.6rem);
-    letter-spacing: 0.04em;
-    white-space: normal;
   }
 
   .hero__actions {
@@ -5678,21 +5593,11 @@ function queueHeroScrollProgress() {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0.8rem;
-    margin-bottom: 2.25rem;
   }
 
   .hero__actions .btn {
     width: auto;
     min-width: 205px;
-  }
-
-  .hero__stats {
-    max-width: 520px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .stat-value {
-    font-size: 2.1rem;
   }
 
   .hero-orbits {
