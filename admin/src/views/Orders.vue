@@ -2526,15 +2526,22 @@ watch(manualCityQuery, query => {
 
 .manual-user-results button {
   display: flex;
+  align-items: center;
   width: 100%;
   justify-content: space-between;
   gap: 1rem;
   padding: .65rem .85rem;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
   color: var(--text-primary);
+  appearance: none;
   text-align: left;
   cursor: pointer;
+  overflow-wrap: anywhere;
 }
 
+.manual-user-results button:last-child { border-bottom: 0; }
+.manual-user-results button small { flex: 0 0 auto; color: var(--accent); }
 .manual-user-results button:hover,
 .manual-user-results button.active { background: var(--accent-dim); }
 
@@ -2552,7 +2559,10 @@ watch(manualCityQuery, query => {
   max-height: 92vh;
   padding: 0;
   background: var(--bg-card);
+  color-scheme: dark;
 }
+
+[data-theme="light"] .manual-order-modal { color-scheme: light; }
 
 .manual-order-header {
   position: sticky;
@@ -2682,7 +2692,9 @@ watch(manualCityQuery, query => {
   gap: .15rem;
   padding: .6rem .8rem;
   border-bottom: 1px solid var(--border);
+  background: transparent;
   color: var(--text-primary);
+  appearance: none;
   text-align: left;
   cursor: pointer;
 }
@@ -3252,12 +3264,22 @@ watch(manualCityQuery, query => {
     margin: 1rem;
   }
 
-  .manual-order-modal { padding: 0; max-height: 96vh; margin: .5rem; }
+  .manual-order-modal {
+    padding: 0;
+    max-height: calc(100dvh - 1rem);
+    margin: .5rem;
+    overscroll-behavior: contain;
+  }
   .manual-order-header { padding: 1rem; }
   .manual-order-section { padding: 1.2rem 1rem; }
+  .manual-order-section .input { font-size: 1rem; }
   .manual-customer-fields { grid-template-columns: 1fr; }
   .manual-delivery-choices { grid-template-columns: 1fr; }
-  .manual-order-footer { align-items: stretch; flex-direction: column; padding: .85rem 1rem; }
+  .manual-order-footer {
+    align-items: stretch;
+    flex-direction: column;
+    padding: .85rem 1rem calc(.85rem + env(safe-area-inset-bottom));
+  }
   .manual-order-footer__actions { display: grid; grid-template-columns: 1fr 1fr; }
   .manual-order-footer__actions .btn { width: 100%; }
 
@@ -3265,6 +3287,20 @@ watch(manualCityQuery, query => {
   .edit-wide { grid-column: auto; }
   .edit-item { grid-template-columns: repeat(2, minmax(0, 1fr)) 30px; }
   .edit-item label:first-child { grid-column: 1 / -1; }
+  .manual-item {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .7rem;
+    padding: .85rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-secondary);
+  }
+  .manual-item label:nth-child(2) { grid-column: 1 / -1; }
+  .manual-item .edit-remove {
+    grid-column: 2;
+    justify-self: end;
+    width: 42px;
+  }
 
   .order-item-card {
     grid-template-columns: 44px 1fr;
