@@ -2,7 +2,7 @@ import express from 'express'
 import { PrismaClient } from '@prisma/client'
 import cdek from '../services/cdek.js'
 import yandexGeocoder from '../services/yandexGeocoder.js'
-import { canApplyCdekStatus, extractCdekMessages, extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
+import { extractCdekMessages, extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 
 const router = express.Router()
@@ -445,7 +445,7 @@ router.get('/orders/:uuid', async (req, res) => {
 })
 
 // POST /api/delivery/orders/:uuid/sync-status
-// Синхронизировать локальный статус заказа со статусом в СДЭК
+// Получить статус СДЭК, не меняя установленный администратором статус заказа.
 router.post('/orders/:uuid/sync-status', async (req, res) => {
   try {
     const { uuid } = req.params
@@ -475,29 +475,17 @@ router.post('/orders/:uuid/sync-status', async (req, res) => {
       })
     }
 
-    let updated = false
-    let currentStatus = order.status
-
-    if (canApplyCdekStatus(order.status, nextLocalStatus)) {
-      const updatedOrder = await prisma.order.update({
-        where: { id: order.id },
-        data: { status: nextLocalStatus }
-      })
-      currentStatus = updatedOrder.status
-      updated = true
-    }
-
     res.json({
       success: true,
-      updated,
+      updated: false,
       orderId: order.id,
       cdekOrderUuid: uuid,
       cdekStatusCode,
       cdekMessages,
       cdekStatuses,
-      localStatus: currentStatus,
+      localStatus: order.status,
       mappedStatus: nextLocalStatus,
-      statusChangeBlocked: Boolean(nextLocalStatus && nextLocalStatus !== order.status && !updated)
+      statusChangeBlocked: Boolean(nextLocalStatus && nextLocalStatus !== order.status)
     })
   } catch (error) {
     console.error('[CDEK] Sync order status error:', error)

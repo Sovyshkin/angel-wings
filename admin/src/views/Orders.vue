@@ -630,7 +630,7 @@
                 <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
                 </svg>
-                Обновить статус
+                Проверить статус СДЭК
               </button>
             </div>
 
@@ -660,7 +660,6 @@
                 <span>Сообщение СДЭК</span>
               </div>
               <p v-for="message in cdekMessages" :key="message">{{ message }}</p>
-              <small v-if="cdekStatusChangeBlocked">Статус заказа не изменён: текущий статус является финальным.</small>
             </section>
           </div>
 
@@ -826,7 +825,6 @@ const creatingCdek = ref(false)
 const syncingCdek = ref(false)
 const cdekStatus = ref(null)
 const cdekMessages = ref([])
-const cdekStatusChangeBlocked = ref(false)
 const cancelReasonOptions = [
   { value: 'high_price', label: 'Высокая цена' },
   { value: 'long_delivery', label: 'Долгая доставка' },
@@ -1283,7 +1281,6 @@ function viewOrder(order) {
   editingOrder.value = false
   cdekStatus.value = null
   cdekMessages.value = []
-  cdekStatusChangeBlocked.value = false
 
   if (order.cdekOrderUuid) void syncCdekStatus()
 }
@@ -1507,13 +1504,6 @@ async function syncCdekStatus() {
       date: status.dateTime ? new Date(status.dateTime).toLocaleString('ru-RU') : ''
     }))
     cdekMessages.value = data.cdekMessages || []
-    cdekStatusChangeBlocked.value = Boolean(data.statusChangeBlocked)
-
-    if (data.localStatus) {
-      selectedOrder.value.status = data.localStatus
-      const listOrder = orders.value.find(order => order.id === selectedOrder.value.id)
-      if (listOrder) listOrder.status = data.localStatus
-    }
   } catch (e) {
     console.error('Sync error:', e)
     cdekMessages.value = [e.response?.data?.message || e.response?.data?.error || 'Не удалось получить статус СДЭК.']

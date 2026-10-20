@@ -3,20 +3,6 @@ function toMs(value) {
   return Number.isFinite(ms) ? ms : 0
 }
 
-const FINAL_LOCAL_STATUSES = new Set(['DELIVERED', 'RETURNED', 'CANCELLED'])
-
-export function isFinalLocalOrderStatus(status) {
-  return FINAL_LOCAL_STATUSES.has(String(status || '').trim().toUpperCase())
-}
-
-// CDEK may temporarily return a technical creation status even for an order
-// which has already been closed locally. Such a response must never demote a
-// final order back to processing or shipping.
-export function canApplyCdekStatus(currentLocalStatus, nextLocalStatus) {
-  if (!nextLocalStatus || nextLocalStatus === currentLocalStatus) return false
-  return !isFinalLocalOrderStatus(currentLocalStatus)
-}
-
 function messageFromEntry(entry) {
   if (typeof entry === 'string') return entry.trim()
   if (!entry || typeof entry !== 'object') return null

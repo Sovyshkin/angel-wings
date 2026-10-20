@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import cdek from '../services/cdek.js'
 import tochkaService from '../services/tochka.js'
-import { canApplyCdekStatus, extractCdekMessages, extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
+import { extractCdekMessages, extractLatestCdekStatus } from '../utils/cdekStatus.js'
 import { enqueueOrderTelegramNotification } from '../services/telegramQueue.js'
 import yandexGeocoder from '../services/yandexGeocoder.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
@@ -1052,17 +1052,7 @@ router.get('/my', authenticate, async (req, res, next) => {
         ordersWithCdek.map(async (order) => {
           const cdekOrder = await cdek.getOrder(order.cdekOrderUuid)
           const latestStatus = extractLatestCdekStatus(cdekOrder)
-          const mappedLocalStatus = mapCdekStatusToLocal(latestStatus?.code)
           const cdekMessages = extractCdekMessages(cdekOrder)
-          let currentLocalStatus = order.status
-
-          if (canApplyCdekStatus(order.status, mappedLocalStatus)) {
-            await prisma.order.update({
-              where: { id: order.id },
-              data: { status: mappedLocalStatus }
-            })
-            currentLocalStatus = mappedLocalStatus
-          }
 
           return {
             orderId: order.id,
@@ -1070,10 +1060,7 @@ router.get('/my', authenticate, async (req, res, next) => {
             cdekStatusCode: latestStatus?.code || null,
             cdekStatusName: latestStatus?.name || null,
             cdekStatusDate: latestStatus?.dateTime || null,
-            mappedLocalStatus,
-            currentLocalStatus,
-            cdekMessages,
-            statusChangeBlocked: Boolean(mappedLocalStatus && mappedLocalStatus !== order.status && currentLocalStatus === order.status)
+            cdekMessages
           }
         })
       )
@@ -1103,13 +1090,12 @@ router.get('/my', authenticate, async (req, res, next) => {
 
     const responseOrders = orders.map((order) => {
       const meta = statusMetaByOrderId.get(order.id)
-      const effectiveStatus = meta?.currentLocalStatus || order.status
       const partnerBonusAmount = Math.max(0, Number(order.partnerBonusAmount || 0))
       return {
         ...order,
         paymentStatus: paymentSyncByOrderId.get(order.id)?.paymentStatus || order.paymentStatus,
         paymentType: paymentSyncByOrderId.get(order.id)?.paymentType || order.paymentType,
-        status: effectiveStatus,
+        status: order.status,
         partnerBonusInfo: partnerBonusAmount > 0 && buyerPartner
           ? {
               amount: partnerBonusAmount,
@@ -1123,8 +1109,7 @@ router.get('/my', authenticate, async (req, res, next) => {
         cdekStatusCode: meta?.cdekStatusCode || null,
         cdekStatusName: meta?.cdekStatusName || null,
         cdekStatusDate: meta?.cdekStatusDate || null,
-        cdekMessages: meta?.cdekMessages || [],
-        cdekStatusChangeBlocked: meta?.statusChangeBlocked || false
+        cdekMessages: meta?.cdekMessages || []
       }
     })
 
