@@ -469,22 +469,23 @@
             <label class="edit-wide">Комментарий<textarea v-model.trim="orderDraft.notes" class="input" rows="3" maxlength="4000"></textarea></label>
           </div>
           <div class="edit-section-title">Состав заказа</div>
-          <p v-if="canEditOrderItems && !canEditOrderAmount" class="edit-notice">Счёт, оплата или отправка уже оформлены: можно добавлять и удалять только товары за 0 ₽. Платные позиции и итог заказа не изменятся.</p>
-          <p v-if="canEditOrderItems && selectedOrder.cdekOrderUuid" class="edit-notice">Если отправка уже передана в СДЭК, проверьте её состав отдельно: изменение заказа на сайте не обновит накладную СДЭК.</p>
-          <p v-else-if="!canEditOrderItems" class="edit-notice">Состав завершённого или отменённого заказа менять нельзя.</p>
+          <p v-if="hasFixedPayment" class="edit-notice">Состав можно изменить, но выставленный счёт, платёж и чек не изменятся. Сумма заказа останется прежней; расхождение нужно урегулировать отдельно.</p>
+          <p v-if="selectedOrder.cdekOrderUuid" class="edit-notice">Изменение состава здесь не обновит накладную СДЭК — проверьте отправку отдельно.</p>
+          <p v-if="['SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED'].includes(selectedOrder.status)" class="edit-notice">Заказ уже завершён или отменён. Убедитесь, что изменение состава соответствует фактическому движению товара.</p>
           <div v-for="(item, index) in orderDraft.items" :key="item.key" class="edit-item">
             <label>Товар
-              <select v-model.number="item.productId" class="input" :disabled="!canEditDraftItem(item)" required @change="setDraftProductPrice(item)">
+              <select v-model.number="item.productId" class="input" required @change="setDraftProductPrice(item)">
                 <option v-for="product in editProducts" :key="product.id" :value="product.id">{{ product.title }}</option>
               </select>
             </label>
-            <label>Дозировка<input v-model.trim="item.dosage" class="input" :disabled="!canEditDraftItem(item)" maxlength="200"></label>
-            <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" :disabled="!canEditDraftItem(item)" required></label>
-            <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" :disabled="!canEditOrderAmount" required></label>
-            <button v-if="canEditDraftItem(item)" type="button" class="edit-remove" :disabled="orderDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="orderDraft.items.splice(index, 1)">×</button>
+            <label>Дозировка<input v-model.trim="item.dosage" class="input" maxlength="200"></label>
+            <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" required></label>
+            <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" required></label>
+            <button type="button" class="edit-remove" :disabled="orderDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="orderDraft.items.splice(index, 1)">×</button>
           </div>
-          <button v-if="canEditOrderItems" type="button" class="btn btn-secondary" @click="addOrderItem">{{ canEditOrderAmount ? '+ Добавить товар' : '+ Добавить товар за 0 ₽' }}</button>
-          <div class="edit-summary">Итого после скидок: {{ formatPrice(draftTotal) }}</div>
+          <button type="button" class="btn btn-secondary" @click="addOrderItem">+ Добавить товар</button>
+          <div class="edit-summary">{{ hasFixedPayment ? 'Сумма выставленного платежа' : 'Итого после скидок' }}: {{ formatPrice(draftTotal) }}</div>
+          <p v-if="hasFixedPayment" class="edit-notice">Стоимость текущего состава: {{ formatPrice(draftCompositionTotal) }} до скидки. Новые товары будут отмечены в заказе.</p>
           <p v-if="editError" class="edit-error" role="alert">{{ editError }}</p>
         </form>
 
@@ -680,6 +681,8 @@
                 </div>
                 <div class="order-item-card__content">
                   <span class="item-name">{{ item.product?.title || 'Товар #' + item.productId }}</span>
+                  <span v-if="item.adminAddedAt" class="admin-added-label">{{ item.adminUnbilled ? 'Добавлено администратором · без изменения оплаты' : 'Добавлено администратором' }}</span>
+                  <span v-else-if="item.adminUnbilled" class="admin-added-label">Изменено в админке · без изменения оплаты</span>
                   <span v-if="item.dosage" class="item-qty">Дозировка: {{ item.dosage }}</span>
                   <span class="item-qty">{{ item.quantity }} шт × {{ formatPrice(item.price) }}</span>
                 </div>
@@ -801,18 +804,16 @@ const savingOrder = ref(false)
 const orderDraft = ref(null)
 const editProducts = ref([])
 const editError = ref('')
-const canEditOrderItems = computed(() => Boolean(selectedOrder.value && !['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(selectedOrder.value.status)))
+const hasFixedPayment = computed(() => Boolean(selectedOrder.value && (selectedOrder.value.paymentId || selectedOrder.value.paymentLinkId || selectedOrder.value.paymentUrl || isOrderPaid(selectedOrder.value.paymentStatus) || (selectedOrder.value.paymentStatus === 'CASH_ON_DELIVERY' && ['SHIPPED', 'DELIVERED', 'RETURNED'].includes(selectedOrder.value.status)))))
 const canEditOrderAmount = computed(() => {
   const order = selectedOrder.value
-  return Boolean(canEditOrderItems.value && order && !order.paymentId && !order.paymentLinkId && !order.paymentUrl && !order.cdekOrderUuid && !isOrderPaid(order.paymentStatus))
+  return Boolean(order && !hasFixedPayment.value && !order.cdekOrderUuid && !['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(order.status))
 })
-function canEditDraftItem(item) {
-  return canEditOrderItems.value && (canEditOrderAmount.value || Number(item.originalPrice) === 0)
-}
+const draftCompositionTotal = computed(() => orderDraft.value?.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0) || 0)
 const draftTotal = computed(() => {
   if (!orderDraft.value) return 0
-  if (!canEditOrderAmount.value) return selectedOrder.value?.total || 0
-  const subtotal = orderDraft.value.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0)
+  if (hasFixedPayment.value) return selectedOrder.value?.total || 0
+  const subtotal = draftCompositionTotal.value
   const delivery = orderDraft.value.deliveryTariffCode || orderDraft.value.deliveryPickupPoint ? 0 : (Number(orderDraft.value.deliveryPrice) || 0)
   return Math.max(0, subtotal + delivery - Number(selectedOrder.value?.discountAmount || 0))
 })
@@ -1350,11 +1351,10 @@ async function startEditingOrder() {
     shippingAddress: order.shippingAddress || '', notes: order.notes || '', deliveryTariffName: order.deliveryTariffName || '',
     deliveryTariffCode: order.deliveryTariffCode ?? '', deliveryPrice: order.deliveryPrice ?? 0,
     deliveryCity: order.deliveryCity || '', deliveryPickupPoint: order.deliveryPickupPoint || '', deliveryPickupName: order.deliveryPickupName || '',
-    items: order.items.map((item, index) => ({ key: `existing-${index}`, productId: item.productId, dosage: item.dosage || '', quantity: item.quantity, price: item.price, originalPrice: item.price }))
+    items: order.items.map((item, index) => ({ key: `existing-${index}`, id: item.id, productId: item.productId, dosage: item.dosage || '', quantity: item.quantity, price: item.price }))
   }
   editProducts.value = order.items.map(item => ({ id: item.productId, title: item.product?.title || `Товар #${item.productId}` }))
   editingOrder.value = true
-  if (!canEditOrderItems.value) return
   try {
     const { data } = await axios.get(`${API_URL}/products`, { params: { limit: 1000 } })
     editProducts.value = [...new Map([...editProducts.value, ...(data.products || [])].map(product => [product.id, product])).values()]
@@ -1364,21 +1364,17 @@ async function startEditingOrder() {
 }
 
 function addOrderItem() {
-  if (!canEditOrderItems.value || !editProducts.value.length) return
-  orderDraft.value.items.push({ key: `new-${Date.now()}-${Math.random()}`, productId: editProducts.value[0].id, dosage: '', quantity: 1, price: canEditOrderAmount.value ? (editProducts.value[0].price ?? 0) : 0, originalPrice: 0 })
+  if (!editProducts.value.length) return
+  orderDraft.value.items.push({ key: `new-${Date.now()}-${Math.random()}`, id: null, productId: editProducts.value[0].id, dosage: '', quantity: 1, price: editProducts.value[0].price ?? 0 })
 }
 
 function setDraftProductPrice(item) {
-  if (!canEditOrderAmount.value) {
-    item.price = 0
-    return
-  }
   const product = editProducts.value.find(product => product.id === item.productId)
   if (product?.price != null) item.price = Number(product.price)
 }
 
 function orderItemsChanged() {
-  const normalize = item => [Number(item.productId), String(item.dosage || '').trim(), Number(item.quantity), Number(item.price)]
+  const normalize = item => [item.id ?? null, Number(item.productId), String(item.dosage || '').trim(), Number(item.quantity), Number(item.price)]
   return JSON.stringify(orderDraft.value.items.map(normalize)) !== JSON.stringify((selectedOrder.value?.items || []).map(normalize))
 }
 
@@ -1395,8 +1391,10 @@ async function saveOrder() {
   if (canEditOrderAmount.value) {
     payload.deliveryPrice = draft.deliveryPrice
   }
-  if (canEditOrderItems.value && (canEditOrderAmount.value || orderItemsChanged())) {
-    payload.items = draft.items.map(({ productId, dosage, quantity, price }) => ({ productId, dosage, quantity, price }))
+  if (orderItemsChanged()) {
+    payload.expectedUpdatedAt = selectedOrder.value.updatedAt
+    payload.expectedEditVersion = selectedOrder.value.editVersion
+    payload.items = draft.items.map(({ id, productId, dosage, quantity, price }) => ({ id, productId, dosage, quantity, price }))
   }
   savingOrder.value = true
   try {
@@ -3065,6 +3063,18 @@ watch(manualCityQuery, query => {
 .order-item-card__content {
   display: flex;
   flex-direction: column;
+}
+
+.admin-added-label {
+  align-self: flex-start;
+  margin: .2rem 0;
+  padding: .18rem .5rem;
+  border: 1px solid rgba(129, 166, 255, .45);
+  border-radius: 999px;
+  background: rgba(129, 166, 255, .13);
+  color: var(--accent);
+  font-size: .68rem;
+  font-weight: 700;
 }
 
 .order-item-card__sum {

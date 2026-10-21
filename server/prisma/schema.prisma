@@ -183,6 +183,7 @@ model Product {
 
 model Order {
   id                     Int                    @id @default(autoincrement())
+  editVersion            Int                    @default(0)
   clientRequestId        String?                @unique
   userId                 Int?
   user                   User?                  @relation(fields: [userId], references: [id])
@@ -263,8 +264,23 @@ model OrderItem {
   dosage    String?
   quantity  Int
   price     Float
+  adminAddedAt DateTime?
+  adminAddedById Int?
+  adminUnbilled Boolean @default(false)
 
   @@map("order_items")
+}
+
+model OrderEditLog {
+  id         Int      @id @default(autoincrement())
+  orderId    Int
+  adminId    Int
+  beforeJson String
+  afterJson  String
+  createdAt  DateTime @default(now())
+
+  @@index([orderId, createdAt])
+  @@map("order_edit_logs")
 }
 
 model ProductAnalyticsEvent {

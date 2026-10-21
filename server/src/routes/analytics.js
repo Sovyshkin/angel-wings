@@ -114,6 +114,8 @@ function buildMarketingLink(event) {
 }
 
 function getOrderItemRevenue(item) {
+  // A manual composition change after invoicing does not represent new money.
+  if (item.adminUnbilled) return 0
   return Number(item.price || 0) * Number(item.quantity || 0)
 }
 
@@ -559,7 +561,7 @@ router.get('/stock', authenticate, requireAdmin, async (req, res, next) => {
             id: true,
             createdAt: true,
             discountAmount: true,
-            items: { select: { price: true, quantity: true } }
+            items: { select: { price: true, quantity: true, adminUnbilled: true } }
           }
         },
         product: { select: { id: true, title: true } }

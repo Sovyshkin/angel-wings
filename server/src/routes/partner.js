@@ -993,7 +993,7 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
         ...amounts,
         commission: amounts.revenue ? Number(order.commission?.amount || 0) : 0,
         items: allocateOrderItems(order).map(line => ({
-          title: `${line.item.product?.title || `Товар #${line.item.productId}`}${line.item.dosage ? `, ${line.item.dosage}` : ''}`,
+          title: `${line.item.product?.title || `Товар #${line.item.productId}`}${line.item.dosage ? `, ${line.item.dosage}` : ''}${line.item.adminUnbilled ? ' (в админке, без изменения оплаты)' : ''}`,
           sku: line.item.product?.sku || '',
           quantity: line.item.quantity,
           price: Number(line.item.price || 0),
@@ -1174,7 +1174,7 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
           ...amounts,
           commission: amounts.revenue ? Number(order.commission?.amount || 0) : 0,
           items: allocateOrderItems(order).map(line => ({
-            title: line.item.product?.title || `Товар #${line.item.productId}`,
+            title: `${line.item.product?.title || `Товар #${line.item.productId}`}${line.item.adminUnbilled ? ' (в админке, без изменения оплаты)' : ''}`,
             quantity: line.item.quantity,
             price: Number(line.item.price || 0),
             gross: line.gross,
@@ -1245,7 +1245,7 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
           customerEmail: orderValue(order.user?.email || order.customerEmail || '—'),
           customerPhone: orderValue(order.user?.phone || order.customerPhone || '—'),
           promoCode: orderValue(promoCodeById.get(order.promoCodeId) || '—'),
-          items: item ? `${item.product?.title || `Товар #${item.productId}`} × ${item.quantity}` : '—',
+          items: item ? `${item.product?.title || `Товар #${item.productId}`} × ${item.quantity}${item.adminUnbilled ? ' (в админке, без изменения оплаты)' : ''}` : '—',
           total: orderValue(Number(order.total || 0)),
           discountAmount: orderValue(Number(order.discountAmount || 0)),
           deliveryPrice: orderValue(Number(order.deliveryPrice || order.deliveryCost || 0)),

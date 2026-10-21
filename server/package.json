@@ -17,6 +17,7 @@
     "db:telegram-queue": "node scripts/apply-telegram-queue-schema.mjs",
     "db:payment-type": "node scripts/apply-payment-type-schema.mjs",
     "db:acquiring-settings": "node scripts/apply-acquiring-settings-schema.mjs",
+    "db:order-edit": "node scripts/apply-order-edit-schema.mjs",
     "telegram:enqueue": "node scripts/enqueue-telegram-order.mjs",
     "db:seed": "node prisma/seed.js",
     "admin:set-email": "node scripts/change-admin-email.mjs",

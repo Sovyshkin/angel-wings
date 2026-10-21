@@ -19,7 +19,6 @@ import { grantConsultationRewardsForPaidOrder } from '../utils/consultationRewar
 import { buildOrderWaybill, createOrderWaybillDocx, createOrderWaybillPdf } from '../utils/orderWaybill.js'
 import { applyStockAdjustments, parseStockAdjustmentRequest } from '../utils/stockAdjustments.js'
 import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiringSettings.js'
-import { chargedOrderItemsUnchanged } from '../utils/orderItemEdit.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -1436,35 +1435,50 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
     if (wantsItems && (!Array.isArray(req.body.items) || !req.body.items.length || req.body.items.length > 100)) {
       return res.status(400).json({ error: 'Добавьте хотя бы один товар' })
     }
+    if (wantsItems && (typeof req.body.expectedUpdatedAt !== 'string' || !Number.isFinite(Date.parse(req.body.expectedUpdatedAt)))) {
+      return res.status(400).json({ error: 'Обновите заказ перед изменением состава' })
+    }
+    if (wantsItems && (!Number.isInteger(req.body.expectedEditVersion) || req.body.expectedEditVersion < 0)) {
+      return res.status(400).json({ error: 'Обновите заказ перед изменением состава' })
+    }
     const order = await prisma.$transaction(async tx => {
       const previous = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } })
       if (!previous) throw Object.assign(new Error('Заказ не найден'), { status: 404 })
+      if (wantsItems && (previous.editVersion !== req.body.expectedEditVersion || previous.updatedAt.toISOString() !== new Date(req.body.expectedUpdatedAt).toISOString())) {
+        throw Object.assign(new Error('Заказ уже изменён другим администратором. Обновите страницу и повторите изменение'), { status: 409 })
+      }
       const changesDeliveryAmount = (data.deliveryPrice !== undefined && data.deliveryPrice !== previous.deliveryPrice) ||
         (data.deliveryTariffCode !== undefined && data.deliveryTariffCode !== previous.deliveryTariffCode) ||
         (data.deliveryPickupPoint !== undefined && data.deliveryPickupPoint !== previous.deliveryPickupPoint)
       const finalized = ['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(previous.status)
-      const amountLocked = Boolean(previous.paymentId || previous.paymentLinkId || previous.paymentUrl || previous.cdekOrderUuid || ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].includes(String(previous.paymentStatus || '').toUpperCase()) || finalized)
-      if ((changesDeliveryAmount && amountLocked) || (wantsItems && finalized)) {
-        throw Object.assign(new Error('Стоимость и состав завершённого заказа или выставленного счёта нельзя менять'), { status: 409 })
+      const financialLocked = Boolean(previous.paymentId || previous.paymentLinkId || previous.paymentUrl || ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].includes(String(previous.paymentStatus || '').toUpperCase()) || (previous.paymentStatus === 'CASH_ON_DELIVERY' && ['SHIPPED', 'DELIVERED', 'RETURNED'].includes(previous.status)))
+      if (changesDeliveryAmount && (financialLocked || previous.cdekOrderUuid || finalized)) {
+        throw Object.assign(new Error('Стоимость доставки нельзя менять после создания счёта, оплаты или отправки'), { status: 409 })
       }
       if (previous.cdekOrderUuid && ['customerName', 'customerEmail', 'customerPhone', 'shippingAddress', 'deliveryTariffCode', 'deliveryTariffName', 'deliveryCity', 'deliveryPickupPoint', 'deliveryPickupName'].some(field => data[field] !== undefined && data[field] !== previous[field])) {
         throw Object.assign(new Error('Данные доставки уже переданы в СДЭК. Измените их сначала в СДЭК'), { status: 409 })
       }
       if (wantsItems) {
-        if (req.body.items.some(item => !item || typeof item !== 'object' || Array.isArray(item))) {
+        if (req.body.items.some(item => !item || typeof item !== 'object' || Array.isArray(item) || item.productId == null || item.quantity == null || item.price == null || item.productId === '' || item.quantity === '' || item.price === '')) {
           throw Object.assign(new Error('Некорректный состав заказа'), { status: 400 })
         }
         const nextItems = req.body.items.map(item => ({
+          id: item.id == null ? null : Number(item.id),
           productId: Number(item.productId),
           quantity: Number(item.quantity),
           price: Number(item.price),
           dosage: item.dosage ? String(item.dosage).trim() : null
         }))
-        if (nextItems.some(item => !Number.isInteger(item.productId) || item.productId <= 0 || !Number.isInteger(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.price) || item.price < 0 || Math.abs(Math.round(item.price * 100) - item.price * 100) > 1e-6 || (item.dosage && item.dosage.length > 200))) {
+        if (nextItems.some(item => (item.id !== null && (!Number.isInteger(item.id) || item.id <= 0)) || !Number.isInteger(item.productId) || item.productId <= 0 || !Number.isInteger(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.price) || item.price < 0 || Math.abs(Math.round(item.price * 100) - item.price * 100) > 1e-6 || (item.dosage && item.dosage.length > 200))) {
           throw Object.assign(new Error('Проверьте товары, количество и цены'), { status: 400 })
         }
-        if (amountLocked && !chargedOrderItemsUnchanged(previous.items, nextItems)) {
-          throw Object.assign(new Error('После создания счёта или оплаты можно добавлять и удалять только товары за 0 ₽. Платные позиции должны остаться без изменений'), { status: 409 })
+        const previousById = new Map(previous.items.map(item => [item.id, item]))
+        const providedIds = nextItems.filter(item => item.id !== null).map(item => item.id)
+        if (new Set(providedIds).size !== providedIds.length) {
+          throw Object.assign(new Error('Одна позиция указана дважды'), { status: 400 })
+        }
+        if (providedIds.some(id => !previousById.has(id))) {
+          throw Object.assign(new Error('Состав заказа уже изменился. Обновите страницу перед сохранением'), { status: 409 })
         }
         const productIds = [...new Set(nextItems.map(item => item.productId))]
         const products = await tx.product.findMany({ where: { id: { in: productIds } }, select: { id: true } })
@@ -1483,13 +1497,24 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
           }
         }
         await tx.orderItem.deleteMany({ where: { orderId } })
-        await tx.orderItem.createMany({ data: nextItems.map(item => ({ ...item, orderId })) })
+        await tx.orderItem.createMany({ data: nextItems.map(({ id, ...item }) => {
+          const oldItem = id === null ? null : previousById.get(id)
+          const sameProduct = oldItem?.productId === item.productId
+          const changed = !oldItem || oldItem.productId !== item.productId || oldItem.dosage !== item.dosage || oldItem.quantity !== item.quantity || Math.round(oldItem.price * 100) !== Math.round(item.price * 100)
+          return {
+            ...item,
+            orderId,
+            adminAddedAt: sameProduct ? oldItem.adminAddedAt : new Date(),
+            adminAddedById: sameProduct ? oldItem.adminAddedById : req.user.id,
+            adminUnbilled: Boolean(oldItem?.adminUnbilled || (financialLocked && changed))
+          }
+        }) })
         const subtotal = nextItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
         const delivery = data.deliveryPrice ?? previous.deliveryPrice ?? 0
         const nextTariffCode = data.deliveryTariffCode !== undefined ? data.deliveryTariffCode : previous.deliveryTariffCode
         const nextPickupPoint = data.deliveryPickupPoint !== undefined ? data.deliveryPickupPoint : previous.deliveryPickupPoint
         const siteDelivery = nextTariffCode || nextPickupPoint ? 0 : delivery
-        if (!amountLocked) {
+        if (!financialLocked) {
           if (subtotal + siteDelivery < Number(previous.discountAmount || 0)) throw Object.assign(new Error('Скидка и списанные баллы превышают новую стоимость заказа'), { status: 400 })
           data.total = Math.round(Math.max(0, subtotal + siteDelivery - Number(previous.discountAmount || 0)) * 100) / 100
           data.paymentAmount = data.total
@@ -1503,7 +1528,19 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
         data.total = Math.round(Math.max(0, subtotal + siteDelivery - Number(previous.discountAmount || 0)) * 100) / 100
         data.paymentAmount = data.total
       }
-      return tx.order.update({ where: { id: orderId }, data, include: { items: { include: { product: { select: { title: true, image: true } } } } } })
+      if (wantsItems) data.editVersion = { increment: 1 }
+      const updated = await tx.order.update({ where: { id: orderId }, data, include: { items: { include: { product: { select: { title: true, image: true } } } } } })
+      if (wantsItems) {
+        await tx.orderEditLog.create({
+          data: {
+            orderId,
+            adminId: req.user.id,
+            beforeJson: JSON.stringify({ total: previous.total, paymentAmount: previous.paymentAmount, items: previous.items.map(({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled }) => ({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled })) }),
+            afterJson: JSON.stringify({ total: updated.total, paymentAmount: updated.paymentAmount, items: updated.items.map(({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled }) => ({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled })) })
+          }
+        })
+      }
+      return updated
     })
 
     res.json({ order })
