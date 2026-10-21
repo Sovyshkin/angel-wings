@@ -153,10 +153,10 @@
                 <div v-if="order.deliveryPickupName || order.shippingAddress" class="order-delivery-cell__detail" :title="order.deliveryPickupName || order.shippingAddress">{{ order.deliveryPickupName || order.shippingAddress }}</div>
               </td>
               <td class="order-amount-cell">
-                <div class="order-amount-cell__total">{{ formatPrice(order.total) }} ₽</div>
+                <div class="order-amount-cell__total">{{ formatPrice(order.total) }}</div>
                 <div class="order-amount-cell__items">{{ order.items?.length || 0 }} позиций</div>
                 <div v-if="order.commission || earnedCustomerPoints(order)" class="order-amount-cell__rewards">
-                  <div v-if="order.commission">Партнёру <strong>+{{ formatPrice(order.commission.amount) }} ₽</strong></div>
+                  <div v-if="order.commission">Партнёру <strong>+{{ formatPrice(order.commission.amount) }}</strong></div>
                   <div v-if="earnedCustomerPoints(order)">Клиенту <strong>+{{ earnedCustomerPoints(order).toLocaleString('ru-RU') }} баллов</strong></div>
                 </div>
               </td>
@@ -581,7 +581,7 @@
                 <div>
                   <strong>{{ selectedOrder.deliveryTariffName }}</strong>
                   <span v-if="isCdekDelivery(selectedOrder)">Оплачивается отдельно в СДЭК</span>
-                  <span v-else>{{ selectedOrder.deliveryPrice ? formatPrice(selectedOrder.deliveryPrice) + ' ₽' : 'Не рассчитана' }}</span>
+                  <span v-else>{{ selectedOrder.deliveryPrice ? formatPrice(selectedOrder.deliveryPrice) : 'Не рассчитана' }}</span>
                 </div>
               </div>
               <div class="cdek-location">
@@ -696,11 +696,11 @@
           <div class="order-totals">
             <div class="total-row" v-if="selectedOrder.deliveryPrice && !isCdekDelivery(selectedOrder)">
               <span>Доставка</span>
-              <span>{{ formatPrice(selectedOrder.deliveryPrice) }} ₽</span>
+              <span>{{ formatPrice(selectedOrder.deliveryPrice) }}</span>
             </div>
             <div class="total-row" v-if="selectedOrder.discountAmount">
               <span>Скидка</span>
-              <span class="discount">-{{ formatPrice(selectedOrder.discountAmount) }} ₽</span>
+              <span class="discount">-{{ formatPrice(selectedOrder.discountAmount) }}</span>
             </div>
             <div class="total-row total-row--bonus" v-if="getPartnerBonusAmount(selectedOrder) > 0">
               <span>Из них списано баллов</span>
