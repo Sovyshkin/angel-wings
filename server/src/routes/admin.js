@@ -19,6 +19,7 @@ import { grantConsultationRewardsForPaidOrder } from '../utils/consultationRewar
 import { buildOrderWaybill, createOrderWaybillDocx, createOrderWaybillPdf } from '../utils/orderWaybill.js'
 import { applyStockAdjustments, parseStockAdjustmentRequest } from '../utils/stockAdjustments.js'
 import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiringSettings.js'
+import { chargedOrderItemsUnchanged } from '../utils/orderItemEdit.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -1438,11 +1439,13 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
     const order = await prisma.$transaction(async tx => {
       const previous = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } })
       if (!previous) throw Object.assign(new Error('Заказ не найден'), { status: 404 })
-      const changesAmount = wantsItems || (data.deliveryPrice !== undefined && data.deliveryPrice !== previous.deliveryPrice) ||
+      const changesDeliveryAmount = (data.deliveryPrice !== undefined && data.deliveryPrice !== previous.deliveryPrice) ||
         (data.deliveryTariffCode !== undefined && data.deliveryTariffCode !== previous.deliveryTariffCode) ||
         (data.deliveryPickupPoint !== undefined && data.deliveryPickupPoint !== previous.deliveryPickupPoint)
-      if (changesAmount && (previous.paymentId || previous.paymentLinkId || previous.paymentUrl || previous.cdekOrderUuid || ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].includes(String(previous.paymentStatus || '').toUpperCase()) || ['CANCELLED', 'RETURNED'].includes(previous.status))) {
-        throw Object.assign(new Error('Состав и стоимость нельзя менять после создания счёта, оплаты или отправки в СДЭК'), { status: 409 })
+      const finalized = ['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(previous.status)
+      const amountLocked = Boolean(previous.paymentId || previous.paymentLinkId || previous.paymentUrl || previous.cdekOrderUuid || ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].includes(String(previous.paymentStatus || '').toUpperCase()) || finalized)
+      if ((changesDeliveryAmount && amountLocked) || (wantsItems && finalized)) {
+        throw Object.assign(new Error('Стоимость и состав завершённого заказа или выставленного счёта нельзя менять'), { status: 409 })
       }
       if (previous.cdekOrderUuid && ['customerName', 'customerEmail', 'customerPhone', 'shippingAddress', 'deliveryTariffCode', 'deliveryTariffName', 'deliveryCity', 'deliveryPickupPoint', 'deliveryPickupName'].some(field => data[field] !== undefined && data[field] !== previous[field])) {
         throw Object.assign(new Error('Данные доставки уже переданы в СДЭК. Измените их сначала в СДЭК'), { status: 409 })
@@ -1459,6 +1462,9 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
         }))
         if (nextItems.some(item => !Number.isInteger(item.productId) || item.productId <= 0 || !Number.isInteger(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.price) || item.price < 0 || Math.abs(Math.round(item.price * 100) - item.price * 100) > 1e-6 || (item.dosage && item.dosage.length > 200))) {
           throw Object.assign(new Error('Проверьте товары, количество и цены'), { status: 400 })
+        }
+        if (amountLocked && !chargedOrderItemsUnchanged(previous.items, nextItems)) {
+          throw Object.assign(new Error('После создания счёта или оплаты можно добавлять и удалять только товары за 0 ₽. Платные позиции должны остаться без изменений'), { status: 409 })
         }
         const productIds = [...new Set(nextItems.map(item => item.productId))]
         const products = await tx.product.findMany({ where: { id: { in: productIds } }, select: { id: true } })
@@ -1483,10 +1489,12 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
         const nextTariffCode = data.deliveryTariffCode !== undefined ? data.deliveryTariffCode : previous.deliveryTariffCode
         const nextPickupPoint = data.deliveryPickupPoint !== undefined ? data.deliveryPickupPoint : previous.deliveryPickupPoint
         const siteDelivery = nextTariffCode || nextPickupPoint ? 0 : delivery
-        if (subtotal + siteDelivery < Number(previous.discountAmount || 0)) throw Object.assign(new Error('Скидка и списанные баллы превышают новую стоимость заказа'), { status: 400 })
-        data.total = Math.round(Math.max(0, subtotal + siteDelivery - Number(previous.discountAmount || 0)) * 100) / 100
-        data.paymentAmount = data.total
-      } else if (changesAmount) {
+        if (!amountLocked) {
+          if (subtotal + siteDelivery < Number(previous.discountAmount || 0)) throw Object.assign(new Error('Скидка и списанные баллы превышают новую стоимость заказа'), { status: 400 })
+          data.total = Math.round(Math.max(0, subtotal + siteDelivery - Number(previous.discountAmount || 0)) * 100) / 100
+          data.paymentAmount = data.total
+        }
+      } else if (changesDeliveryAmount) {
         const subtotal = previous.items.reduce((sum, item) => sum + item.quantity * item.price, 0)
         const nextTariffCode = data.deliveryTariffCode !== undefined ? data.deliveryTariffCode : previous.deliveryTariffCode
         const nextPickupPoint = data.deliveryPickupPoint !== undefined ? data.deliveryPickupPoint : previous.deliveryPickupPoint

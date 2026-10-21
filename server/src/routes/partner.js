@@ -11,6 +11,7 @@ import { allocateOrderItems, formatOrderComposition, getOrderReportAmounts, getR
 import { getPaymentTypeLabel } from '../utils/paymentAcquiring.js'
 import { getAcquiringSettings, UNKNOWN_PAYMENT_PERCENT } from '../utils/acquiringSettings.js'
 import { createPartnerOrdersDocx, createPartnerOrdersPdf } from '../utils/partnerOrdersDocuments.js'
+import { parseReportPeriod } from '../utils/reportPeriod.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -952,6 +953,8 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
     if (!['xlsx', 'docx', 'pdf'].includes(format)) {
       return res.status(400).json({ error: 'Доступные форматы: xlsx, docx, pdf' })
     }
+    const periodWhere = parseReportPeriod(req.query)
+    const periodLabel = req.query.dateFrom && req.query.dateTo ? ` · ${req.query.dateFrom} — ${req.query.dateTo}` : ''
     const partners = await prisma.partner.findMany({
       select: {
         id: true,
@@ -962,7 +965,7 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
     const partnerById = new Map(partners.map(partner => [partner.id, partner]))
     const promoById = new Map(partners.flatMap(partner => partner.promoCodes.map(promo => [promo.id, { partnerId: partner.id, code: promo.code }])))
     const orders = await prisma.order.findMany({
-      where: getReportOrderWhere(allOrders, [...promoById.keys()]),
+      where: { ...getReportOrderWhere(allOrders, [...promoById.keys()]), ...periodWhere },
       include: {
         items: { include: { product: { select: { title: true, sku: true } } } },
         commission: { select: { partnerId: true, amount: true } }
@@ -1010,7 +1013,7 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
     }, { revenue: 0, tax: 0, acquiring: 0, paidCount: 0, estimatedCount: 0 })
     if (format !== 'xlsx') {
       const report = {
-        title: allOrders ? 'Отчёт по всем заказам' : 'Отчёт по заказам всех партнёров',
+        title: `${allOrders ? 'Отчёт по всем заказам' : 'Отчёт по заказам всех партнёров'}${periodLabel}`,
         emptyMessage: allOrders ? 'Заказов пока нет.' : 'Заказов партнёров пока нет.',
         showCustomer: allOrders,
         orders: reportOrders,
@@ -1031,7 +1034,7 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
     workbook.created = new Date()
     const summary = workbook.addWorksheet('Заказы', { views: [{ state: 'frozen', ySplit: 6 }] })
     const detail = workbook.addWorksheet('Состав заказов', { views: [{ state: 'frozen', ySplit: 1 }] })
-    summary.addRow([allOrders ? 'Отчёт по всем заказам' : 'Отчёт по заказам всех партнёров'])
+    summary.addRow([`${allOrders ? 'Отчёт по всем заказам' : 'Отчёт по заказам всех партнёров'}${periodLabel}`])
     summary.addRow(['Налог — расчётная сумма от оплаченного заказа', PARTNER_REPORT_TAX_RATE])
     summary.getCell('B2').numFmt = '0.000%'
     summary.addRow([`Эквайринг: СБП ${acquiringSettings.sbpPercent}%, карта ${acquiringSettings.cardPercent}%; неизвестный способ — ${UNKNOWN_PAYMENT_PERCENT.toLocaleString('ru-RU')}%`, UNKNOWN_PAYMENT_PERCENT / 100])
@@ -1054,7 +1057,7 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
         const orderValue = value => firstItem ? value : null
         const summaryRow = summary.addRow([
           orderValue(order.id), orderValue(order.createdAt), orderValue(order.partnerName), orderValue(order.partnerEmail),
-          orderValue(order.customerName), composition, orderValue(order.promoCode), orderValue(order.status), orderValue(order.paymentStatus),
+          orderValue(order.customerName), composition, orderValue(order.promoCode), order.status, order.paymentStatus,
           orderValue(order.total), orderValue(order.revenue),
           orderValue(order.tax), orderValue(order.acquiring),
           orderValue(order.acquiringSource), orderValue(order.commission),
@@ -1113,6 +1116,8 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
     if (!['xlsx', 'docx', 'pdf'].includes(format)) {
       return res.status(400).json({ error: 'Доступные форматы: xlsx, docx, pdf' })
     }
+    const periodWhere = parseReportPeriod(req.query)
+    const periodLabel = req.query.dateFrom && req.query.dateTo ? ` · ${req.query.dateFrom} — ${req.query.dateTo}` : ''
     const partnerId = parseInt(req.params.id, 10)
     if (!Number.isInteger(partnerId)) {
       return res.status(400).json({ error: 'Некорректный ID партнёра' })
@@ -1141,7 +1146,7 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
       : { commission: { partnerId } }
 
     const orders = await prisma.order.findMany({
-      where: orderWhere,
+      where: { ...orderWhere, ...periodWhere },
       include: {
         user: { select: { name: true, email: true, phone: true } },
         items: {
@@ -1186,7 +1191,7 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
         if (order.revenue && order.acquiringSource !== 'Фактическая сумма') result.estimatedCount++
         return result
       }, { revenue: 0, tax: 0, acquiring: 0, paidCount: 0, estimatedCount: 0 })
-      const report = { title: `Отчёт по заказам партнёра ${partner.user?.name || `№${partner.id}`}`, orders: reportOrders, totals }
+      const report = { title: `Отчёт по заказам партнёра ${partner.user?.name || `№${partner.id}`}${periodLabel}`, orders: reportOrders, totals }
       const file = format === 'pdf' ? await createPartnerOrdersPdf(report) : await createPartnerOrdersDocx(report)
       const contentType = format === 'pdf'
         ? 'application/pdf'
@@ -1244,8 +1249,8 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
           total: orderValue(Number(order.total || 0)),
           discountAmount: orderValue(Number(order.discountAmount || 0)),
           deliveryPrice: orderValue(Number(order.deliveryPrice || order.deliveryCost || 0)),
-          status: orderValue(getOrderStatusLabel(order.status)),
-          paymentStatus: orderValue(getPaymentStatusLabel(order.paymentStatus)),
+          status: getOrderStatusLabel(order.status),
+          paymentStatus: getPaymentStatusLabel(order.paymentStatus),
           paymentType: orderValue(getPaymentTypeLabel(order.paymentType)),
           tax: orderValue(amounts.tax),
           acquiring: orderValue(amounts.acquiring),

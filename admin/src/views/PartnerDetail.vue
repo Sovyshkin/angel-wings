@@ -14,19 +14,7 @@
         </div>
       </div>
       <div v-if="partner" class="header-actions">
-        <div class="export-picker">
-          <button type="button" class="btn btn-secondary" :disabled="exportLoading" :aria-expanded="showExportFormats" aria-controls="single-partner-report-formats" @click="showExportFormats = !showExportFormats">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>
-            </svg>
-            {{ exportLoading ? 'Формируем файл...' : 'Выгрузить заказы' }}
-          </button>
-          <div v-if="showExportFormats" id="single-partner-report-formats" class="export-menu" role="group" aria-label="Формат отчёта">
-            <button type="button" @click="exportPartnerOrders('xlsx')">Excel <span>.xlsx</span></button>
-            <button type="button" @click="exportPartnerOrders('pdf')">PDF <span>.pdf</span></button>
-            <button type="button" @click="exportPartnerOrders('docx')">Word <span>.docx</span></button>
-          </div>
-        </div>
+        <OrderReportExport :loading="exportLoading" button-text="Выгрузить заказы" title="Отчёт по заказам партнёра" description="Выберите период по дате создания" menu-id="single-partner-report-period" @export="exportPartnerOrders" />
         <label class="toggle">
           <input type="checkbox" :checked="partner?.isActive" @change="toggleActive">
           <span class="toggle-slider"></span>
@@ -474,6 +462,7 @@
 import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import OrderReportExport from '../components/OrderReportExport.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -512,7 +501,6 @@ const historyHasMore = ref(false)
 const historyLoading = ref(false)
 const historyError = ref('')
 const exportLoading = ref(false)
-const showExportFormats = ref(false)
 let historyRequestId = 0
 
 const hasAvailableBalance = computed(() => Number(partner.value?.balance?.availableBalance || 0) > 0)
@@ -607,21 +595,20 @@ async function toggleActive() {
   }
 }
 
-async function exportPartnerOrders(format) {
+async function exportPartnerOrders(format, period = {}) {
   if (!partner.value || exportLoading.value) return
 
-  showExportFormats.value = false
   exportLoading.value = true
   try {
     const response = await axios.get(`${API_URL}/${route.params.id}/orders-export`, {
-      params: { format },
+      params: { format, ...period },
       responseType: 'blob',
       headers: { Accept: format === 'pdf' ? 'application/pdf' : format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
     })
     const fileUrl = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = fileUrl
-    link.download = `partner-${partner.value.id}-orders.${format}`
+    link.download = `partner-${partner.value.id}-orders${period.dateFrom ? `-${period.dateFrom}-${period.dateTo}` : ''}.${format}`
     document.body.appendChild(link)
     link.click()
     link.remove()

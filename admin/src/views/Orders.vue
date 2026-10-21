@@ -7,18 +7,7 @@
       </div>
       <div class="header-actions">
         <button type="button" class="btn btn-primary" @click="openManualOrder">+ Добавить заказ</button>
-        <div class="orders-export-picker">
-          <button type="button" class="btn btn-secondary" :disabled="exportLoading" :aria-expanded="showExportFormats" aria-controls="all-orders-export-formats" @click="showExportFormats = !showExportFormats">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/></svg>
-            {{ exportLoading ? 'Формируем…' : 'Выгрузить все' }}
-          </button>
-          <div v-if="showExportFormats" id="all-orders-export-formats" class="orders-export-menu" role="group" aria-label="Формат отчёта по всем заказам">
-            <p>Все заказы, включая без партнёра</p>
-            <button type="button" @click="exportAllOrders('xlsx')">Excel <span>.xlsx</span></button>
-            <button type="button" @click="exportAllOrders('pdf')">PDF <span>.pdf</span></button>
-            <button type="button" @click="exportAllOrders('docx')">Word <span>.docx</span></button>
-          </div>
-        </div>
+        <OrderReportExport :loading="exportLoading" button-text="Выгрузить все" title="Отчёт по всем заказам" description="Включая заказы без партнёра · по дате создания" menu-id="all-orders-report-period" @export="exportAllOrders" />
         <button
           type="button"
           :class="['favorite-filter', { active: filterFavorites }]"
@@ -480,19 +469,21 @@
             <label class="edit-wide">Комментарий<textarea v-model.trim="orderDraft.notes" class="input" rows="3" maxlength="4000"></textarea></label>
           </div>
           <div class="edit-section-title">Состав заказа</div>
-          <p v-if="!canEditOrderAmount" class="edit-notice">Состав и стоимость заблокированы: по заказу уже создан счёт, прошла оплата или оформлена отправка в СДЭК. Остальные данные можно изменить.</p>
+          <p v-if="canEditOrderItems && !canEditOrderAmount" class="edit-notice">Счёт, оплата или отправка уже оформлены: можно добавлять и удалять только товары за 0 ₽. Платные позиции и итог заказа не изменятся.</p>
+          <p v-if="canEditOrderItems && selectedOrder.cdekOrderUuid" class="edit-notice">Если отправка уже передана в СДЭК, проверьте её состав отдельно: изменение заказа на сайте не обновит накладную СДЭК.</p>
+          <p v-else-if="!canEditOrderItems" class="edit-notice">Состав завершённого или отменённого заказа менять нельзя.</p>
           <div v-for="(item, index) in orderDraft.items" :key="item.key" class="edit-item">
             <label>Товар
-              <select v-model.number="item.productId" class="input" :disabled="!canEditOrderAmount" required @change="setDraftProductPrice(item)">
+              <select v-model.number="item.productId" class="input" :disabled="!canEditDraftItem(item)" required @change="setDraftProductPrice(item)">
                 <option v-for="product in editProducts" :key="product.id" :value="product.id">{{ product.title }}</option>
               </select>
             </label>
-            <label>Дозировка<input v-model.trim="item.dosage" class="input" :disabled="!canEditOrderAmount" maxlength="200"></label>
-            <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" :disabled="!canEditOrderAmount" required></label>
+            <label>Дозировка<input v-model.trim="item.dosage" class="input" :disabled="!canEditDraftItem(item)" maxlength="200"></label>
+            <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" :disabled="!canEditDraftItem(item)" required></label>
             <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" :disabled="!canEditOrderAmount" required></label>
-            <button v-if="canEditOrderAmount" type="button" class="edit-remove" :disabled="orderDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="orderDraft.items.splice(index, 1)">×</button>
+            <button v-if="canEditDraftItem(item)" type="button" class="edit-remove" :disabled="orderDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="orderDraft.items.splice(index, 1)">×</button>
           </div>
-          <button v-if="canEditOrderAmount" type="button" class="btn btn-secondary" @click="addOrderItem">+ Добавить товар</button>
+          <button v-if="canEditOrderItems" type="button" class="btn btn-secondary" @click="addOrderItem">{{ canEditOrderAmount ? '+ Добавить товар' : '+ Добавить товар за 0 ₽' }}</button>
           <div class="edit-summary">Итого после скидок: {{ formatPrice(draftTotal) }}</div>
           <p v-if="editError" class="edit-error" role="alert">{{ editError }}</p>
         </form>
@@ -756,6 +747,7 @@ import axios from 'axios'
 import deliveryApi from '../api/delivery'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 import AdminPagination from '../components/AdminPagination.vue'
+import OrderReportExport from '../components/OrderReportExport.vue'
 
 const API_URL = '/api/admin'
 
@@ -769,7 +761,6 @@ const favoriteSavingId = ref(null)
 const selectedOrder = ref(null)
 const downloadingWaybill = ref(false)
 const exportLoading = ref(false)
-const showExportFormats = ref(false)
 const showManualOrder = ref(false)
 const manualSaving = ref(false)
 const manualError = ref('')
@@ -810,10 +801,14 @@ const savingOrder = ref(false)
 const orderDraft = ref(null)
 const editProducts = ref([])
 const editError = ref('')
+const canEditOrderItems = computed(() => Boolean(selectedOrder.value && !['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(selectedOrder.value.status)))
 const canEditOrderAmount = computed(() => {
   const order = selectedOrder.value
-  return Boolean(order && !order.paymentId && !order.paymentLinkId && !order.paymentUrl && !order.cdekOrderUuid && !isOrderPaid(order.paymentStatus) && !['CANCELLED', 'RETURNED'].includes(order.status))
+  return Boolean(canEditOrderItems.value && order && !order.paymentId && !order.paymentLinkId && !order.paymentUrl && !order.cdekOrderUuid && !isOrderPaid(order.paymentStatus))
 })
+function canEditDraftItem(item) {
+  return canEditOrderItems.value && (canEditOrderAmount.value || Number(item.originalPrice) === 0)
+}
 const draftTotal = computed(() => {
   if (!orderDraft.value) return 0
   if (!canEditOrderAmount.value) return selectedOrder.value?.total || 0
@@ -1313,19 +1308,18 @@ async function downloadWaybill(format) {
   }
 }
 
-async function exportAllOrders(format) {
+async function exportAllOrders(format, period = {}) {
   if (exportLoading.value) return
-  showExportFormats.value = false
   exportLoading.value = true
   try {
     const { data } = await axios.get('/api/admin/partners/orders-export/all-orders', {
-      params: { format },
+      params: { format, ...period },
       responseType: 'blob'
     })
     const url = URL.createObjectURL(data)
     const link = document.createElement('a')
     link.href = url
-    link.download = `all-orders-${new Date().toISOString().slice(0, 10)}.${format}`
+    link.download = `all-orders-${period.dateFrom ? `${period.dateFrom}-${period.dateTo}` : new Date().toISOString().slice(0, 10)}.${format}`
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -1356,11 +1350,11 @@ async function startEditingOrder() {
     shippingAddress: order.shippingAddress || '', notes: order.notes || '', deliveryTariffName: order.deliveryTariffName || '',
     deliveryTariffCode: order.deliveryTariffCode ?? '', deliveryPrice: order.deliveryPrice ?? 0,
     deliveryCity: order.deliveryCity || '', deliveryPickupPoint: order.deliveryPickupPoint || '', deliveryPickupName: order.deliveryPickupName || '',
-    items: order.items.map((item, index) => ({ key: `existing-${index}`, productId: item.productId, dosage: item.dosage || '', quantity: item.quantity, price: item.price }))
+    items: order.items.map((item, index) => ({ key: `existing-${index}`, productId: item.productId, dosage: item.dosage || '', quantity: item.quantity, price: item.price, originalPrice: item.price }))
   }
   editProducts.value = order.items.map(item => ({ id: item.productId, title: item.product?.title || `Товар #${item.productId}` }))
   editingOrder.value = true
-  if (!canEditOrderAmount.value) return
+  if (!canEditOrderItems.value) return
   try {
     const { data } = await axios.get(`${API_URL}/products`, { params: { limit: 1000 } })
     editProducts.value = [...new Map([...editProducts.value, ...(data.products || [])].map(product => [product.id, product])).values()]
@@ -1370,13 +1364,22 @@ async function startEditingOrder() {
 }
 
 function addOrderItem() {
-  if (!canEditOrderAmount.value || !editProducts.value.length) return
-  orderDraft.value.items.push({ key: `new-${Date.now()}-${Math.random()}`, productId: editProducts.value[0].id, dosage: '', quantity: 1, price: editProducts.value[0].price ?? 0 })
+  if (!canEditOrderItems.value || !editProducts.value.length) return
+  orderDraft.value.items.push({ key: `new-${Date.now()}-${Math.random()}`, productId: editProducts.value[0].id, dosage: '', quantity: 1, price: canEditOrderAmount.value ? (editProducts.value[0].price ?? 0) : 0, originalPrice: 0 })
 }
 
 function setDraftProductPrice(item) {
+  if (!canEditOrderAmount.value) {
+    item.price = 0
+    return
+  }
   const product = editProducts.value.find(product => product.id === item.productId)
   if (product?.price != null) item.price = Number(product.price)
+}
+
+function orderItemsChanged() {
+  const normalize = item => [Number(item.productId), String(item.dosage || '').trim(), Number(item.quantity), Number(item.price)]
+  return JSON.stringify(orderDraft.value.items.map(normalize)) !== JSON.stringify((selectedOrder.value?.items || []).map(normalize))
 }
 
 async function saveOrder() {
@@ -1391,6 +1394,8 @@ async function saveOrder() {
   }
   if (canEditOrderAmount.value) {
     payload.deliveryPrice = draft.deliveryPrice
+  }
+  if (canEditOrderItems.value && (canEditOrderAmount.value || orderItemsChanged())) {
     payload.items = draft.items.map(({ productId, dosage, quantity, price }) => ({ productId, dosage, quantity, price }))
   }
   savingOrder.value = true
@@ -1662,14 +1667,6 @@ watch(manualCityQuery, query => {
   letter-spacing: 0;
   white-space: nowrap;
 }
-
-.orders-export-picker { position: relative; }
-.orders-export-picker > .btn { display: inline-flex; align-items: center; gap: .45rem; }
-.orders-export-menu { position: absolute; z-index: 30; top: calc(100% + 8px); right: 0; min-width: 175px; padding: 5px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-secondary); box-shadow: 0 15px 35px #0007; }
-.orders-export-menu p { margin: 4px 8px 6px; max-width: 150px; color: var(--text-muted); font-size: .7rem; line-height: 1.35; }
-.orders-export-menu button { display: flex; justify-content: space-between; gap: 16px; width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text-primary); cursor: pointer; font: inherit; font-size: .84rem; text-align: left; }
-.orders-export-menu button:hover, .orders-export-menu button:focus-visible { background: var(--bg-hover); }
-.orders-export-menu span { color: var(--text-muted); }
 
 .favorite-filter {
   display: inline-flex;
@@ -3226,9 +3223,6 @@ watch(manualCityQuery, query => {
     width: 100%;
     min-width: 0;
   }
-
-  .orders-export-picker { min-width: 0; }
-  .orders-export-picker > .btn { justify-content: center; }
 
   .header-actions .status-filter {
     grid-column: 1 / -1;

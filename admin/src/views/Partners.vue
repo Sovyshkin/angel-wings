@@ -6,19 +6,7 @@
         <p class="page-subtitle">Управление партнёрской программой</p>
       </div>
       <div class="page-actions">
-        <div class="export-picker">
-          <button type="button" class="btn btn-secondary" :disabled="exportLoading" :aria-expanded="showExportFormats" aria-controls="partner-report-formats" @click="showExportFormats = !showExportFormats">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>
-            </svg>
-            {{ exportLoading ? 'Формируем отчёт...' : 'Выгрузить отчёт' }}
-          </button>
-          <div v-if="showExportFormats" id="partner-report-formats" class="export-menu" role="group" aria-label="Формат отчёта">
-            <button type="button" @click="exportAllPartnerOrders('xlsx')">Excel <span>.xlsx</span></button>
-            <button type="button" @click="exportAllPartnerOrders('pdf')">PDF <span>.pdf</span></button>
-            <button type="button" @click="exportAllPartnerOrders('docx')">Word <span>.docx</span></button>
-          </div>
-        </div>
+        <OrderReportExport :loading="exportLoading" button-text="Выгрузить отчёт" title="Отчёт по всем партнёрам" description="Заказы партнёров · по дате создания" menu-id="partners-report-period" @export="exportAllPartnerOrders" />
         <button @click="openModal()" class="btn btn-primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -213,6 +201,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
+import OrderReportExport from '../components/OrderReportExport.vue'
 
 const router = useRouter()
 const API_URL = '/api/admin/partners'
@@ -226,22 +215,20 @@ const error = ref('')
 const loadingForm = ref(false)
 const search = ref('')
 const exportLoading = ref(false)
-const showExportFormats = ref(false)
 
-async function exportAllPartnerOrders(format) {
+async function exportAllPartnerOrders(format, period = {}) {
   if (exportLoading.value) return
-  showExportFormats.value = false
   exportLoading.value = true
   try {
     const response = await axios.get(`${API_URL}/orders-export/all`, {
-      params: { format },
+      params: { format, ...period },
       responseType: 'blob',
       headers: { Accept: format === 'pdf' ? 'application/pdf' : format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
     })
     const fileUrl = window.URL.createObjectURL(response.data)
     const link = document.createElement('a')
     link.href = fileUrl
-    link.download = `partners-orders-${new Date().toISOString().slice(0, 10)}.${format}`
+    link.download = `partners-orders-${period.dateFrom ? `${period.dateFrom}-${period.dateTo}` : new Date().toISOString().slice(0, 10)}.${format}`
     document.body.appendChild(link)
     link.click()
     link.remove()

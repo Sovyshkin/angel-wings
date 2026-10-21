@@ -11,6 +11,7 @@ import { decryptMarketingPayload } from '../utils/marketingToken.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { normalizePointAmount, spendUserPoints } from '../utils/userPoints.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
+import { isOwnPartnerPromoCode } from '../utils/promoEligibility.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -105,6 +106,11 @@ async function applyPromoCode(code, userId) {
       promoCodeId: promoCode?.id || null
     })
     return { error: 'Промокод не найден или неактивен' }
+  }
+
+  if (await isOwnPartnerPromoCode(prisma, promoCode, userId)) {
+    logPromoCheck('own_partner_promo_rejected', { promoCodeId: promoCode.id, userId })
+    return { error: 'Нельзя применить собственный партнёрский промокод' }
   }
 
   if (promoCode.startDate && new Date() < promoCode.startDate) {
@@ -451,7 +457,7 @@ router.post('/promo/validate', authenticate, async (req, res, next) => {
       return res.status(400).json({ error: 'Укажите промокод' })
     }
 
-    const promoResult = await applyPromoCode(code, req.user?.id)
+    const promoResult = await applyPromoCode(code, req.user.id)
     if (promoResult.error) {
       return res.status(400).json({ error: promoResult.error })
     }
@@ -730,7 +736,7 @@ router.post('/', authenticate, async (req, res, next) => {
     }
 
     if (promoCode) {
-      const promoResult = await applyPromoCode(promoCode, req.user?.id || userId)
+      const promoResult = await applyPromoCode(promoCode, req.user.id)
 
       if (promoResult.error) {
         return res.status(400).json({ error: promoResult.error })
