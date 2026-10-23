@@ -19,6 +19,7 @@ import { grantConsultationRewardsForPaidOrder } from '../utils/consultationRewar
 import { buildOrderWaybill, createOrderWaybillDocx, createOrderWaybillPdf } from '../utils/orderWaybill.js'
 import { applyStockAdjustments, parseStockAdjustmentRequest } from '../utils/stockAdjustments.js'
 import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiringSettings.js'
+import { calculateOrderEditAmounts, getBilledOrderTotal } from '../utils/orderEditAmounts.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -620,7 +621,7 @@ router.get('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
     const successfulOrders = orders.filter(order =>
       !['CANCELLED', 'RETURNED'].includes(order.status) && paidStatuses.has(String(order.paymentStatus || '').toUpperCase())
     )
-    const totalSpent = successfulOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
+    const totalSpent = successfulOrders.reduce((sum, order) => sum + getBilledOrderTotal(order), 0)
     const products = new Map()
 
     for (const order of successfulOrders) {
@@ -1509,16 +1510,22 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
             adminUnbilled: Boolean(oldItem?.adminUnbilled || (financialLocked && changed))
           }
         }) })
-        const subtotal = nextItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
-        const delivery = data.deliveryPrice ?? previous.deliveryPrice ?? 0
         const nextTariffCode = data.deliveryTariffCode !== undefined ? data.deliveryTariffCode : previous.deliveryTariffCode
         const nextPickupPoint = data.deliveryPickupPoint !== undefined ? data.deliveryPickupPoint : previous.deliveryPickupPoint
-        const siteDelivery = nextTariffCode || nextPickupPoint ? 0 : delivery
-        if (!financialLocked) {
-          if (subtotal + siteDelivery < Number(previous.discountAmount || 0)) throw Object.assign(new Error('Скидка и списанные баллы превышают новую стоимость заказа'), { status: 400 })
-          data.total = Math.round(Math.max(0, subtotal + siteDelivery - Number(previous.discountAmount || 0)) * 100) / 100
-          data.paymentAmount = data.total
-        }
+        const amounts = calculateOrderEditAmounts({
+          items: nextItems,
+          deliveryPrice: data.deliveryPrice ?? previous.deliveryPrice,
+          deliveryTariffCode: nextTariffCode,
+          deliveryPickupPoint: nextPickupPoint,
+          discountAmount: previous.discountAmount,
+          financialLocked,
+          previousTotal: previous.total,
+          previousUnbilledAdjustment: previous.unbilledAdjustment
+        })
+        if (!amounts) throw Object.assign(new Error('Скидка и списанные баллы превышают новую стоимость заказа'), { status: 400 })
+        data.total = amounts.total
+        data.unbilledAdjustment = amounts.unbilledAdjustment
+        if (!financialLocked) data.paymentAmount = amounts.paymentAmount
       } else if (changesDeliveryAmount) {
         const subtotal = previous.items.reduce((sum, item) => sum + item.quantity * item.price, 0)
         const nextTariffCode = data.deliveryTariffCode !== undefined ? data.deliveryTariffCode : previous.deliveryTariffCode
@@ -1535,8 +1542,8 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
           data: {
             orderId,
             adminId: req.user.id,
-            beforeJson: JSON.stringify({ total: previous.total, paymentAmount: previous.paymentAmount, items: previous.items.map(({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled }) => ({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled })) }),
-            afterJson: JSON.stringify({ total: updated.total, paymentAmount: updated.paymentAmount, items: updated.items.map(({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled }) => ({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled })) })
+            beforeJson: JSON.stringify({ total: previous.total, paymentAmount: previous.paymentAmount, unbilledAdjustment: previous.unbilledAdjustment, items: previous.items.map(({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled }) => ({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled })) }),
+            afterJson: JSON.stringify({ total: updated.total, paymentAmount: updated.paymentAmount, unbilledAdjustment: updated.unbilledAdjustment, items: updated.items.map(({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled }) => ({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled })) })
           }
         })
       }

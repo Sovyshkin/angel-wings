@@ -23,3 +23,14 @@ test('site-paid delivery is excluded from partner commission base', async () => 
   await ensurePartnerCommissionForPaidOrder(db, 12)
   assert.equal(saved.create.amount, 500)
 })
+
+test('admin-added products do not increase commission on an already paid order', async () => {
+  let saved
+  const db = {
+    order: { findUnique: async () => ({ id: 12, userId: 3, partnerId: 4, paymentStatus: 'PAID', total: 15000, paymentAmount: 2000, unbilledAdjustment: 5000, deliveryPrice: 0, deliveryTariffCode: null, deliveryPickupPoint: null, cdekOrderUuid: null }) },
+    partner: { findUnique: async () => ({ id: 4, percentage: 5, isActive: true }) },
+    partnerCommission: { upsert: async value => { saved = value; return value } }
+  }
+  await ensurePartnerCommissionForPaidOrder(db, 12)
+  assert.equal(saved.create.amount, 500)
+})

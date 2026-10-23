@@ -7,6 +7,7 @@ import {
 
 const reportFont = fileURLToPath(new URL('../../assets/fonts/LiberationSans-Regular.ttf', import.meta.url))
 const money = value => `${new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0))} ₽`
+export const formatCommissionPercent = value => value == null ? '—' : `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(Number(value))}%`
 const date = value => new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
 
 function cell(text, { bold = false, fill = null } = {}) {
@@ -47,7 +48,7 @@ export async function createPartnerOrdersDocx(report) {
         tableRow([money(order.total), money(order.revenue), money(order.tax), money(order.acquiring), money(order.balance)])
       ]
     }))
-    children.push(new Paragraph({ text: `Источник эквайринга: ${order.acquiringSource}. Комиссия партнёра: ${money(order.commission)}.`, spacing: { before: 80, after: 110 } }))
+    children.push(new Paragraph({ text: `Источник эквайринга: ${order.acquiringSource}. Комиссия партнёра: ${money(order.commission)} (ставка ${formatCommissionPercent(order.commissionPercentage)}).`, spacing: { before: 80, after: 110 } }))
     children.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
@@ -117,7 +118,7 @@ export async function createPartnerOrdersPdf(report) {
     doc.moveDown(0.25).fillColor('#17223C').fontSize(9)
     textWithFont(doc, `Сумма: ${money(order.total)}    Оплачено: ${money(order.revenue)}    Налог: ${money(order.tax)}`, { x: 50, y: doc.y, width: pageWidth - 16 })
     textWithFont(doc, `Эквайринг: ${money(order.acquiring)} (${order.acquiringSource})    Остаток: ${money(order.balance)}`, { x: 50, y: doc.y, width: pageWidth - 16 })
-    textWithFont(doc, `Комиссия партнёра: ${money(order.commission)}`, { x: 50, y: doc.y, width: pageWidth - 16 })
+    textWithFont(doc, `Комиссия партнёра: ${money(order.commission)} (ставка ${formatCommissionPercent(order.commissionPercentage)})`, { x: 50, y: doc.y, width: pageWidth - 16 })
     doc.moveDown(0.35).fillColor('#4B556A').fontSize(8.5)
     for (const item of order.items) {
       ensureSpace(35)

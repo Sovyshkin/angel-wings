@@ -172,7 +172,7 @@
                 <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
                   {{ getPaymentLabel(order.paymentStatus) }}
                 </span>
-                <small v-if="isOrderPaid(order.paymentStatus) && order.paymentType" class="payment-method-label">{{ getPaymentTypeLabel(order.paymentType) }}</small>
+                <PaymentMethodChip v-if="isOrderPaid(order.paymentStatus) && order.paymentType" :type="order.paymentType" class="order-payment-method" />
                 <button
                   v-if="!isOrderPaid(order.paymentStatus)"
                   @click="markAsPaid(order)"
@@ -222,10 +222,12 @@
               </button>
               <div class="order-card__id">Заказ #{{ order.id }}</div>
             </div>
-            <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
-              {{ getPaymentLabel(order.paymentStatus) }}
-            </span>
-            <small v-if="isOrderPaid(order.paymentStatus) && order.paymentType" class="payment-method-label">{{ getPaymentTypeLabel(order.paymentType) }}</small>
+            <div class="order-card__payment">
+              <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
+                {{ getPaymentLabel(order.paymentStatus) }}
+              </span>
+              <PaymentMethodChip v-if="isOrderPaid(order.paymentStatus) && order.paymentType" :type="order.paymentType" />
+            </div>
           </div>
 
           <div class="order-card__body">
@@ -469,7 +471,7 @@
             <label class="edit-wide">Комментарий<textarea v-model.trim="orderDraft.notes" class="input" rows="3" maxlength="4000"></textarea></label>
           </div>
           <div class="edit-section-title">Состав заказа</div>
-          <p v-if="hasFixedPayment" class="edit-notice">Состав можно изменить, но выставленный счёт, платёж и чек не изменятся. Сумма заказа останется прежней; расхождение нужно урегулировать отдельно.</p>
+          <p v-if="hasFixedPayment" class="edit-notice">Сумма заказа пересчитается по новому составу. Выставленный счёт, платёж и чек не изменятся; разницу нужно урегулировать отдельно.</p>
           <p v-if="selectedOrder.cdekOrderUuid" class="edit-notice">Изменение состава здесь не обновит накладную СДЭК — проверьте отправку отдельно.</p>
           <p v-if="['SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED'].includes(selectedOrder.status)" class="edit-notice">Заказ уже завершён или отменён. Убедитесь, что изменение состава соответствует фактическому движению товара.</p>
           <div v-for="(item, index) in orderDraft.items" :key="item.key" class="edit-item">
@@ -484,8 +486,8 @@
             <button type="button" class="edit-remove" :disabled="orderDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="orderDraft.items.splice(index, 1)">×</button>
           </div>
           <button type="button" class="btn btn-secondary" @click="addOrderItem">+ Добавить товар</button>
-          <div class="edit-summary">{{ hasFixedPayment ? 'Сумма выставленного платежа' : 'Итого после скидок' }}: {{ formatPrice(draftTotal) }}</div>
-          <p v-if="hasFixedPayment" class="edit-notice">Стоимость текущего состава: {{ formatPrice(draftCompositionTotal) }} до скидки. Новые товары будут отмечены в заказе.</p>
+          <div class="edit-summary">Новая сумма заказа после скидок: {{ formatPrice(draftTotal) }}</div>
+          <p v-if="hasFixedPayment" class="edit-notice">Ранее выставлено к оплате: {{ formatPrice(getFixedPaymentAmount(selectedOrder)) }}. Новые товары будут отмечены в заказе как добавленные без изменения оплаты.</p>
           <p v-if="editError" class="edit-error" role="alert">{{ editError }}</p>
         </form>
 
@@ -525,7 +527,8 @@
             </div>
             <div v-if="isOrderPaid(selectedOrder.paymentStatus)" class="detail-row">
               <span class="detail-label">Способ оплаты</span>
-              <span class="detail-value">{{ getPaymentTypeLabel(selectedOrder.paymentType) }}</span>
+              <PaymentMethodChip v-if="selectedOrder.paymentType" :type="selectedOrder.paymentType" />
+              <span v-else class="detail-value">Неизвестен</span>
             </div>
             <div v-if="selectedOrder.status === 'CANCELLED'" class="detail-row">
               <span class="detail-label">Причина отмены</span>
@@ -710,6 +713,10 @@
               <span>{{ isCdekDelivery(selectedOrder) ? 'Итого без доставки СДЭК' : 'Итого' }}</span>
               <span class="total-value">{{ formatPrice(getOrderDetailTotal(selectedOrder)) }}</span>
             </div>
+            <div v-if="hasFixedPayment && Math.round(getFixedPaymentAmount(selectedOrder) * 100) !== Math.round(Number(selectedOrder.total || 0) * 100)" class="total-row">
+              <span>Ранее выставлено к оплате</span>
+              <span>{{ formatPrice(getFixedPaymentAmount(selectedOrder)) }}</span>
+            </div>
           </div>
 
           <div v-if="selectedOrder.notes" class="order-notes">
@@ -751,6 +758,7 @@ import deliveryApi from '../api/delivery'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 import AdminPagination from '../components/AdminPagination.vue'
 import OrderReportExport from '../components/OrderReportExport.vue'
+import PaymentMethodChip from '../components/PaymentMethodChip.vue'
 
 const API_URL = '/api/admin'
 
@@ -812,10 +820,9 @@ const canEditOrderAmount = computed(() => {
 const draftCompositionTotal = computed(() => orderDraft.value?.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0) || 0)
 const draftTotal = computed(() => {
   if (!orderDraft.value) return 0
-  if (hasFixedPayment.value) return selectedOrder.value?.total || 0
   const subtotal = draftCompositionTotal.value
   const delivery = orderDraft.value.deliveryTariffCode || orderDraft.value.deliveryPickupPoint ? 0 : (Number(orderDraft.value.deliveryPrice) || 0)
-  return Math.max(0, subtotal + delivery - Number(selectedOrder.value?.discountAmount || 0))
+  return Math.round(Math.max(0, subtotal + delivery - Number(selectedOrder.value?.discountAmount || 0)) * 100) / 100
 })
 const creatingCdek = ref(false)
 const syncingCdek = ref(false)
@@ -1439,6 +1446,10 @@ function getOrderDetailTotal(order) {
   return Math.round(Math.max(0, itemsTotal - Number(order?.discountAmount || 0)) * 100) / 100
 }
 
+function getFixedPaymentAmount(order) {
+  return Math.round((Number(order?.total || 0) - Number(order?.unbilledAdjustment || 0)) * 100) / 100
+}
+
 function getPartnerBonusAmount(order) {
   return Math.max(0, Number(order?.partnerBonusInfo?.amount ?? order?.partnerBonusAmount ?? 0))
 }
@@ -1584,10 +1595,6 @@ function getPaymentLabel(status) {
     return 'Не оплачен'
   }
   return 'Ожидает оплату'
-}
-
-function getPaymentTypeLabel(type) {
-  return ({ sbp: 'СБП', card: 'Карта', tinkoff: 'Т-Pay', dolyame: 'Долями', digitalruble: 'Цифровой рубль' })[String(type || '').toLowerCase()] || 'Неизвестен'
 }
 
 function getCancelReasonLabel(reason) {
@@ -1934,6 +1941,10 @@ watch(manualCityQuery, query => {
   padding: .3rem .65rem;
 }
 
+.order-payment-method {
+  margin-top: .45rem;
+}
+
 .order-state-cell .pay-now-btn {
   max-width: 180px;
   text-align: left;
@@ -2133,10 +2144,18 @@ watch(manualCityQuery, query => {
 
 .order-card__header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.9rem;
+}
+
+.order-card__payment {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .4rem;
+  flex: none;
 }
 
 .order-card__title {
@@ -2270,13 +2289,6 @@ watch(manualCityQuery, query => {
 .payment-badge.payment-failed {
   background: #ef444422;
   color: #ef4444;
-}
-
-.payment-method-label {
-  display: block;
-  margin-top: .3rem;
-  color: var(--text-secondary);
-  font-size: .72rem;
 }
 
 .pay-now-btn {

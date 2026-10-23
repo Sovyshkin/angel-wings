@@ -9,6 +9,9 @@ try {
   if (!orderColumns.some(column => column.name === 'editVersion')) {
     await prisma.$executeRawUnsafe('ALTER TABLE orders ADD COLUMN editVersion INTEGER NOT NULL DEFAULT 0')
   }
+  if (!orderColumns.some(column => column.name === 'unbilledAdjustment')) {
+    await prisma.$executeRawUnsafe('ALTER TABLE orders ADD COLUMN unbilledAdjustment REAL NOT NULL DEFAULT 0')
+  }
   const columns = await prisma.$queryRawUnsafe("PRAGMA table_info('order_items')")
   if (!columns.length) throw new Error('Таблица order_items отсутствует')
   if (!columns.some(column => column.name === 'adminAddedAt')) {

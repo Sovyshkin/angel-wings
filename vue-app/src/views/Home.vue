@@ -1297,37 +1297,9 @@ function queueHeroScrollProgress() {
 }
 
 [data-theme="light"] .home-global-decor__item {
-  mix-blend-mode: multiply;
-}
-
-[data-theme="light"] .home-global-decor__item--molecule-1,
-[data-theme="light"] .home-global-decor__item--molecule-3,
-[data-theme="light"] .home-global-decor__item--molecule-5,
-[data-theme="light"] .home-global-decor__item--molecule-6,
-[data-theme="light"] .home-global-decor__item--molecule-8 {
-  opacity: 0.1;
-  filter: saturate(0.85);
-}
-
-[data-theme="light"] .home-global-decor__item--molecule-2,
-[data-theme="light"] .home-global-decor__item--molecule-4,
-[data-theme="light"] .home-global-decor__item--molecule-7 {
-  opacity: 0.08;
-  filter: saturate(0.75);
-}
-
-[data-theme="light"] .home-global-decor__item--drop-1,
-[data-theme="light"] .home-global-decor__item--drop-3,
-[data-theme="light"] .home-global-decor__item--drop-5 {
-  opacity: 0.12;
-  filter: saturate(0.9);
-}
-
-[data-theme="light"] .home-global-decor__item--drop-2,
-[data-theme="light"] .home-global-decor__item--drop-4,
-[data-theme="light"] .home-global-decor__item--drop-6 {
-  opacity: 0.08;
-  filter: saturate(0.75);
+  opacity: 0.9;
+  mix-blend-mode: normal;
+  filter: saturate(1.22) contrast(1.1) drop-shadow(0 0 14px rgba(25, 100, 220, 0.2));
 }
 
 .hero {
@@ -1438,10 +1410,10 @@ function queueHeroScrollProgress() {
     linear-gradient(
       90deg,
       rgba(248, 249, 255, 0.96) 0%,
-      rgba(248, 249, 255, 0.88) 28%,
-      rgba(248, 249, 255, 0.56) 46%,
-      rgba(248, 249, 255, 0.18) 64%,
-      rgba(248, 249, 255, 0) 80%
+      rgba(248, 249, 255, 0.88) 20%,
+      rgba(248, 249, 255, 0.5) 34%,
+      rgba(248, 249, 255, 0.12) 44%,
+      rgba(248, 249, 255, 0) 54%
     );
 }
 
@@ -1495,6 +1467,10 @@ function queueHeroScrollProgress() {
 .accent {
   color: var(--accent);
   text-shadow: 0 0 80px rgba(166, 185, 248, 0.4);
+}
+
+[data-theme="light"] .accent {
+  text-shadow: none;
 }
 
 .hero-title-break {
@@ -2176,11 +2152,12 @@ function queueHeroScrollProgress() {
 }
 
 [data-theme="light"] .hero-orbit-image {
-  opacity: 0.28;
+  opacity: 0.78;
   mix-blend-mode: multiply;
   filter:
-    saturate(0.9)
-    drop-shadow(0 0 10px rgba(70, 130, 255, 0.12));
+    saturate(1.2)
+    contrast(1.08)
+    drop-shadow(0 0 10px rgba(30, 91, 210, 0.22));
 }
 
 .hero-pen-wrap {
@@ -2281,12 +2258,12 @@ function queueHeroScrollProgress() {
 }
 
 [data-theme="light"] .hero-platform img {
-  opacity: 0.7;
-  mix-blend-mode: multiply;
+  opacity: 1;
+  mix-blend-mode: normal;
   filter:
-    saturate(0.92)
-    contrast(0.96)
-    drop-shadow(0 0 18px rgba(43, 142, 255, 0.12));
+    saturate(1.2)
+    contrast(1.1)
+    drop-shadow(0 12px 22px rgba(24, 70, 166, 0.2));
 }
 
 .hero-molecule {
@@ -2457,27 +2434,15 @@ function queueHeroScrollProgress() {
 
 [data-theme="light"] .hero-molecule__image,
 [data-theme="light"] .hero-sphere__image {
-  mix-blend-mode: multiply;
+  mix-blend-mode: normal;
 }
 
 [data-theme="light"] .hero-molecule {
-  opacity: calc((var(--hero-object-opacity) * 0.38) * var(--hero-land-opacity));
-}
-
-[data-theme="light"] .hero-molecule__image {
-  filter:
-    saturate(0.82)
-    drop-shadow(0 0 10px rgba(25, 134, 255, 0.08));
+  opacity: var(--hero-land-opacity);
 }
 
 [data-theme="light"] .hero-sphere {
-  opacity: calc((var(--hero-object-opacity) * 0.42) * var(--hero-land-opacity));
-}
-
-[data-theme="light"] .hero-sphere__image {
-  filter:
-    saturate(0.85)
-    drop-shadow(0 0 10px rgba(62, 157, 255, 0.08));
+  opacity: var(--hero-land-opacity);
 }
 
 .hero-sphere--top {
@@ -2598,6 +2563,11 @@ function queueHeroScrollProgress() {
     saturate(0.78)
     drop-shadow(0 0 10px rgba(82, 157, 255, 0.1));
   animation-duration: 10s;
+}
+
+[data-theme="light"] .hero-molecule__image,
+[data-theme="light"] .hero-sphere__image {
+  filter: saturate(1.22) contrast(1.1) drop-shadow(0 0 12px rgba(25, 100, 220, 0.2));
 }
 
 @keyframes heroPenDrop {
@@ -2761,17 +2731,9 @@ function queueHeroScrollProgress() {
 }
 
 [data-theme="light"] .section-decor img {
-  mix-blend-mode: multiply;
-}
-
-[data-theme="light"] .section-decor__molecule {
-  opacity: 0.1;
-  filter: saturate(0.82);
-}
-
-[data-theme="light"] .section-decor__drop {
-  opacity: 0.12;
-  filter: saturate(0.86);
+  opacity: 0.9;
+  mix-blend-mode: normal;
+  filter: saturate(1.22) contrast(1.1) drop-shadow(0 0 14px rgba(25, 100, 220, 0.2));
 }
 
 .section-decor__molecule {

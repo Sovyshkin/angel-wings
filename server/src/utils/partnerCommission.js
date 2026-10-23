@@ -1,3 +1,5 @@
+import { getBilledOrderTotal } from './orderEditAmounts.js'
+
 const PAID_PAYMENT_STATUS = 'PAID'
 
 function normalizePaymentStatus(value) {
@@ -16,6 +18,7 @@ export async function ensurePartnerCommissionForPaidOrder(prismaLike, orderId) {
       partnerId: true,
       paymentStatus: true,
       total: true,
+      unbilledAdjustment: true,
       deliveryPrice: true,
       deliveryTariffCode: true,
       deliveryPickupPoint: true,
@@ -38,7 +41,7 @@ export async function ensurePartnerCommissionForPaidOrder(prismaLike, orderId) {
   // CDEK is paid separately and is not included in order.total.
   const isExternalDelivery = Boolean(order.deliveryTariffCode || order.deliveryPickupPoint || order.cdekOrderUuid)
   const deliveryPart = isExternalDelivery ? 0 : Math.max(0, Number(order.deliveryPrice || 0))
-  const commissionBase = Math.max(0, Number(order.total || 0) - deliveryPart)
+  const commissionBase = Math.max(0, getBilledOrderTotal(order) - deliveryPart)
   const amount = commissionBase * (percentage / 100)
 
   return prismaLike.partnerCommission.upsert({

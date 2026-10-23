@@ -85,9 +85,9 @@
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
   --bg-hover: #f0f0f2;
-  --accent: #a6b9f8;
-  --accent-hover: #c5d3ff;
-  --accent-dim: rgba(166, 185, 248, 0.12);
+  --accent: #2859d4;
+  --accent-hover: #1748bc;
+  --accent-dim: rgba(40, 89, 212, 0.1);
   --text-primary: #1a1a1a;
   --text-secondary: rgba(26, 26, 26, 0.6);
   --text-muted: rgba(26, 26, 26, 0.4);

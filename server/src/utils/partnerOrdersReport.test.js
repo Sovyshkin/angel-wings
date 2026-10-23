@@ -50,6 +50,10 @@ test('financial columns include only paid orders and label estimated acquiring',
   const actual = getOrderReportAmounts({ total: 10000, paymentStatus: 'PAID', paymentId: 'pay-3', acquiringFee: 125.43 })
   assert.equal(actual.acquiring, 125.43)
   assert.equal(actual.acquiringSource, 'Фактическая сумма')
+  const editedPaid = getOrderReportAmounts({ total: 15000, paymentAmount: 10000, unbilledAdjustment: 5000, paymentStatus: 'PAID', paymentType: 'card' })
+  assert.equal(editedPaid.revenue, 10000)
+  assert.equal(editedPaid.tax, 1141.2)
+  assert.equal(editedPaid.acquiring, 250)
 })
 
 test('partner report distinguishes card and SBP acquiring', () => {

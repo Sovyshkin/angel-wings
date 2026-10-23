@@ -200,6 +200,7 @@ model Order {
   paymentCreationToken   String?
   paymentCreationStartedAt DateTime?
   total                  Float
+  unbilledAdjustment     Float                  @default(0)
   partnerBonusAmount     Float?                 @default(0)
   acquiringFee           Float?
   deliveryCost           Float?

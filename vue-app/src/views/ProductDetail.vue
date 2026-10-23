@@ -170,30 +170,6 @@
             </button>
           </div>
           
-          <div class="product-guarantee">
-            <div class="guarantee-item">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-              <span>Гарантия качества</span>
-            </div>
-            <div class="guarantee-item">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="1" y="3" width="15" height="13"/>
-                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
-                <circle cx="5.5" cy="18.5" r="2.5"/>
-                <circle cx="18.5" cy="18.5" r="2.5"/>
-              </svg>
-              <span>Быстрая доставка</span>
-            </div>
-            <div class="guarantee-item">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                <polyline points="9 22 9 12 15 12 15 22"/>
-              </svg>
-              <span>Консультация специалиста</span>
-            </div>
-          </div>
         </div>
       </div>
       
@@ -974,7 +950,6 @@ onMounted(async () => {
 .product-actions {
   display: flex;
   gap: 1rem;
-  margin-bottom: 2rem;
   padding: 1.5rem;
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -1105,33 +1080,6 @@ onMounted(async () => {
   to { opacity: 1; translate: 0 0; }
 }
 
-.product-guarantee {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-
-.guarantee-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  text-align: center;
-}
-
-.guarantee-item svg {
-  color: var(--accent);
-}
-
-.guarantee-item span {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
 .not-found {
   text-align: center;
   padding: 4rem 0;
@@ -1150,10 +1098,6 @@ onMounted(async () => {
 
   .product-gallery {
     position: static;
-  }
-
-  .product-guarantee {
-    grid-template-columns: 1fr;
   }
 
   .gallery-thumbs {
@@ -1267,7 +1211,6 @@ onMounted(async () => {
   .product-actions {
     flex-direction: column;
     padding: 1rem;
-    margin-bottom: 1rem;
   }
 
   .quantity-selector {
@@ -1297,19 +1240,6 @@ onMounted(async () => {
 
   .spec-value {
     font-size: 0.8rem;
-  }
-
-  .product-guarantee {
-    gap: 0.5rem;
-  }
-
-  .guarantee-item {
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    text-align: left;
-    font-size: 0.75rem;
   }
 }
 </style>
