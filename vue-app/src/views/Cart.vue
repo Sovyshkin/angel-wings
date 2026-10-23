@@ -3590,7 +3590,17 @@ onUnmounted(() => {
   background:
     radial-gradient(circle at 15% 15%, rgba(165, 183, 255, 0.18), transparent 34%),
     linear-gradient(135deg, rgba(34, 36, 50, 0.96), rgba(18, 19, 28, 0.96));
+  color: #fff;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+}
+
+[data-theme="light"] .pending-payment-card {
+  border-color: rgba(40, 89, 212, 0.28);
+  background:
+    radial-gradient(circle at 15% 15%, rgba(92, 139, 248, 0.18), transparent 36%),
+    linear-gradient(135deg, #f3f7ff, #ffffff);
+  color: #172340;
+  box-shadow: 0 18px 44px rgba(42, 76, 148, 0.12);
 }
 
 .pending-payment-card__icon {
@@ -3602,6 +3612,10 @@ onUnmounted(() => {
   border-radius: 18px;
   color: var(--accent);
   background: rgba(165, 183, 255, 0.16);
+}
+
+[data-theme="light"] .pending-payment-card__icon {
+  background: rgba(40, 89, 212, 0.11);
 }
 
 .pending-payment-card__eyebrow {
@@ -3622,8 +3636,12 @@ onUnmounted(() => {
 
 .pending-payment-card p {
   margin: 0;
-  color: var(--text-secondary);
+  color: rgba(235, 240, 255, 0.72);
   line-height: 1.5;
+}
+
+[data-theme="light"] .pending-payment-card p {
+  color: rgba(23, 35, 64, 0.72);
 }
 
 .pending-payment-card__actions {
@@ -3640,6 +3658,10 @@ onUnmounted(() => {
   margin-top: 0.6rem;
   color: #fecaca;
   font-size: 0.9rem;
+}
+
+[data-theme="light"] .pending-payment-card__error {
+  color: #b4233c;
 }
 
 .summary-header {

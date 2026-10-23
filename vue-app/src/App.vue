@@ -1552,6 +1552,14 @@ html.is-page-inactive *::after {
   border-color: var(--accent);
 }
 
+.cart-btn:focus {
+  outline: none;
+}
+
+.cart-btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
 .cart-icon {
   color: var(--text-primary);
   transition: color 0.3s ease;
@@ -1559,6 +1567,7 @@ html.is-page-inactive *::after {
 
 .cart-count {
   position: absolute;
+  z-index: 1;
   top: -4px;
   right: -4px;
   min-width: 18px;
@@ -1573,6 +1582,12 @@ html.is-page-inactive *::after {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+[data-theme="light"] .cart-count {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .main {
