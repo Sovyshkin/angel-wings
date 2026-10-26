@@ -475,11 +475,12 @@ export async function calculateDeliveryWithDestinationTariff({
 // ==================== ПВЗ (Пункты выдачи заказов) ====================
 
 // Получить список ПВЗ
-export async function getPickupPoints({ city_code, postcode, limit = 50 }) {
+export async function getPickupPoints({ city_code, postcode, limit = 50, offset = 0 }) {
   const params = new URLSearchParams()
   if (city_code) params.append('city_code', city_code)
   if (postcode) params.append('postal_code', postcode)
   params.append('limit', limit)
+  if (offset) params.append('offset', offset)
   params.append('type', 'PVZ')
 
   return cdekRequest(`/deliverypoints?${params.toString()}`, 'GET')

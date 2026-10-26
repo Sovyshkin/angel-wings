@@ -191,6 +191,50 @@
         </div>
         
       </div>
+
+      <div class="form-section recommendations-section">
+        <div class="recommendations-heading">
+          <div>
+            <h3 class="section-title">Рекомендации товаров</h3>
+            <p>Настройте, что покупатель увидит под товаром и в корзине. Порядок можно менять стрелками.</p>
+          </div>
+          <span class="recommendations-limit">До 8 в каждом блоке</span>
+        </div>
+
+        <div class="recommendations-grid">
+          <div v-for="placement in recommendationPlacements" :key="placement.key" class="recommendations-panel">
+            <div class="recommendations-panel__heading">
+              <span class="recommendations-panel__number">{{ placement.number }}</span>
+              <div>
+                <h4>{{ placement.title }}</h4>
+                <p>{{ placement.description }}</p>
+              </div>
+            </div>
+
+            <div v-if="recommendationIds[placement.key].length" class="recommendations-selected">
+              <div v-for="(id, index) in recommendationIds[placement.key]" :key="id" class="recommendation-selected-item">
+                <span class="recommendation-selected-item__position">{{ index + 1 }}</span>
+                <span class="recommendation-selected-item__title">{{ recommendationTitle(id) }}</span>
+                <button type="button" class="recommendation-move" :disabled="index === 0" :aria-label="`Поднять ${recommendationTitle(id)}`" @click="moveRecommendation(placement.key, index, -1)">↑</button>
+                <button type="button" class="recommendation-move" :disabled="index === recommendationIds[placement.key].length - 1" :aria-label="`Опустить ${recommendationTitle(id)}`" @click="moveRecommendation(placement.key, index, 1)">↓</button>
+                <button type="button" class="recommendation-remove" :aria-label="`Удалить ${recommendationTitle(id)}`" @click="removeRecommendation(placement.key, id)">×</button>
+              </div>
+            </div>
+            <p v-else class="recommendations-empty">Пока нет рекомендаций для этого блока.</p>
+
+            <div class="recommendations-add">
+              <input v-model="recommendationSearch[placement.key]" type="search" class="input" :placeholder="'Найти товар по названию или артикулу'" :aria-label="`Поиск товаров для блока ${placement.title}`">
+              <div class="recommendations-add__controls">
+                <select v-model.number="recommendationPicker[placement.key]" class="input" :aria-label="`Выбрать товар для блока ${placement.title}`">
+                  <option :value="0">{{ availableRecommendations(placement.key).length ? 'Выберите товар' : 'Нет подходящих товаров' }}</option>
+                  <option v-for="candidate in availableRecommendations(placement.key)" :key="candidate.id" :value="candidate.id">{{ candidate.title }}</option>
+                </select>
+                <button type="button" class="btn btn-secondary" :disabled="!recommendationPicker[placement.key] || recommendationIds[placement.key].length >= 8" @click="addRecommendation(placement.key)">Добавить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       
       <div class="form-section">
         <h3 class="section-title">Изображение</h3>
@@ -331,6 +375,14 @@ const form = ref({
 const specsArray = ref([])
 const dosageVariants = ref([])
 const categories = ref([])
+const recommendationPlacements = [
+  { key: 'product', number: '01', title: 'На странице товара', description: 'Покажем под описанием и характеристиками.' },
+  { key: 'cart', number: '02', title: 'В корзине', description: 'Покажем, когда этот товар находится в корзине.' }
+]
+const recommendationOptions = ref([])
+const recommendationIds = ref({ product: [], cart: [] })
+const recommendationPicker = ref({ product: 0, cart: 0 })
+const recommendationSearch = ref({ product: '', cart: '' })
 const error = ref('')
 const success = ref('')
 const loading = ref(false)
@@ -354,6 +406,47 @@ function goBack() {
 async function fetchCategories() {
   const { data } = await axios.get(`/api/categories`)
   categories.value = data.categories
+}
+
+async function fetchRecommendationOptions() {
+  try {
+    const { data } = await axios.get('/api/admin/products', { params: { limit: 1000, active: true } })
+    recommendationOptions.value = data.products || []
+  } catch {
+    error.value = 'Не удалось загрузить каталог для рекомендаций'
+  }
+}
+
+function recommendationTitle(id) {
+  return recommendationOptions.value.find(product => product.id === id)?.title || `Товар #${id}`
+}
+
+function availableRecommendations(placement) {
+  const search = recommendationSearch.value[placement].trim().toLocaleLowerCase('ru')
+  return recommendationOptions.value.filter(product =>
+    product.id !== Number(route.params.id) &&
+    !recommendationIds.value[placement].includes(product.id) &&
+    (!search || `${product.title} ${product.sku || ''} ${product.slug || ''}`.toLocaleLowerCase('ru').includes(search))
+  )
+}
+
+function addRecommendation(placement) {
+  const id = Number(recommendationPicker.value[placement])
+  if (!id || recommendationIds.value[placement].length >= 8 || !availableRecommendations(placement).some(product => product.id === id)) return
+  recommendationIds.value[placement].push(id)
+  recommendationPicker.value[placement] = 0
+  recommendationSearch.value[placement] = ''
+}
+
+function removeRecommendation(placement, id) {
+  recommendationIds.value[placement] = recommendationIds.value[placement].filter(item => item !== id)
+}
+
+function moveRecommendation(placement, index, direction) {
+  const items = recommendationIds.value[placement]
+  const destination = index + direction
+  if (destination < 0 || destination >= items.length) return
+  ;[items[index], items[destination]] = [items[destination], items[index]]
 }
 
 async function fetchProduct() {
@@ -387,6 +480,10 @@ async function fetchProduct() {
   const specs = p.specs || {}
   specsArray.value = jsonToSpecsArray(specs)
   dosageVariants.value = parseDosageVariants(specs)
+  recommendationIds.value = {
+    product: Array.isArray(p.productRecommendationIds) ? p.productRecommendationIds : [],
+    cart: Array.isArray(p.cartRecommendationIds) ? p.cartRecommendationIds : []
+  }
 }
 
 function handleFileChange(e) {
@@ -529,6 +626,8 @@ async function handleSubmit() {
     formData.append('packageHeight', form.value.packageHeight || 0)
     if (form.value.repeatCycleDays) formData.append('repeatCycleDays', form.value.repeatCycleDays)
     formData.append('specs', specsToJson())
+    formData.append('productRecommendationIds', JSON.stringify(recommendationIds.value.product))
+    formData.append('cartRecommendationIds', JSON.stringify(recommendationIds.value.cart))
     formData.append('featured', form.value.featured)
     formData.append('featuredPosition', form.value.featuredPosition)
     formData.append('active', form.value.active)
@@ -560,6 +659,7 @@ async function handleSubmit() {
 
 onMounted(() => {
   fetchCategories()
+  fetchRecommendationOptions()
   if (isEdit.value) fetchProduct()
 })
 </script>
@@ -1016,6 +1116,49 @@ onMounted(() => {
   color: var(--accent);
 }
 
+.recommendations-section {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+}
+
+.recommendations-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.recommendations-heading .section-title { margin-bottom: 0.45rem; }
+.recommendations-heading p,
+.recommendations-panel__heading p { color: var(--text-secondary); font-size: 0.875rem; line-height: 1.5; }
+.recommendations-limit { color: var(--accent); font-size: 0.75rem; white-space: nowrap; letter-spacing: 0.04em; }
+.recommendations-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.recommendations-panel { min-width: 0; padding: 1.4rem; border: 1px solid var(--border); border-radius: 18px; background: var(--bg-secondary); }
+.recommendations-panel__heading { display: flex; align-items: start; gap: 0.8rem; margin-bottom: 1.1rem; }
+.recommendations-panel__number { color: var(--accent); font-family: monospace; font-size: 0.75rem; line-height: 1.7rem; }
+.recommendations-panel__heading h4 { color: var(--text-primary); font-size: 1rem; margin: 0 0 0.25rem; }
+.recommendations-selected { display: grid; gap: 0.45rem; margin-bottom: 1rem; }
+.recommendation-selected-item { display: flex; align-items: center; gap: 0.45rem; min-width: 0; padding: 0.5rem 0.55rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); }
+.recommendation-selected-item__position { color: var(--accent); font-size: 0.75rem; min-width: 1.4rem; text-align: center; }
+.recommendation-selected-item__title { color: var(--text-primary); font-size: 0.85rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recommendation-move,
+.recommendation-remove { flex: 0 0 1.75rem; height: 1.75rem; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.recommendation-remove { color: var(--danger); font-size: 1.1rem; }
+.recommendation-move:hover:not(:disabled),
+.recommendation-remove:hover { background: var(--bg-hover); color: var(--text-primary); }
+.recommendation-move:disabled { opacity: 0.3; cursor: default; }
+.recommendations-empty { color: var(--text-muted); font-size: 0.825rem; padding: 0.65rem 0; }
+.recommendations-add { display: grid; gap: 0.55rem; margin-top: 0.9rem; }
+.recommendations-add__controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.55rem; }
+.recommendations-add .input { width: 100%; min-width: 0; color: var(--text-primary); background: var(--bg-card); }
+.recommendations-add select option { color: var(--text-primary); background: var(--bg-card); }
+.recommendations-add .btn { white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .recommendations-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 1024px) {
   .form-grid {
     grid-template-columns: 1fr;
@@ -1040,6 +1183,9 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
+  .recommendations-heading { flex-direction: column; }
+  .recommendations-panel { padding: 1rem; }
+  .recommendations-add__controls { grid-template-columns: 1fr; }
   .page-header {
     margin-bottom: 1.5rem;
   }

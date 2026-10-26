@@ -67,6 +67,7 @@
           <router-link to="/" class="nav-link">Главная</router-link>
           <router-link to="/about" class="nav-link" @click.prevent="beginAboutTransition">О нас</router-link>
           <router-link to="/catalog" class="nav-link">Каталог</router-link>
+          <router-link to="/blog" class="nav-link" :class="{ 'nav-link--current': route.path.startsWith('/blog/') }">Блог</router-link>
           <router-link to="/dealers" class="nav-link">Дилеры</router-link>
           <router-link to="/#faq" class="nav-link">FAQ</router-link>
           <router-link to="/partnership" class="nav-link">Партнерам</router-link>
@@ -152,6 +153,13 @@
             <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
           </svg>
           Каталог
+        </router-link>
+        <router-link to="/blog" class="nav-link" :class="{ 'nav-link--current': route.path.startsWith('/blog/') }" @click="closeMobileMenu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="4" y="3" width="16" height="18" rx="2"/>
+            <path d="M8 8h8M8 12h8M8 16h5"/>
+          </svg>
+          Блог
         </router-link>
         <router-link to="/partnership" class="nav-link" @click="closeMobileMenu">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1439,11 +1447,17 @@ html.is-page-inactive *::after {
 
 .header__nav {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
-  gap: clamp(1.15rem, 2.1vw, 2.25rem);
+  gap: clamp(0.65rem, 1.25vw, 1.5rem);
   min-width: 0;
   white-space: nowrap;
+}
+
+.header__nav .nav-link {
+  flex: 0 0 auto;
+  font-size: clamp(0.78rem, 0.96vw, 0.875rem);
 }
 
 .nav-link {
@@ -1457,7 +1471,8 @@ html.is-page-inactive *::after {
 }
 
 .nav-link:hover,
-.nav-link.router-link-active {
+.nav-link.router-link-active,
+.nav-link--current {
   color: var(--accent);
 }
 
@@ -2379,7 +2394,8 @@ html.is-page-inactive *::after {
     background: var(--bg-hover);
   }
 
-  .mobile-menu__nav .nav-link.router-link-active {
+  .mobile-menu__nav .nav-link.router-link-active,
+  .mobile-menu__nav .nav-link--current {
     background: var(--accent-dim);
     color: var(--accent);
   }
@@ -2391,7 +2407,8 @@ html.is-page-inactive *::after {
   }
 
   .mobile-menu__nav .nav-link:hover svg,
-  .mobile-menu__nav .nav-link.router-link-active svg {
+  .mobile-menu__nav .nav-link.router-link-active svg,
+  .mobile-menu__nav .nav-link--current svg {
     color: var(--accent);
   }
 

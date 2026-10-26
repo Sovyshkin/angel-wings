@@ -18,6 +18,10 @@
     "db:payment-type": "node scripts/apply-payment-type-schema.mjs",
     "db:acquiring-settings": "node scripts/apply-acquiring-settings-schema.mjs",
     "db:order-edit": "node scripts/apply-order-edit-schema.mjs",
+    "db:recommendations": "node scripts/apply-product-recommendations-schema.mjs",
+    "db:favorite-pickups": "node scripts/apply-favorite-pickup-points-schema.mjs",
+    "db:blog": "node scripts/apply-blog-schema.mjs",
+    "db:blog-drafts": "node scripts/seed-blog-drafts.mjs",
     "telegram:enqueue": "node scripts/enqueue-telegram-order.mjs",
     "db:seed": "node prisma/seed.js",
     "admin:set-email": "node scripts/change-admin-email.mjs",
@@ -38,6 +42,7 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.10.1",
     "pdfkit": "^0.20.2",
+    "sanitize-html": "2.16.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

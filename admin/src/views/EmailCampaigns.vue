@@ -104,6 +104,7 @@
               <option value="all">Все подтверждённые пользователи</option>
               <option value="clients">Только клиенты</option>
               <option value="partners">Только партнёры</option>
+              <option value="blog">Подписчики блога</option>
             </select>
           </label>
 
@@ -292,7 +293,8 @@ function getAudienceLabel(audience) {
   const labels = {
     all: 'Все пользователи',
     clients: 'Клиенты',
-    partners: 'Партнёры'
+    partners: 'Партнёры',
+    blog: 'Подписчики блога'
   }
   return labels[audience] || audience || 'Все пользователи'
 }

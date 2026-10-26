@@ -35,8 +35,28 @@ model User {
   recoveryCart                RecoveryCart?
   consultationRequests        ConsultationRequest[]  @relation("ConsultationClient")
   handledConsultations        ConsultationRequest[]  @relation("ConsultationHandler")
+  favoritePickupPoints        FavoritePickupPoint[]
 
   @@map("users")
+}
+
+model FavoritePickupPoint {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  address     String
+  city        String
+  cityCode    String
+  country     String   @default("")
+  countryCode String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, code])
+  @@index([userId, updatedAt])
+  @@map("favorite_pickup_points")
 }
 
 model RecoverySettings {
@@ -150,6 +170,56 @@ model Category {
   @@map("categories")
 }
 
+model BlogCategory {
+  id        Int        @id @default(autoincrement())
+  name      String
+  slug      String     @unique
+  position  Int        @default(0)
+  posts     BlogPost[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("blog_categories")
+}
+
+model BlogPost {
+  id              Int           @id @default(autoincrement())
+  title           String        @default("")
+  slug            String        @unique
+  excerpt         String        @default("")
+  content         String        @default("")
+  cover           String?
+  coverAlt        String        @default("")
+  author          String        @default("ANGEL WINGS")
+  categoryId      Int?
+  category        BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  status          String        @default("DRAFT")
+  featured        Boolean       @default(false)
+  metaTitle       String        @default("")
+  metaDescription String        @default("")
+  readingMinutes  Int           @default(1)
+  publishedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([categoryId, status])
+  @@map("blog_posts")
+}
+
+model BlogSubscriber {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  active    Boolean   @default(false)
+  confirmationTokenHash String? @unique
+  confirmationExpiresAt DateTime?
+  confirmedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("blog_subscribers")
+}
+
 model Product {
   id               Int                     @id @default(autoincrement())
   title            String
@@ -175,10 +245,32 @@ model Product {
   categories       Category[]              @relation("ProductCategories")
   orderItems       OrderItem[]
   analyticsEvents  ProductAnalyticsEvent[]
+  recommendationsFrom ProductRecommendation[] @relation("RecommendationSource")
+  recommendationsTo ProductRecommendation[] @relation("RecommendationTarget")
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
 
   @@map("products")
+}
+
+model ProductRecommendation {
+  id              Int     @id @default(autoincrement())
+  sourceProductId Int
+  targetProductId Int
+  placement       String
+  position        Int
+  sourceProduct   Product @relation("RecommendationSource", fields: [sourceProductId], references: [id], onDelete: Cascade)
+  targetProduct   Product @relation("RecommendationTarget", fields: [targetProductId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceProductId, targetProductId, placement])
+  @@index([sourceProductId, placement, position])
+  @@map("product_recommendations")
+}
+
+model ProductRecommendationSeedState {
+  key String @id
+
+  @@map("product_recommendation_seed_state")
 }
 
 model Order {

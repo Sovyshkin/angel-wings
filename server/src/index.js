@@ -22,6 +22,7 @@ import contactRequestsRoutes from './routes/contactRequests.js'
 import adminContactRequestsRoutes from './routes/adminContactRequests.js'
 import consultationRoutes from './routes/consultations.js'
 import adminConsultationRoutes from './routes/adminConsultations.js'
+import blogRoutes from './routes/blog.js'
 import { recoveryRouter, adminRecoveryRouter } from './routes/recovery.js'
 import { startRecoveryWorker } from './services/recovery.js'
 import { errorHandler } from './middleware/errorHandler.js'
@@ -47,7 +48,8 @@ app.use('/uploads', express.static(uploadDir, {
   maxAge: '30d',
   immutable: true,
   etag: true,
-  lastModified: true
+  lastModified: true,
+  setHeaders: res => res.setHeader('X-Content-Type-Options', 'nosniff')
 }))
 
 app.use('/api/auth', authRoutes)
@@ -66,6 +68,7 @@ app.use('/api/partner-applications', partnerApplicationsRoutes)
 app.use('/api/contact-requests', contactRequestsRoutes)
 app.use('/api/partner', partnerCabinetRoutes)
 app.use('/api/consultations', consultationRoutes)
+app.use('/api/blog', blogRoutes)
 app.use('/api/admin/consultations', adminConsultationRoutes)
 app.use('/api/delivery', deliveryRoutes)
 app.use('/api/dealers', dealerRoutes)

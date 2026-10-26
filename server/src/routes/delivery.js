@@ -4,6 +4,7 @@ import cdek from '../services/cdek.js'
 import yandexGeocoder from '../services/yandexGeocoder.js'
 import { extractCdekMessages, extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
+import { ensureFavoritePickupPointsTable, favoritePickupFromCdek, MAX_FAVORITE_PICKUPS } from '../utils/favoritePickupPoints.js'
 
 const router = express.Router()
 const prisma = new PrismaClient()
@@ -241,6 +242,128 @@ router.put('/boxes', authenticate, requireAdmin, async (req, res, next) => {
 })
 
 // ==================== ПВЗ ====================
+
+router.get('/favorite-pickups', authenticate, async (req, res, next) => {
+  try {
+    await ensureFavoritePickupPointsTable(prisma)
+    const points = await prisma.$queryRaw`
+      SELECT "code", "name", "address", "city", "cityCode", "country", "countryCode"
+      FROM "favorite_pickup_points"
+      WHERE "userId" = ${req.user.id}
+      ORDER BY "updatedAt" DESC, "id" DESC
+      LIMIT ${MAX_FAVORITE_PICKUPS}
+    `
+    res.json({ points })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.put('/favorite-pickups/:code', authenticate, async (req, res, next) => {
+  const code = String(req.params.code || '').trim()
+  if (!/^[\p{L}\p{N}_-]{1,40}$/u.test(code)) return res.status(400).json({ error: 'Некорректный код ПВЗ' })
+  try {
+    const livePoint = await cdek.getPickupPoint(code)
+    const point = favoritePickupFromCdek(livePoint)
+    if (!point || (livePoint.status && livePoint.status !== 'ACTIVE')) {
+      return res.status(404).json({ error: 'ПВЗ сейчас недоступен' })
+    }
+    await ensureFavoritePickupPointsTable(prisma)
+    const count = await prisma.$queryRaw`
+      SELECT COUNT(*) AS total FROM "favorite_pickup_points" WHERE "userId" = ${req.user.id}
+    `
+    const existing = await prisma.$queryRaw`
+      SELECT "id" FROM "favorite_pickup_points" WHERE "userId" = ${req.user.id} AND "code" = ${point.code} LIMIT 1
+    `
+    if (!existing.length && Number(count[0]?.total || 0) >= MAX_FAVORITE_PICKUPS) {
+      return res.status(409).json({ error: `Можно сохранить не более ${MAX_FAVORITE_PICKUPS} ПВЗ` })
+    }
+    await prisma.$executeRaw`
+      INSERT INTO "favorite_pickup_points"
+        ("userId", "code", "name", "address", "city", "cityCode", "country", "countryCode", "createdAt", "updatedAt")
+      VALUES
+        (${req.user.id}, ${point.code}, ${point.name}, ${point.address}, ${point.city}, ${point.cityCode}, ${point.country}, ${point.countryCode}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT ("userId", "code") DO UPDATE SET
+        "name" = excluded."name",
+        "address" = excluded."address",
+        "city" = excluded."city",
+        "cityCode" = excluded."cityCode",
+        "country" = excluded."country",
+        "countryCode" = excluded."countryCode",
+        "updatedAt" = CURRENT_TIMESTAMP
+    `
+    res.json({ point })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.delete('/favorite-pickups/:code', authenticate, async (req, res, next) => {
+  const code = String(req.params.code || '').trim()
+  if (!/^[\p{L}\p{N}_-]{1,40}$/u.test(code)) return res.status(400).json({ error: 'Некорректный код ПВЗ' })
+  try {
+    await ensureFavoritePickupPointsTable(prisma)
+    await prisma.$executeRaw`
+      DELETE FROM "favorite_pickup_points" WHERE "userId" = ${req.user.id} AND "code" = ${code}
+    `
+    res.json({ success: true })
+  } catch (error) {
+    next(error)
+  }
+})
+
+const pickupCityCache = new Map()
+
+// Load every page for the checkout map, while bounding external API calls.
+router.get('/pickup-points/city/:cityCode', async (req, res) => {
+  const cityCode = String(req.params.cityCode || '')
+  if (!/^\d{1,8}$/.test(cityCode)) return res.status(400).json({ error: 'Некорректный код города' })
+  const cached = pickupCityCache.get(cityCode)
+  if (cached && cached.expiresAt > Date.now()) return res.json(cached.data)
+
+  try {
+    const points = []
+    const seen = new Set()
+    const pageSize = 300
+    let truncated = false
+    let offset = 0
+    for (let page = 0; page < 30; page++) {
+      let batch
+      try {
+        batch = await cdek.getPickupPoints({ city_code: cityCode, limit: pageSize, offset })
+      } catch (error) {
+        if (!points.length) throw error
+        truncated = true
+        break
+      }
+      if (!Array.isArray(batch)) throw new Error('Некорректный ответ СДЭК')
+      if (!batch.length) break
+      let added = 0
+      for (const point of batch) {
+        if (!point?.code || seen.has(point.code)) continue
+        seen.add(point.code)
+        points.push(point)
+        added++
+      }
+      if (!added) {
+        truncated = true
+        break
+      }
+      offset += batch.length
+      if (offset >= 5000 || page === 29) {
+        truncated = true
+        break
+      }
+    }
+    const data = { points, truncated }
+    if (pickupCityCache.size >= 20) pickupCityCache.delete(pickupCityCache.keys().next().value)
+    pickupCityCache.set(cityCode, { data, expiresAt: Date.now() + 10 * 60 * 1000 })
+    res.json(data)
+  } catch (error) {
+    console.error('[CDEK] Get city pickup points error:', error)
+    res.status(502).json({ error: 'Не удалось загрузить пункты выдачи' })
+  }
+})
 
 // GET /api/delivery/pickup-points
 // Получить список ПВЗ

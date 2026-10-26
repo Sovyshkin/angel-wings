@@ -952,15 +952,13 @@ router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, nex
       userWhere.role = 'USER'
     }
 
-    const recipients = await prisma.user.findMany({
-      where: userWhere,
-      select: {
-        id: true,
-        email: true,
-        name: true
-      },
-      orderBy: { createdAt: 'desc' }
-    })
+    const recipients = audience === 'blog'
+      ? await prisma.blogSubscriber.findMany({ where: { active: true }, select: { id: true, email: true }, orderBy: { createdAt: 'desc' } })
+      : await prisma.user.findMany({
+        where: userWhere,
+        select: { id: true, email: true, name: true },
+        orderBy: { createdAt: 'desc' }
+      })
 
     if (!recipients.length) {
       return res.status(400).json({ error: 'Не найдено получателей для выбранной аудитории' })
@@ -983,10 +981,14 @@ router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, nex
 
     for (const recipient of recipients) {
       try {
+        const unsubscribeToken = audience === 'blog'
+          ? crypto.createHmac('sha256', process.env.JWT_SECRET).update(String(recipient.id)).digest('hex')
+          : null
+        const unsubscribe = unsubscribeToken ? `\n\nОтписаться от рассылки блога: https://angel-wings.ru/blog?unsubscribe=${recipient.id}.${unsubscribeToken}` : ''
         await emailService.sendCampaignEmail({
           to: recipient.email,
           subject,
-          body: body.replace(/\{\{\s*name\s*\}\}/gi, recipient.name || 'клиент')
+          body: body.replace(/\{\{\s*name\s*\}\}/gi, recipient.name || 'читатель') + unsubscribe
         })
         sent += 1
       } catch (error) {
@@ -1666,7 +1668,8 @@ router.get('/products/:id', authenticate, requireAdmin, async (req, res, next) =
     const product = await prisma.product.findUnique({
       where: { id: parseInt(req.params.id) },
       include: {
-        categories: { select: { id: true, name: true, slug: true } }
+        categories: { select: { id: true, name: true, slug: true } },
+        recommendationsFrom: { orderBy: [{ placement: 'asc' }, { position: 'asc' }] }
       }
     })
 
@@ -1676,6 +1679,9 @@ router.get('/products/:id', authenticate, requireAdmin, async (req, res, next) =
 
     const parsedProduct = {
       ...product,
+      productRecommendationIds: product.recommendationsFrom.filter(item => item.placement === 'PRODUCT').map(item => item.targetProductId),
+      cartRecommendationIds: product.recommendationsFrom.filter(item => item.placement === 'CART').map(item => item.targetProductId),
+      recommendationsFrom: undefined,
       specs: product.specs ? JSON.parse(product.specs) : {},
       images: parseImagesField(product.images)
     }

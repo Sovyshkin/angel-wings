@@ -613,6 +613,51 @@
 
             <!-- PVZ Selection -->
             <div v-if="ENABLE_PVZ && !loadingDelivery && deliveryType === 'pvz' && !selectedPickupPoint" class="pvz-section">
+              <div v-if="favoritePickups.length" class="favorite-pickup-panel">
+                <div class="favorite-pickup-panel__heading">
+                  <div><span class="favorite-pickup-panel__eyebrow">ВАШИ ПУНКТЫ</span><strong>★ Избранные ПВЗ</strong></div>
+                  <small>{{ authStore.isAuthenticated ? 'Доступны в вашем аккаунте' : 'Сохранены в этом браузере' }}</small>
+                </div>
+                <div class="favorite-pickup-panel__list">
+                  <div v-for="point in favoritePickups" :key="point.code" class="favorite-pickup-panel__item">
+                    <div class="favorite-pickup-panel__details">
+                      <strong>{{ point.city }} · {{ point.name }}</strong>
+                      <small>{{ point.address || `ПВЗ ${point.code}` }}</small>
+                    </div>
+                    <button type="button" class="favorite-pickup-panel__select" :disabled="favoritesLoading || Boolean(recentPickupLoadingCode) || loadingPickup" @click="selectRecentPickup(point)">
+                      {{ recentPickupLoadingCode === point.code ? 'Проверяем…' : 'Выбрать' }}
+                    </button>
+                    <button type="button" class="pickup-favorite-toggle is-favorite" :disabled="favoritesLoading || Boolean(favoriteChangingCode)" :aria-label="`Убрать ${point.name} из избранного`" :title="`Убрать ${point.name} из избранного`" @click="toggleFavoritePickup(point)">★</button>
+                  </div>
+                </div>
+              </div>
+              <p v-if="favoriteError" class="field-error" role="status">{{ favoriteError }}</p>
+              <div v-if="recentUnfavoritePickups.length || recentCities.length" class="recent-pickup-panel">
+                <div class="recent-pickup-panel__heading">
+                  <span class="recent-pickup-panel__eyebrow">БЫСТРЫЙ ВЫБОР</span>
+                  <strong>Ваши последние пункты и города</strong>
+                </div>
+                <div v-if="recentUnfavoritePickups.length" class="recent-pickup-list">
+                  <div v-for="point in recentUnfavoritePickups" :key="point.code" class="recent-pickup-card">
+                    <span class="recent-pickup-card__pin" aria-hidden="true">↗</span>
+                    <span class="recent-pickup-card__details">
+                      <strong>{{ point.city ? `${point.city} · ` : '' }}{{ point.name }}</strong>
+                      <small>{{ point.address || `ПВЗ ${point.code}` }}</small>
+                    </span>
+                    <button type="button" class="recent-pickup-card__choose" :disabled="Boolean(recentPickupLoadingCode) || loadingPickup" @click="selectRecentPickup(point)">
+                      {{ recentPickupLoadingCode === point.code ? 'Проверяем…' : 'Выбрать' }}
+                    </button>
+                    <button type="button" class="pickup-favorite-toggle" :disabled="favoritesLoading || Boolean(favoriteChangingCode)" :aria-label="`Добавить ${point.name} в избранное`" :title="`Добавить ${point.name} в избранное`" @click="toggleFavoritePickup(point)">☆</button>
+                  </div>
+                </div>
+                <div v-if="recentCities.length" class="recent-cities">
+                  <span>Найти другой ПВЗ в городе:</span>
+                  <div class="recent-cities__chips">
+                    <button v-for="city in recentCities" :key="city.code" type="button" :disabled="loadingPickup || Boolean(recentPickupLoadingCode)" @click="selectRecentCity(city)">{{ city.name }}</button>
+                  </div>
+                </div>
+              </div>
+
               <div class="pickup-search">
                 <input 
                   v-model="pickupCombinedSearch" 
@@ -621,39 +666,87 @@
                   placeholder="Город, улица и дом, например: Казань, Большая Красная 64"
                   @keyup.enter="searchCityAndPickup"
                 >
-                <button class="btn btn-secondary" @click="searchCityAndPickup" :disabled="loadingPickup">
-                  Найти
+                <button type="button" class="btn btn-secondary" @click="searchCityAndPickup" :disabled="loadingPickup || Boolean(recentPickupLoadingCode)">
+                  {{ loadingPickup ? 'Ищем…' : 'Найти' }}
                 </button>
               </div>
               <p class="pickup-search-hint">
                 Можно указать город, улицу и дом. Если ПВЗ на этой улице несколько, ближайшие к дому будут выше.
               </p>
+              <p v-if="pickupSearchError" class="field-error" role="alert">{{ pickupSearchError }}</p>
               
               <div v-if="foundCityName" class="found-info">
                 ПВЗ в г. {{ foundCityName }}<span v-if="pickupSearchDisplayLabel">, поиск: {{ pickupSearchDisplayLabel }}</span>
               </div>
-              
-              <div class="pickup-list">
-                <label 
-                  v-for="point in filteredPickupPoints" 
-                  :key="point.code" 
-                  class="pickup-point"
-                  :class="{ selected: selectedPickupPoint?.code === point.code }"
-                >
-                  <input 
-                    type="radio" 
-                    :value="point" 
-                    v-model="selectedPickupPoint"
-                    @change="onPickupSelect"
-                  >
-                  <div class="point-content">
-                    <strong>{{ point.name }}</strong>
-                    <span class="point-address">{{ point.address }}</span>
-                    <span v-if="point.work_time" class="point-time">{{ point.work_time }}</span>
+              <div v-if="pickupPoints.length" class="pickup-explorer">
+                <div class="pickup-explorer__toolbar">
+                  <label class="pickup-explorer__field">
+                    <span>Улица или адрес</span>
+                    <input v-model="pickupFilter" type="search" class="input" placeholder="Поиск по улице или ПВЗ">
+                  </label>
+                  <label class="pickup-explorer__field pickup-explorer__hours">
+                    <span>Часы работы</span>
+                    <select v-model="pickupHoursFilter" class="input">
+                      <option value="all">Любые</option>
+                      <option value="everyday">Ежедневно</option>
+                      <option value="late">До 20:00 и позже</option>
+                    </select>
+                  </label>
+                  <button type="button" class="pickup-explorer__geo" :disabled="pickupGeoBusy" @click="findNearestPickup">
+                    {{ pickupGeoBusy ? 'Определяем…' : '⌖ Ближайший ко мне' }}
+                  </button>
+                  <button type="button" class="pickup-explorer__favorite-filter" :class="{ 'is-active': showOnlyFavoritePickups }" :aria-pressed="showOnlyFavoritePickups" :disabled="!favoritePickups.length" @click="showOnlyFavoritePickups = !showOnlyFavoritePickups">★ Только избранные</button>
+                </div>
+                <p v-if="pickupGeoError" class="pickup-explorer__notice" role="status">{{ pickupGeoError }}</p>
+                <p v-if="pickupResultsTruncated" class="pickup-explorer__notice">СДЭК показал не все пункты города. Уточните адрес поиском или попробуйте позже.</p>
+                <div class="pickup-explorer__content">
+                  <div class="pickup-explorer__map-column">
+                    <PickupPointsMap
+                      :points="filteredPickupPoints"
+                      :active-code="pickupPreviewPoint?.code || ''"
+                      :favorite-codes="favoritePickups.map(point => point.code)"
+                      :user-location="pickupUserLocation"
+                      :focus-location="pickupMapFocusCounter"
+                      @preview="previewPickupPoint"
+                    />
+                    <div v-if="pickupPreviewPoint" class="pickup-explorer__preview">
+                      <div>
+                        <strong>{{ pickupPreviewPoint.name }}</strong>
+                        <span>{{ pickupPreviewPoint.address }}</span>
+                        <small v-if="pickupPreviewPoint.work_time">{{ pickupPreviewPoint.work_time }}</small>
+                        <small v-if="pickupDistanceLabel(pickupPreviewPoint)">От вас: {{ pickupDistanceLabel(pickupPreviewPoint) }} по прямой</small>
+                      </div>
+                      <div class="pickup-explorer__preview-actions">
+                        <button type="button" class="pickup-favorite-toggle" :class="{ 'is-favorite': isFavoritePickup(pickupPreviewPoint.code) }" :disabled="favoritesLoading || Boolean(favoriteChangingCode)" :aria-label="isFavoritePickup(pickupPreviewPoint.code) ? 'Убрать ПВЗ из избранного' : 'Добавить ПВЗ в избранное'" :aria-pressed="isFavoritePickup(pickupPreviewPoint.code)" @click="toggleFavoritePickup(pickupPreviewPoint)">{{ isFavoritePickup(pickupPreviewPoint.code) ? '★' : '☆' }}</button>
+                        <button type="button" class="btn btn-primary" @click="selectPickupFromExplorer(pickupPreviewPoint)">Выбрать ПВЗ</button>
+                      </div>
+                    </div>
                   </div>
-                </label>
-                <div v-if="pickupPoints.length && !filteredPickupPoints.length" class="no-points-found">
-                  По вашему запросу ПВЗ не найдено
+                  <div class="pickup-explorer__list-column">
+                    <div class="pickup-explorer__count">{{ filteredPickupPoints.length }} ПВЗ · нажмите на пункт или метку</div>
+                    <div class="pickup-list">
+                      <div v-for="point in filteredPickupPoints" :key="point.code" class="pickup-explorer__list-entry">
+                        <button
+                          type="button"
+                          class="pickup-point pickup-explorer__item"
+                          :class="{ selected: pickupPreviewPoint?.code === point.code }"
+                          @click="previewPickupPoint(point)"
+                        >
+                          <span class="point-content">
+                            <strong>{{ point.name }}</strong>
+                            <span class="point-address">{{ point.address }}</span>
+                            <span v-if="point.work_time" class="point-time">{{ point.work_time }}</span>
+                            <span v-if="pickupDistanceLabel(point)" class="pickup-explorer__distance">{{ pickupDistanceLabel(point) }} по прямой</span>
+                          </span>
+                        </button>
+                        <div class="pickup-explorer__list-actions">
+                          <button type="button" class="pickup-favorite-toggle" :class="{ 'is-favorite': isFavoritePickup(point.code) }" :disabled="favoritesLoading || Boolean(favoriteChangingCode)" :aria-label="isFavoritePickup(point.code) ? `Убрать ${point.name} из избранного` : `Добавить ${point.name} в избранное`" :aria-pressed="isFavoritePickup(point.code)" @click="toggleFavoritePickup(point)">{{ isFavoritePickup(point.code) ? '★' : '☆' }}</button>
+                          <button v-if="pickupPreviewPoint?.code === point.code" type="button" class="pickup-explorer__list-confirm" @click="selectPickupFromExplorer(point)">Выбрать этот ПВЗ</button>
+                        </div>
+                      </div>
+                      <div v-if="!filteredPickupPoints.length" class="no-points-found">По этим фильтрам ПВЗ не найдено.</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -671,7 +764,11 @@
                   <span v-if="selectedPickupPoint.work_time" class="point-time">{{ selectedPickupPoint.work_time }}</span>
                 </div>
               </div>
-              <button class="btn-change-pickup" @click="changeDelivery">Изменить</button>
+              <div class="selected-pickup__actions">
+                <button type="button" class="pickup-favorite-toggle" :class="{ 'is-favorite': isFavoritePickup(selectedPickupPoint.code) }" :disabled="favoritesLoading || Boolean(favoriteChangingCode)" :aria-label="isFavoritePickup(selectedPickupPoint.code) ? 'Убрать выбранный ПВЗ из избранного' : 'Добавить выбранный ПВЗ в избранное'" :aria-pressed="isFavoritePickup(selectedPickupPoint.code)" @click="toggleFavoritePickup(selectedPickupPoint)">{{ isFavoritePickup(selectedPickupPoint.code) ? '★ В избранном' : '☆ В избранное' }}</button>
+                <button class="btn-change-pickup" @click="changeDelivery">Изменить</button>
+              </div>
+              <p v-if="favoriteError" class="field-error" role="status">{{ favoriteError }}</p>
             </div>
 
             <!-- Courier Address -->
@@ -1049,6 +1146,12 @@
           </div>
         </div>
       </div>
+      <ProductRecommendations
+        v-if="cartStore.items.length"
+        title="Может заинтересовать"
+        description="Подборка к товарам в вашей корзине"
+        :products="visibleRecommendations"
+      />
     </div>
   </div>
 </template>
@@ -1059,6 +1162,11 @@ import { useRouter, useRoute } from 'vue-router'
 import { useCartStore } from '../store/cart'
 import { useProductStore } from '../store/products'
 import { useAuthStore } from '../store/auth'
+import ProductRecommendations from '../components/ProductRecommendations.vue'
+import PickupPointsMap from '../components/PickupPointsMap.vue'
+import { mergeRecent, normalizeRecentCity, normalizeRecentPickup, readRecentDelivery, writeRecentDelivery } from '../utils/recentDelivery'
+import { MAX_FAVORITE_PICKUPS, normalizeFavoritePickup, readFavoritePickups, writeFavoritePickups } from '../utils/favoritePickups'
+import { distanceKm, pickupCoordinates, pickupMatchesHours } from '../utils/pickupMap'
 import axios from 'axios'
 import deliveryApi from '../api/delivery'
 import {
@@ -1077,6 +1185,22 @@ const route = useRoute()
 const cartStore = useCartStore()
 const productStore = useProductStore()
 const authStore = useAuthStore()
+const recommendedProducts = ref([])
+const cartProductIds = computed(() => [...new Set(cartStore.items.map(item => Number(item.id)).filter(Number.isSafeInteger))])
+const visibleRecommendations = computed(() => recommendedProducts.value.filter(product => !cartProductIds.value.includes(product.id)))
+let recommendationRequest = 0
+
+watch(() => cartProductIds.value.join(','), async () => {
+  const request = ++recommendationRequest
+  recommendedProducts.value = []
+  if (!cartProductIds.value.length) return
+  try {
+    const { data } = await axios.post('/api/products/cart-recommendations', { productIds: cartProductIds.value })
+    if (request === recommendationRequest) recommendedProducts.value = data.products || []
+  } catch {
+    if (request === recommendationRequest) recommendedProducts.value = []
+  }
+}, { immediate: true })
 const ENABLE_PVZ = true
 const ENABLE_CDEK = true
 const INTERNAL_COURIER_CITY = 'Москва'
@@ -1196,7 +1320,26 @@ const foundCityCountryCode = ref('')
 const pickupPoints = ref([])
 const pickupFilter = ref('')
 const pickupHouseFilter = ref('')
+const pickupHoursFilter = ref('all')
+const pickupPreviewPoint = ref(null)
+const pickupUserLocation = ref(null)
+const pickupGeoBusy = ref(false)
+const pickupGeoError = ref('')
+const pickupMapFocusCounter = ref(0)
+const pickupResultsTruncated = ref(false)
 const selectedPickupPoint = ref(null)
+const recentCities = ref([])
+const recentPickups = ref([])
+const favoritePickups = ref([])
+const favoritesLoading = ref(false)
+const favoriteChangingCode = ref('')
+const favoriteError = ref('')
+const showOnlyFavoritePickups = ref(false)
+let favoriteRequest = 0
+const recentPickupLoadingCode = ref('')
+const pickupSearchError = ref('')
+let pickupSearchRequest = 0
+let recentHistoryRequest = 0
 const courierAddress = ref('')
 const addressInput = ref('')
 const courierHousingType = ref('apartment')
@@ -1309,7 +1452,7 @@ function splitStreetAndHouse(value) {
 }
 
 function getPickupPointSearchText(point) {
-  return normalizePickupSearchText(`${point?.name || ''} ${point?.address || ''}`)
+  return normalizePickupSearchText(`${point?.name || ''} ${point?.address || point?.location?.address || ''}`)
 }
 
 function getPickupHouseRank(point, house) {
@@ -1338,12 +1481,50 @@ const filteredPickupPoints = computed(() => {
     ? pickupPoints.value.filter(point => getPickupPointSearchText(point).includes(q))
     : [...pickupPoints.value]
 
-  if (!house) return streetMatches
-
-  return [...streetMatches].sort((a, b) => {
-    return getPickupHouseRank(b, house) - getPickupHouseRank(a, house)
+  const favoriteCodes = new Set(favoritePickups.value.map(point => point.code))
+  const hoursMatches = streetMatches.filter(point =>
+    pickupMatchesHours(point, pickupHoursFilter.value) && (!showOnlyFavoritePickups.value || favoriteCodes.has(point.code))
+  )
+  return [...hoursMatches].sort((a, b) => {
+    if (house) {
+      const houseRank = getPickupHouseRank(b, house) - getPickupHouseRank(a, house)
+      if (houseRank) return houseRank
+    }
+    if (pickupUserLocation.value) {
+      const aCoordinates = pickupCoordinates(a)
+      const bCoordinates = pickupCoordinates(b)
+      if (aCoordinates && bCoordinates) {
+        return distanceKm(pickupUserLocation.value, aCoordinates) - distanceKm(pickupUserLocation.value, bCoordinates)
+      }
+      if (aCoordinates !== bCoordinates) return aCoordinates ? -1 : 1
+    }
+    const favoriteRank = Number(favoriteCodes.has(b.code)) - Number(favoriteCodes.has(a.code))
+    if (favoriteRank) return favoriteRank
+    return 0
   })
 })
+
+const recentUnfavoritePickups = computed(() => {
+  const favoriteCodes = new Set(favoritePickups.value.map(point => point.code))
+  return recentPickups.value.filter(point => !favoriteCodes.has(point.code))
+})
+
+watch(favoritePickups, points => {
+  if (!points.length) showOnlyFavoritePickups.value = false
+})
+
+watch(filteredPickupPoints, points => {
+  if (pickupPreviewPoint.value && !points.some(point => point.code === pickupPreviewPoint.value.code)) {
+    pickupPreviewPoint.value = null
+  }
+})
+
+function pickupDistanceLabel(point) {
+  const coordinates = pickupCoordinates(point)
+  if (!pickupUserLocation.value || !coordinates) return ''
+  const distance = distanceKm(pickupUserLocation.value, coordinates)
+  return distance < 1 ? `${Math.round(distance * 1000)} м` : `${distance.toFixed(1).replace('.', ',')} км`
+}
 
 const parsedPickupSearch = computed(() => {
   const raw = String(pickupCombinedSearch.value || '').trim()
@@ -1768,8 +1949,172 @@ function retryOrder() {
   // User can try again
 }
 
+function recentDeliveryStorageKey() {
+  return `peptidi_recent_delivery_v1_${authStore.user?.id || 'guest'}`
+}
+
+function persistRecentDelivery() {
+  writeRecentDelivery(localStorage, recentDeliveryStorageKey(), {
+    cities: recentCities.value,
+    pickups: recentPickups.value
+  })
+}
+
+function rememberRecentCity(value) {
+  const city = normalizeRecentCity(value)
+  if (!city) return
+  recentCities.value = mergeRecent(recentCities.value, city)
+  persistRecentDelivery()
+}
+
+function rememberRecentPickup(value) {
+  const pickup = normalizeRecentPickup(value)
+  if (!pickup) return
+  recentPickups.value = mergeRecent(recentPickups.value, pickup)
+  persistRecentDelivery()
+}
+
+function favoritePickupStorageKey() {
+  return `peptidi_favorite_pickups_v1_${authStore.user?.id || 'guest'}`
+}
+
+function isFavoritePickup(code) {
+  return favoritePickups.value.some(point => point.code === code)
+}
+
+function favoritePointFromSelection(point) {
+  return normalizeFavoritePickup({
+    ...point,
+    address: point?.address || point?.location?.address_full || point?.location?.address,
+    city: point?.location?.city || foundCityName.value,
+    cityCode: point?.location?.city_code || point?.location?.cityCode || foundCityCode.value,
+    country: point?.location?.country || foundCityCountry.value,
+    countryCode: point?.location?.country_code || foundCityCountryCode.value
+  })
+}
+
+async function loadFavoritePickups() {
+  const request = ++favoriteRequest
+  const key = favoritePickupStorageKey()
+  favoritePickups.value = readFavoritePickups(localStorage, key)
+  favoriteError.value = ''
+  if (!authStore.isAuthenticated || !authStore.user?.id) {
+    favoritesLoading.value = false
+    return
+  }
+  favoritesLoading.value = true
+  const token = authStore.token
+  const headers = { Authorization: `Bearer ${token}` }
+  try {
+    const { data } = await axios.get('/api/delivery/favorite-pickups', { headers })
+    if (request !== favoriteRequest || key !== favoritePickupStorageKey()) return
+    const serverPoints = (data.points || []).map(normalizeFavoritePickup).filter(Boolean)
+    const guestKey = 'peptidi_favorite_pickups_v1_guest'
+    const guestPoints = readFavoritePickups(localStorage, guestKey)
+    const remainingGuest = []
+    for (const guestPoint of guestPoints) {
+      if (request !== favoriteRequest || key !== favoritePickupStorageKey()) return
+      if (serverPoints.some(point => point.code === guestPoint.code)) continue
+      if (serverPoints.length >= MAX_FAVORITE_PICKUPS) {
+        remainingGuest.push(guestPoint)
+        continue
+      }
+      try {
+        const saved = await axios.put(`/api/delivery/favorite-pickups/${encodeURIComponent(guestPoint.code)}`, {}, { headers })
+        const normalized = normalizeFavoritePickup(saved.data.point)
+        if (normalized) serverPoints.unshift(normalized)
+      } catch {
+        remainingGuest.push(guestPoint)
+      }
+    }
+    if (request !== favoriteRequest || key !== favoritePickupStorageKey()) return
+    writeFavoritePickups(localStorage, guestKey, remainingGuest)
+    favoritePickups.value = serverPoints.slice(0, MAX_FAVORITE_PICKUPS)
+    writeFavoritePickups(localStorage, key, favoritePickups.value)
+    if (remainingGuest.length) favoriteError.value = 'Некоторые гостевые ПВЗ пока не перенеслись. Проверьте свободное место и попробуйте позже.'
+  } catch {
+    if (request === favoriteRequest) favoriteError.value = 'Не удалось обновить избранные ПВЗ. Показаны сохранённые в этом браузере.'
+  } finally {
+    if (request === favoriteRequest) favoritesLoading.value = false
+  }
+}
+
+async function toggleFavoritePickup(point) {
+  if (favoriteChangingCode.value || favoritesLoading.value) return
+  const code = String(point?.code || '')
+  const wasFavorite = isFavoritePickup(code)
+  let normalized = wasFavorite ? null : favoritePointFromSelection(point)
+  if (!code) return
+  if (!wasFavorite && favoritePickups.value.length >= MAX_FAVORITE_PICKUPS) {
+    favoriteError.value = `Можно закрепить не более ${MAX_FAVORITE_PICKUPS} ПВЗ. Уберите ненужный из избранного.`
+    return
+  }
+  const key = favoritePickupStorageKey()
+  favoriteChangingCode.value = code
+  favoriteError.value = ''
+  try {
+    if (!wasFavorite && !normalized && !authStore.isAuthenticated) {
+      const { data: livePoint } = await deliveryApi.get(`/pickup-point/${encodeURIComponent(code)}`)
+      normalized = favoritePointFromSelection(livePoint)
+      if (!normalized) throw new Error('Pickup point city unavailable')
+    }
+    let savedPoint = normalized
+    if (authStore.isAuthenticated && authStore.user?.id) {
+      if (wasFavorite) {
+        await axios.delete(`/api/delivery/favorite-pickups/${encodeURIComponent(code)}`)
+      } else {
+        const { data } = await axios.put(`/api/delivery/favorite-pickups/${encodeURIComponent(code)}`)
+        savedPoint = normalizeFavoritePickup(data.point)
+        if (!savedPoint) throw new Error('Invalid favorite response')
+      }
+    }
+    if (key !== favoritePickupStorageKey()) return
+    favoritePickups.value = wasFavorite
+      ? favoritePickups.value.filter(saved => saved.code !== code)
+      : [savedPoint, ...favoritePickups.value]
+    writeFavoritePickups(localStorage, key, favoritePickups.value)
+  } catch (error) {
+    favoriteError.value = error.response?.data?.error || 'Не удалось изменить избранное. Попробуйте ещё раз.'
+  } finally {
+    favoriteChangingCode.value = ''
+  }
+}
+
+async function loadRecentDeliveryHistory() {
+  const request = ++recentHistoryRequest
+  const key = recentDeliveryStorageKey()
+  const stored = readRecentDelivery(localStorage, key)
+  recentCities.value = stored.cities
+  recentPickups.value = stored.pickups
+
+  const saved = cartStore.delivery || {}
+  if (saved.type === 'pvz' && saved.pickupPoint?.code) {
+    rememberRecentPickup({ ...saved.pickupPoint, city: saved.city, cityCode: saved.cityCode, country: saved.cityCountry, countryCode: saved.cityCountryCode })
+    rememberRecentCity({ name: saved.city, code: saved.cityCode, country: saved.cityCountry, countryCode: saved.cityCountryCode })
+  }
+
+  if (!authStore.isAuthenticated || !authStore.user?.id) return
+  try {
+    const { data } = await axios.get('/api/orders/recent-pickups')
+    if (request !== recentHistoryRequest || key !== recentDeliveryStorageKey()) return
+    const merged = [...recentPickups.value]
+    for (const value of data.pickups || []) {
+      const pickup = normalizeRecentPickup(value)
+      if (pickup && !merged.some(item => item.code === pickup.code)) merged.push(pickup)
+    }
+    recentPickups.value = merged.slice(0, 3)
+  } catch {
+    // Saved choices in this browser are still available if account history cannot load.
+  }
+}
+
 function changeDelivery() {
+  pickupSearchRequest++
   selectedPickupPoint.value = null
+  pickupPreviewPoint.value = null
+  pickupHoursFilter.value = 'all'
+  pickupResultsTruncated.value = false
+  pickupGeoError.value = ''
   pickupFilter.value = ''
   pickupHouseFilter.value = ''
   pickupCombinedSearch.value = ''
@@ -1784,6 +2129,8 @@ function changeDelivery() {
   courierDetailsError.value = ''
   courierAddressError.value = ''
   courierAddressHint.value = ''
+  pickupSearchError.value = ''
+  loadingPickup.value = false
   deliveryPrice.value = 0
   deliveryInfo.value = {}
   foundCityCountry.value = ''
@@ -1855,9 +2202,13 @@ function onDeliveryTypeChange() {
 
 async function searchCityAndPickup() {
   const { city, street, house } = parsedPickupSearch.value
-  if (!city || city.length < 3) return
+  if (!city || city.length < 3) {
+    pickupSearchError.value = 'Введите название города — минимум 3 буквы.'
+    return
+  }
   citySearch.value = city
-  
+  const request = ++pickupSearchRequest
+  pickupSearchError.value = ''
   loadingPickup.value = true
   pickupPoints.value = []
   pickupFilter.value = street
@@ -1869,34 +2220,155 @@ async function searchCityAndPickup() {
   
   try {
     const res = await deliveryApi.post('/find-city', { name: city })
+    if (request !== pickupSearchRequest || deliveryType.value !== 'pvz') return
     if (res.data && Array.isArray(res.data) && res.data.length > 0) {
       const city = res.data[0]
-      foundCityName.value = city.city
-      foundCityCode.value = city.code
-      foundCityCountry.value = city.country || city.country_name || ''
-      foundCityCountryCode.value = city.country_code || city.countryCode || ''
-      
-      // Load pickup points
-      const pointsRes = await deliveryApi.get(`/pickup-points?city_code=${city.code}&limit=50`)
-      pickupPoints.value = pointsRes.data || []
+      const normalized = normalizeRecentCity({ name: city.city, code: city.code, country: city.country || city.country_name, countryCode: city.country_code || city.countryCode })
+      if (!normalized) throw new Error('City code missing')
+      await loadPickupPointsForCity(normalized, { street, house }, request)
+    } else {
+      pickupSearchError.value = 'Город не найден. Проверьте название и попробуйте ещё раз.'
     }
   } catch (e) {
     console.error('City search error:', e)
+    if (request === pickupSearchRequest) pickupSearchError.value = 'Не удалось загрузить ПВЗ. Попробуйте ещё раз.'
   } finally {
-    loadingPickup.value = false
+    if (request === pickupSearchRequest) loadingPickup.value = false
+  }
+}
+
+async function loadPickupPointsForCity(city, filters = {}, request = ++pickupSearchRequest) {
+  pickupFilter.value = filters.street || ''
+  pickupHouseFilter.value = filters.house || ''
+  pickupPoints.value = []
+  pickupPreviewPoint.value = null
+  const { data } = await deliveryApi.get(`/pickup-points/city/${encodeURIComponent(city.code)}`)
+  if (request !== pickupSearchRequest || deliveryType.value !== 'pvz') return
+  foundCityName.value = city.name
+  foundCityCode.value = city.code
+  foundCityCountry.value = city.country
+  foundCityCountryCode.value = city.countryCode
+  pickupResultsTruncated.value = Boolean(data?.truncated)
+  pickupPoints.value = (Array.isArray(data?.points) ? data.points : []).map(point => ({
+    ...point,
+    address: point.location?.address_full || point.location?.address || point.address_full || point.address || ''
+  }))
+  pickupSearchError.value = pickupPoints.value.length ? '' : 'В этом городе пока не нашлось доступных ПВЗ.'
+  rememberRecentCity(city)
+}
+
+function previewPickupPoint(point) {
+  pickupPreviewPoint.value = point
+}
+
+function selectPickupFromExplorer(point) {
+  selectedPickupPoint.value = point
+  onPickupSelect()
+}
+
+function findNearestPickup() {
+  pickupGeoError.value = ''
+  if (!navigator.geolocation) {
+    pickupGeoError.value = 'Ваш браузер не поддерживает определение местоположения. Выберите ПВЗ на карте или в списке.'
+    return
+  }
+  pickupGeoBusy.value = true
+  navigator.geolocation.getCurrentPosition(position => {
+    pickupGeoBusy.value = false
+    pickupUserLocation.value = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy: position.coords.accuracy
+    }
+    pickupFilter.value = ''
+    pickupHouseFilter.value = ''
+    pickupHoursFilter.value = 'all'
+    const nearest = pickupPoints.value
+      .filter(point => pickupCoordinates(point))
+      .sort((a, b) => distanceKm(pickupUserLocation.value, pickupCoordinates(a)) - distanceKm(pickupUserLocation.value, pickupCoordinates(b)))[0]
+    if (!nearest) {
+      pickupGeoError.value = 'У ПВЗ этого города нет координат. Выберите пункт в списке.'
+      return
+    }
+    pickupPreviewPoint.value = nearest
+    const distance = distanceKm(pickupUserLocation.value, pickupCoordinates(nearest))
+    pickupMapFocusCounter.value++
+    if (distance > 50) {
+      pickupGeoError.value = 'Вы далеко от выбранного города. На карте показано ваше местоположение; найдите свой город в поиске выше.'
+    }
+  }, error => {
+    pickupGeoBusy.value = false
+    pickupGeoError.value = error.code === 1
+      ? 'Доступ к геопозиции не предоставлен. Можно выбрать ПВЗ на карте или в списке.'
+      : 'Не удалось определить местоположение. Попробуйте ещё раз или выберите ПВЗ вручную.'
+  }, { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 })
+}
+
+async function selectRecentCity(city) {
+  const request = ++pickupSearchRequest
+  pickupCombinedSearch.value = city.name
+  pickupSearchError.value = ''
+  loadingPickup.value = true
+  try {
+    await loadPickupPointsForCity(city, {}, request)
+  } catch (error) {
+    console.error('Recent city pickup search error:', error)
+    if (request === pickupSearchRequest) pickupSearchError.value = 'Не удалось загрузить ПВЗ. Попробуйте ещё раз.'
+  } finally {
+    if (request === pickupSearchRequest) loadingPickup.value = false
+  }
+}
+
+async function selectRecentPickup(choice) {
+  if (recentPickupLoadingCode.value) return
+  const request = ++pickupSearchRequest
+  recentPickupLoadingCode.value = choice.code
+  pickupSearchError.value = ''
+  try {
+    const { data: point } = await deliveryApi.get(`/pickup-point/${encodeURIComponent(choice.code)}`)
+    if (request !== pickupSearchRequest || deliveryType.value !== 'pvz') return
+    if (!point?.code) throw new Error('Pickup point unavailable')
+    const city = normalizeRecentCity({
+      name: point.location?.city || choice.city,
+      code: point.location?.city_code || point.location?.cityCode || point.city_code || point.cityCode || choice.cityCode,
+      country: point.location?.country || choice.country,
+      countryCode: point.location?.country_code || choice.countryCode
+    })
+    if (!city) throw new Error('Pickup point city unavailable')
+    foundCityName.value = city.name
+    foundCityCode.value = city.code
+    foundCityCountry.value = city.country
+    foundCityCountryCode.value = city.countryCode
+    pickupCombinedSearch.value = city.name
+    pickupFilter.value = ''
+    pickupHouseFilter.value = ''
+    selectedPickupPoint.value = {
+      code: point.code,
+      name: point.name || choice.name,
+      address: point.location?.address_full || point.location?.address || point.address_full || point.address || choice.address,
+      work_time: point.work_time || ''
+    }
+    await onPickupSelect()
+  } catch (error) {
+    console.error('Recent pickup selection error:', error)
+    if (request === pickupSearchRequest) pickupSearchError.value = 'Этот ПВЗ сейчас недоступен. Найдите другой пункт ниже.'
+  } finally {
+    if (request === pickupSearchRequest) recentPickupLoadingCode.value = ''
   }
 }
 
 async function onPickupSelect() {
-  if (!selectedPickupPoint.value) return
-  
+  if (!selectedPickupPoint.value || !foundCityCode.value) return false
+  const selectedCode = selectedPickupPoint.value.code
+  const selectedCityCode = foundCityCode.value
+  const selectionStillCurrent = () => deliveryType.value === 'pvz' && selectedPickupPoint.value?.code === selectedCode && foundCityCode.value === selectedCityCode
   loadingDelivery.value = true
   try {
     const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
     const res = await deliveryApi.post('/calculate-by-tariff', {
       tariff_code: 136, // PVZ tariff
       from_code: 44,
-      to_code: foundCityCode.value,
+      to_code: selectedCityCode,
       to_location: {
         code: foundCityCode.value,
         city: foundCityName.value,
@@ -1907,11 +2379,10 @@ async function onPickupSelect() {
       declared_value: Math.max(0, cartStore.total - promoDiscountPreview.value)
     })
     
-    console.log('CDEK Response:', res.data)
-    
+    if (!selectionStillCurrent()) return false
     // Handle both response formats (total_sum or total_price)
-    const price = res.data?.total_sum || res.data?.total_price || res.data?.delivery_sum
-    if (price) {
+    const price = Number(res.data?.total_sum || res.data?.total_price || res.data?.delivery_sum)
+    if (Number.isFinite(price) && price > 0) {
       deliveryPrice.value = price
       deliveryInfo.value = {
         period_min: res.data.period_min,
@@ -1936,12 +2407,22 @@ async function onPickupSelect() {
         deliveryPrice: price,
         deliveryInfo: deliveryInfo.value
       })
+      pickupSearchError.value = ''
+      rememberRecentCity({ name: foundCityName.value, code: foundCityCode.value, country: foundCityCountry.value, countryCode: foundCityCountryCode.value })
+      rememberRecentPickup({ ...selectedPickupPoint.value, city: foundCityName.value, cityCode: foundCityCode.value, country: foundCityCountry.value, countryCode: foundCityCountryCode.value })
+      return true
     }
+    throw new Error('Delivery price unavailable')
   } catch (e) {
     console.error('Delivery calculation error:', e)
+    if (!selectionStillCurrent()) return false
     deliveryPrice.value = 0
     deliveryInfo.value = {}
     cartStore.setDeliveryPrice(0)
+    cartStore.setDelivery({})
+    selectedPickupPoint.value = null
+    pickupSearchError.value = 'Не удалось рассчитать доставку до ПВЗ. Выберите пункт ещё раз или попробуйте позже.'
+    return false
   } finally {
     loadingDelivery.value = false
   }
@@ -2964,6 +3445,14 @@ onMounted(async () => {
 watch(() => authStore.user, () => {
   prefillFromProfile()
 }, { deep: true })
+
+watch(() => authStore.user?.id, () => {
+  loadRecentDeliveryHistory()
+}, { immediate: true })
+
+watch([() => authStore.user?.id, () => authStore.isAuthenticated], () => {
+  loadFavoritePickups()
+}, { immediate: true })
 
 watch(
   [
@@ -4451,6 +4940,113 @@ onUnmounted(() => {
   transform: rotate(45deg);
 }
 
+.favorite-pickup-panel {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(245, 190, 97, 0.42);
+  border-radius: 1rem;
+  background: linear-gradient(125deg, rgba(245, 190, 97, 0.11), transparent 64%), var(--bg-secondary);
+}
+.favorite-pickup-panel__heading { display: flex; align-items: end; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.8rem; }
+.favorite-pickup-panel__heading > div { display: grid; gap: 0.2rem; }
+.favorite-pickup-panel__heading strong { color: var(--text-primary); font-size: 0.96rem; }
+.favorite-pickup-panel__heading small { color: var(--text-muted); font-size: 0.72rem; text-align: right; }
+.favorite-pickup-panel__eyebrow { color: #d9a64d; font-size: 0.63rem; font-weight: 800; letter-spacing: 0.14em; }
+.favorite-pickup-panel__list { display: grid; gap: 0.4rem; max-height: 290px; overflow-y: auto; }
+.favorite-pickup-panel__item { display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem; border: 1px solid var(--border); border-radius: 0.8rem; background: var(--bg-primary); }
+.favorite-pickup-panel__details { display: grid; gap: 0.15rem; min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.favorite-pickup-panel__details strong { color: var(--text-primary); font-size: 0.82rem; }
+.favorite-pickup-panel__details small { color: var(--text-muted); line-height: 1.35; }
+.favorite-pickup-panel__select { padding: 0.55rem 0.75rem; border: 1px solid rgba(245, 190, 97, 0.58); border-radius: 0.6rem; background: rgba(245, 190, 97, 0.1); color: var(--text-primary); font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
+.favorite-pickup-panel__select:hover:not(:disabled) { background: rgba(245, 190, 97, 0.2); }
+.favorite-pickup-panel__select:disabled { opacity: 0.6; cursor: wait; }
+.pickup-favorite-toggle { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; min-height: 38px; padding: 0.25rem 0.5rem; border: 1px solid var(--border); border-radius: 0.6rem; background: var(--bg-secondary); color: var(--text-muted); font: inherit; font-size: 1.15rem; line-height: 1; white-space: nowrap; cursor: pointer; }
+.pickup-favorite-toggle:hover:not(:disabled) { border-color: #e4b660; color: #e4b660; }
+.pickup-favorite-toggle.is-favorite { border-color: rgba(245, 190, 97, 0.6); background: rgba(245, 190, 97, 0.14); color: #e8b25e; }
+[data-theme="light"] .pickup-favorite-toggle.is-favorite { color: #85560b; border-color: #c49339; background: #fff0c9; }
+[data-theme="light"] .favorite-pickup-panel__eyebrow { color: #85560b; }
+.pickup-favorite-toggle:disabled { opacity: 0.6; cursor: wait; }
+.selected-pickup__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.65rem; margin-top: 0.75rem; }
+.selected-pickup__actions .btn-change-pickup { margin-top: 0; }
+
+.recent-pickup-panel {
+  margin-bottom: 1.25rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.15rem;
+  background: linear-gradient(135deg, rgba(158, 182, 255, 0.12), rgba(158, 182, 255, 0.025) 65%), var(--bg-secondary);
+}
+
+.recent-pickup-panel__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.85rem;
+  color: var(--text-primary);
+}
+
+.recent-pickup-panel__heading strong { font-size: 0.95rem; }
+.recent-pickup-panel__eyebrow { color: var(--accent); font-size: 0.65rem; font-weight: 800; letter-spacing: 0.14em; }
+.recent-pickup-list { display: grid; gap: 0.55rem; }
+.recent-pickup-card {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+.recent-pickup-card__pin {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: 0.6rem;
+  background: rgba(158, 182, 255, 0.14);
+  color: var(--accent);
+  font-size: 1.15rem;
+}
+.recent-pickup-card__details { display: grid; gap: 0.15rem; min-width: 0; flex: 1; }
+.recent-pickup-card__details strong { font-size: 0.86rem; line-height: 1.35; overflow-wrap: anywhere; }
+.recent-pickup-card__details small { color: var(--text-muted); line-height: 1.35; overflow-wrap: anywhere; }
+.recent-pickup-card__choose {
+  flex: none;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.6rem;
+  background: rgba(158, 182, 255, 0.12);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.recent-pickup-card__choose:hover:not(:disabled) { background: rgba(158, 182, 255, 0.22); }
+.recent-pickup-card__choose:disabled, .recent-cities button:disabled { opacity: 0.6; cursor: wait; }
+.recent-cities { display: grid; gap: 0.5rem; margin-top: 0.9rem; color: var(--text-muted); font-size: 0.8rem; }
+.recent-cities__chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.recent-cities button {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.recent-cities button:hover:not(:disabled) { border-color: var(--accent); }
+
+@media (max-width: 640px) {
+  .recent-pickup-panel { padding: 0.85rem; }
+  .recent-pickup-card { flex-wrap: wrap; }
+  .recent-pickup-card__choose { width: 100%; }
+  .pickup-search { flex-wrap: wrap; }
+  .pickup-search .input { min-width: 100%; }
+  .pickup-search .btn { width: 100%; }
+}
+
 .pickup-search {
   display: flex;
   gap: 0.75rem;
@@ -4485,6 +5081,64 @@ onUnmounted(() => {
   font-size: 0.85rem;
   color: var(--text-muted);
   margin-bottom: 0.75rem;
+}
+
+.pickup-explorer { display: grid; gap: 0.8rem; margin-top: 1rem; }
+.pickup-explorer__toolbar { display: flex; align-items: end; gap: 0.7rem; flex-wrap: wrap; }
+.pickup-explorer__field { display: grid; gap: 0.35rem; flex: 1 1 220px; min-width: 0; color: var(--text-muted); font-size: 0.78rem; }
+.pickup-explorer__field .input { width: 100%; margin: 0; color: var(--text-primary); background: var(--bg-secondary); }
+.pickup-explorer__hours { flex: 0 1 185px; }
+.pickup-explorer__geo {
+  min-height: 46px;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent-dim);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pickup-explorer__geo:hover:not(:disabled) { border-color: var(--text-primary); }
+.pickup-explorer__geo:disabled { cursor: wait; opacity: 0.7; }
+.pickup-explorer__favorite-filter { min-height: 46px; padding: 0.6rem 0.8rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-secondary); color: var(--text-muted); font: inherit; font-size: 0.8rem; cursor: pointer; }
+.pickup-explorer__favorite-filter.is-active { border-color: rgba(245, 190, 97, 0.6); background: rgba(245, 190, 97, 0.13); color: var(--text-primary); }
+.pickup-explorer__favorite-filter:disabled { opacity: 0.5; cursor: not-allowed; }
+.pickup-explorer__notice { margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.45; }
+.pickup-explorer__content { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.85fr); gap: 0.8rem; min-width: 0; }
+.pickup-explorer__map-column, .pickup-explorer__list-column { min-width: 0; }
+.pickup-explorer__list-column { display: flex; flex-direction: column; padding: 0.65rem; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-secondary); }
+.pickup-explorer__count { padding: 0.45rem 0.35rem 0.7rem; color: var(--text-muted); font-size: 0.76rem; }
+.pickup-explorer__list-column .pickup-list { max-height: 376px; }
+.pickup-explorer__list-entry { display: grid; gap: 0.35rem; }
+.pickup-explorer__list-actions { display: flex; justify-content: flex-end; gap: 0.35rem; }
+.pickup-explorer__item { width: 100%; text-align: left; color: var(--text-primary); font: inherit; }
+.pickup-explorer__item .point-content { min-width: 0; overflow-wrap: anywhere; }
+.pickup-explorer__distance { color: var(--accent); font-size: 0.76rem; }
+.pickup-explorer__list-confirm { padding: 0.55rem 0.7rem; border: 1px solid var(--accent); border-radius: 9px; background: var(--accent-dim); color: var(--text-primary); font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+.pickup-explorer__preview { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.65rem; padding: 0.9rem; border: 1px solid var(--accent); border-radius: 12px; background: var(--bg-card); }
+.pickup-explorer__preview > div { display: grid; min-width: 0; gap: 0.25rem; overflow-wrap: anywhere; }
+.pickup-explorer__preview strong { color: var(--text-primary); font-size: 0.9rem; }
+.pickup-explorer__preview span, .pickup-explorer__preview small { color: var(--text-muted); font-size: 0.78rem; line-height: 1.4; }
+.pickup-explorer__preview .btn { flex: none; font-size: 0.8rem; white-space: nowrap; }
+.pickup-explorer__preview-actions { display: flex; align-items: center; gap: 0.45rem; }
+
+@media (max-width: 800px) {
+  .pickup-explorer__content { grid-template-columns: minmax(0, 1fr); }
+  .pickup-explorer__list-column .pickup-list { max-height: 260px; }
+}
+
+@media (max-width: 520px) {
+  .favorite-pickup-panel__heading { align-items: start; flex-direction: column; }
+  .favorite-pickup-panel__heading small { text-align: left; }
+  .favorite-pickup-panel__item { flex-wrap: wrap; }
+  .favorite-pickup-panel__details { flex-basis: 100%; }
+  .favorite-pickup-panel__select { flex: 1; }
+  .pickup-explorer__hours { flex: 1 1 130px; }
+  .pickup-explorer__geo { width: 100%; }
+  .pickup-explorer__preview { align-items: stretch; flex-direction: column; }
+  .pickup-explorer__preview .btn { flex: 1; }
 }
 
 .field-error,

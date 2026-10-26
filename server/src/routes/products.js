@@ -5,6 +5,7 @@ import { upload } from '../utils/fileUpload.js'
 import { generateUniqueSlug } from '../utils/slug.js'
 import { deleteProductForAdmin } from '../utils/productDeletion.js'
 import { stripInternalProductFields, publicProductSpecs } from '../utils/publicProduct.js'
+import { isRecommendationAvailable, parseRecommendationIds, publicRecommendationProduct, RECOMMENDATION_LIMIT, saveProductRecommendations } from '../utils/productRecommendations.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -132,6 +133,63 @@ router.get('/', async (req, res, next) => {
   }
 })
 
+router.get('/:id/recommendations', async (req, res, next) => {
+  try {
+    const sourceProductId = Number(req.params.id)
+    if (!Number.isSafeInteger(sourceProductId) || sourceProductId <= 0) {
+      return res.status(400).json({ error: 'Некорректный ID товара' })
+    }
+    const recommendations = await prisma.productRecommendation.findMany({
+      where: { sourceProductId, placement: 'PRODUCT', targetProduct: { active: true } },
+      include: { targetProduct: { include: { categories: { select: { id: true, name: true, slug: true } } } } },
+      orderBy: [{ position: 'asc' }, { id: 'asc' }],
+      take: RECOMMENDATION_LIMIT
+    })
+    res.json({ products: recommendations.filter(item => isRecommendationAvailable(item.targetProduct)).map(item => publicRecommendationProduct(item.targetProduct)) })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/cart-recommendations', async (req, res, next) => {
+  try {
+    const raw = req.body?.productIds
+    if (!Array.isArray(raw) || raw.length > 50) {
+      return res.status(400).json({ error: 'Некорректный состав корзины' })
+    }
+    const ids = [...new Set(raw.map(Number))]
+    if (ids.some(id => !Number.isSafeInteger(id) || id <= 0)) {
+      return res.status(400).json({ error: 'Некорректный ID товара' })
+    }
+    if (!ids.length) return res.json({ products: [] })
+
+    const matches = await prisma.productRecommendation.findMany({
+      where: {
+        sourceProductId: { in: ids },
+        placement: 'CART',
+        targetProductId: { notIn: ids },
+        targetProduct: { active: true }
+      },
+      include: { targetProduct: { include: { categories: { select: { id: true, name: true, slug: true } } } } },
+      orderBy: [{ position: 'asc' }, { id: 'asc' }]
+    })
+    const sourceOrder = new Map(ids.map((id, index) => [id, index]))
+    matches.sort((a, b) => a.position - b.position || sourceOrder.get(a.sourceProductId) - sourceOrder.get(b.sourceProductId))
+    const seen = new Set()
+    const products = []
+    for (const match of matches) {
+      if (!isRecommendationAvailable(match.targetProduct)) continue
+      if (seen.has(match.targetProductId)) continue
+      seen.add(match.targetProductId)
+      products.push(publicRecommendationProduct(match.targetProduct))
+      if (products.length >= RECOMMENDATION_LIMIT) break
+    }
+    res.json({ products })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/:slug', async (req, res, next) => {
   try {
     const product = await prisma.product.findUnique({
@@ -166,6 +224,10 @@ router.post('/', authenticate, requireAdmin, upload.fields([
 ]), async (req, res, next) => {
   try {
     const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, featuredPosition, active, country } = req.body
+    const recommendationLists = {
+      PRODUCT: parseRecommendationIds(req.body.productRecommendationIds, 'На странице товара'),
+      CART: parseRecommendationIds(req.body.cartRecommendationIds, 'В корзине')
+    }
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const galleryImages = galleryFiles.map(file => `/uploads/${file.filename}`)
@@ -193,7 +255,7 @@ router.post('/', authenticate, requireAdmin, upload.fields([
         })
       }
 
-      return tx.product.create({
+      const created = await tx.product.create({
         data: {
           title,
           slug,
@@ -219,6 +281,8 @@ router.post('/', authenticate, requireAdmin, upload.fields([
           } : undefined
         }
       })
+      await saveProductRecommendations(tx, created.id, recommendationLists)
+      return created
     })
     
     res.status(201).json({ product })
@@ -233,6 +297,10 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
 ]), async (req, res, next) => {
   try {
     const { title, description, price, comparePrice, costPrice, sku, stock, weight, packageLength, packageWidth, packageHeight, repeatCycleDays, specs, categories, featured, featuredPosition, active, country, existingImages, removeMainImage } = req.body
+    const recommendationLists = {
+      PRODUCT: parseRecommendationIds(req.body.productRecommendationIds, 'На странице товара'),
+      CART: parseRecommendationIds(req.body.cartRecommendationIds, 'В корзине')
+    }
     const mainFile = req.files?.image?.[0] || null
     const galleryFiles = req.files?.images || []
     const persistedImages = parseImagesField(existingImages)
@@ -292,10 +360,12 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
         })
       }
 
-      return tx.product.update({
+      const updated = await tx.product.update({
         where: { id: productId },
         data: updateData
       })
+      await saveProductRecommendations(tx, productId, recommendationLists)
+      return updated
     })
 
     // If product is used in active orders, reflect current product data in those order positions.

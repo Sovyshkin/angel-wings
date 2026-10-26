@@ -172,11 +172,17 @@
           
         </div>
       </div>
-      
+
       <div v-else-if="!product" class="not-found">
         <h2>Товар не найден</h2>
         <router-link to="/catalog" class="btn btn-primary">Вернуться в каталог</router-link>
       </div>
+      <ProductRecommendations
+        v-if="product"
+        title="Похожие товары"
+        description="Ещё товары из близких категорий каталога"
+        :products="recommendedProducts"
+      />
     </div>
   </div>
 </template>
@@ -187,6 +193,8 @@ import { useRoute } from 'vue-router'
 import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
 import Loader from '../components/Loader.vue'
+import ProductRecommendations from '../components/ProductRecommendations.vue'
+import axios from 'axios'
 import { trackProductEvent } from '../api/analytics'
 import { pushProductDetail } from '../utils/ecommerce'
 
@@ -200,6 +208,8 @@ const justAdded = ref(false)
 const selectedDosageIndex = ref(0)
 const activeImageIndex = ref(0)
 const descriptionExpanded = ref(false)
+const recommendedProducts = ref([])
+let recommendationRequest = 0
 
 const product = computed(() => {
   return productStore.products.find(p => p.id == route.params.id) || null
@@ -484,6 +494,18 @@ watch(() => product.value?.id, (productId) => {
   if (productId) {
     trackProductEvent(productId, 'view', { source: 'product_detail' })
     pushProductDetail(product.value)
+  }
+}, { immediate: true })
+
+watch(() => product.value?.id, async productId => {
+  const request = ++recommendationRequest
+  recommendedProducts.value = []
+  if (!productId) return
+  try {
+    const { data } = await axios.get(`/api/products/${productId}/recommendations`)
+    if (request === recommendationRequest) recommendedProducts.value = data.products || []
+  } catch {
+    if (request === recommendationRequest) recommendedProducts.value = []
   }
 }, { immediate: true })
 

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /profile
+Disallow: /cart
+Sitemap: https://angel-wings.ru/sitemap.xml

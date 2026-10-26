@@ -1,0 +1,15 @@
+# Add these locations to the public angel-wings.ru server block before the SPA fallback.
+# Adjust the port if the API is not listening on 3005.
+# The API serves real article HTML and metadata to crawlers and browsers; Vue takes over after loading.
+location = /blog {
+    proxy_pass http://127.0.0.1:3005/api/blog/render;
+    proxy_set_header Host $host;
+}
+location ^~ /blog/ {
+    proxy_pass http://127.0.0.1:3005/api/blog/render/;
+    proxy_set_header Host $host;
+}
+location = /sitemap.xml {
+    proxy_pass http://127.0.0.1:3005/api/blog/sitemap.xml;
+    proxy_set_header Host $host;
+}
