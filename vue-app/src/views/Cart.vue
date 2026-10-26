@@ -329,7 +329,7 @@
           </template>
         </div>
         
-        <div class="cart__summary" data-aos="fade-left" data-aos-delay="200">
+        <div class="cart__summary" data-aos="fade-up" data-aos-delay="200">
           <div class="summary-header">
             <h3>{{ isOrderAdditionMode ? 'Расчёт дозаказа' : 'Ваш заказ' }}</h3>
             <span class="item-count">{{ cartStore.count }} новых товаров</span>
@@ -3621,8 +3621,8 @@ onUnmounted(() => {
 
 .cart__layout {
   display: grid;
-  grid-template-columns: 1fr 480px;
-  gap: 3rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
   align-items: start;
 }
 
@@ -4063,8 +4063,8 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 2rem;
-  position: sticky;
-  top: 100px;
+  width: min(100%, 960px);
+  justify-self: center;
 }
 
 .pending-payment-card {

@@ -35,7 +35,7 @@
           <span class="blog-category">{{ featured.category?.name || 'Статья' }}</span>
           <h2>{{ featured.title }}</h2>
           <p>{{ featured.excerpt }}</p>
-          <div class="blog-meta"><span>▦ {{ formatDate(featured.publishedAt) }}</span><span>◉ {{ featured.readingMinutes }} мин. чтения</span></div>
+          <div class="blog-meta"><BlogDate :value="featured.publishedAt" /><span>◉ {{ featured.readingMinutes }} мин. чтения</span></div>
         </div>
         <span class="blog-featured__arrow">→</span>
       </router-link>
@@ -47,7 +47,7 @@
       <div v-else class="blog-grid">
         <router-link v-for="(post, index) in posts" :key="post.id" :to="`/blog/${post.slug}`" class="blog-card blog-glass blog-reveal" :style="{ '--reveal-delay': `${Math.min(index % 3, 2) * 85}ms` }">
           <div class="blog-card__image"><img :src="post.cover" :alt="post.coverAlt" loading="lazy"><span class="blog-category">{{ post.category?.name || 'Статья' }}</span></div>
-          <div class="blog-card__copy"><h3>{{ post.title }}</h3><p>{{ post.excerpt }}</p><div class="blog-meta"><span>▦ {{ formatDate(post.publishedAt) }}</span><span>◉ {{ post.readingMinutes }} мин.</span></div></div>
+          <div class="blog-card__copy"><h3>{{ post.title }}</h3><p>{{ post.excerpt }}</p><div class="blog-meta"><BlogDate :value="post.publishedAt" /><span>◉ {{ post.readingMinutes }} мин.</span></div></div>
         </router-link>
       </div>
       <nav v-if="pages > 1" class="blog-pagination blog-reveal" aria-label="Страницы блога"><button :disabled="currentPage === 1" @click="goPage(currentPage - 1)">←</button><button v-for="number in pages" :key="number" :class="{ active: number === currentPage }" @click="goPage(number)">{{ number }}</button><button :disabled="currentPage === pages" @click="goPage(currentPage + 1)">→</button></nav>
@@ -61,6 +61,7 @@
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import BlogDate from '../components/BlogDate.vue'
 import { setBlogSeo, clearBlogSeo } from '../utils/blogSeo'
 import './blog.css'
 import './blogExtras.css'
@@ -105,7 +106,6 @@ const unsubscribeToken = ref('')
 const unsubscribeNotice = ref('')
 const confirmationToken = ref('')
 const confirmationNotice = ref('')
-const formatDate = date => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(date))
 function syncQuery() { selectedCategory.value = String(route.query.category || ''); search.value = String(route.query.search || ''); searchInput.value = search.value; currentPage.value = Math.max(1, Number(route.query.page) || 1) }
 async function loadPosts() {
   loading.value = true; error.value = ''
