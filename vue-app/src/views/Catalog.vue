@@ -147,92 +147,14 @@
           </div>
           
           <div v-else class="products-grid" data-aos="fade-up" data-aos-delay="200">
-            <router-link 
+            <CatalogProductCard
               v-for="(product, index) in filteredProducts"
               :key="product.id"
-              :to="`/product/${product.id}`"
-              class="product-card"
-              :style="{ '--reveal-delay': `${Math.min(index, 8) * 45}ms` }"
-              :data-aos="'fade-up'"
-              :data-aos-delay="100 + index * 50"
-              @click="rememberCatalogScroll"
-            >
-              <div class="product-image">
-                <img
-                  v-if="product.image"
-                  :src="product.image"
-                  :alt="product.title"
-                  width="480"
-                  height="480"
-                  :loading="index < 4 ? 'eager' : 'lazy'"
-                  :fetchpriority="index < 2 ? 'high' : 'auto'"
-                  decoding="async"
-                  @error="handleImageError"
-                >
-                <div v-else class="product-placeholder">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                  </svg>
-                </div>
-                <div class="product-overlay">
-                  <span class="view-btn">Подробнее</span>
-                </div>
-              </div>
-              <div class="product-content">
-                <div class="product-card-meta">
-                  <span class="product-category-badge">{{ getCategoryName(product.categories?.[0]) }}</span>
-                  <span v-if="isLowStock(product)" class="product-low-stock">Меньше 10 осталось</span>
-                </div>
-                <h3 class="product-title">{{ product.title }}</h3>
-                <p class="product-desc">{{ truncate(product.description, 100) }}</p>
-                <div class="product-footer">
-                  <div class="product-price">
-                    <div class="price-current">
-                      <span class="price-value">{{ getDisplayPrice(product).toLocaleString('ru-RU') }}</span>
-                      <span class="price-currency">₽</span>
-                    </div>
-                    <div v-if="getOldPrice(product)" class="price-discount-row">
-                      <span class="price-old">{{ getOldPrice(product).toLocaleString('ru-RU') }} ₽</span>
-                      <span class="price-discount-badge">-{{ getDiscountPercent(product) }}%</span>
-                    </div>
-                  </div>
-                  <button
-                    v-if="getCatalogCartQty(product.id) === 0"
-                    class="add-to-cart-btn"
-                    type="button"
-                    aria-label="Добавить в корзину"
-                    @click.prevent="increaseCatalogQty(product)"
-                    :disabled="!product.stock"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M12 5v14M5 12h14"/>
-                    </svg>
-                  </button>
-                  <div v-else class="catalog-qty-control" @click.prevent>
-                    <button
-                      class="qty-btn"
-                      type="button"
-                      aria-label="Уменьшить"
-                      @click.prevent="decreaseCatalogQty(product)"
-                      :disabled="getCatalogCartQty(product.id) <= 0"
-                    >
-                      −
-                    </button>
-                    <span class="qty-value">{{ getCatalogCartQty(product.id) }}</span>
-                    <button
-                      class="qty-btn"
-                      type="button"
-                      aria-label="Увеличить"
-                      @click.prevent="increaseCatalogQty(product)"
-                      :disabled="!product.stock || getCatalogCartQty(product.id) >= product.stock"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </router-link>
+              :product="product"
+              :index="index"
+              animated
+              @open="rememberCatalogScroll"
+            />
           </div>
         </div>
       </div>
@@ -244,13 +166,11 @@
 import { ref, computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useProductStore } from '../store/products'
-import { useCartStore } from '../store/cart'
 import Loader from '../components/Loader.vue'
-import { trackProductEvent } from '../api/analytics'
+import CatalogProductCard from '../components/CatalogProductCard.vue'
 
 const route = useRoute()
 const productStore = useProductStore()
-const cartStore = useCartStore()
 
 const selectedCategory = ref(null)
 const sortBy = ref('default')
@@ -421,23 +341,6 @@ function getCategoryIcon(slug) {
   return icons[slug] || icons.default
 }
 
-function getCategoryName(category) {
-  if (!category) return ''
-  if (category.name) return category.name
-
-  if (category.slug) {
-    const bySlug = categories.value.find(c => c.slug === category.slug)
-    if (bySlug?.name) return bySlug.name
-  }
-
-  if (category.id !== undefined && category.id !== null) {
-    const byId = categories.value.find(c => Number(c.id ?? c.term_id) === Number(category.id))
-    if (byId?.name) return byId.name
-  }
-
-  return ''
-}
-
 function getCategoryCount(category) {
   return products.value.filter(product => product.categories?.some(productCategory => (
     categoriesMatch(productCategory, category)
@@ -453,76 +356,6 @@ function resolveCategoryQuery(value) {
     normalizeCategoryText(category.name) === queryValue ||
     String(getCategoryId(category) || '') === queryValue
   )) || { slug: String(value) }
-}
-
-function truncate(text, length) {
-  if (!text) return ''
-  return text.length > length ? text.substring(0, length) + '...' : text
-}
-
-function isLowStock(product) {
-  const stock = Number(product?.stock || 0)
-  return stock > 0 && stock < 10
-}
-
-function getBaseCartItem(productId) {
-  return cartStore.items.find(item => item.id === productId && !item.selectedDosage)
-}
-
-function getCatalogCartQty(productId) {
-  const baseItem = getBaseCartItem(productId)
-  return Math.max(0, Number(baseItem?.quantity || 0))
-}
-
-function increaseCatalogQty(product) {
-  const qty = getCatalogCartQty(product.id)
-  const maxStock = Math.max(0, Number(product?.stock || 0))
-  if (maxStock > 0 && qty >= maxStock) return
-  cartStore.addItem({
-    ...product,
-    selectedDosage: null
-  })
-  trackProductEvent(product.id, 'add_to_cart', { source: 'catalog', quantity: 1 })
-}
-
-function decreaseCatalogQty(product) {
-  const baseItem = getBaseCartItem(product.id)
-  if (!baseItem) return
-  if (baseItem.quantity <= 1) {
-    cartStore.removeItem(product.id, null)
-    return
-  }
-  cartStore.updateQuantity(product.id, baseItem.quantity - 1, null)
-}
-
-function normalizePrice(value) {
-  const n = Number(value)
-  return Number.isFinite(n) && n > 0 ? n : 0
-}
-
-function getDisplayPrice(product) {
-  return normalizePrice(product?.price)
-}
-
-function getOldPrice(product) {
-  const current = getDisplayPrice(product)
-  const old = normalizePrice(product?.comparePrice)
-  if (!old || old <= current) return null
-  return old
-}
-
-function getDiscountPercent(product) {
-  const current = getDisplayPrice(product)
-  const old = getOldPrice(product)
-  if (!old || old <= 0 || current <= 0 || old <= current) return 0
-  return Math.round(((old - current) / old) * 100)
-}
-
-function handleImageError(e) {
-  const img = e.target
-  if (img.dataset.fallbackApplied === 'true') return
-  img.dataset.fallbackApplied = 'true'
-  img.src = '/angel-wings-logo-light.svg'
 }
 
 onMounted(async () => {
@@ -845,257 +678,6 @@ watch(() => route.query.category, (newCat) => {
   gap: 1.5rem;
 }
 
-.product-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.product-card:hover {
-  border-color: rgba(166, 185, 248, 0.3);
-  transform: translateY(-8px);
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
-}
-
-.product-image {
-  position: relative;
-  aspect-ratio: 4/3;
-  background: var(--bg-secondary);
-  overflow: hidden;
-}
-
-.product-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.6s ease;
-}
-
-.product-card:hover .product-image img {
-  transform: scale(1.08);
-}
-
-.product-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-}
-
-.product-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(10, 10, 16, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-}
-
-.product-card:hover .product-overlay {
-  opacity: 1;
-}
-
-.view-btn {
-  padding: 0.75rem 1.5rem;
-  background: var(--accent);
-  color: var(--bg-primary);
-  font-size: 0.8rem;
-  font-weight: 700;
-  border-radius: 10px;
-  transform: translateY(10px);
-  transition: transform 0.4s ease;
-}
-
-.product-card:hover .view-btn {
-  transform: translateY(0);
-}
-
-.product-content {
-  padding: 1.5rem;
-}
-
-.product-card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.product-category-badge {
-  display: inline-block;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--accent);
-  background: var(--accent-dim);
-  padding: 0.35rem 0.7rem;
-  border-radius: 6px;
-}
-
-.product-low-stock {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.28);
-  border-radius: 999px;
-  padding: 0.32rem 0.62rem;
-}
-
-.product-title {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  line-height: 1.3;
-}
-
-.product-desc {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  margin-bottom: 1.25rem;
-  white-space: pre-line;
-  word-break: break-word;
-}
-
-.product-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
-}
-
-.product-price {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-}
-
-.price-current {
-  display: flex;
-  align-items: baseline;
-  gap: 0.25rem;
-}
-
-.price-value {
-  font-family: var(--font-mono);
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-.price-currency {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
-.price-discount-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.price-old {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  text-decoration: line-through;
-}
-
-.price-discount-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 999px;
-  padding: 0.12rem 0.45rem;
-}
-
-.add-to-cart-btn {
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text-primary);
-  transition: all 0.3s ease;
-}
-
-.add-to-cart-btn:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg-primary);
-}
-
-.add-to-cart-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.catalog-qty-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-secondary);
-}
-
-.qty-btn {
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  line-height: 1;
-  font-weight: 700;
-  transition: all 0.3s ease;
-}
-
-.qty-btn:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg-primary);
-}
-
-.qty-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.qty-value {
-  min-width: 20px;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -1113,9 +695,6 @@ watch(() => route.query.category, (newCat) => {
     animation: catalog-reveal-up 0.5s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  .product-card {
-    animation: catalog-card-reveal 0.55s var(--reveal-delay, 0ms) cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
 }
 
 @keyframes catalog-reveal-down {
@@ -1131,19 +710,6 @@ watch(() => route.query.category, (newCat) => {
 @keyframes catalog-reveal-up {
   from { opacity: 0; translate: 0 16px; }
   to { opacity: 1; translate: 0 0; }
-}
-
-@keyframes catalog-card-reveal {
-  from {
-    opacity: 0;
-    translate: 0 24px;
-    scale: 0.985;
-  }
-  to {
-    opacity: 1;
-    translate: 0 0;
-    scale: 1;
-  }
 }
 
 @media (max-width: 1024px) {
@@ -1245,26 +811,6 @@ watch(() => route.query.category, (newCat) => {
     gap: 1rem;
   }
 
-  .product-content {
-    padding: 1rem;
-  }
-
-  .product-footer {
-    gap: 0.5rem;
-  }
-
-  .product-title {
-    font-size: 0.9375rem;
-  }
-
-  .product-desc {
-    font-size: 0.8rem;
-    display: none;
-  }
-
-  .price-value {
-    font-size: 1.125rem;
-  }
 }
 
 @media (max-width: 768px) {
