@@ -334,6 +334,9 @@
             <h3>{{ isOrderAdditionMode ? 'Расчёт дозаказа' : 'Ваш заказ' }}</h3>
             <span class="item-count">{{ cartStore.count }} новых товаров</span>
           </div>
+
+          <div class="cart__summary-grid" :class="{ 'cart__summary-grid--addition': isOrderAdditionMode }">
+            <div class="cart__summary-financial">
           
           <div class="summary-items">
             <div v-if="isOrderAdditionMode" class="summary-row summary-row-muted">
@@ -470,6 +473,7 @@
             <span>{{ isOrderAdditionMode ? additionTotalLabel : 'К оплате на сайте' }}</span>
             <span class="total-value">{{ visibleTotal.toLocaleString('ru-RU') }} ₽</span>
           </div>
+            </div>
           
           <!-- Delivery Type Selection -->
           <div v-if="!isOrderAdditionMode" ref="pickupSectionRef" class="pickup-section" :class="{ 'pickup-section--error': showValidationErrors && isDeliveryMissing }" tabindex="-1">
@@ -893,6 +897,7 @@
               </div>
             </div>
           </div>
+          </div>
           
           <div v-if="!isOrderAdditionMode" class="checkout-form">
             <h4 v-if="authStore.isAuthenticated">Данные из профиля</h4>
@@ -1125,7 +1130,7 @@
 
           <div v-else class="addition-checkout-card">
             <p>
-              Старые позиции заказа отображаются слева для контроля состава, но в доплату попадут только новые товары.
+              Старые позиции заказа отображаются выше для контроля состава, но в доплату попадут только новые товары.
             </p>
 
             <div v-if="validationErrors.length" class="form-validation-card" role="alert" aria-live="polite">
@@ -4063,8 +4068,43 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 2rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.cart__summary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  align-items: start;
+  gap: 2rem;
+}
+
+.cart__summary-grid--addition {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cart__summary-financial,
+.cart__summary-grid .pickup-section {
+  min-width: 0;
+}
+
+.cart__summary-grid .pickup-section,
+.cart__summary-grid .summary-total {
+  margin-bottom: 0;
+}
+
+.checkout-form {
   width: min(100%, 960px);
-  justify-self: center;
+  margin: 2.25rem auto 0;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 1100px) {
+  .cart__summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
 }
 
 .pending-payment-card {
