@@ -7,7 +7,7 @@
     </div>
     <div v-if="!mappablePoints.length" class="pickup-map-message">У этих пунктов нет координат. Выберите ПВЗ в списке рядом.</div>
     <div v-else-if="mapState !== 'ready'" class="pickup-map-message" role="status">
-      {{ mapState === 'loading' ? 'Загружаем карту ПВЗ…' : 'Карта временно недоступна. Выберите ПВЗ в списке рядом.' }}
+      {{ mapState === 'loading' ? 'Загружаем карту ПВЗ…' : mapState === 'missing-key' ? 'Карта не настроена на сайте. Выберите ПВЗ в списке рядом.' : 'Не удалось загрузить карту. Выберите ПВЗ в списке рядом.' }}
     </div>
   </div>
 </template>
@@ -99,7 +99,8 @@ onMounted(async () => {
   await nextTick()
   if (!mapElement.value || unmounted) return
   if (!apiKey) {
-    mapState.value = 'error'
+    console.warn('[PickupPointsMap] VITE_YANDEX_MAPS_API_KEY отсутствует в сборке vue-app')
+    mapState.value = 'missing-key'
     return
   }
   try {

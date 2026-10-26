@@ -703,8 +703,24 @@
                 </div>
                 <p v-if="pickupGeoError" class="pickup-explorer__notice" role="status">{{ pickupGeoError }}</p>
                 <p v-if="pickupResultsTruncated" class="pickup-explorer__notice">СДЭК показал не все пункты города. Уточните адрес поиском или попробуйте позже.</p>
-                <div class="pickup-explorer__content">
-                  <div class="pickup-explorer__map-column">
+                <div class="pickup-explorer__map-action">
+                  <button
+                    type="button"
+                    class="pickup-explorer__map-toggle"
+                    :aria-expanded="pickupMapOpen"
+                    @click="pickupMapOpen = !pickupMapOpen"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/>
+                      <path d="M9 3v15M15 6v15"/>
+                    </svg>
+                    {{ pickupMapOpen ? 'Скрыть карту' : 'Выбрать ПВЗ на карте' }}
+                    <span aria-hidden="true">{{ pickupMapOpen ? '−' : '↗' }}</span>
+                  </button>
+                  <span v-if="!pickupMapOpen">Или выберите пункт в списке ниже</span>
+                </div>
+                <div class="pickup-explorer__content" :class="{ 'pickup-explorer__content--list-only': !pickupMapOpen }">
+                  <div v-if="pickupMapOpen" id="pickup-points-map-panel" class="pickup-explorer__map-column">
                     <PickupPointsMap
                       :points="filteredPickupPoints"
                       :active-code="pickupPreviewPoint?.code || ''"
@@ -743,10 +759,8 @@
                             <span v-if="pickupDistanceLabel(point)" class="pickup-explorer__distance">{{ pickupDistanceLabel(point) }} по прямой</span>
                           </span>
                         </button>
-                        <div class="pickup-explorer__list-actions">
-                          <button type="button" class="pickup-favorite-toggle" :class="{ 'is-favorite': isFavoritePickup(point.code) }" :disabled="favoritesLoading || Boolean(favoriteChangingCode)" :aria-label="isFavoritePickup(point.code) ? `Убрать ${point.name} из избранного` : `Добавить ${point.name} в избранное`" :aria-pressed="isFavoritePickup(point.code)" @click="toggleFavoritePickup(point)">{{ isFavoritePickup(point.code) ? '★' : '☆' }}</button>
-                          <button v-if="pickupPreviewPoint?.code === point.code" type="button" class="pickup-explorer__list-confirm" @click="selectPickupFromExplorer(point)">Выбрать этот ПВЗ</button>
-                        </div>
+                        <button type="button" class="pickup-favorite-toggle pickup-explorer__list-favorite" :class="{ 'is-favorite': isFavoritePickup(point.code) }" :disabled="favoritesLoading || Boolean(favoriteChangingCode)" :aria-label="isFavoritePickup(point.code) ? `Убрать ${point.name} из избранного` : `Добавить ${point.name} в избранное`" :aria-pressed="isFavoritePickup(point.code)" @click="toggleFavoritePickup(point)">{{ isFavoritePickup(point.code) ? '★' : '☆' }}</button>
+                        <button v-if="pickupPreviewPoint?.code === point.code" type="button" class="pickup-explorer__list-confirm" @click="selectPickupFromExplorer(point)">Выбрать этот ПВЗ</button>
                       </div>
                       <div v-if="!filteredPickupPoints.length" class="no-points-found">По этим фильтрам ПВЗ не найдено.</div>
                     </div>
@@ -1327,6 +1341,7 @@ const pickupFilter = ref('')
 const pickupHouseFilter = ref('')
 const pickupHoursFilter = ref('all')
 const pickupPreviewPoint = ref(null)
+const pickupMapOpen = ref(false)
 const pickupUserLocation = ref(null)
 const pickupGeoBusy = ref(false)
 const pickupGeoError = ref('')
@@ -2115,6 +2130,7 @@ async function loadRecentDeliveryHistory() {
 
 function changeDelivery() {
   pickupSearchRequest++
+  pickupMapOpen.value = false
   selectedPickupPoint.value = null
   pickupPreviewPoint.value = null
   pickupHoursFilter.value = 'all'
@@ -2243,6 +2259,7 @@ async function searchCityAndPickup() {
 }
 
 async function loadPickupPointsForCity(city, filters = {}, request = ++pickupSearchRequest) {
+  pickupMapOpen.value = false
   pickupFilter.value = filters.street || ''
   pickupHouseFilter.value = filters.house || ''
   pickupPoints.value = []
@@ -5146,17 +5163,25 @@ onUnmounted(() => {
 .pickup-explorer__favorite-filter.is-active { border-color: rgba(245, 190, 97, 0.6); background: rgba(245, 190, 97, 0.13); color: var(--text-primary); }
 .pickup-explorer__favorite-filter:disabled { opacity: 0.5; cursor: not-allowed; }
 .pickup-explorer__notice { margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.45; }
+.pickup-explorer__map-action { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; }
+.pickup-explorer__map-action > span { color: var(--text-muted); font-size: 0.8rem; }
+.pickup-explorer__map-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 0.65rem; min-height: 46px; padding: 0.7rem 1rem; border: 1px solid var(--accent); border-radius: 11px; background: var(--accent-dim); color: var(--text-primary); font: inherit; font-size: 0.86rem; font-weight: 700; cursor: pointer; transition: background 180ms ease, border-color 180ms ease, transform 180ms ease; }
+.pickup-explorer__map-toggle > span { margin-left: 0.3rem; color: var(--accent); font-size: 1.1rem; }
+.pickup-explorer__map-toggle:hover { border-color: var(--text-primary); background: rgba(143, 170, 255, 0.18); transform: translateY(-2px); }
+.pickup-explorer__map-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .pickup-explorer__content { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.85fr); gap: 0.8rem; min-width: 0; }
+.pickup-explorer__content--list-only { grid-template-columns: minmax(0, 1fr); }
 .pickup-explorer__map-column, .pickup-explorer__list-column { min-width: 0; }
 .pickup-explorer__list-column { display: flex; flex-direction: column; padding: 0.65rem; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-secondary); }
 .pickup-explorer__count { padding: 0.45rem 0.35rem 0.7rem; color: var(--text-muted); font-size: 0.76rem; }
 .pickup-explorer__list-column .pickup-list { max-height: 376px; }
-.pickup-explorer__list-entry { display: grid; gap: 0.35rem; }
-.pickup-explorer__list-actions { display: flex; justify-content: flex-end; gap: 0.35rem; }
-.pickup-explorer__item { width: 100%; text-align: left; color: var(--text-primary); font: inherit; }
+.pickup-explorer__list-entry { position: relative; display: grid; gap: 0.35rem; }
+.pickup-explorer__item { width: 100%; min-height: 76px; padding-right: 3.75rem; text-align: left; color: var(--text-primary); font: inherit; }
+.pickup-explorer__list-favorite { position: absolute; z-index: 1; top: 0.6rem; right: 0.6rem; width: 38px; height: 38px; }
+.pickup-explorer__list-favorite:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pickup-explorer__item .point-content { min-width: 0; overflow-wrap: anywhere; }
 .pickup-explorer__distance { color: var(--accent); font-size: 0.76rem; }
-.pickup-explorer__list-confirm { padding: 0.55rem 0.7rem; border: 1px solid var(--accent); border-radius: 9px; background: var(--accent-dim); color: var(--text-primary); font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+.pickup-explorer__list-confirm { justify-self: end; padding: 0.55rem 0.7rem; border: 1px solid var(--accent); border-radius: 9px; background: var(--accent-dim); color: var(--text-primary); font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
 .pickup-explorer__preview { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.65rem; padding: 0.9rem; border: 1px solid var(--accent); border-radius: 12px; background: var(--bg-card); }
 .pickup-explorer__preview > div { display: grid; min-width: 0; gap: 0.25rem; overflow-wrap: anywhere; }
 .pickup-explorer__preview strong { color: var(--text-primary); font-size: 0.9rem; }
@@ -5177,6 +5202,7 @@ onUnmounted(() => {
   .favorite-pickup-panel__select { flex: 1; }
   .pickup-explorer__hours { flex: 1 1 130px; }
   .pickup-explorer__geo { width: 100%; }
+  .pickup-explorer__map-toggle { width: 100%; }
   .pickup-explorer__preview { align-items: stretch; flex-direction: column; }
   .pickup-explorer__preview .btn { flex: 1; }
 }
