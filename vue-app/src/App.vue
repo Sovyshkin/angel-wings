@@ -264,8 +264,9 @@
     <!-- One persistent molecule video. It is deliberately outside router-view. -->
     <div class="molecule-transition" aria-hidden="true">
       <video
+        :key="themeStore.isDark ? 'dark-sphere' : 'light-sphere'"
         class="molecule-transition__video"
-        src="/about-assets/about-sphere-transparent.webm"
+        :src="themeStore.isDark ? '/about-assets/about-sphere-transparent.webm' : '/about-assets/about-sphere-white-final.mp4'"
         autoplay
         muted
         loop
@@ -1288,6 +1289,10 @@ html.is-page-inactive *::after {
   transform: translateZ(0);
   backface-visibility: hidden;
   will-change: transform;
+}
+
+[data-theme="light"] .molecule-transition {
+  mix-blend-mode: multiply;
 }
 
 /* The persistent video remains mounted for seamless playback, but is never visible outside /about. */

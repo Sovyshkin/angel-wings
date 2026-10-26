@@ -8,17 +8,7 @@
       </div>
       <div class="about-hero__podium" aria-hidden="true">
         <div class="about-hero__podium-motion">
-          <video
-            v-if="!themeStore.isDark && !prefersReducedMotion && !lightHeroVideoFailed"
-            src="/about-assets/about-sphere-white-final.mp4"
-            autoplay
-            muted
-            loop
-            playsinline
-            preload="metadata"
-            @error="lightHeroVideoFailed = true"
-          ></video>
-          <img v-else src="/about-assets/hero-podium.png" alt="">
+          <img src="/about-assets/hero-podium.png" alt="">
         </div>
       </div>
       <div class="about-hero__visual" aria-hidden="true">
@@ -290,7 +280,6 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useThemeStore } from '../store/theme'
 
 let revealObserver = null
 let aboutNavObserver = null
@@ -299,9 +288,6 @@ let heroParallaxFrame = 0
 let heroParallaxRange = 1
 let lastHeroParallaxProgress = -1
 const aboutRoot = ref(null)
-const themeStore = useThemeStore()
-const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-const lightHeroVideoFailed = ref(false)
 const heroSection = ref(null)
 const productionVideo = ref(null)
 const hasProductionStarted = ref(false)
@@ -1016,8 +1002,7 @@ onBeforeUnmount(() => {
   will-change: transform, opacity;
 }
 
-.about-hero__podium img,
-.about-hero__podium video {
+.about-hero__podium img {
   display: block;
   width: 100%;
   height: auto;
@@ -1956,7 +1941,6 @@ onBeforeUnmount(() => {
     radial-gradient(ellipse 25% 35% at 92% 68%, rgba(71, 120, 220, 0.08), transparent 78%),
     linear-gradient(120deg, #fafbff, #edf2fd 72%, #f8faff);
 }
-[data-theme="light"] .about-hero__podium-motion { mix-blend-mode: multiply; }
 [data-theme="light"] .about-hero__backdrop {
   background:
     radial-gradient(ellipse 34% 47% at 76% 31%, rgba(92, 131, 230, 0.14), transparent 76%),
