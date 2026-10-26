@@ -1,5 +1,3 @@
-import { getBilledOrderTotal } from './orderEditAmounts.js'
-
 const PAID_PAYMENT_STATUS = 'PAID'
 
 function normalizePaymentStatus(value) {
@@ -35,14 +33,20 @@ export async function ensurePartnerCommissionForPaidOrder(prismaLike, orderId) {
     select: { id: true, percentage: true, isActive: true }
   })
 
-  if (!partner?.isActive) return null
+  if (!partner || (!partner.isActive && !order.commission)) return null
 
-  const percentage = Number(partner.percentage) > 0 ? Number(partner.percentage) : 5.0
+  // Keep the rate assigned when this order first earned commission. A later
+  // partner-rate change must not retroactively reprice an existing order.
+  const percentage = Number(order.commission?.percentage) > 0
+    ? Number(order.commission.percentage)
+    : (Number(partner.percentage) > 0 ? Number(partner.percentage) : 5.0)
   // CDEK is paid separately and is not included in order.total.
   const isExternalDelivery = Boolean(order.deliveryTariffCode || order.deliveryPickupPoint || order.cdekOrderUuid)
   const deliveryPart = isExternalDelivery ? 0 : Math.max(0, Number(order.deliveryPrice || 0))
-  const commissionBase = Math.max(0, getBilledOrderTotal(order) - deliveryPart)
-  const amount = commissionBase * (percentage / 100)
+  // Admin-added products are part of the order total even when the original
+  // bank payment is intentionally left unchanged.
+  const commissionBaseCents = Math.max(0, Math.round(Number(order.total || 0) * 100) - Math.round(deliveryPart * 100))
+  const amount = Math.round(commissionBaseCents * percentage / 100) / 100
 
   return prismaLike.partnerCommission.upsert({
     where: { orderId: order.id },

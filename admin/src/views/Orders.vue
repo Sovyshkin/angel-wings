@@ -415,12 +415,19 @@
           <section class="manual-order-section manual-final-section">
             <div class="manual-section-heading"><span>4</span><div><h4>Оплата и детали</h4><p>Выберите текущий статус; его можно изменить позже</p></div></div>
             <div class="edit-grid">
+              <label class="edit-wide">Промокод
+                <span class="manual-promo-row"><input v-model.trim="manualDraft.promoCode" class="input" type="text" maxlength="100" autocomplete="off" placeholder="Введите промокод"><button type="button" class="btn btn-secondary" :disabled="manualPromoLoading || !manualDraft.promoCode || !manualDraft.userId" @click="validateManualPromo">{{ manualPromoLoading ? 'Проверяем…' : 'Применить' }}</button></span>
+              </label>
+              <p v-if="manualDraft.promoCode && !manualDraft.userId" class="manual-delivery-note edit-wide">Для промокода выберите зарегистрированного клиента.</p>
+              <p v-if="manualPromoError" class="edit-error edit-wide" role="alert">{{ manualPromoError }}</p>
+              <p v-else-if="manualAppliedPromo" class="manual-promo-success edit-wide">Промокод {{ manualAppliedPromo.promoCode }} применён · скидка {{ formatPrice(manualAppliedPromo.discountAmount) }}<span v-if="manualAppliedPromo.partnerId"> · партнёр #{{ manualAppliedPromo.partnerId }}</span></p>
+              <p v-else-if="manualDraft.promoCode" class="manual-delivery-note edit-wide">Проверьте промокод, чтобы увидеть итоговую сумму. При создании заказа он будет проверен ещё раз.</p>
               <label>Статус оплаты<select v-model="manualDraft.paymentStatus" class="input"><option value="PENDING">Не оплачен</option><option value="PAID">Оплачен</option><option value="FAILED">Ошибка оплаты</option><option value="CASH_ON_DELIVERY">Наличными курьеру</option></select></label>
               <label>Статус заказа<select v-model="manualDraft.status" class="input"><option value="PENDING">Ожидает</option><option value="PROCESSING">В обработке</option><option value="SHIPPED">Отправлен</option><option value="DELIVERED">Доставлен</option></select></label>
               <label v-if="manualDraft.userId && !manualBoundPartnerId">ID партнёра (необязательно)<input v-model.number="manualDraft.partnerId" class="input" type="number" min="1" placeholder="Если нужно начисление партнёру"></label>
               <label class="edit-wide">Комментарий к заказу<textarea v-model.trim="manualDraft.notes" class="input" rows="2" placeholder="Необязательно"></textarea></label>
             </div>
-            <p class="edit-notice">Начисления партнёру выполняются после оплаты. Клиентские баллы — после завершённой консультации и покупки.</p>
+            <p class="edit-notice">Промокод даёт скидку. Комиссия партнёра начисляется после оплаты по сумме со скидкой. Клиентские баллы за ручной заказ не начисляются.</p>
           </section>
 
           <p v-if="manualError" class="edit-error" role="alert">{{ manualError }}</p>
@@ -795,6 +802,9 @@ const manualCdekError = ref('')
 const manualCdekQuoteKey = ref('')
 const manualDeliveryPriceEdited = ref(false)
 const manualDraft = ref(emptyManualDraft())
+const manualPromoPreview = ref(null)
+const manualPromoLoading = ref(false)
+const manualPromoError = ref('')
 const manualMatchedPoints = computed(() => {
   const query = manualPointQuery.value.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').trim()
   if (!query) return manualPoints.value
@@ -802,10 +812,12 @@ const manualMatchedPoints = computed(() => {
 })
 const manualPointMatchCount = computed(() => manualMatchedPoints.value.length)
 const manualFilteredPoints = computed(() => manualMatchedPoints.value.slice(0, manualPointQuery.value ? 60 : 12))
+const manualDraftSubtotal = computed(() => manualDraft.value.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0))
+const manualPromoKey = computed(() => JSON.stringify([String(manualDraft.value.promoCode || '').trim().toUpperCase(), manualDraft.value.userId, manualDraft.value.partnerId || null, Math.round(manualDraftSubtotal.value * 100)]))
+const manualAppliedPromo = computed(() => manualPromoPreview.value?.key === manualPromoKey.value ? manualPromoPreview.value : null)
 const manualDraftTotal = computed(() => {
   const draft = manualDraft.value
-  const subtotal = draft.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0)
-  return subtotal + (draft.deliveryTariffCode || draft.deliveryPickupPoint ? 0 : (Number(draft.deliveryPrice) || 0))
+  return Math.round((manualDraftSubtotal.value + (draft.deliveryTariffCode || draft.deliveryPickupPoint ? 0 : (Number(draft.deliveryPrice) || 0)) - Number(manualAppliedPromo.value?.discountAmount || 0)) * 100) / 100
 })
 const editingOrder = ref(false)
 const savingOrder = ref(false)
@@ -852,7 +864,7 @@ let manualQuoteRequestId = 0
 
 function emptyManualDraft() {
   return { userId: null, partnerId: '', customerName: '', customerEmail: '', customerPhone: '', status: 'PENDING', paymentStatus: 'PENDING',
-    items: [], deliveryPrice: 0, deliveryTariffName: '', deliveryTariffCode: '', deliveryCity: '', deliveryPickupPoint: '', deliveryPickupName: '', shippingAddress: '', notes: '' }
+    promoCode: '', items: [], deliveryPrice: 0, deliveryTariffName: '', deliveryTariffCode: '', deliveryCity: '', deliveryPickupPoint: '', deliveryPickupName: '', shippingAddress: '', notes: '' }
 }
 
 function earnedCustomerPoints(order) {
@@ -861,6 +873,8 @@ function earnedCustomerPoints(order) {
 
 async function openManualOrder() {
   manualDraft.value = emptyManualDraft()
+  manualPromoPreview.value = null
+  manualPromoError.value = ''
   manualDraft.value.deliveryTariffCode = 136
   manualDraft.value.deliveryTariffName = 'ПВЗ СДЭК'
   manualDeliveryMode.value = 'cdek'
@@ -1089,6 +1103,30 @@ function setManualProductPrice(item) {
   if (product) item.price = Number(product.price) || 0
 }
 
+async function validateManualPromo() {
+  const key = manualPromoKey.value
+  manualPromoPreview.value = null
+  manualPromoError.value = ''
+  if (!manualDraft.value.userId) {
+    manualPromoError.value = 'Для промокода выберите зарегистрированного клиента'
+    return
+  }
+  manualPromoLoading.value = true
+  try {
+    const { data } = await axios.post(`${API_URL}/orders/promo/validate`, {
+      promoCode: manualDraft.value.promoCode,
+      userId: manualDraft.value.userId,
+      partnerId: manualDraft.value.partnerId || null,
+      subtotal: manualDraftSubtotal.value
+    })
+    if (key === manualPromoKey.value) manualPromoPreview.value = { ...data, key }
+  } catch (error) {
+    if (key === manualPromoKey.value) manualPromoError.value = error.response?.data?.error || 'Не удалось проверить промокод'
+  } finally {
+    manualPromoLoading.value = false
+  }
+}
+
 async function createManualOrder() {
   if (manualSaving.value) return
   manualError.value = ''
@@ -1103,6 +1141,13 @@ async function createManualOrder() {
         manualError.value = 'Не удалось обновить стоимость доставки. Повторите расчёт или укажите цену вручную.'
         return
       }
+    }
+  }
+  if (manualDraft.value.promoCode && !manualAppliedPromo.value) {
+    await validateManualPromo()
+    if (!manualAppliedPromo.value) {
+      manualError.value = manualPromoError.value || 'Проверьте промокод перед созданием заказа'
+      return
     }
   }
   manualSaving.value = true
@@ -2627,6 +2672,10 @@ watch(manualCityQuery, query => {
 .manual-customer-fields { margin-top: .9rem; }
 .manual-customer-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .manual-order-section .input { min-height: 42px; }
+.manual-promo-row { display: flex; gap: .6rem; margin-top: .35rem; }
+.manual-promo-row .input { min-width: 0; flex: 1; }
+.manual-promo-row .btn { flex: 0 0 auto; }
+.manual-promo-success { margin: 0; color: var(--accent); font-size: .82rem; }
 .manual-order-section .edit-item { margin-bottom: .7rem; }
 .manual-add-item { margin-top: .25rem; }
 
@@ -3289,6 +3338,8 @@ watch(manualCityQuery, query => {
   .manual-order-header { padding: 1rem; }
   .manual-order-section { padding: 1.2rem 1rem; }
   .manual-order-section .input { font-size: 1rem; }
+  .manual-promo-row { flex-wrap: wrap; }
+  .manual-promo-row .btn { width: 100%; }
   .manual-customer-fields { grid-template-columns: 1fr; }
   .manual-delivery-choices { grid-template-columns: 1fr; }
   .manual-order-footer {

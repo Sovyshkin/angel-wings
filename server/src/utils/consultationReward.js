@@ -18,6 +18,14 @@ export async function grantConsultationRewardsForPaidOrder(prisma, order, { tran
 
   const now = new Date()
   const award = async (tx) => {
+    // Payment confirmation can arrive through several routes. The persisted
+    // origin, not the route that confirmed payment, determines eligibility.
+    const persistedOrder = await tx.order.findUnique({
+      where: { id: Number(order.id) },
+      select: { origin: true }
+    })
+    if (!persistedOrder || persistedOrder.origin === 'ADMIN_MANUAL') return { granted: 0, points: 0 }
+
     const eligible = await tx.consultationRequest.findMany({
       where: {
         userId: Number(order.userId),

@@ -1001,8 +1001,18 @@ router.post('/', authenticate, async (req, res, next) => {
 // Lightweight checkout history: unlike /my, this does not reconcile payments or query CDEK orders.
 router.get('/recent-pickups', authenticate, async (req, res, next) => {
   try {
+    const verifiedEmail = req.user.emailVerified ? String(req.user.email || '').trim() : ''
+    const guestEmailCandidates = verifiedEmail
+      ? [...new Set([verifiedEmail, verifiedEmail.toLowerCase(), verifiedEmail.toUpperCase()])]
+      : []
     const orders = await prisma.order.findMany({
-      where: { userId: req.user.id, deliveryPickupPoint: { not: null } },
+      where: {
+        deliveryPickupPoint: { not: null },
+        OR: [
+          { userId: req.user.id },
+          ...(guestEmailCandidates.length ? [{ userId: null, customerEmail: { in: guestEmailCandidates } }] : [])
+        ]
+      },
       select: {
         deliveryPickupPoint: true,
         deliveryPickupName: true,
@@ -1010,7 +1020,7 @@ router.get('/recent-pickups', authenticate, async (req, res, next) => {
         shippingAddress: true
       },
       orderBy: { createdAt: 'desc' },
-      take: 30
+      take: 100
     })
     const seen = new Set()
     const pickups = []
@@ -1024,7 +1034,7 @@ router.get('/recent-pickups', authenticate, async (req, res, next) => {
         address: order.shippingAddress || '',
         city: order.deliveryCity || ''
       })
-      if (pickups.length === 3) break
+      if (pickups.length === 8) break
     }
     res.json({ pickups })
   } catch (error) {

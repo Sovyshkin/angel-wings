@@ -647,6 +647,7 @@
                     <span class="recent-pickup-card__details">
                       <strong>{{ point.city ? `${point.city} · ` : '' }}{{ point.name }}</strong>
                       <small>{{ point.address || `ПВЗ ${point.code}` }}</small>
+                      <span v-if="point.fromOrder" class="recent-pickup-card__source">Из ваших заказов</span>
                     </span>
                     <button type="button" class="recent-pickup-card__choose" :disabled="Boolean(recentPickupLoadingCode) || loadingPickup" @click="selectRecentPickup(point)">
                       {{ recentPickupLoadingCode === point.code ? 'Проверяем…' : 'Выбрать' }}
@@ -1355,6 +1356,7 @@ const pickupResultsTruncated = ref(false)
 const selectedPickupPoint = ref(null)
 const recentCities = ref([])
 const recentPickups = ref([])
+const orderedPickups = ref([])
 const favoritePickups = ref([])
 const favoritesLoading = ref(false)
 const favoriteChangingCode = ref('')
@@ -1531,7 +1533,15 @@ const filteredPickupPoints = computed(() => {
 
 const recentUnfavoritePickups = computed(() => {
   const favoriteCodes = new Set(favoritePickups.value.map(point => point.code))
-  return recentPickups.value.filter(point => !favoriteCodes.has(point.code))
+  const seen = new Set(favoriteCodes)
+  return [
+    ...orderedPickups.value.map(point => ({ ...point, fromOrder: true })),
+    ...recentPickups.value
+  ].filter(point => {
+    if (seen.has(point.code)) return false
+    seen.add(point.code)
+    return true
+  })
 })
 
 watch(favoritePickups, points => {
@@ -2111,6 +2121,7 @@ async function loadRecentDeliveryHistory() {
   const stored = readRecentDelivery(localStorage, key)
   recentCities.value = stored.cities
   recentPickups.value = stored.pickups
+  orderedPickups.value = []
 
   const saved = cartStore.delivery || {}
   if (saved.type === 'pvz' && saved.pickupPoint?.code) {
@@ -2122,12 +2133,7 @@ async function loadRecentDeliveryHistory() {
   try {
     const { data } = await axios.get('/api/orders/recent-pickups')
     if (request !== recentHistoryRequest || key !== recentDeliveryStorageKey()) return
-    const merged = [...recentPickups.value]
-    for (const value of data.pickups || []) {
-      const pickup = normalizeRecentPickup(value)
-      if (pickup && !merged.some(item => item.code === pickup.code)) merged.push(pickup)
-    }
-    recentPickups.value = merged.slice(0, 3)
+    orderedPickups.value = (data.pickups || []).map(normalizeRecentPickup).filter(Boolean).slice(0, 8)
   } catch {
     // Saved choices in this browser are still available if account history cannot load.
   }
@@ -3486,7 +3492,7 @@ watch(() => authStore.user, () => {
   prefillFromProfile()
 }, { deep: true })
 
-watch(() => authStore.user?.id, () => {
+watch([() => authStore.user?.id, () => authStore.isAuthenticated], () => {
   loadRecentDeliveryHistory()
 }, { immediate: true })
 
@@ -5087,6 +5093,7 @@ onUnmounted(() => {
 .recent-pickup-card__details { display: grid; gap: 0.15rem; min-width: 0; flex: 1; }
 .recent-pickup-card__details strong { font-size: 0.86rem; line-height: 1.35; overflow-wrap: anywhere; }
 .recent-pickup-card__details small { color: var(--text-muted); line-height: 1.35; overflow-wrap: anywhere; }
+.recent-pickup-card__source { color: var(--accent); font-size: 0.68rem; font-weight: 700; }
 .recent-pickup-card__choose {
   flex: none;
   padding: 0.55rem 0.8rem;

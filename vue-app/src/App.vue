@@ -1293,6 +1293,9 @@ html.is-page-inactive *::after {
 
 [data-theme="light"] .molecule-transition {
   mix-blend-mode: multiply;
+  /* The light MP4 has an opaque white canvas; keep only the rotating sphere at every transition stage. */
+  -webkit-mask-image: radial-gradient(circle closest-side at center, #000 79%, rgba(0, 0, 0, 0.9) 81%, transparent 83%);
+  mask-image: radial-gradient(circle closest-side at center, #000 79%, rgba(0, 0, 0, 0.9) 81%, transparent 83%);
 }
 
 /* The persistent video remains mounted for seamless playback, but is never visible outside /about. */

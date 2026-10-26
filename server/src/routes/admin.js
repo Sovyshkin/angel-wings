@@ -20,6 +20,7 @@ import { buildOrderWaybill, createOrderWaybillDocx, createOrderWaybillPdf } from
 import { applyStockAdjustments, parseStockAdjustmentRequest } from '../utils/stockAdjustments.js'
 import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiringSettings.js'
 import { calculateOrderEditAmounts, getBilledOrderTotal } from '../utils/orderEditAmounts.js'
+import { resolveManualOrderPromo, claimManualOrderPromo } from '../utils/manualOrderPromo.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -1021,6 +1022,27 @@ router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, nex
   }
 })
 
+router.post('/orders/promo/validate', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const userId = Number(req.body.userId)
+    const subtotal = Number(req.body.subtotal)
+    const requestedPartnerId = req.body.partnerId === undefined || req.body.partnerId === null || req.body.partnerId === '' ? null : Number(req.body.partnerId)
+    if (!Number.isInteger(userId) || userId <= 0 || !Number.isFinite(subtotal) || subtotal < 0 || (requestedPartnerId !== null && (!Number.isInteger(requestedPartnerId) || requestedPartnerId <= 0))) {
+      return res.status(400).json({ error: 'Выберите клиента и проверьте сумму товаров' })
+    }
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, partnerUser: { select: { partnerId: true } } } })
+    if (!user || user.role === 'DELETED') return res.status(404).json({ error: 'Клиент не найден' })
+    const historical = !user.partnerUser ? await prisma.order.findFirst({ where: { userId, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
+    const boundPartnerId = user.partnerUser?.partnerId || historical?.partnerId || null
+    if (boundPartnerId && requestedPartnerId && boundPartnerId !== requestedPartnerId) return res.status(409).json({ error: 'Клиент уже закреплён за другим партнёром' })
+    const result = await resolveManualOrderPromo(prisma, { code: req.body.promoCode, userId, subtotal, boundPartnerId, requestedPartnerId })
+    res.set('Cache-Control', 'no-store')
+    res.json({ promoCode: result.promoCode?.code || null, discountAmount: result.discountAmount, partnerId: result.partnerId })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const rawUserId = req.body.userId
@@ -1038,9 +1060,9 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
     if (!Number.isFinite(deliveryPrice) || deliveryPrice < 0) return res.status(400).json({ error: 'Некорректная стоимость доставки' })
     const user = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, address: true, role: true, partnerUser: { select: { partnerId: true } } } }) : null
     if (userId && (!user || user.role === 'DELETED')) return res.status(404).json({ error: 'Клиент не найден' })
-    const requestedPartnerId = req.body.partnerId ? Number(req.body.partnerId) : null
-    if (requestedPartnerId && (!Number.isInteger(requestedPartnerId) || requestedPartnerId <= 0)) return res.status(400).json({ error: 'Некорректный партнёр' })
-    if (requestedPartnerId && !userId) return res.status(400).json({ error: 'Для начисления партнёру выберите зарегистрированного клиента' })
+    const requestedPartnerId = req.body.partnerId === undefined || req.body.partnerId === null || req.body.partnerId === '' ? null : Number(req.body.partnerId)
+    if (requestedPartnerId !== null && (!Number.isInteger(requestedPartnerId) || requestedPartnerId <= 0)) return res.status(400).json({ error: 'Некорректный партнёр' })
+    if (requestedPartnerId !== null && !userId) return res.status(400).json({ error: 'Для начисления партнёру выберите зарегистрированного клиента' })
     const historical = user && !user.partnerUser ? await prisma.order.findFirst({ where: { userId, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
     const boundPartnerId = user?.partnerUser?.partnerId || historical?.partnerId || null
     if (boundPartnerId && requestedPartnerId && boundPartnerId !== requestedPartnerId) return res.status(409).json({ error: 'Клиент уже закреплён за другим партнёром' })
@@ -1059,25 +1081,30 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
     if ([customerName, customerEmail, customerPhone].some(value => value.length > 500) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) return res.status(400).json({ error: 'Проверьте данные клиента' })
     const normalizedItems = items.map(item => ({ productId: Number(item.productId), quantity: Number(item.quantity), price: Number(item.price), dosage: String(item.dosage || '').trim() || null }))
     const subtotal = normalizedItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
+    const promoCode = String(req.body.promoCode || '').trim()
     const deliveryTariffCode = req.body.deliveryTariffCode === '' || req.body.deliveryTariffCode == null ? null : Number(req.body.deliveryTariffCode)
     if (deliveryTariffCode !== null && (!Number.isInteger(deliveryTariffCode) || deliveryTariffCode < 0)) return res.status(400).json({ error: 'Некорректный тариф доставки' })
     const deliveryPickupPoint = String(req.body.deliveryPickupPoint || '').trim() || null
     const siteDelivery = deliveryTariffCode || deliveryPickupPoint ? 0 : deliveryPrice
-    const total = Math.round((subtotal + siteDelivery) * 100) / 100
-    if (paymentStatus === 'PAID' && total <= 0) return res.status(400).json({ error: 'Для оплаченного заказа сумма должна быть больше нуля' })
     const order = await prisma.$transaction(async tx => {
+      const promo = await resolveManualOrderPromo(tx, { code: promoCode, userId, subtotal, boundPartnerId, requestedPartnerId })
+      const effectivePartnerId = promo.partnerId
+      const total = Math.round((subtotal + siteDelivery - promo.discountAmount) * 100) / 100
+      if (paymentStatus === 'PAID' && total <= 0) throw Object.assign(new Error('Для оплаченного заказа сумма должна быть больше нуля'), { status: 400 })
       const counts = new Map()
       for (const item of normalizedItems) counts.set(item.productId, (counts.get(item.productId) || 0) + item.quantity)
       for (const [productId, quantity] of counts) {
         const result = await tx.product.updateMany({ where: { id: productId, stock: { gte: quantity } }, data: { stock: { decrement: quantity } } })
         if (!result.count) throw Object.assign(new Error(`Недостаточно товара #${productId} на складе`), { status: 409 })
       }
-      if (partnerId && !user?.partnerUser && !historical) {
-        await tx.partnerUser.create({ data: { userId, partnerId, referralSource: 'admin' } })
+      if (effectivePartnerId && !user?.partnerUser && !historical) {
+        await tx.partnerUser.create({ data: { userId, partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null, referralSource: promo.promoCode?.partnerId ? 'promo_code' : 'admin' } })
       }
+      await claimManualOrderPromo(tx, promo.promoCode)
       const created = await tx.order.create({
         data: {
-          userId, partnerId, customerName, customerEmail, customerPhone,
+          origin: 'ADMIN_MANUAL', userId, partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null,
+          discountAmount: promo.discountAmount, customerName, customerEmail, customerPhone,
           shippingAddress: String(req.body.shippingAddress || '').trim() || null,
           notes: String(req.body.notes || '').trim() || null,
           status, paymentStatus, total, paymentAmount: paymentStatus === 'PAID' ? total : null,
@@ -1091,7 +1118,6 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
       })
       if (paymentStatus === 'PAID') {
         await syncPartnerCommissionForOrder(tx, created.id)
-        await grantConsultationRewardsForPaidOrder(tx, created, { transaction: true })
       }
       return created
     })
@@ -1555,6 +1581,7 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
             afterJson: JSON.stringify({ total: updated.total, paymentAmount: updated.paymentAmount, unbilledAdjustment: updated.unbilledAdjustment, items: updated.items.map(({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled }) => ({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled })) })
           }
         })
+        await syncPartnerCommissionForOrder(tx, updated.id)
       }
       return updated
     })
