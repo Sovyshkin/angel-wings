@@ -56,7 +56,7 @@
               <td class="cell-email">{{ user.email }}</td>
               <td class="cell-phone">{{ user.phone || '—' }}</td>
               <td>
-                <select :value="user.role" @click.stop @change="updateRole(user.id, $event.target.value)" class="role-select" :disabled="user.id === currentUserId">
+                <select :value="user.role" @click.stop @change="updateRole(user.id, $event.target.value, $event.target)" class="role-select" :disabled="user.id === currentUserId">
                   <option value="USER">Пользователь</option>
                   <option value="ADMIN">Админ</option>
                   <option value="COPYWRITER">Копирайтер</option>
@@ -145,7 +145,7 @@
             >
               {{ resendingInviteId === user.id ? 'Отправка...' : 'Письмо' }}
             </button>
-            <select :value="user.role" @change="updateRole(user.id, $event.target.value)" class="role-select-full" :disabled="user.id === currentUserId">
+            <select :value="user.role" @change="updateRole(user.id, $event.target.value, $event.target)" class="role-select-full" :disabled="user.id === currentUserId">
               <option value="USER">Пользователь</option>
               <option value="ADMIN">Админ</option>
               <option value="COPYWRITER">Копирайтер</option>
@@ -253,11 +253,11 @@ let searchTimer = null
 
 const currentUserId = computed(() => authStore.user?.id)
 
-function getApiErrorMessage(error, fallback = 'Что-то пошло не так') {
+function getApiErrorMessage(error, fallback = 'Что-то пошло не так', emailFailureNote = '') {
   const data = error?.response?.data || {}
   if (data.code === 'EMAIL_DELIVERY_FAILED') {
     const reason = data.reason ? ` Причина: ${data.reason}.` : ''
-    return `${data.error || 'Не удалось отправить письмо.'}${reason} Назначение администратором отменено, чтобы пароль не потерялся.`
+    return `${data.error || 'Не удалось отправить письмо.'}${reason}${emailFailureNote ? ` ${emailFailureNote}` : ''}`
   }
   return data.error || fallback
 }
@@ -295,8 +295,9 @@ function openUserDetail(id) {
   router.push(`/users/${id}`)
 }
 
-async function updateRole(id, role) {
+async function updateRole(id, role, selectElement) {
   const payload = { role }
+  const previousRole = users.value.find(user => user.id === id)?.role
 
   try {
     const { data } = await axios.put(`${API_URL}/users/${id}`, payload)
@@ -311,7 +312,8 @@ async function updateRole(id, role) {
       alert('Роль сотрудника назначена. Данные для входа отправлены на его email.')
     }
   } catch (e) {
-    alert(getApiErrorMessage(e, 'Ошибка обновления роли'))
+    if (selectElement && previousRole) selectElement.value = previousRole
+    alert(getApiErrorMessage(e, 'Ошибка обновления роли', `Назначение роли «${getRoleLabel(role)}» не завершено. Проверьте текущую роль после обновления списка.`))
     fetchUsers()
   }
 }
@@ -324,7 +326,7 @@ async function resendAdminInvite(user) {
     await axios.post(`${API_URL}/users/${user.id}/resend-admin-invite`)
     alert('Письмо с новыми данными для входа отправлено.')
   } catch (e) {
-    alert(getApiErrorMessage(e, 'Не удалось отправить письмо с данными администратора'))
+    alert(getApiErrorMessage(e, 'Не удалось отправить письмо с данными для входа'))
   } finally {
     resendingInviteId.value = null
   }
