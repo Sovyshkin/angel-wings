@@ -5,6 +5,16 @@
       <button type="button" aria-label="Приблизить карту" title="Приблизить" :disabled="mapZoom >= 19" @click.stop="changeZoom(1)">+</button>
       <button type="button" aria-label="Отдалить карту" title="Отдалить" :disabled="mapZoom <= 0" @click.stop="changeZoom(-1)">−</button>
     </div>
+    <div v-if="mapState === 'ready' && mappablePoints.length" class="pickup-map-actions">
+      <button type="button" class="pickup-map-actions__locate" aria-label="Показать моё местоположение" title="Моё местоположение" :disabled="geoBusy" @click.stop="emit('locate')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="12" cy="12" r="7"/>
+          <circle cx="12" cy="12" r="2"/>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+        </svg>
+      </button>
+      <button type="button" class="pickup-map-actions__nearest" :disabled="geoBusy" @click.stop="emit('nearest')">{{ geoBusy ? 'Определяем…' : 'Ближайший ко мне' }}</button>
+    </div>
     <div v-if="!mappablePoints.length" class="pickup-map-message">У этих пунктов нет координат. Выберите ПВЗ в списке рядом.</div>
     <div v-else-if="mapState !== 'ready'" class="pickup-map-message" role="status">
       {{ mapState === 'loading' ? 'Загружаем карту ПВЗ…' : mapState === 'missing-key' ? 'Карта не настроена на сайте. Выберите ПВЗ в списке рядом.' : 'Не удалось загрузить карту. Выберите ПВЗ в списке рядом.' }}
@@ -24,9 +34,11 @@ const props = defineProps({
   activeCode: { type: String, default: '' },
   favoriteCodes: { type: Array, default: () => [] },
   userLocation: { type: Object, default: null },
-  focusLocation: { type: Number, default: 0 }
+  focusLocation: { type: Number, default: 0 },
+  focusUserLocation: { type: Number, default: 0 },
+  geoBusy: { type: Boolean, default: false }
 })
-const emit = defineEmits(['preview'])
+const emit = defineEmits(['preview', 'locate', 'nearest'])
 const mapElement = ref(null)
 const mapState = ref('loading')
 const mapZoom = ref(10)
@@ -109,7 +121,7 @@ onMounted(async () => {
     map = new ymaps.Map(mapElement.value, {
       center: [55.75, 37.62], zoom: 10, controls: []
     }, { suppressMapOpenBlock: true })
-    map.behaviors.disable('scrollZoom')
+    map.behaviors.enable(['scrollZoom', 'multiTouch'])
     map.events.add('boundschange', event => {
       if (event.get('newZoom') !== event.get('oldZoom')) mapZoom.value = event.get('newZoom')
     })
@@ -137,6 +149,11 @@ watch(() => props.favoriteCodes, () => {
   for (const [pointCode, marker] of markers) marker.options.set('iconColor', markerColor(pointCode))
 })
 watch(() => props.userLocation, renderUser)
+watch(() => props.focusUserLocation, () => {
+  const { latitude, longitude } = props.userLocation || {}
+  if (!map || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return
+  map.setCenter([latitude, longitude], Math.max(map.getZoom(), 14), { duration: 350 })
+})
 watch(() => props.focusLocation, () => {
   if (!map || !props.userLocation) return
   const nearest = props.points.find(point => point.code === props.activeCode)
@@ -171,6 +188,13 @@ onUnmounted(() => {
 .pickup-map-zoom button:hover:not(:disabled), .pickup-map-zoom button:focus-visible { background: rgba(143, 170, 255, .2); color: #8faaff; }
 .pickup-map-zoom button:focus-visible { outline: 2px solid #8faaff; outline-offset: -3px; }
 .pickup-map-zoom button:disabled { opacity: .4; cursor: not-allowed; }
+.pickup-map-actions { position: absolute; z-index: 2; top: 14px; left: 14px; display: flex; align-items: center; gap: 6px; max-width: calc(100% - 100px); }
+.pickup-map-actions button { min-height: 40px; border: 1px solid var(--border-hover); border-radius: 11px; background: rgba(24, 26, 35, .93); color: #fff; font: inherit; cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, .2); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); touch-action: manipulation; transition: background 160ms ease, border-color 160ms ease; }
+.pickup-map-actions button:hover:not(:disabled), .pickup-map-actions button:focus-visible { border-color: #8faaff; background: rgba(42, 51, 77, .96); }
+.pickup-map-actions button:focus-visible { outline: 2px solid #8faaff; outline-offset: 2px; }
+.pickup-map-actions button:disabled { opacity: .6; cursor: wait; }
+.pickup-map-actions__locate { display: grid; place-items: center; flex: 0 0 40px; width: 40px; padding: 0; }
+.pickup-map-actions .pickup-map-actions__nearest { padding: 0 10px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
 .pickup-map-message { position: absolute; z-index: 1; inset: 0; display: grid; place-items: center; padding: 2rem; text-align: center; color: var(--text-muted); background: var(--bg-secondary); }
-@media (max-width: 640px) { .pickup-map-shell { min-height: 340px; } .pickup-map { height: 340px; } }
+@media (max-width: 640px) { .pickup-map-shell { min-height: 340px; } .pickup-map { height: 340px; } .pickup-map-actions { top: 10px; left: 10px; } .pickup-map-actions__nearest { padding: 0 8px; } }
 </style>

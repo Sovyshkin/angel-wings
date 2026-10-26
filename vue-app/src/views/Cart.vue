@@ -697,7 +697,7 @@
                     </select>
                   </label>
                   <button type="button" class="pickup-explorer__geo" :disabled="pickupGeoBusy" @click="findNearestPickup">
-                    {{ pickupGeoBusy ? 'Определяем…' : '⌖ Ближайший ко мне' }}
+                    {{ pickupGeoBusy ? 'Определяем…' : 'Ближайший ко мне' }}
                   </button>
                   <button type="button" class="pickup-explorer__favorite-filter" :class="{ 'is-active': showOnlyFavoritePickups }" :aria-pressed="showOnlyFavoritePickups" :disabled="!favoritePickups.length" @click="showOnlyFavoritePickups = !showOnlyFavoritePickups">★ Только избранные</button>
                 </div>
@@ -727,7 +727,11 @@
                       :favorite-codes="favoritePickups.map(point => point.code)"
                       :user-location="pickupUserLocation"
                       :focus-location="pickupMapFocusCounter"
+                      :focus-user-location="pickupUserFocusCounter"
+                      :geo-busy="pickupGeoBusy"
                       @preview="previewPickupPoint"
+                      @locate="focusMyLocation"
+                      @nearest="findNearestPickup"
                     />
                     <div v-if="pickupPreviewPoint" class="pickup-explorer__preview">
                       <div>
@@ -1346,6 +1350,7 @@ const pickupUserLocation = ref(null)
 const pickupGeoBusy = ref(false)
 const pickupGeoError = ref('')
 const pickupMapFocusCounter = ref(0)
+const pickupUserFocusCounter = ref(0)
 const pickupResultsTruncated = ref(false)
 const selectedPickupPoint = ref(null)
 const recentCities = ref([])
@@ -2288,7 +2293,8 @@ function selectPickupFromExplorer(point) {
   onPickupSelect()
 }
 
-function findNearestPickup() {
+function requestPickupLocation(onSuccess) {
+  if (pickupGeoBusy.value) return
   pickupGeoError.value = ''
   if (!navigator.geolocation) {
     pickupGeoError.value = 'Ваш браузер не поддерживает определение местоположения. Выберите ПВЗ на карте или в списке.'
@@ -2302,28 +2308,40 @@ function findNearestPickup() {
       longitude: position.coords.longitude,
       accuracy: position.coords.accuracy
     }
-    pickupFilter.value = ''
-    pickupHouseFilter.value = ''
-    pickupHoursFilter.value = 'all'
-    const nearest = pickupPoints.value
-      .filter(point => pickupCoordinates(point))
-      .sort((a, b) => distanceKm(pickupUserLocation.value, pickupCoordinates(a)) - distanceKm(pickupUserLocation.value, pickupCoordinates(b)))[0]
-    if (!nearest) {
-      pickupGeoError.value = 'У ПВЗ этого города нет координат. Выберите пункт в списке.'
-      return
-    }
-    pickupPreviewPoint.value = nearest
-    const distance = distanceKm(pickupUserLocation.value, pickupCoordinates(nearest))
-    pickupMapFocusCounter.value++
-    if (distance > 50) {
-      pickupGeoError.value = 'Вы далеко от выбранного города. На карте показано ваше местоположение; найдите свой город в поиске выше.'
-    }
+    onSuccess(pickupUserLocation.value)
   }, error => {
     pickupGeoBusy.value = false
     pickupGeoError.value = error.code === 1
       ? 'Доступ к геопозиции не предоставлен. Можно выбрать ПВЗ на карте или в списке.'
       : 'Не удалось определить местоположение. Попробуйте ещё раз или выберите ПВЗ вручную.'
   }, { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 })
+}
+
+function focusMyLocation() {
+  requestPickupLocation(() => {
+    pickupUserFocusCounter.value++
+  })
+}
+
+function findNearestPickup() {
+  requestPickupLocation(location => {
+    pickupFilter.value = ''
+    pickupHouseFilter.value = ''
+    pickupHoursFilter.value = 'all'
+    const nearest = pickupPoints.value
+      .filter(point => pickupCoordinates(point))
+      .sort((a, b) => distanceKm(location, pickupCoordinates(a)) - distanceKm(location, pickupCoordinates(b)))[0]
+    if (!nearest) {
+      pickupGeoError.value = 'У ПВЗ этого города нет координат. Выберите пункт в списке.'
+      return
+    }
+    pickupPreviewPoint.value = nearest
+    const distance = distanceKm(location, pickupCoordinates(nearest))
+    pickupMapFocusCounter.value++
+    if (distance > 50) {
+      pickupGeoError.value = 'Вы далеко от выбранного города. На карте показано ваше местоположение; найдите свой город в поиске выше.'
+    }
+  })
 }
 
 async function selectRecentCity(city) {
@@ -5182,12 +5200,12 @@ onUnmounted(() => {
 .pickup-explorer__item .point-content { min-width: 0; overflow-wrap: anywhere; }
 .pickup-explorer__distance { color: var(--accent); font-size: 0.76rem; }
 .pickup-explorer__list-confirm { justify-self: end; padding: 0.55rem 0.7rem; border: 1px solid var(--accent); border-radius: 9px; background: var(--accent-dim); color: var(--text-primary); font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
-.pickup-explorer__preview { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.65rem; padding: 0.9rem; border: 1px solid var(--accent); border-radius: 12px; background: var(--bg-card); }
-.pickup-explorer__preview > div { display: grid; min-width: 0; gap: 0.25rem; overflow-wrap: anywhere; }
+.pickup-explorer__preview { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; min-width: 0; margin-top: 0.65rem; padding: 0.9rem; border: 1px solid var(--accent); border-radius: 12px; background: var(--bg-card); }
+.pickup-explorer__preview > div:first-child { display: grid; flex: 1 1 260px; min-width: 0; gap: 0.25rem; overflow-wrap: anywhere; }
 .pickup-explorer__preview strong { color: var(--text-primary); font-size: 0.9rem; }
 .pickup-explorer__preview span, .pickup-explorer__preview small { color: var(--text-muted); font-size: 0.78rem; line-height: 1.4; }
-.pickup-explorer__preview .btn { flex: none; font-size: 0.8rem; white-space: nowrap; }
-.pickup-explorer__preview-actions { display: flex; align-items: center; gap: 0.45rem; }
+.pickup-explorer__preview .btn { min-width: 0; font-size: 0.8rem; white-space: normal; }
+.pickup-explorer__preview-actions { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.45rem; max-width: 100%; }
 
 @media (max-width: 800px) {
   .pickup-explorer__content { grid-template-columns: minmax(0, 1fr); }
@@ -5204,6 +5222,7 @@ onUnmounted(() => {
   .pickup-explorer__geo { width: 100%; }
   .pickup-explorer__map-toggle { width: 100%; }
   .pickup-explorer__preview { align-items: stretch; flex-direction: column; }
+  .pickup-explorer__preview-actions { width: 100%; }
   .pickup-explorer__preview .btn { flex: 1; }
 }
 

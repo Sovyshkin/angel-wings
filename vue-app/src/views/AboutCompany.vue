@@ -8,7 +8,17 @@
       </div>
       <div class="about-hero__podium" aria-hidden="true">
         <div class="about-hero__podium-motion">
-          <img src="/about-assets/hero-podium.png" alt="">
+          <video
+            v-if="!themeStore.isDark && !prefersReducedMotion && !lightHeroVideoFailed"
+            src="/about-assets/about-sphere-white-final.mp4"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            @error="lightHeroVideoFailed = true"
+          ></video>
+          <img v-else src="/about-assets/hero-podium.png" alt="">
         </div>
       </div>
       <div class="about-hero__visual" aria-hidden="true">
@@ -280,6 +290,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useThemeStore } from '../store/theme'
 
 let revealObserver = null
 let aboutNavObserver = null
@@ -288,6 +299,9 @@ let heroParallaxFrame = 0
 let heroParallaxRange = 1
 let lastHeroParallaxProgress = -1
 const aboutRoot = ref(null)
+const themeStore = useThemeStore()
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const lightHeroVideoFailed = ref(false)
 const heroSection = ref(null)
 const productionVideo = ref(null)
 const hasProductionStarted = ref(false)
@@ -1002,7 +1016,8 @@ onBeforeUnmount(() => {
   will-change: transform, opacity;
 }
 
-.about-hero__podium img {
+.about-hero__podium img,
+.about-hero__podium video {
   display: block;
   width: 100%;
   height: auto;
@@ -1934,6 +1949,14 @@ onBeforeUnmount(() => {
 [data-theme="light"] .about-dock__item { color: rgba(36, 54, 101, 0.72); }
 [data-theme="light"] .about-dock__item.is-active { color: #314d92; }
 [data-theme="light"] .about-grid { opacity: 0.62; background-image: linear-gradient(rgba(50, 82, 160, 0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(50, 82, 160, 0.055) 1px, transparent 1px); }
+[data-theme="light"] .about-hero {
+  color: #17213d;
+  background:
+    radial-gradient(ellipse 34% 47% at 76% 31%, rgba(92, 131, 230, 0.14), transparent 76%),
+    radial-gradient(ellipse 25% 35% at 92% 68%, rgba(71, 120, 220, 0.08), transparent 78%),
+    linear-gradient(120deg, #fafbff, #edf2fd 72%, #f8faff);
+}
+[data-theme="light"] .about-hero__podium-motion { mix-blend-mode: multiply; }
 [data-theme="light"] .about-hero__backdrop {
   background:
     radial-gradient(ellipse 34% 47% at 76% 31%, rgba(92, 131, 230, 0.14), transparent 76%),
@@ -1947,6 +1970,9 @@ onBeforeUnmount(() => {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84), inset 0 -1px 0 rgba(85, 112, 183, 0.14), 0 18px 42px rgba(69, 89, 141, 0.16);
 }
 [data-theme="light"] .journey-tile::after { background: radial-gradient(ellipse 70% 36% at 20% 0%, rgba(255, 255, 255, 0.7), transparent 74%), linear-gradient(112deg, rgba(255, 255, 255, 0.4), transparent 68%, rgba(109, 143, 231, 0.13)); }
+[data-theme="light"] .journey-tile__kicker { color: #3d568e; }
+[data-theme="light"] .journey-tile__action,
+[data-theme="light"] .journey-tile:hover .journey-tile__action { color: #3154b1; }
 [data-theme="light"] .journey-detail__goals { border-color: rgba(73, 107, 191, 0.2); background: radial-gradient(ellipse 75% 80% at 100% 0%, rgba(94, 139, 255, 0.12), transparent 72%), linear-gradient(135deg, rgba(244, 248, 255, 0.88), rgba(223, 233, 255, 0.48)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88); }
 [data-theme="light"] .journey-detail__goals li + li { border-color: rgba(73, 107, 191, 0.14); }
 [data-theme="light"] .journey-detail__goals li p { color: rgba(30, 45, 82, 0.78); }
