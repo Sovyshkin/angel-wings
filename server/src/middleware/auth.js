@@ -35,6 +35,7 @@ export const authenticate = async (req, res, next) => {
     }
     
     req.user = user
+    req.auth = decoded
     next()
   } catch (error) {
     next(error)
@@ -44,6 +45,15 @@ export const authenticate = async (req, res, next) => {
 export const requireAdmin = (req, res, next) => {
   if (req.user.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Admin access required' })
+  }
+  next()
+}
+
+export const isAdminPanelRole = role => role === 'ADMIN' || role === 'COPYWRITER'
+
+export const requireBlogEditor = (req, res, next) => {
+  if (req.user?.role !== 'ADMIN' && !(req.user?.role === 'COPYWRITER' && req.auth?.adminPanel === true)) {
+    return res.status(403).json({ error: 'Blog access required' })
   }
   next()
 }

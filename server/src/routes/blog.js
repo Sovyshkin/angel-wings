@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import sanitizeHtml from 'sanitize-html'
-import { authenticate, requireAdmin } from '../middleware/auth.js'
+import { authenticate, requireBlogEditor } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
 import { generateUniqueSlug, slugify } from '../utils/slug.js'
 import fs from 'node:fs/promises'
@@ -168,7 +168,7 @@ router.get('/posts/:slug', async (req, res, next) => {
   } catch (error) { next(error) }
 })
 
-router.use('/admin', authenticate, requireAdmin)
+router.use('/admin', authenticate, requireBlogEditor)
 
 router.get('/admin/posts', async (req, res, next) => {
   try {

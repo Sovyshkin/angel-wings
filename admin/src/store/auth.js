@@ -10,6 +10,8 @@ export const useAuthStore = defineStore('auth', () => {
   
   const isAuthenticated = computed(() => !!user.value && !!token.value)
   const isAdmin = computed(() => user.value?.role === 'ADMIN')
+  const isCopywriter = computed(() => user.value?.role === 'COPYWRITER')
+  const landingPath = computed(() => isCopywriter.value ? '/blog' : '/dashboard')
   
   async function login(email, password) {
     const { data } = await axios.post(`${API_URL}/auth/login`, { email, password, adminLogin: true })
@@ -24,6 +26,23 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('peptidi_admin_user', JSON.stringify(data.user))
     localStorage.setItem('peptidi_admin_token', data.token)
     axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
+  }
+
+  async function refreshUser() {
+    if (!token.value) return false
+    try {
+      const { data } = await axios.get(`${API_URL}/auth/me`)
+      if (data.user?.role !== 'ADMIN' && !(data.user?.role === 'COPYWRITER' && data.adminPanel === true)) {
+        logout()
+        return false
+      }
+      user.value = data.user
+      localStorage.setItem('peptidi_admin_user', JSON.stringify(data.user))
+      return true
+    } catch {
+      logout()
+      return false
+    }
   }
 
   async function verifyLogin(email, code, challengeToken) {
@@ -60,5 +79,5 @@ export const useAuthStore = defineStore('auth', () => {
     axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
   }
   
-  return { user, token, isAuthenticated, isAdmin, login, verifyLogin, resendLoginCode, logout }
+  return { user, token, isAuthenticated, isAdmin, isCopywriter, landingPath, login, verifyLogin, resendLoginCode, refreshUser, logout }
 })

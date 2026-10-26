@@ -161,6 +161,7 @@ function getInitials(value) {
 
 function getRoleLabel(role) {
   if (role === 'ADMIN') return 'Админ'
+  if (role === 'COPYWRITER') return 'Копирайтер'
   if (role === 'PARTNER') return 'Партнер'
   return 'Пользователь'
 }
@@ -289,6 +290,7 @@ onMounted(fetchUser)
 }
 
 .role-pill.admin { color: var(--accent); background: rgba(159, 181, 255, 0.14); }
+.role-pill.copywriter { color: var(--accent); background: rgba(159, 181, 255, 0.14); }
 .role-pill.partner { color: #22c55e; background: rgba(34, 197, 94, 0.14); }
 .role-pill.user { color: var(--text-secondary); background: var(--bg-secondary); }
 

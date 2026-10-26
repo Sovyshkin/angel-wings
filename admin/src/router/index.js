@@ -23,9 +23,9 @@ const routes = [
       { path: 'products/:id/edit', name: 'EditProduct', component: () => import('../views/ProductForm.vue') },
       { path: 'analytics', name: 'AdminAnalytics', component: () => import('../views/Analytics.vue') },
       { path: 'categories', name: 'AdminCategories', component: () => import('../views/Categories.vue') },
-      { path: 'blog', name: 'AdminBlog', component: () => import('../views/BlogAdmin.vue') },
-      { path: 'blog/new', name: 'AdminBlogNew', component: () => import('../views/BlogEditor.vue') },
-      { path: 'blog/:id/edit', name: 'AdminBlogEdit', component: () => import('../views/BlogEditor.vue') },
+      { path: 'blog', name: 'AdminBlog', component: () => import('../views/BlogAdmin.vue'), meta: { blogAccess: true } },
+      { path: 'blog/new', name: 'AdminBlogNew', component: () => import('../views/BlogEditor.vue'), meta: { blogAccess: true } },
+      { path: 'blog/:id/edit', name: 'AdminBlogEdit', component: () => import('../views/BlogEditor.vue'), meta: { blogAccess: true } },
       { path: 'orders', name: 'AdminOrders', component: () => import('../views/Orders.vue') },
       { path: 'consultations', name: 'AdminConsultations', component: () => import('../views/Consultations.vue') },
       { path: 'users', name: 'AdminUsers', component: () => import('../views/Users.vue') },
@@ -48,16 +48,13 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async to => {
   const authStore = useAuthStore()
-
-  if (to.meta.requiresAuth && !authStore.token) {
-    next('/login')
-  } else if (to.meta.guest && authStore.token) {
-    next('/dashboard')
-  } else {
-    next()
-  }
+  if (!authStore.token) return to.meta.requiresAuth ? '/login' : true
+  if (!await authStore.refreshUser()) return to.path === '/login' ? true : '/login'
+  if (to.meta.guest) return authStore.landingPath
+  if (to.meta.requiresAuth && !authStore.isAdmin && !to.meta.blogAccess) return '/blog'
+  return true
 })
 
 export default router

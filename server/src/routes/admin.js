@@ -23,7 +23,7 @@ import { calculateOrderEditAmounts, getBilledOrderTotal } from '../utils/orderEd
 
 const router = Router()
 const prisma = new PrismaClient()
-const ALLOWED_USER_ROLES = ['USER', 'ADMIN', 'PARTNER']
+const ALLOWED_USER_ROLES = ['USER', 'ADMIN', 'PARTNER', 'COPYWRITER']
 const ADMIN_PASSWORD_LENGTH = 18
 
 router.get('/acquiring-settings', authenticate, requireAdmin, async (req, res, next) => {
@@ -665,9 +665,9 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'Некорректная роль пользователя' })
     }
 
-    const generatedAdminPassword = normalizedRole === 'ADMIN' ? generateSecureAdminPassword() : null
-    const effectivePassword = generatedAdminPassword || password
-    const passwordError = generatedAdminPassword ? null : validateBasicPassword(effectivePassword)
+    const generatedStaffPassword = ['ADMIN', 'COPYWRITER'].includes(normalizedRole) ? generateSecureAdminPassword() : null
+    const effectivePassword = generatedStaffPassword || password
+    const passwordError = generatedStaffPassword ? null : validateBasicPassword(effectivePassword)
     if (passwordError) return res.status(400).json({ error: passwordError })
     
     const existing = await findUserByEmail(prisma, email)
@@ -698,13 +698,14 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
       return createdUser
     })
 
-    if (generatedAdminPassword) {
+    if (generatedStaffPassword) {
       try {
         await emailService.sendAdminInvite({
           to: user.email,
           name: user.name,
-          password: generatedAdminPassword,
-          adminUrl: getAdminLoginUrl()
+          password: generatedStaffPassword,
+          adminUrl: getAdminLoginUrl(),
+          role: normalizedRole
         })
       } catch (emailError) {
         await prisma.user.delete({ where: { id: user.id } }).catch(() => null)
@@ -712,7 +713,7 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
       }
     }
     
-    res.status(201).json({ user, adminInviteSent: Boolean(generatedAdminPassword) })
+    res.status(201).json({ user, adminInviteSent: Boolean(generatedStaffPassword) })
   } catch (error) {
     next(error)
   }
@@ -741,8 +742,8 @@ router.post('/users/:id/resend-admin-invite', authenticate, requireAdmin, async 
       return res.status(404).json({ error: 'Пользователь не найден' })
     }
 
-    if (user.role !== 'ADMIN') {
-      return res.status(400).json({ error: 'Повторная отправка доступна только для администраторов' })
+    if (!['ADMIN', 'COPYWRITER'].includes(user.role)) {
+      return res.status(400).json({ error: 'Повторная отправка доступна только для сотрудников админки' })
     }
 
     const generatedAdminPassword = generateSecureAdminPassword()
@@ -758,7 +759,8 @@ router.post('/users/:id/resend-admin-invite', authenticate, requireAdmin, async 
         to: user.email,
         name: user.name,
         password: generatedAdminPassword,
-        adminUrl: getAdminLoginUrl()
+        adminUrl: getAdminLoginUrl(),
+        role: user.role
       })
     } catch (emailError) {
       await prisma.user.update({
@@ -768,7 +770,7 @@ router.post('/users/:id/resend-admin-invite', authenticate, requireAdmin, async 
       throw emailError
     }
 
-    res.json({ message: 'Письмо с новыми данными администратора отправлено', adminInviteSent: true })
+    res.json({ message: 'Письмо с новыми данными для входа отправлено', adminInviteSent: true })
   } catch (error) {
     next(error)
   }
@@ -784,6 +786,10 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'Некорректная роль пользователя' })
     }
 
+    if (userId === req.user.id && normalizedRole && normalizedRole !== 'ADMIN') {
+      return res.status(400).json({ error: 'Нельзя изменить собственную роль администратора' })
+    }
+
     const currentUser = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, name: true, role: true, password: true }
@@ -794,7 +800,7 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
     }
     
     const passwordUpdate = {}
-    const generatedAdminPassword = normalizedRole === 'ADMIN' && currentUser.role !== 'ADMIN'
+    const generatedAdminPassword = ['ADMIN', 'COPYWRITER'].includes(normalizedRole) && normalizedRole !== currentUser.role
       ? generateSecureAdminPassword()
       : null
 
@@ -841,7 +847,8 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
           to: user.email,
           name: user.name,
           password: generatedAdminPassword,
-          adminUrl: getAdminLoginUrl()
+          adminUrl: getAdminLoginUrl(),
+          role: normalizedRole
         })
       } catch (emailError) {
         await prisma.$transaction(async (tx) => {

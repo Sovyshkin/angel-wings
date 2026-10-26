@@ -106,7 +106,7 @@ async function handleLogin() {
       verificationStep.value = true
       return
     }
-    router.push('/dashboard')
+    router.push(authStore.landingPath)
   } catch (e) {
     error.value = e.response?.data?.error || 'Ошибка входа'
   } finally {
@@ -119,7 +119,7 @@ async function handleVerification() {
   loading.value = true
   try {
     await authStore.verifyLogin(pendingEmail.value, verificationCode.value, challengeToken.value)
-    router.push('/dashboard')
+    router.push(authStore.landingPath)
   } catch (e) {
     error.value = e.response?.data?.error || 'Неверный или истёкший код'
   } finally {

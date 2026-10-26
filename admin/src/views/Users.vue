@@ -59,6 +59,7 @@
                 <select :value="user.role" @click.stop @change="updateRole(user.id, $event.target.value)" class="role-select" :disabled="user.id === currentUserId">
                   <option value="USER">Пользователь</option>
                   <option value="ADMIN">Админ</option>
+                  <option value="COPYWRITER">Копирайтер</option>
                   <option value="PARTNER">Партнёр</option>
                 </select>
               </td>
@@ -67,7 +68,7 @@
               <td class="row-actions">
                 <div class="row-actions__inner">
                   <button
-                    v-if="user.role === 'ADMIN' && user.id !== currentUserId"
+                    v-if="['ADMIN', 'COPYWRITER'].includes(user.role) && user.id !== currentUserId"
                     @click.stop="resendAdminInvite(user)"
                     class="action-btn mail"
                     :disabled="resendingInviteId === user.id"
@@ -103,7 +104,7 @@
             </div>
             <div class="user-card__info">
               <h3 class="user-card__name">{{ user.name }}</h3>
-              <span :class="['user-card__role', user.role === 'ADMIN' ? 'admin' : '', user.role === 'PARTNER' ? 'partner' : '']">
+              <span :class="['user-card__role', user.role === 'ADMIN' ? 'admin' : '', user.role === 'PARTNER' ? 'partner' : '', user.role === 'COPYWRITER' ? 'copywriter' : '']">
                 {{ getRoleLabel(user.role) }}
               </span>
             </div>
@@ -137,7 +138,7 @@
           <div class="user-card__actions">
             <button @click="openUserDetail(user.id)" class="btn btn-secondary btn-sm user-detail-btn">Карточка</button>
             <button
-              v-if="user.role === 'ADMIN' && user.id !== currentUserId"
+              v-if="['ADMIN', 'COPYWRITER'].includes(user.role) && user.id !== currentUserId"
               @click="resendAdminInvite(user)"
               class="btn btn-secondary btn-sm invite-btn"
               :disabled="resendingInviteId === user.id"
@@ -147,6 +148,7 @@
             <select :value="user.role" @change="updateRole(user.id, $event.target.value)" class="role-select-full" :disabled="user.id === currentUserId">
               <option value="USER">Пользователь</option>
               <option value="ADMIN">Админ</option>
+              <option value="COPYWRITER">Копирайтер</option>
               <option value="PARTNER">Партнёр</option>
             </select>
             <button @click="deleteUser(user.id)" class="btn btn-danger btn-sm" :disabled="user.id === currentUserId">
@@ -187,14 +189,24 @@
             <input type="email" v-model="form.email" required class="input" placeholder="email@example.com">
           </div>
 
-          <div v-if="form.role !== 'ADMIN'" class="form-group">
+          <div class="form-group">
+            <label class="form-label">Роль</label>
+            <select v-model="form.role" class="input">
+              <option value="USER">Пользователь</option>
+              <option value="PARTNER">Партнёр</option>
+              <option value="COPYWRITER">Копирайтер — только блог</option>
+              <option value="ADMIN">Администратор</option>
+            </select>
+          </div>
+
+          <div v-if="!['ADMIN', 'COPYWRITER'].includes(form.role)" class="form-group">
             <label class="form-label">Пароль</label>
             <input type="password" v-model="form.password" required minlength="6" class="input" placeholder="Минимум 6 символов">
           </div>
 
           <div v-else class="admin-password-notice">
-            <strong>Пароль для администратора создастся автоматически</strong>
-            <span>Мы сгенерируем безопасный временный пароль и отправим его на email нового администратора вместе со ссылкой на вход.</span>
+            <strong>Пароль для сотрудника создастся автоматически</strong>
+            <span>Мы сгенерируем безопасный временный пароль и отправим его на email вместе со ссылкой на вход.</span>
           </div>
 
           <div class="form-group">
@@ -296,7 +308,7 @@ async function updateRole(id, role) {
       }
     }
     if (data.adminInviteSent) {
-      alert('Пользователь назначен администратором. Данные для входа отправлены на его email.')
+      alert('Роль сотрудника назначена. Данные для входа отправлены на его email.')
     }
   } catch (e) {
     alert(getApiErrorMessage(e, 'Ошибка обновления роли'))
@@ -310,7 +322,7 @@ async function resendAdminInvite(user) {
   resendingInviteId.value = user.id
   try {
     await axios.post(`${API_URL}/users/${user.id}/resend-admin-invite`)
-    alert('Письмо с новыми данными администратора отправлено.')
+    alert('Письмо с новыми данными для входа отправлено.')
   } catch (e) {
     alert(getApiErrorMessage(e, 'Не удалось отправить письмо с данными администратора'))
   } finally {
@@ -320,6 +332,7 @@ async function resendAdminInvite(user) {
 
 function getRoleLabel(role) {
   if (role === 'ADMIN') return 'Админ'
+  if (role === 'COPYWRITER') return 'Копирайтер'
   if (role === 'PARTNER') return 'Партнёр'
   return 'Пользователь'
 }
@@ -340,7 +353,7 @@ async function handleSubmit() {
   loadingForm.value = true
   try {
     const payload = { ...form.value }
-    if (payload.role === 'ADMIN') {
+    if (['ADMIN', 'COPYWRITER'].includes(payload.role)) {
       delete payload.password
     }
     const { data } = await axios.post(API_URL + '/users', payload)
@@ -351,7 +364,7 @@ async function handleSubmit() {
       currentPage.value = 1
     }
     if (data.adminInviteSent) {
-      alert('Администратор создан. Данные для входа отправлены на email.')
+      alert('Сотрудник создан. Данные для входа отправлены на email.')
     }
   } catch (e) {
     error.value = getApiErrorMessage(e, 'Ошибка создания')
@@ -643,6 +656,11 @@ watch(search, scheduleSearch)
 
 .user-card__role.partner {
   color: #22c55e;
+  font-weight: 600;
+}
+
+.user-card__role.copywriter {
+  color: var(--accent);
   font-weight: 600;
 }
 

@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import crypto from 'node:crypto'
 import { PrismaClient } from '@prisma/client'
-import { authenticate } from '../middleware/auth.js'
+import { authenticate, isAdminPanelRole } from '../middleware/auth.js'
 import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
 import emailService, { generateEmailCode, hashEmailCode } from '../services/email.js'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
@@ -109,8 +109,8 @@ router.post('/telegram', async (req, res, next) => {
   }
 })
 
-function createSessionToken(userId) {
-  return jwt.sign({ userId, purpose: 'session' }, process.env.JWT_SECRET, { expiresIn: SESSION_TOKEN_TTL })
+function createSessionToken(userId, adminPanel = false) {
+  return jwt.sign({ userId, purpose: 'session', ...(adminPanel ? { adminPanel: true } : {}) }, process.env.JWT_SECRET, { expiresIn: SESSION_TOKEN_TTL })
 }
 
 function getClientUrl() {
@@ -121,9 +121,9 @@ function createPasswordResetToken() {
   return crypto.randomBytes(32).toString('hex')
 }
 
-function createLoginChallenge(userId) {
+function createLoginChallenge(userId, adminPanel = false) {
   return jwt.sign(
-    { userId, purpose: 'login_verification' },
+    { userId, purpose: 'login_verification', ...(adminPanel ? { adminPanel: true } : {}) },
     process.env.JWT_SECRET,
     { expiresIn: `${EMAIL_CODE_TTL_MINUTES}m` }
   )
@@ -298,8 +298,8 @@ router.post('/login', async (req, res, next) => {
     }
 
     if (isAdminLogin) {
-      if (user.role !== 'ADMIN') {
-        return res.status(403).json({ error: 'Доступ в админку разрешён только администраторам' })
+      if (!isAdminPanelRole(user.role)) {
+        return res.status(403).json({ error: 'Доступ в админку запрещён' })
       }
 
       let expiresAt
@@ -307,21 +307,12 @@ router.post('/login', async (req, res, next) => {
         expiresAt = await createOrReuseLoginCode(user)
       } catch (error) {
         if (!isEmailDeliveryError(error)) throw error
-        console.warn('[AUTH] Admin login email verification bypassed because email delivery failed', JSON.stringify({
-          userId: user.id,
-          email: user.email,
-          code: error.code || null
-        }))
-        return res.json(await createAuthResponse(
-          user,
-          'Вход выполнен. Почтовый сервис временно недоступен, поэтому код подтверждения пропущен.',
-          { emailDeliveryUnavailable: true }
-        ))
+        return res.status(503).json({ error: 'Не удалось отправить код подтверждения. Попробуйте позже.' })
       }
       return res.status(202).json({
         requiresLoginVerification: true,
         email: user.email,
-        challengeToken: createLoginChallenge(user.id),
+        challengeToken: createLoginChallenge(user.id, true),
         expiresAt,
         message: 'Введите код подтверждения, отправленный на вашу почту'
       })
@@ -391,10 +382,14 @@ router.post('/verify-email', async (req, res, next) => {
     }
 
     let user
+    let challenge = null
     if (purpose === 'login_verification') {
-      const challenge = readLoginChallenge(req.body.challengeToken)
+      challenge = readLoginChallenge(req.body.challengeToken)
       if (!challenge) {
         return res.status(401).json({ error: 'Сессия подтверждения истекла. Введите email и пароль ещё раз.' })
+      }
+      if (req.body.adminLogin === true && challenge.adminPanel !== true) {
+        return res.status(403).json({ error: 'Войдите через страницу админки заново' })
       }
       user = await prisma.user.findUnique({ where: { id: Number(challenge.userId) } })
     } else {
@@ -406,8 +401,8 @@ router.post('/verify-email', async (req, res, next) => {
       return res.status(404).json({ error: 'Пользователь не найден' })
     }
 
-    if (purpose === 'login_verification' && req.body.adminLogin === true && user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Доступ в админку разрешён только администраторам' })
+    if (purpose === 'login_verification' && challenge.adminPanel === true && !isAdminPanelRole(user.role)) {
+      return res.status(403).json({ error: 'Доступ в админку запрещён' })
     }
 
     if (purpose === 'email_verification' && user.emailVerified) {
@@ -460,7 +455,7 @@ router.post('/verify-email', async (req, res, next) => {
 
     res.json({
       user: getPublicUser(verifiedUser),
-      token: createSessionToken(verifiedUser.id)
+      token: createSessionToken(verifiedUser.id, purpose === 'login_verification' && challenge?.adminPanel === true)
     })
   } catch (error) {
     next(error)
@@ -473,11 +468,15 @@ router.post('/resend-verification', async (req, res, next) => {
       ? 'login_verification'
       : 'email_verification'
     let user
+    let challenge = null
 
     if (purpose === 'login_verification') {
-      const challenge = readLoginChallenge(req.body.challengeToken)
+      challenge = readLoginChallenge(req.body.challengeToken)
       if (!challenge) {
         return res.status(401).json({ error: 'Сессия подтверждения истекла. Выполните вход заново.' })
+      }
+      if (req.body.adminLogin === true && challenge.adminPanel !== true) {
+        return res.status(403).json({ error: 'Войдите через страницу админки заново' })
       }
       user = await prisma.user.findUnique({ where: { id: Number(challenge.userId) } })
     } else {
@@ -489,8 +488,8 @@ router.post('/resend-verification', async (req, res, next) => {
       return res.status(404).json({ error: 'Пользователь не найден' })
     }
 
-    if (purpose === 'login_verification' && req.body.adminLogin === true && user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Доступ в админку разрешён только администраторам' })
+    if (purpose === 'login_verification' && challenge.adminPanel === true && !isAdminPanelRole(user.role)) {
+      return res.status(403).json({ error: 'Доступ в админку запрещён' })
     }
 
     if (purpose === 'email_verification' && user.emailVerified) {
@@ -601,7 +600,7 @@ router.post('/reset-password', async (req, res, next) => {
       return res.status(429).json({ error: 'Слишком много попыток. Запросите новую ссылку восстановления.' })
     }
 
-    const passwordError = resetRecord.user?.role === 'ADMIN'
+    const passwordError = isAdminPanelRole(resetRecord.user?.role)
       ? validatePasswordPolicy(newPassword, resetRecord.user)
       : validateBasicPassword(newPassword)
     if (passwordError) {
@@ -640,7 +639,7 @@ router.post('/reset-password', async (req, res, next) => {
 })
 
 router.get('/me', authenticate, async (req, res) => {
-  res.json({ user: getPublicUser(req.user) })
+  res.json({ user: getPublicUser(req.user), adminPanel: req.auth?.adminPanel === true })
 })
 
 router.put('/me', authenticate, async (req, res, next) => {
@@ -677,7 +676,7 @@ router.put('/password', authenticate, async (req, res, next) => {
 
     const user = await prisma.user.findUnique({ where: { id: req.user.id } })
 
-    const passwordError = user?.role === 'ADMIN'
+    const passwordError = isAdminPanelRole(user?.role)
       ? validatePasswordPolicy(newPassword, user)
       : validateBasicPassword(newPassword)
     if (passwordError) return res.status(400).json({ error: passwordError })

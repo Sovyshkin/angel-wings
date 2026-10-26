@@ -2,7 +2,7 @@
   <div class="admin-layout">
     <header class="admin-header">
       <div class="header-container">
-        <router-link to="/" class="header-logo">
+        <router-link :to="authStore.landingPath" class="header-logo">
           <img src="../assets/angel-wings-logo-light.svg" alt="Angel Wings" class="logo-img">
         </router-link>
 
@@ -22,6 +22,7 @@
           @dragstart.prevent
           @click.capture="handleNavClick"
         >
+          <template v-if="authStore.isAdmin">
           <router-link to="/dashboard" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
@@ -46,10 +47,12 @@
             </svg>
             <span class="nav-text">Категории</span>
           </router-link>
+          </template>
           <router-link to="/blog" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h12a4 4 0 0 1 4 4v14H8a4 4 0 0 0-4-4z"/><path d="M4 3v14a4 4 0 0 1 4 4M8 7h8M8 11h8"/></svg>
             <span class="nav-text">Блог</span>
           </router-link>
+          <template v-if="authStore.isAdmin">
           <router-link to="/orders" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -122,6 +125,7 @@
             </svg>
             <span class="nav-text">СДЭК</span>
           </router-link>
+          </template>
         </nav>
 
         <div class="header-actions">
@@ -163,7 +167,8 @@
           <span class="mobile-menu__title">Админ-панель</span>
         </div>
         <div class="mobile-menu__links">
-<router-link to="/dashboard" class="nav-link" @click="mobileMenuOpen = false">
+            <template v-if="authStore.isAdmin">
+            <router-link to="/dashboard" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
               </svg>
@@ -187,7 +192,9 @@
               </svg>
               Категории
             </router-link>
+            </template>
             <router-link to="/blog" class="nav-link" @click="mobileMenuOpen = false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h12a4 4 0 0 1 4 4v14H8a4 4 0 0 0-4-4z"/><path d="M4 3v14a4 4 0 0 1 4 4"/></svg>Блог</router-link>
+            <template v-if="authStore.isAdmin">
             <router-link to="/orders" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -260,6 +267,7 @@
               </svg>
               СДЭК
             </router-link>
+            </template>
             <button @click="logout" class="nav-link logout-link">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
@@ -397,6 +405,7 @@ function revealActiveNavItem() {
 }
 
 async function fetchPendingApplicationsCount() {
+  if (!authStore.isAdmin) return
   try {
     const [partnerResult, contactResult, consultationResult] = await Promise.allSettled([
       axios.get('/api/admin/partner-applications', {
