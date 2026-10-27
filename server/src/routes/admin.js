@@ -21,11 +21,16 @@ import { applyStockAdjustments, parseStockAdjustmentRequest } from '../utils/sto
 import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiringSettings.js'
 import { calculateOrderEditAmounts, getBilledOrderTotal } from '../utils/orderEditAmounts.js'
 import { resolveManualOrderPromo, claimManualOrderPromo } from '../utils/manualOrderPromo.js'
+import { isCustomAdminRole } from '../utils/adminPermissions.js'
 
 const router = Router()
 const prisma = new PrismaClient()
 const ALLOWED_USER_ROLES = ['USER', 'ADMIN', 'PARTNER', 'COPYWRITER']
 const ADMIN_PASSWORD_LENGTH = 18
+
+async function isAssignableRole(role) {
+  return ALLOWED_USER_ROLES.includes(role) || (isCustomAdminRole(role) && Boolean(await prisma.adminRole.findUnique({ where: { code: role }, select: { id: true } })))
+}
 
 router.get('/acquiring-settings', authenticate, requireAdmin, async (req, res, next) => {
   try {
@@ -662,11 +667,11 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
     const email = normalizeEmail(req.body.email)
     const normalizedRole = String(role || 'USER').toUpperCase()
 
-    if (!ALLOWED_USER_ROLES.includes(normalizedRole)) {
+    if (!await isAssignableRole(normalizedRole)) {
       return res.status(400).json({ error: 'Некорректная роль пользователя' })
     }
 
-    const generatedStaffPassword = ['ADMIN', 'COPYWRITER'].includes(normalizedRole) ? generateSecureAdminPassword() : null
+    const generatedStaffPassword = (['ADMIN', 'COPYWRITER'].includes(normalizedRole) || isCustomAdminRole(normalizedRole)) ? generateSecureAdminPassword() : null
     const effectivePassword = generatedStaffPassword || password
     const passwordError = generatedStaffPassword ? null : validateBasicPassword(effectivePassword)
     if (passwordError) return res.status(400).json({ error: passwordError })
@@ -743,7 +748,7 @@ router.post('/users/:id/resend-admin-invite', authenticate, requireAdmin, async 
       return res.status(404).json({ error: 'Пользователь не найден' })
     }
 
-    if (!['ADMIN', 'COPYWRITER'].includes(user.role)) {
+    if (!['ADMIN', 'COPYWRITER'].includes(user.role) && !isCustomAdminRole(user.role)) {
       return res.status(400).json({ error: 'Повторная отправка доступна только для сотрудников админки' })
     }
 
@@ -783,7 +788,7 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
     const userId = parseInt(req.params.id)
     const normalizedRole = role !== undefined ? String(role).toUpperCase() : undefined
 
-    if (normalizedRole !== undefined && !ALLOWED_USER_ROLES.includes(normalizedRole)) {
+    if (normalizedRole !== undefined && !await isAssignableRole(normalizedRole)) {
       return res.status(400).json({ error: 'Некорректная роль пользователя' })
     }
 
@@ -801,7 +806,7 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
     }
     
     const passwordUpdate = {}
-    const generatedAdminPassword = ['ADMIN', 'COPYWRITER'].includes(normalizedRole) && normalizedRole !== currentUser.role
+    const generatedAdminPassword = (['ADMIN', 'COPYWRITER'].includes(normalizedRole) || isCustomAdminRole(normalizedRole)) && normalizedRole !== currentUser.role
       ? generateSecureAdminPassword()
       : null
 
@@ -1041,6 +1046,19 @@ router.post('/orders/promo/validate', authenticate, requireAdmin, async (req, re
   } catch (error) {
     next(error)
   }
+})
+
+router.get('/orders/customer/:id', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректный ID клиента' })
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, address: true, partnerUser: { select: { partner: { select: { id: true } } } } }
+    })
+    if (!user) return res.status(404).json({ error: 'Клиент не найден' })
+    res.json({ user })
+  } catch (error) { next(error) }
 })
 
 router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {

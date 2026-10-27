@@ -457,6 +457,10 @@ router.post('/validate-courier-address', async (req, res) => {
 
 // ==================== ЗАКАЗЫ ====================
 
+// CDEK account orders, courier calls and balance contain private data and can
+// incur charges. Public checkout uses calculation and pickup routes above.
+router.use(authenticate, requireAdmin)
+
 // POST /api/delivery/orders
 // Создать заказ на доставку
 router.post('/orders', async (req, res) => {

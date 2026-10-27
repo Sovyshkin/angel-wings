@@ -149,6 +149,7 @@ const router = useRouter()
 const loading = ref(true)
 const user = ref(null)
 const stats = ref({})
+const roleNames = ref({})
 
 function goBack() {
   if (window.history.length > 1) router.back()
@@ -160,6 +161,7 @@ function getInitials(value) {
 }
 
 function getRoleLabel(role) {
+  if (roleNames.value[role]) return roleNames.value[role]
   if (role === 'ADMIN') return 'Админ'
   if (role === 'COPYWRITER') return 'Копирайтер'
   if (role === 'PARTNER') return 'Партнер'
@@ -226,7 +228,12 @@ async function fetchUser() {
   }
 }
 
-onMounted(fetchUser)
+onMounted(() => {
+  fetchUser()
+  axios.get('/api/admin/roles').then(({ data }) => {
+    roleNames.value = Object.fromEntries((data.roles || []).map(role => [role.code, role.name]))
+  }).catch(() => {})
+})
 </script>
 
 <style scoped>

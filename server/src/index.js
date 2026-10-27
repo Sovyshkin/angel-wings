@@ -9,6 +9,7 @@ import categoryRoutes from './routes/categories.js'
 import orderRoutes from './routes/orders.js'
 import paymentRoutes from './routes/payment.js'
 import adminRoutes from './routes/admin.js'
+import adminRolesRoutes from './routes/adminRoles.js'
 import partnerRoutes from './routes/partner.js'
 import partnerApplicationsRoutes from './routes/partnerApplications.js'
 import partnerCabinetRoutes from './routes/partnerCabinet.js'
@@ -63,6 +64,7 @@ app.use('/api/admin/partners', partnerRoutes)
 app.use('/api/admin/dealers', adminDealerRoutes)
 app.use('/api/admin/points', adminPointsRoutes)
 app.use('/api/admin/contact-requests', adminContactRequestsRoutes)
+app.use('/api/admin/roles', adminRolesRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/partner-applications', partnerApplicationsRoutes)
 app.use('/api/contact-requests', contactRequestsRoutes)

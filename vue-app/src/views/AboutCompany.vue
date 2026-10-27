@@ -1,5 +1,5 @@
 <template>
-  <main ref="aboutRoot" class="about-page is-ready" aria-busy="false">
+  <main ref="aboutRoot" class="about-page" :class="{ 'is-ready': !moleculeTransition.isRunning || moleculeTransition.contentVisible }" aria-busy="false">
     <section id="about-hero" ref="heroSection" class="about-hero">
       <div class="about-grid" aria-hidden="true"></div>
       <div class="about-hero__backdrop" aria-hidden="true">
@@ -280,6 +280,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { moleculeTransition } from '../composables/moleculeTransition'
 
 let revealObserver = null
 let aboutNavObserver = null

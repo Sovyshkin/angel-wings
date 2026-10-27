@@ -5,7 +5,8 @@
         `app--molecule-${moleculeTransition.stage}`,
         {
           'app--has-global-dock': showGlobalDock,
-          'app--molecule-running': moleculeTransition.isRunning
+          'app--molecule-running': moleculeTransition.isRunning,
+          'app--molecule-content-visible': moleculeTransition.contentVisible
         }
       ]"
       :data-route="route.path"
@@ -544,21 +545,43 @@ let removeTelegramWidgetListeners = null
 let removeRouteRecoveryListeners = null
 
 const waitFor = (duration) => new Promise(resolve => window.setTimeout(resolve, duration))
+const ABOUT_MOVE_DURATION = 2850
+const ABOUT_CONTENT_REVEAL_DELAY = 850
+
+async function settleAboutTransition() {
+  requestAnimationFrame(() => {
+    if (route.path === '/about') moleculeTransition.stage = 'about'
+  })
+
+  await waitFor(ABOUT_CONTENT_REVEAL_DELAY)
+  if (route.path !== '/about') return
+  moleculeTransition.contentVisible = true
+
+  await waitFor(ABOUT_MOVE_DURATION - ABOUT_CONTENT_REVEAL_DELAY)
+  if (route.path === '/about') moleculeTransition.isRunning = false
+}
 
 async function beginAboutTransition(closeMenu = false) {
   if (closeMenu) closeMobileMenu()
   if (moleculeTransition.isRunning || route.path === '/about') return
 
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    await router.push('/about')
+    moleculeTransition.stage = 'about'
+    moleculeTransition.contentVisible = true
+    return
+  }
+
   moleculeTransition.isRunning = true
+  moleculeTransition.contentVisible = false
 
   if (route.path !== '/') {
     moleculeTransition.stage = 'arriving'
     await router.push('/about')
     await nextTick()
     await waitFor(1180)
-    moleculeTransition.stage = 'about'
-    await waitFor(2920)
-    moleculeTransition.isRunning = false
+    if (route.path !== '/about') return
+    await settleAboutTransition()
     return
   }
 
@@ -571,14 +594,8 @@ async function beginAboutTransition(closeMenu = false) {
   await nextTick()
   moleculeTransition.stage = 'center'
   await waitFor(1520)
-  await waitFor(620)
-
-  requestAnimationFrame(() => {
-    moleculeTransition.stage = 'about'
-  })
-
-  await waitFor(2920)
-  moleculeTransition.isRunning = false
+  if (route.path !== '/about') return
+  await settleAboutTransition()
 }
 
 function handleGlobalDockNavigation(item, event) {
@@ -615,11 +632,13 @@ watch(() => route.path, (path) => {
   // Otherwise its final frame can remain visible above the Home hero.
   if (path !== '/about') {
     moleculeTransition.isRunning = false
+    moleculeTransition.contentVisible = false
     moleculeTransition.stage = path === '/' ? 'home' : 'idle'
     return
   }
 
   if (moleculeTransition.isRunning) return
+  moleculeTransition.contentVisible = true
   moleculeTransition.stage = path === '/' ? 'home' : path === '/about' ? 'about' : 'idle'
 }, { immediate: true })
 
@@ -772,6 +791,7 @@ onMounted(() => {
       // router view so restored pages are always readable.
       if (moleculeTransition.isRunning || ['exiting', 'center', 'arriving'].includes(moleculeTransition.stage)) {
         moleculeTransition.isRunning = false
+        moleculeTransition.contentVisible = route.path === '/about'
         moleculeTransition.stage = route.path === '/' ? 'home' : route.path === '/about' ? 'about' : 'idle'
         await nextTick()
       }
@@ -1225,9 +1245,7 @@ html.is-page-inactive *::after {
   pointer-events: none;
 }
 
-/* The About scene is revealed only after the molecule reaches its final
-   background position. Keeping this tied to the transition state prevents the
-   first hero block from flashing underneath the animation on mobile. */
+/* Keep the scene hidden until the About transition explicitly starts its reveal. */
 .app--molecule-running .header,
 .app--molecule-running .main,
 .app--molecule-running .footer,
@@ -1244,6 +1262,18 @@ html.is-page-inactive *::after {
 .app--molecule-running .main,
 .app--molecule-running .footer {
   transform: translate3d(0, 18px, 0);
+}
+
+/* Reveal the About scene while the sphere completes its move. Keep interaction
+   locked until the transition finishes, but don't leave the screen empty. */
+.app--molecule-running.app--molecule-about.app--molecule-content-visible .header,
+.app--molecule-running.app--molecule-about.app--molecule-content-visible .main,
+.app--molecule-running.app--molecule-about.app--molecule-content-visible .footer,
+.app--molecule-running.app--molecule-about.app--molecule-content-visible .telegram-widget {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  pointer-events: none;
 }
 
 .app--molecule-exiting .header,

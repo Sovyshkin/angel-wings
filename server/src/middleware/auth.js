@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
+import { isCustomAdminRole, parsePermissions, sectionsForAdminRequest } from '../utils/adminPermissions.js'
 
 const prisma = new PrismaClient()
 
@@ -36,6 +37,11 @@ export const authenticate = async (req, res, next) => {
     
     req.user = user
     req.auth = decoded
+    if (isCustomAdminRole(user.role) && decoded.adminPanel === true) {
+      const staffRole = await prisma.adminRole.findUnique({ where: { code: user.role }, select: { permissions: true } })
+      if (!staffRole) return res.status(401).json({ error: 'Роль больше не доступна' })
+      req.adminPermissions = parsePermissions(staffRole.permissions)
+    }
     next()
   } catch (error) {
     next(error)
@@ -43,16 +49,20 @@ export const authenticate = async (req, res, next) => {
 }
 
 export const requireAdmin = (req, res, next) => {
-  if (req.user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Admin access required' })
-  }
-  next()
+  if (req.user.role === 'ADMIN') return next()
+  const sections = sectionsForAdminRequest(req.originalUrl, req.method)
+  if (req.auth?.adminPanel === true && sections.some(section => req.adminPermissions?.includes(section))) return next()
+  return res.status(403).json({ error: 'Нет доступа к этому разделу' })
 }
 
-export const isAdminPanelRole = role => role === 'ADMIN' || role === 'COPYWRITER'
+export const requireSuperAdmin = (req, res, next) => (req.user?.role === 'ADMIN' && req.auth?.adminPanel === true)
+  ? next()
+  : res.status(403).json({ error: 'Только администратор может управлять ролями' })
+
+export const isAdminPanelRole = role => role === 'ADMIN' || role === 'COPYWRITER' || isCustomAdminRole(role)
 
 export const requireBlogEditor = (req, res, next) => {
-  if (req.user?.role !== 'ADMIN' && !(req.user?.role === 'COPYWRITER' && req.auth?.adminPanel === true)) {
+  if (req.user?.role !== 'ADMIN' && !(req.auth?.adminPanel === true && (req.user?.role === 'COPYWRITER' || req.adminPermissions?.includes('BLOG')))) {
     return res.status(403).json({ error: 'Blog access required' })
   }
   next()

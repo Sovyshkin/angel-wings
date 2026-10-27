@@ -22,6 +22,7 @@
     "db:recommendations": "node scripts/apply-product-recommendations-schema.mjs",
     "db:favorite-pickups": "node scripts/apply-favorite-pickup-points-schema.mjs",
     "db:blog": "node scripts/apply-blog-schema.mjs",
+    "db:roles": "node scripts/apply-admin-roles-schema.mjs",
     "db:blog-drafts": "node scripts/seed-blog-drafts.mjs",
     "telegram:enqueue": "node scripts/enqueue-telegram-order.mjs",
     "db:seed": "node prisma/seed.js",

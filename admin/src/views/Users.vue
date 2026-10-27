@@ -61,6 +61,7 @@
                   <option value="ADMIN">Админ</option>
                   <option value="COPYWRITER">Копирайтер</option>
                   <option value="PARTNER">Партнёр</option>
+                  <option v-for="role in staffRoles" :key="role.code" :value="role.code">{{ role.name }}</option>
                 </select>
               </td>
               <td class="cell-points">{{ Number(user.pointsBalance || 0).toLocaleString('ru-RU') }}</td>
@@ -68,7 +69,7 @@
               <td class="row-actions">
                 <div class="row-actions__inner">
                   <button
-                    v-if="['ADMIN', 'COPYWRITER'].includes(user.role) && user.id !== currentUserId"
+                    v-if="isStaffRole(user.role) && user.id !== currentUserId"
                     @click.stop="resendAdminInvite(user)"
                     class="action-btn mail"
                     :disabled="resendingInviteId === user.id"
@@ -138,7 +139,7 @@
           <div class="user-card__actions">
             <button @click="openUserDetail(user.id)" class="btn btn-secondary btn-sm user-detail-btn">Карточка</button>
             <button
-              v-if="['ADMIN', 'COPYWRITER'].includes(user.role) && user.id !== currentUserId"
+              v-if="isStaffRole(user.role) && user.id !== currentUserId"
               @click="resendAdminInvite(user)"
               class="btn btn-secondary btn-sm invite-btn"
               :disabled="resendingInviteId === user.id"
@@ -150,6 +151,7 @@
               <option value="ADMIN">Админ</option>
               <option value="COPYWRITER">Копирайтер</option>
               <option value="PARTNER">Партнёр</option>
+              <option v-for="role in staffRoles" :key="role.code" :value="role.code">{{ role.name }}</option>
             </select>
             <button @click="deleteUser(user.id)" class="btn btn-danger btn-sm" :disabled="user.id === currentUserId">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -196,10 +198,11 @@
               <option value="PARTNER">Партнёр</option>
               <option value="COPYWRITER">Копирайтер — только блог</option>
               <option value="ADMIN">Администратор</option>
+              <option v-for="role in staffRoles" :key="role.code" :value="role.code">{{ role.name }}</option>
             </select>
           </div>
 
-          <div v-if="!['ADMIN', 'COPYWRITER'].includes(form.role)" class="form-group">
+          <div v-if="!isStaffRole(form.role)" class="form-group">
             <label class="form-label">Пароль</label>
             <input type="password" v-model="form.password" required minlength="6" class="input" placeholder="Минимум 6 символов">
           </div>
@@ -238,6 +241,7 @@ const router = useRouter()
 const API_URL = '/api/admin'
 
 const users = ref([])
+const staffRoles = ref([])
 const total = ref(0)
 const loading = ref(true)
 const showModal = ref(false)
@@ -252,6 +256,14 @@ const USERS_PER_PAGE = 20
 let searchTimer = null
 
 const currentUserId = computed(() => authStore.user?.id)
+const isStaffRole = role => ['ADMIN', 'COPYWRITER'].includes(role) || /^STAFF_[A-F0-9]{32}$/.test(role || '')
+
+async function fetchRoles() {
+  try {
+    const { data } = await axios.get(`${API_URL}/roles`)
+    staffRoles.value = data.roles || []
+  } catch (e) { console.error('Не удалось загрузить роли', e) }
+}
 
 function getApiErrorMessage(error, fallback = 'Что-то пошло не так', emailFailureNote = '') {
   const data = error?.response?.data || {}
@@ -333,6 +345,8 @@ async function resendAdminInvite(user) {
 }
 
 function getRoleLabel(role) {
+  const custom = staffRoles.value.find(item => item.code === role)
+  if (custom) return custom.name
   if (role === 'ADMIN') return 'Админ'
   if (role === 'COPYWRITER') return 'Копирайтер'
   if (role === 'PARTNER') return 'Партнёр'
@@ -355,7 +369,7 @@ async function handleSubmit() {
   loadingForm.value = true
   try {
     const payload = { ...form.value }
-    if (['ADMIN', 'COPYWRITER'].includes(payload.role)) {
+    if (isStaffRole(payload.role)) {
       delete payload.password
     }
     const { data } = await axios.post(API_URL + '/users', payload)
@@ -391,7 +405,7 @@ async function deleteUser(id) {
   }
 }
 
-onMounted(fetchUsers)
+onMounted(() => { fetchUsers(); fetchRoles() })
 
 watch(currentPage, fetchUsers)
 watch(search, scheduleSearch)

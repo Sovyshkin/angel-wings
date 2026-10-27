@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import crypto from 'node:crypto'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, isAdminPanelRole } from '../middleware/auth.js'
+import { isCustomAdminRole } from '../utils/adminPermissions.js'
 import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
 import emailService, { generateEmailCode, hashEmailCode } from '../services/email.js'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
@@ -301,6 +302,9 @@ router.post('/login', async (req, res, next) => {
       if (!isAdminPanelRole(user.role)) {
         return res.status(403).json({ error: 'Доступ в админку запрещён' })
       }
+      if (isCustomAdminRole(user.role) && !await prisma.adminRole.findUnique({ where: { code: user.role }, select: { id: true } })) {
+        return res.status(403).json({ error: 'Роль больше не доступна' })
+      }
 
       let expiresAt
       try {
@@ -404,6 +408,9 @@ router.post('/verify-email', async (req, res, next) => {
     if (purpose === 'login_verification' && challenge.adminPanel === true && !isAdminPanelRole(user.role)) {
       return res.status(403).json({ error: 'Доступ в админку запрещён' })
     }
+    if (purpose === 'login_verification' && challenge.adminPanel === true && isCustomAdminRole(user.role) && !await prisma.adminRole.findUnique({ where: { code: user.role }, select: { id: true } })) {
+      return res.status(403).json({ error: 'Роль больше не доступна' })
+    }
 
     if (purpose === 'email_verification' && user.emailVerified) {
       return res.status(400).json({ error: 'Email уже подтверждён. Выполните вход заново.' })
@@ -490,6 +497,9 @@ router.post('/resend-verification', async (req, res, next) => {
 
     if (purpose === 'login_verification' && challenge.adminPanel === true && !isAdminPanelRole(user.role)) {
       return res.status(403).json({ error: 'Доступ в админку запрещён' })
+    }
+    if (purpose === 'login_verification' && challenge.adminPanel === true && isCustomAdminRole(user.role) && !await prisma.adminRole.findUnique({ where: { code: user.role }, select: { id: true } })) {
+      return res.status(403).json({ error: 'Роль больше не доступна' })
     }
 
     if (purpose === 'email_verification' && user.emailVerified) {
@@ -639,7 +649,7 @@ router.post('/reset-password', async (req, res, next) => {
 })
 
 router.get('/me', authenticate, async (req, res) => {
-  res.json({ user: getPublicUser(req.user), adminPanel: req.auth?.adminPanel === true })
+  res.json({ user: { ...getPublicUser(req.user), permissions: req.user.role === 'ADMIN' ? ['*'] : req.user.role === 'COPYWRITER' ? ['BLOG'] : req.adminPermissions || [] }, adminPanel: req.auth?.adminPanel === true })
 })
 
 router.put('/me', authenticate, async (req, res, next) => {

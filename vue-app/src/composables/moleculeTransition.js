@@ -4,5 +4,6 @@ import { reactive } from 'vue'
 // belongs to App.vue, so changing routes can never recreate it or reset playback.
 export const moleculeTransition = reactive({
   stage: 'home',
-  isRunning: false
+  isRunning: false,
+  contentVisible: false
 })

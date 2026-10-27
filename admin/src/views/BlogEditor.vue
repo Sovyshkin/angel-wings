@@ -6,7 +6,7 @@
       <input v-model="form.title" class="blog-editor__title" placeholder="Заголовок статьи" aria-label="Заголовок статьи"><textarea v-model="form.excerpt" class="blog-editor__excerpt" rows="2" placeholder="Краткое описание для карточки и читателя…" aria-label="Краткое описание"></textarea>
       <div class="blog-editor__toolbar" role="toolbar" aria-label="Форматирование текста"><button type="button" title="Обычный текст" @mousedown.prevent @click="formatBlock('p')">Текст</button><button type="button" title="Заголовок 2" @mousedown.prevent @click="formatBlock('h2')">H2</button><button type="button" title="Заголовок 3" @mousedown.prevent @click="formatBlock('h3')">H3</button><button type="button" title="Жирный" @mousedown.prevent @click="command('bold')"><b>B</b></button><button type="button" title="Курсив" @mousedown.prevent @click="command('italic')"><i>I</i></button><button type="button" title="Маркированный список" @mousedown.prevent @click="command('insertUnorderedList')">• Список</button><button type="button" title="Нумерованный список" @mousedown.prevent @click="command('insertOrderedList')">1. Список</button><button type="button" title="Цитата" @mousedown.prevent @click="formatBlock('blockquote')">❝</button><button type="button" title="Ссылка" @mousedown.prevent @click="addLink">🔗</button><button type="button" title="Таблица" @mousedown.prevent @click="addTable">▦</button><label title="Вставить изображение">▧<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden @change="uploadInline"></label></div>
       <div ref="editable" class="blog-editor__editable" contenteditable="true" role="textbox" aria-label="Текст статьи" aria-multiline="true" data-placeholder="Начните писать статью. Перетащите изображение сюда или используйте панель инструментов…" @input="onContentInput" @keyup="rememberSelection" @mouseup="rememberSelection" @dragover.prevent @drop.prevent="handleDrop" @paste="handlePaste"></div><p class="blog-editor__tip">Изображения можно перетащить в текст. Для каждого изображения требуется ALT-описание.</p>
-    </div><aside class="blog-editor__side"><section><h3>Публикация</h3><label>Статус <strong>{{ form.status === 'PUBLISHED' ? 'Опубликована' : 'Черновик' }}</strong></label><label>Категория<select v-model="form.categoryId"><option :value="null">Выберите категорию</option><option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option></select></label><label>Автор<input v-model="form.author" maxlength="100"></label><label class="blog-editor__check"><input v-model="form.featured" type="checkbox"> Рекомендуемая статья</label><label>ALT обложки<input v-model="form.coverAlt" placeholder="Что изображено на обложке"></label></section><section><h3>SEO</h3><label>URL /blog/<input v-model="form.slug" placeholder="Создаётся из заголовка"></label><label>Meta Title <span>{{ effectiveTitle.length }}/60</span><input v-model="form.metaTitle" :placeholder="form.title || 'Название статьи'"></label><label>Meta Description <span>{{ effectiveDescription.length }}/160</span><textarea v-model="form.metaDescription" :placeholder="form.excerpt || 'Краткое описание'" rows="3"></textarea></label><div class="blog-editor__seo"><strong>SEO-подсказки</strong><p v-for="hint in seoHints" :key="hint">{{ hint }}</p><p v-if="!seoHints.length">✓ Основные поля готовы</p></div></section></aside></div>
+    </div><aside class="blog-editor__side"><section><h3>Публикация</h3><label>Статус <strong>{{ form.status === 'PUBLISHED' ? 'Опубликована' : 'Черновик' }}</strong></label><label>Категория<select v-model="form.categoryId"><option :value="null">Выберите категорию</option><option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option></select></label><label>Автор<input v-model="form.author" maxlength="100"></label><label class="blog-editor__check"><input v-model="form.featured" type="checkbox"> Рекомендуемая статья</label><label>ALT обложки<input v-model="form.coverAlt" placeholder="Что изображено на обложке"></label></section><section><h3>SEO</h3><label>URL /blog/<input v-model="form.slug" placeholder="Создаётся из заголовка"></label><label>Meta Title <span>{{ form.metaTitle.length }}/60</span><input v-model="form.metaTitle" placeholder="SEO-заголовок" @input="metaTitleCustom = true" @blur="restoreAutoMetaTitle"></label><label>Meta Description <span>{{ form.metaDescription.length }}/160</span><textarea v-model="form.metaDescription" placeholder="SEO-описание" rows="3" @input="metaDescriptionCustom = true" @blur="restoreAutoMetaDescription"></textarea></label><div class="blog-editor__seo"><strong>SEO-подсказки</strong><p v-for="hint in seoHints" :key="hint">{{ hint }}</p><p v-if="!seoHints.length">✓ Основные поля готовы</p></div></section></aside></div>
   </div>
 </template>
 <script setup>
@@ -19,16 +19,21 @@ import './blogTypography.css'
 const route = useRoute(), router = useRouter(), editable = ref(null), categories = ref([]), preview = ref(false), error = ref(''), saving = ref(false), saveState = ref('Не сохранено'), loading = ref(true)
 const form = reactive({ title: '', slug: '', excerpt: '', content: '', cover: '', coverAlt: '', author: 'ANGEL WINGS', categoryId: null, status: 'DRAFT', featured: false, metaTitle: '', metaDescription: '' })
 let timer = null, saveQueue = Promise.resolve(), suppressWatch = false
+let metaTitleCustom = false, metaDescriptionCustom = false
 let savedRange = null
 const selectedCategory = computed(() => categories.value.find(cat => cat.id === Number(form.categoryId)))
-const effectiveTitle = computed(() => form.metaTitle || form.title)
-const effectiveDescription = computed(() => form.metaDescription || form.excerpt)
+const effectiveTitle = computed(() => form.metaTitle)
+const effectiveDescription = computed(() => form.metaDescription)
 const seoHints = computed(() => [!form.title && 'Добавьте заголовок', !form.excerpt && 'Добавьте описание для карточки', !form.categoryId && 'Выберите категорию', !form.cover && 'Добавьте обложку', form.cover && !form.coverAlt && 'Заполните ALT обложки', effectiveTitle.value.length > 60 && 'Meta Title длиннее 60 символов', effectiveDescription.value.length > 160 && 'Meta Description длиннее 160 символов', !/<h2[ >]/i.test(form.content) && 'Добавьте H2 для структуры текста', /<img\b(?![^>]*\balt=)/i.test(form.content) && 'Укажите ALT для изображений'].filter(Boolean))
 const previewHtml = computed(() => form.content.replace(/<script[\s\S]*?<\/script>/gi, ''))
 async function init() {
   try {
     const { data } = await axios.get('/api/blog/categories'); categories.value = data
     if (route.params.id) { const result = await axios.get(`/api/blog/admin/posts/${route.params.id}`); Object.assign(form, result.data); await nextTick(); editable.value.innerHTML = form.content }
+    metaTitleCustom = Boolean(form.metaTitle && form.metaTitle !== form.title)
+    metaDescriptionCustom = Boolean(form.metaDescription && form.metaDescription !== form.excerpt)
+    if (!metaTitleCustom) form.metaTitle = form.title || ''
+    if (!metaDescriptionCustom) form.metaDescription = form.excerpt || ''
     saveState.value = route.params.id ? 'Все изменения сохранены' : 'Новая статья'
   } catch { error.value = 'Не удалось загрузить статью' }
   finally { loading.value = false }
@@ -50,6 +55,10 @@ async function persist(status) {
 }
 function save(status) { clearTimeout(timer); return persist(status) }
 watch(form, () => { if (loading.value || suppressWatch) return; saveState.value = 'Есть несохранённые изменения'; clearTimeout(timer); timer = setTimeout(() => persist(form.status), 1800) }, { deep: true })
+watch(() => form.title, value => { if (!metaTitleCustom) form.metaTitle = value || '' })
+watch(() => form.excerpt, value => { if (!metaDescriptionCustom) form.metaDescription = value || '' })
+function restoreAutoMetaTitle() { if (!form.metaTitle.trim()) { metaTitleCustom = false; form.metaTitle = form.title || '' } }
+function restoreAutoMetaDescription() { if (!form.metaDescription.trim()) { metaDescriptionCustom = false; form.metaDescription = form.excerpt || '' } }
 function onContentInput() { form.content = editable.value.innerHTML; rememberSelection() }
 function togglePreview() {
   if (!preview.value && editable.value) onContentInput()

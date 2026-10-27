@@ -11,12 +11,26 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!user.value && !!token.value)
   const isAdmin = computed(() => user.value?.role === 'ADMIN')
   const isCopywriter = computed(() => user.value?.role === 'COPYWRITER')
-  const landingPath = computed(() => isCopywriter.value ? '/blog' : '/dashboard')
+  const isStaff = computed(() => /^STAFF_[A-F0-9]{32}$/.test(user.value?.role || ''))
+  const permissions = computed(() => isAdmin.value ? ['*'] : isCopywriter.value ? ['BLOG'] : user.value?.permissions || [])
+  const can = section => isAdmin.value || permissions.value.includes(section)
+  const landingPath = computed(() => {
+    const destinations = [
+      ['DASHBOARD', '/dashboard'], ['PRODUCTS', '/products'], ['ANALYTICS', '/analytics'],
+      ['CATEGORIES', '/categories'], ['BLOG', '/blog'], ['ORDERS', '/orders'],
+      ['CONSULTATIONS', '/consultations'], ['POINTS', '/user-points'],
+      ['PARTNERS', '/partners'], ['APPLICATIONS', '/partner-applications'],
+      ['PAYOUTS', '/partner-payouts'], ['DEALERS', '/dealers'], ['PROMO', '/promo-codes'],
+      ['EMAIL', '/email-campaigns'], ['CDEK', '/cdek']
+    ]
+    return destinations.find(([section]) => can(section))?.[1] || '/login'
+  })
   
   async function login(email, password) {
     const { data } = await axios.post(`${API_URL}/auth/login`, { email, password, adminLogin: true })
     if (data.requiresLoginVerification) return data
     setAuth(data)
+    await refreshUser()
     return data
   }
 
@@ -32,7 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return false
     try {
       const { data } = await axios.get(`${API_URL}/auth/me`)
-      if (data.user?.role !== 'ADMIN' && !(data.user?.role === 'COPYWRITER' && data.adminPanel === true)) {
+      if (data.user?.role !== 'ADMIN' && !(data.adminPanel === true && (data.user?.role === 'COPYWRITER' || /^STAFF_[A-F0-9]{32}$/.test(data.user?.role || '')))) {
         logout()
         return false
       }
@@ -54,6 +68,7 @@ export const useAuthStore = defineStore('auth', () => {
       adminLogin: true
     })
     setAuth(data)
+    await refreshUser()
     return data
   }
 
@@ -79,5 +94,5 @@ export const useAuthStore = defineStore('auth', () => {
     axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
   }
   
-  return { user, token, isAuthenticated, isAdmin, isCopywriter, landingPath, login, verifyLogin, resendLoginCode, refreshUser, logout }
+  return { user, token, isAuthenticated, isAdmin, isCopywriter, isStaff, permissions, can, landingPath, login, verifyLogin, resendLoginCode, refreshUser, logout }
 })

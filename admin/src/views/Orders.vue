@@ -1074,7 +1074,7 @@ async function selectManualUser(user) {
   manualUserQuery.value = manualSelectedUserLabel.value
   manualUsers.value = []
   try {
-    const { data } = await axios.get(`${API_URL}/users/${user.id}`)
+    const { data } = await axios.get(`${API_URL}/orders/customer/${user.id}`)
     manualBoundPartnerId.value = data.user?.partnerUser?.partner?.id || null
     manualDraft.value.partnerId = manualBoundPartnerId.value || ''
     if (manualDeliveryMode.value === 'address') manualDraft.value.shippingAddress = data.user?.address || ''

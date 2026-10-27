@@ -22,68 +22,72 @@
           @dragstart.prevent
           @click.capture="handleNavClick"
         >
-          <template v-if="authStore.isAdmin">
-          <router-link to="/dashboard" class="nav-item">
+          <template v-if="authStore.isAdmin || authStore.isStaff">
+          <router-link v-if="authStore.can('DASHBOARD')" to="/dashboard" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
             </svg>
             <span class="nav-text">Dashboard</span>
           </router-link>
-          <router-link to="/products" class="nav-item">
+          <router-link v-if="authStore.can('PRODUCTS')" to="/products" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
             </svg>
             <span class="nav-text">Товары</span>
           </router-link>
-          <router-link to="/analytics" class="nav-item">
+          <router-link v-if="authStore.can('ANALYTICS')" to="/analytics" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/>
             </svg>
             <span class="nav-text">Аналитика</span>
           </router-link>
-          <router-link to="/categories" class="nav-item">
+          <router-link v-if="authStore.can('CATEGORIES')" to="/categories" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
             </svg>
             <span class="nav-text">Категории</span>
           </router-link>
           </template>
-          <router-link to="/blog" class="nav-item">
+          <router-link v-if="authStore.can('BLOG')" to="/blog" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h12a4 4 0 0 1 4 4v14H8a4 4 0 0 0-4-4z"/><path d="M4 3v14a4 4 0 0 1 4 4M8 7h8M8 11h8"/></svg>
             <span class="nav-text">Блог</span>
           </router-link>
-          <template v-if="authStore.isAdmin">
-          <router-link to="/orders" class="nav-item">
+          <template v-if="authStore.isAdmin || authStore.isStaff">
+          <router-link v-if="authStore.can('ORDERS')" to="/orders" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
             </svg>
             <span class="nav-text">Заказы</span>
           </router-link>
-          <router-link to="/consultations" class="nav-item">
+          <router-link v-if="authStore.can('CONSULTATIONS')" to="/consultations" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11L6 20v-4.1a2.5 2.5 0 0 1-2-2.4v-8Z"/><path d="M8 9h8M8 12h5"/>
             </svg>
             <span class="nav-text">Консультации</span>
           </router-link>
-          <router-link to="/users" class="nav-item">
+          <router-link v-if="authStore.isAdmin" to="/users" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
             </svg>
             <span class="nav-text">Пользователи</span>
           </router-link>
-          <router-link to="/user-points" class="nav-item">
+          <router-link v-if="authStore.isAdmin" to="/roles" class="nav-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z"/><path d="M9 12h6M12 9v6"/></svg>
+            <span class="nav-text">Роли</span>
+          </router-link>
+          <router-link v-if="authStore.can('POINTS')" to="/user-points" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="9"/><path d="M12 7v10M8 11h8"/>
             </svg>
             <span class="nav-text">Баллы</span>
           </router-link>
-          <router-link to="/partners" class="nav-item">
+          <router-link v-if="authStore.can('PARTNERS')" to="/partners" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
             </svg>
             <span class="nav-text">Партнёры</span>
           </router-link>
-          <router-link to="/partner-applications" class="nav-item">
+          <router-link v-if="authStore.can('APPLICATIONS')" to="/partner-applications" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
               <path d="M14 2v6h6"/>
@@ -92,13 +96,13 @@
             <span class="nav-text">Заявки</span>
             <span v-if="pendingApplicationsCount" class="nav-badge">{{ pendingApplicationsCount }}</span>
           </router-link>
-          <router-link to="/partner-payouts" class="nav-item">
+          <router-link v-if="authStore.can('PAYOUTS')" to="/partner-payouts" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M7 15h4"/>
             </svg>
             <span class="nav-text">Выплаты</span>
           </router-link>
-          <router-link to="/dealers" class="nav-item">
+          <router-link v-if="authStore.can('DEALERS')" to="/dealers" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 21h18"/>
               <path d="M5 21V7l8-4 6 4v14"/>
@@ -107,19 +111,19 @@
             </svg>
             <span class="nav-text">Дилеры</span>
           </router-link>
-          <router-link to="/promo-codes" class="nav-item">
+          <router-link v-if="authStore.can('PROMO')" to="/promo-codes" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
             </svg>
             <span class="nav-text">Промокоды</span>
           </router-link>
-          <router-link to="/email-campaigns" class="nav-item">
+          <router-link v-if="authStore.can('EMAIL')" to="/email-campaigns" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z"/><polyline points="22,6 12,13 2,6"/>
             </svg>
             <span class="nav-text">Рассылки</span>
           </router-link>
-          <router-link to="/cdek" class="nav-item">
+          <router-link v-if="authStore.can('CDEK')" to="/cdek" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
             </svg>
@@ -167,65 +171,66 @@
           <span class="mobile-menu__title">Админ-панель</span>
         </div>
         <div class="mobile-menu__links">
-            <template v-if="authStore.isAdmin">
-            <router-link to="/dashboard" class="nav-link" @click="mobileMenuOpen = false">
+            <template v-if="authStore.isAdmin || authStore.isStaff">
+            <router-link v-if="authStore.can('DASHBOARD')" to="/dashboard" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
               </svg>
               Dashboard
             </router-link>
-            <router-link to="/products" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('PRODUCTS')" to="/products" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
               </svg>
               Товары
             </router-link>
-            <router-link to="/analytics" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('ANALYTICS')" to="/analytics" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/>
               </svg>
               Аналитика
             </router-link>
-            <router-link to="/categories" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('CATEGORIES')" to="/categories" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
               </svg>
               Категории
             </router-link>
             </template>
-            <router-link to="/blog" class="nav-link" @click="mobileMenuOpen = false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h12a4 4 0 0 1 4 4v14H8a4 4 0 0 0-4-4z"/><path d="M4 3v14a4 4 0 0 1 4 4"/></svg>Блог</router-link>
-            <template v-if="authStore.isAdmin">
-            <router-link to="/orders" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('BLOG')" to="/blog" class="nav-link" @click="mobileMenuOpen = false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h12a4 4 0 0 1 4 4v14H8a4 4 0 0 0-4-4z"/><path d="M4 3v14a4 4 0 0 1 4 4"/></svg>Блог</router-link>
+            <template v-if="authStore.isAdmin || authStore.isStaff">
+            <router-link v-if="authStore.can('ORDERS')" to="/orders" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
               Заказы
             </router-link>
-            <router-link to="/consultations" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('CONSULTATIONS')" to="/consultations" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11L6 20v-4.1a2.5 2.5 0 0 1-2-2.4v-8Z"/><path d="M8 9h8M8 12h5"/>
               </svg>
               Консультации
             </router-link>
-            <router-link to="/users" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.isAdmin" to="/users" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
               </svg>
               Пользователи
             </router-link>
-            <router-link to="/user-points" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.isAdmin" to="/roles" class="nav-link" @click="mobileMenuOpen = false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z"/><path d="M9 12h6M12 9v6"/></svg>Роли</router-link>
+            <router-link v-if="authStore.can('POINTS')" to="/user-points" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="9"/><path d="M12 7v10M8 11h8"/>
               </svg>
               Баллы
             </router-link>
-            <router-link to="/partners" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('PARTNERS')" to="/partners" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
               </svg>
               Партнёры
             </router-link>
-            <router-link to="/partner-applications" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('APPLICATIONS')" to="/partner-applications" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
                 <path d="M14 2v6h6"/>
@@ -234,13 +239,13 @@
               Заявки
               <span v-if="pendingApplicationsCount" class="nav-badge nav-badge--mobile">{{ pendingApplicationsCount }}</span>
             </router-link>
-            <router-link to="/partner-payouts" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('PAYOUTS')" to="/partner-payouts" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M7 15h4"/>
               </svg>
               Выплаты
             </router-link>
-            <router-link to="/dealers" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('DEALERS')" to="/dealers" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 21h18"/>
                 <path d="M5 21V7l8-4 6 4v14"/>
@@ -249,19 +254,19 @@
               </svg>
               Дилеры
             </router-link>
-            <router-link to="/promo-codes" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('PROMO')" to="/promo-codes" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
               </svg>
               Промокоды
             </router-link>
-            <router-link to="/email-campaigns" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('EMAIL')" to="/email-campaigns" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z"/><polyline points="22,6 12,13 2,6"/>
               </svg>
               Рассылки
             </router-link>
-            <router-link to="/cdek" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link v-if="authStore.can('CDEK')" to="/cdek" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
               </svg>
@@ -405,7 +410,7 @@ function revealActiveNavItem() {
 }
 
 async function fetchPendingApplicationsCount() {
-  if (!authStore.isAdmin) return
+  if (!authStore.can('APPLICATIONS')) return
   try {
     const [partnerResult, contactResult, consultationResult] = await Promise.allSettled([
       axios.get('/api/admin/partner-applications', {

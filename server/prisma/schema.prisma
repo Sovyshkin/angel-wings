@@ -40,6 +40,18 @@ model User {
   @@map("users")
 }
 
+model AdminRole {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String   @default("")
+  permissions String   @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("admin_roles")
+}
+
 model FavoritePickupPoint {
   id          Int      @id @default(autoincrement())
   userId      Int

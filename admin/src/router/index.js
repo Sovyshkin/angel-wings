@@ -29,6 +29,7 @@ const routes = [
       { path: 'orders', name: 'AdminOrders', component: () => import('../views/Orders.vue') },
       { path: 'consultations', name: 'AdminConsultations', component: () => import('../views/Consultations.vue') },
       { path: 'users', name: 'AdminUsers', component: () => import('../views/Users.vue') },
+      { path: 'roles', name: 'AdminRoles', component: () => import('../views/Roles.vue') },
       { path: 'users/:id', name: 'AdminUserDetail', component: () => import('../views/UserDetail.vue') },
       { path: 'user-points', name: 'AdminUserPoints', component: () => import('../views/UserPoints.vue') },
       { path: 'partners', name: 'AdminPartners', component: () => import('../views/Partners.vue') },
@@ -48,12 +49,31 @@ const router = createRouter({
   routes
 })
 
+const sectionForPath = path => {
+  if (path === '/roles' || path.startsWith('/users')) return 'ADMIN_ONLY'
+  if (path.startsWith('/products')) return 'PRODUCTS'
+  if (path.startsWith('/analytics')) return 'ANALYTICS'
+  if (path.startsWith('/categories')) return 'CATEGORIES'
+  if (path.startsWith('/blog')) return 'BLOG'
+  if (path.startsWith('/orders')) return 'ORDERS'
+  if (path.startsWith('/consultations')) return 'CONSULTATIONS'
+  if (path.startsWith('/user-points')) return 'POINTS'
+  if (path.startsWith('/partner-applications')) return 'APPLICATIONS'
+  if (path.startsWith('/partner-payouts')) return 'PAYOUTS'
+  if (path.startsWith('/partners')) return 'PARTNERS'
+  if (path.startsWith('/dealers')) return 'DEALERS'
+  if (path.startsWith('/promo-codes')) return 'PROMO'
+  if (path.startsWith('/email-campaigns')) return 'EMAIL'
+  if (path.startsWith('/cdek')) return 'CDEK'
+  return 'DASHBOARD'
+}
+
 router.beforeEach(async to => {
   const authStore = useAuthStore()
   if (!authStore.token) return to.meta.requiresAuth ? '/login' : true
   if (!await authStore.refreshUser()) return to.path === '/login' ? true : '/login'
   if (to.meta.guest) return authStore.landingPath
-  if (to.meta.requiresAuth && !authStore.isAdmin && !to.meta.blogAccess) return '/blog'
+  if (to.meta.requiresAuth && !authStore.can(sectionForPath(to.path))) return authStore.landingPath
   return true
 })
 
