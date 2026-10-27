@@ -25,7 +25,7 @@ import { isCustomAdminRole } from '../utils/adminPermissions.js'
 
 const router = Router()
 const prisma = new PrismaClient()
-const ALLOWED_USER_ROLES = ['USER', 'ADMIN', 'PARTNER', 'COPYWRITER']
+const ALLOWED_USER_ROLES = ['USER', 'ADMIN', 'PARTNER']
 const ADMIN_PASSWORD_LENGTH = 18
 
 async function isAssignableRole(role) {
@@ -806,7 +806,7 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
     }
     
     const passwordUpdate = {}
-    const generatedAdminPassword = (['ADMIN', 'COPYWRITER'].includes(normalizedRole) || isCustomAdminRole(normalizedRole)) && normalizedRole !== currentUser.role
+    const generatedAdminPassword = normalizedRole === 'ADMIN' && currentUser.role !== 'ADMIN'
       ? generateSecureAdminPassword()
       : null
 

@@ -300,7 +300,7 @@ class EmailService {
     const isCopywriter = role === 'COPYWRITER'
     const isAdmin = role === 'ADMIN'
     const roleName = isCopywriter ? 'копирайтером' : isAdmin ? 'администратором' : 'сотрудником'
-    const accessDescription = isCopywriter ? 'Вам доступен только раздел «Блог».' : isAdmin ? 'Вам доступна админ-панель Angel Wings.' : 'Вам доступны назначенные администратором разделы.'
+    const accessDescription = isAdmin ? 'Вам доступна админ-панель Angel Wings.' : 'Вам доступны разделы, назначенные администратором.'
     const safeName = escapeHtml(name || (isCopywriter ? 'копирайтер' : isAdmin ? 'администратор' : 'сотрудник'))
     const safeEmail = escapeHtml(to)
     const safePassword = escapeHtml(password)

@@ -7,7 +7,7 @@ export const ADMIN_SECTIONS = Object.freeze([
 ])
 
 export const ADMIN_SECTION_CODES = new Set(ADMIN_SECTIONS.map(([code]) => code))
-export const isCustomAdminRole = role => /^STAFF_[A-F0-9]{32}$/.test(String(role || ''))
+export const isCustomAdminRole = role => role === 'COPYWRITER' || /^STAFF_[A-F0-9]{32}$/.test(String(role || ''))
 
 export function parsePermissions(value) {
   try {

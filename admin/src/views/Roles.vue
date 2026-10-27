@@ -14,14 +14,13 @@
 
     <div class="roles-layout">
       <aside class="roles-list" aria-label="Список ролей">
-        <div class="roles-list__caption">Системные роли</div>
+        <div class="roles-list__caption">Системная роль</div>
         <div class="roles-system"><strong>Администратор</strong><span>Все разделы · управление ролями</span></div>
-        <div class="roles-system"><strong>Копирайтер</strong><span>Только блог</span></div>
         <div class="roles-list__caption">Настраиваемые роли <span>{{ roles.length }}</span></div>
         <p v-if="loading" class="roles-empty">Загрузка ролей…</p>
         <p v-else-if="!roles.length" class="roles-empty">Ролей пока нет. Создайте первую роль для сотрудника.</p>
         <button v-for="role in roles" :key="role.id" type="button" class="roles-list__item" :class="{ active: selectedId === role.id }" @click="selectRole(role)">
-          <span class="roles-list__item-name">{{ role.name }}</span>
+          <span class="roles-list__item-name">{{ role.name }}<small v-if="role.code === 'COPYWRITER'">Предустановленная</small></span>
           <span class="roles-list__item-meta">{{ role.permissions.length }} разделов · {{ role.usersCount }} сотрудников</span>
         </button>
       </aside>
@@ -53,7 +52,7 @@
         <div class="roles-actions">
           <button class="btn btn-primary" type="button" :disabled="saving || !form.name || !form.permissions.length" @click="saveRole">{{ saving ? 'Сохранение…' : selectedId ? 'Сохранить изменения' : 'Создать роль' }}</button>
           <button v-if="selectedId" class="btn btn-secondary" type="button" @click="startCreate">Отмена</button>
-          <button v-if="selectedId" class="roles-delete" type="button" :disabled="saving || selectedRole?.usersCount > 0" :title="selectedRole?.usersCount ? 'Сначала назначьте сотрудникам другую роль' : ''" @click="deleteRole">Удалить роль</button>
+          <button v-if="selectedId && selectedRole?.code !== 'COPYWRITER'" class="roles-delete" type="button" :disabled="saving || selectedRole?.usersCount > 0" :title="selectedRole?.usersCount ? 'Сначала назначьте сотрудникам другую роль' : ''" @click="deleteRole">Удалить роль</button>
         </div>
       </section>
     </div>
@@ -141,6 +140,7 @@ onMounted(loadRoles)
 .roles-list{padding:16px}.roles-list__caption{display:flex;justify-content:space-between;margin:14px 12px 10px;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-secondary)}
 .roles-system,.roles-list__item{width:100%;display:flex;flex-direction:column;text-align:left;gap:5px;padding:15px 16px;border-radius:14px}
 .roles-system{opacity:.72}.roles-system strong,.roles-list__item-name{font-size:15px;color:var(--text-primary)}.roles-system span,.roles-list__item-meta{font-size:12px;color:var(--text-secondary)}
+.roles-list__item-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.roles-list__item-name small{font-size:10px;font-weight:700;letter-spacing:.02em;color:var(--accent);background:rgba(143,170,255,.12);border-radius:999px;padding:3px 7px}
 .roles-list__item{border:1px solid transparent;background:transparent;cursor:pointer}.roles-list__item:hover{background:rgba(143,170,255,.08)}.roles-list__item.active{border-color:var(--accent);background:rgba(143,170,255,.13)}
 .roles-empty{font-size:14px;color:var(--text-secondary);line-height:1.5;padding:8px 12px}
 .roles-editor{padding:clamp(20px,3vw,36px)}.roles-editor__top{display:flex;justify-content:space-between;align-items:start;gap:16px}.roles-editor h2{font-size:25px;margin:0 0 24px}.roles-editor__count{white-space:nowrap;border-radius:100px;padding:8px 12px;background:rgba(143,170,255,.11);color:var(--accent);font-weight:700;font-size:12px}

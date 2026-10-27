@@ -13,6 +13,8 @@ try {
     "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`)
   await prisma.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS admin_roles_code_key ON admin_roles(code)')
+  await prisma.$executeRawUnsafe(`INSERT OR IGNORE INTO "admin_roles" ("code", "name", "description", "permissions", "createdAt", "updatedAt")
+    VALUES ('COPYWRITER', 'Копирайтер', 'Работа со статьями блога', '["BLOG"]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`)
   console.log('[DB] Admin roles schema is ready')
 } finally {
   await prisma.$disconnect()

@@ -59,7 +59,6 @@
                 <select :value="user.role" @click.stop @change="updateRole(user.id, $event.target.value, $event.target)" class="role-select" :disabled="user.id === currentUserId">
                   <option value="USER">Пользователь</option>
                   <option value="ADMIN">Админ</option>
-                  <option value="COPYWRITER">Копирайтер</option>
                   <option value="PARTNER">Партнёр</option>
                   <option v-for="role in staffRoles" :key="role.code" :value="role.code">{{ role.name }}</option>
                 </select>
@@ -149,7 +148,6 @@
             <select :value="user.role" @change="updateRole(user.id, $event.target.value, $event.target)" class="role-select-full" :disabled="user.id === currentUserId">
               <option value="USER">Пользователь</option>
               <option value="ADMIN">Админ</option>
-              <option value="COPYWRITER">Копирайтер</option>
               <option value="PARTNER">Партнёр</option>
               <option v-for="role in staffRoles" :key="role.code" :value="role.code">{{ role.name }}</option>
             </select>
@@ -196,7 +194,6 @@
             <select v-model="form.role" class="input">
               <option value="USER">Пользователь</option>
               <option value="PARTNER">Партнёр</option>
-              <option value="COPYWRITER">Копирайтер — только блог</option>
               <option value="ADMIN">Администратор</option>
               <option v-for="role in staffRoles" :key="role.code" :value="role.code">{{ role.name }}</option>
             </select>

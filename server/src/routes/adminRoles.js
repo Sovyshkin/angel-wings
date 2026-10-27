@@ -61,6 +61,7 @@ router.delete('/:id', async (req, res, next) => {
     if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректная роль' })
     const role = await prisma.adminRole.findUnique({ where: { id } })
     if (!role) return res.status(404).json({ error: 'Роль не найдена' })
+    if (role.code === 'COPYWRITER') return res.status(409).json({ error: 'Предустановленную роль можно настроить, но нельзя удалить' })
     if (await prisma.user.count({ where: { role: role.code } })) return res.status(409).json({ error: 'Сначала назначьте пользователям другую роль' })
     await prisma.adminRole.delete({ where: { id } })
     res.json({ message: 'Роль удалена' })

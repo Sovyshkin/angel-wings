@@ -11,8 +11,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!user.value && !!token.value)
   const isAdmin = computed(() => user.value?.role === 'ADMIN')
   const isCopywriter = computed(() => user.value?.role === 'COPYWRITER')
-  const isStaff = computed(() => /^STAFF_[A-F0-9]{32}$/.test(user.value?.role || ''))
-  const permissions = computed(() => isAdmin.value ? ['*'] : isCopywriter.value ? ['BLOG'] : user.value?.permissions || [])
+  const isStaff = computed(() => isCopywriter.value || /^STAFF_[A-F0-9]{32}$/.test(user.value?.role || ''))
+  const permissions = computed(() => isAdmin.value ? ['*'] : user.value?.permissions || [])
   const can = section => isAdmin.value || permissions.value.includes(section)
   const landingPath = computed(() => {
     const destinations = [

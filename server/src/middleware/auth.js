@@ -59,10 +59,10 @@ export const requireSuperAdmin = (req, res, next) => (req.user?.role === 'ADMIN'
   ? next()
   : res.status(403).json({ error: 'Только администратор может управлять ролями' })
 
-export const isAdminPanelRole = role => role === 'ADMIN' || role === 'COPYWRITER' || isCustomAdminRole(role)
+export const isAdminPanelRole = role => role === 'ADMIN' || isCustomAdminRole(role)
 
 export const requireBlogEditor = (req, res, next) => {
-  if (req.user?.role !== 'ADMIN' && !(req.auth?.adminPanel === true && (req.user?.role === 'COPYWRITER' || req.adminPermissions?.includes('BLOG')))) {
+  if (req.user?.role !== 'ADMIN' && !(req.auth?.adminPanel === true && req.adminPermissions?.includes('BLOG'))) {
     return res.status(403).json({ error: 'Blog access required' })
   }
   next()

@@ -649,7 +649,7 @@ router.post('/reset-password', async (req, res, next) => {
 })
 
 router.get('/me', authenticate, async (req, res) => {
-  res.json({ user: { ...getPublicUser(req.user), permissions: req.user.role === 'ADMIN' ? ['*'] : req.user.role === 'COPYWRITER' ? ['BLOG'] : req.adminPermissions || [] }, adminPanel: req.auth?.adminPanel === true })
+  res.json({ user: { ...getPublicUser(req.user), permissions: req.user.role === 'ADMIN' ? ['*'] : req.adminPermissions || [] }, adminPanel: req.auth?.adminPanel === true })
 })
 
 router.put('/me', authenticate, async (req, res, next) => {

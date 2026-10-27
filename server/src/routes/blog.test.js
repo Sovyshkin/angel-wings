@@ -17,6 +17,7 @@ test('blog API protects drafts, sanitizes HTML and serves SEO', async () => {
   const columns = execFileSync('sqlite3', [path.join(directory, 'test.db'), 'PRAGMA table_info(users)'], { encoding: 'utf8' })
   if (!columns.includes('|telegramId|')) execFileSync('sqlite3', [path.join(directory, 'test.db'), 'ALTER TABLE users ADD COLUMN telegramId TEXT'], { stdio: 'pipe' })
   execFileSync('node', ['scripts/apply-blog-schema.mjs'], { cwd: process.cwd(), env: process.env, stdio: 'pipe' })
+  execFileSync('node', ['scripts/apply-admin-roles-schema.mjs'], { cwd: process.cwd(), env: process.env, stdio: 'pipe' })
   const prisma = new PrismaClient()
   const { default: router } = await import('./blog.js')
   const { default: adminRouter } = await import('./admin.js')

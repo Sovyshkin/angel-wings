@@ -8,7 +8,7 @@ import express from 'express'
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
 
-test('custom roles are admin-managed, section-scoped and revoked immediately', async () => {
+test('custom roles are scoped and role changes preserve passwords except admin promotion', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'angel-admin-roles-'))
   const databasePath = join(directory, 'test.db')
   process.env.DATABASE_URL = `file:${databasePath}`
@@ -16,10 +16,15 @@ test('custom roles are admin-managed, section-scoped and revoked immediately', a
   const sql = execFileSync('npx', ['prisma', 'migrate', 'diff', '--from-empty', '--to-schema-datamodel', 'prisma/schema.prisma', '--script'], { cwd: process.cwd(), env: process.env, encoding: 'utf8' })
   const schema = spawnSync('sqlite3', ['-batch', databasePath], { input: sql, encoding: 'utf8' })
   assert.equal(schema.status, 0, schema.stderr)
+  execFileSync('node', ['scripts/apply-admin-roles-schema.mjs'], { cwd: process.cwd(), env: process.env, stdio: 'pipe' })
 
   const { default: rolesRouter } = await import('./adminRoles.js')
   const { default: adminRouter } = await import('./admin.js')
   const { default: blogRouter } = await import('./blog.js')
+  const { default: emailService } = await import('../services/email.js')
+  const sendAdminInvite = emailService.sendAdminInvite
+  let inviteCount = 0
+  emailService.sendAdminInvite = async () => { inviteCount += 1 }
   const db = new PrismaClient()
   const app = express()
   app.use(express.json())
@@ -35,10 +40,40 @@ test('custom roles are admin-managed, section-scoped and revoked immediately', a
   try {
     const admin = await db.user.create({ data: { email: 'admin@roles.test', password: 'unused', name: 'Admin', role: 'ADMIN' } })
     const regular = await db.user.create({ data: { email: 'user@roles.test', password: 'unused', name: 'User', role: 'USER' } })
+    const copywriterRole = await db.adminRole.findUnique({ where: { code: 'COPYWRITER' } })
+    assert.deepEqual(JSON.parse(copywriterRole.permissions), ['BLOG'])
+    const copywriter = await db.user.create({ data: { email: 'copywriter@roles.test', password: 'unused', name: 'Copywriter', role: 'COPYWRITER' } })
+    assert.equal((await send('/api/admin/roles', copywriter)).status, 403)
+    assert.equal((await send('/api/blog/admin/posts', copywriter)).status, 200)
+    assert.equal((await send('/api/admin/stats', copywriter)).status, 403)
+    const configureCopywriter = await send(`/api/admin/roles/${copywriterRole.id}`, admin, { method: 'PUT', body: JSON.stringify({ name: 'Контент-менеджер', permissions: ['DASHBOARD'] }) })
+    assert.equal(configureCopywriter.status, 200, await configureCopywriter.text())
+    assert.equal((await send('/api/blog/admin/posts', copywriter)).status, 403)
+    assert.equal((await send('/api/admin/stats', copywriter)).status, 200)
+    assert.equal((await send(`/api/admin/roles/${copywriterRole.id}`, admin, { method: 'DELETE' })).status, 409)
+    execFileSync('node', ['scripts/apply-admin-roles-schema.mjs'], { cwd: process.cwd(), env: process.env, stdio: 'pipe' })
+    assert.deepEqual(JSON.parse((await db.adminRole.findUnique({ where: { code: 'COPYWRITER' } })).permissions), ['DASHBOARD'])
     const create = await send('/api/admin/roles', admin, { method: 'POST', body: JSON.stringify({ name: 'Аналитик', permissions: ['DASHBOARD'] }) })
     const createdBody = await create.json()
     assert.equal(create.status, 201, JSON.stringify(createdBody))
     const role = createdBody.role
+    const roleChangeUser = await db.user.create({ data: { email: 'role-change@roles.test', password: 'existing-password-hash', name: 'Role Change', role: 'USER' } })
+    const originalPassword = roleChangeUser.password
+    for (const assignedRole of [role.code, 'PARTNER', 'COPYWRITER']) {
+      const assignment = await send(`/api/admin/users/${roleChangeUser.id}`, admin, { method: 'PUT', body: JSON.stringify({ role: assignedRole }) })
+      assert.equal(assignment.status, 200, await assignment.text())
+      assert.equal((await db.user.findUnique({ where: { id: roleChangeUser.id } })).password, originalPassword)
+      assert.equal(inviteCount, 0)
+    }
+    const promote = await send(`/api/admin/users/${roleChangeUser.id}`, admin, { method: 'PUT', body: JSON.stringify({ role: 'ADMIN' }) })
+    assert.equal(promote.status, 200, await promote.text())
+    const promotedPassword = (await db.user.findUnique({ where: { id: roleChangeUser.id } })).password
+    assert.notEqual(promotedPassword, originalPassword)
+    assert.equal(inviteCount, 1)
+    const demote = await send(`/api/admin/users/${roleChangeUser.id}`, admin, { method: 'PUT', body: JSON.stringify({ role: 'PARTNER' }) })
+    assert.equal(demote.status, 200, await demote.text())
+    assert.equal((await db.user.findUnique({ where: { id: roleChangeUser.id } })).password, promotedPassword)
+    assert.equal(inviteCount, 1)
     const staff = await db.user.create({ data: { email: 'staff@roles.test', password: 'unused', name: 'Staff', role: role.code } })
     assert.equal((await send('/api/admin/roles', staff)).status, 403)
     assert.equal((await send(`/api/admin/roles/${role.id}`, staff, { method: 'PUT', body: JSON.stringify({ name: 'Суперадмин', permissions: ['DASHBOARD'] }) })).status, 403)
@@ -57,6 +92,7 @@ test('custom roles are admin-managed, section-scoped and revoked immediately', a
     assert.equal((await send('/api/blog/admin/posts', staff)).status, 403)
     assert.equal((await send(`/api/admin/roles/${role.id}`, admin, { method: 'DELETE' })).status, 200)
   } finally {
+    emailService.sendAdminInvite = sendAdminInvite
     await db.$disconnect()
     await new Promise(resolve => server.close(resolve))
     await rm(directory, { recursive: true, force: true })
