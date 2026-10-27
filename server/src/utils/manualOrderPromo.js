@@ -1,4 +1,4 @@
-import { isOwnPartnerPromoCode } from './promoEligibility.js'
+import { isActivePartner, isOwnPartnerPromoCode } from './promoEligibility.js'
 
 function clientError(message, status = 400) {
   return Object.assign(new Error(message), { status })
@@ -18,6 +18,7 @@ export async function resolveManualOrderPromo(tx, { code, userId, subtotal, boun
   }
   if (!promoCode?.isActive) throw clientError('Промокод не найден или неактивен')
   if (await isOwnPartnerPromoCode(tx, promoCode, userId)) throw clientError('Нельзя применить собственный партнёрский промокод')
+  if (promoCode.partnerId && !await isActivePartner(tx, promoCode.partnerId)) throw clientError('Партнёр промокода неактивен')
 
   const now = new Date()
   if (promoCode.startDate && now < promoCode.startDate) throw clientError('Промокод ещё не активен')
@@ -42,10 +43,7 @@ export async function resolveManualOrderPromo(tx, { code, userId, subtotal, boun
       partnerId = promoCode.partnerId
     }
   }
-  if (partnerId) {
-    const partner = await tx.partner.findUnique({ where: { id: partnerId }, select: { isActive: true } })
-    if (!partner?.isActive) throw clientError('Партнёр не найден или неактивен')
-  }
+  if (partnerId && !await isActivePartner(tx, partnerId)) throw clientError('Партнёр не найден или неактивен')
 
   const subtotalCents = Math.max(0, Math.round(Number(subtotal) * 100))
   const discountCents = promoCode.discountType === 'percentage'

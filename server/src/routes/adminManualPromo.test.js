@@ -25,10 +25,12 @@ test('manual order promo discounts once and credits the partner, but never grant
   assert.equal(schemaResult.status, 0, schemaResult.stderr)
 
   const { default: adminRoutes } = await import('./admin.js')
+  const { default: orderRoutes } = await import('./orders.js')
   const db = new PrismaClient()
   const app = express()
   app.use(express.json())
   app.use('/api/admin', adminRoutes)
+  app.use('/api/orders', orderRoutes)
   app.use((error, _req, res, _next) => res.status(error.status || 500).json({ error: error.message }))
   const server = await new Promise(resolve => {
     const listening = app.listen(0, '127.0.0.1', () => resolve(listening))
@@ -48,7 +50,48 @@ test('manual order promo discounts once and credits the partner, but never grant
       headers: { 'Content-Type': 'application/json', ...(user ? { Authorization: `Bearer ${jwt.sign({ userId: user.id, purpose: 'session' }, process.env.JWT_SECRET)}` } : {}) },
       body: JSON.stringify(body)
     })
+    const siteRequest = (user, path, body) => fetch(`http://127.0.0.1:${server.address().port}/api/orders${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ userId: user.id, purpose: 'session' }, process.env.JWT_SECRET)}` },
+      body: JSON.stringify(body)
+    })
     const payload = { userId: buyer.id, customerName: 'Buyer', customerEmail: buyer.email, customerPhone: '+79990000001', items: [{ productId: product.id, quantity: 1, price: 1000 }], paymentStatus: 'PAID', promoCode: ' partner10 ' }
+
+    await db.partner.update({ where: { id: partner.id }, data: { isActive: false } })
+    const inactiveAdminPreview = await request(admin, '/promo/validate', { userId: buyer.id, subtotal: 1000, promoCode: 'PARTNER10' })
+    assert.equal(inactiveAdminPreview.status, 400)
+    assert.match((await inactiveAdminPreview.json()).error, /Партнёр промокода неактивен/)
+    const inactiveSitePreview = await siteRequest(buyer, '/promo/validate', { code: 'PARTNER10', amount: 1000 })
+    assert.equal(inactiveSitePreview.status, 400)
+    assert.match((await inactiveSitePreview.json()).error, /Партнёр промокода неактивен/)
+    const inactiveSiteOrder = await siteRequest(buyer, '', { ...payload, items: [{ productId: product.id, quantity: 1 }], promoCode: 'PARTNER10' })
+    assert.equal(inactiveSiteOrder.status, 400)
+    assert.match((await inactiveSiteOrder.json()).error, /Партнёр промокода неактивен/)
+    const inactiveAdminOrder = await request(admin, '', payload)
+    assert.equal(inactiveAdminOrder.status, 400)
+    assert.match((await inactiveAdminOrder.json()).error, /Партнёр промокода неактивен/)
+    assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 0)
+    assert.equal((await db.product.findUnique({ where: { id: product.id } })).stock, 10)
+    await db.partner.update({ where: { id: partner.id }, data: { isActive: true } })
+    assert.equal((await siteRequest(buyer, '/promo/validate', { code: 'PARTNER10', amount: 1000 })).status, 200)
+
+    const inactiveBoundUser = await db.user.create({ data: { email: 'inactive-bound@manual.test', password: 'unused', name: 'Inactive Bound', role: 'PARTNER' } })
+    const inactiveBoundPartner = await db.partner.create({ data: { userId: inactiveBoundUser.id, referralCode: 'INACTIVE-BOUND', isActive: false } })
+    const boundBuyer = await db.user.create({ data: { email: 'bound-buyer@manual.test', password: 'unused', name: 'Bound Buyer', role: 'USER' } })
+    await db.partnerUser.create({ data: { userId: boundBuyer.id, partnerId: inactiveBoundPartner.id, referralSource: 'test' } })
+    const boundAdminPreview = await request(admin, '/promo/validate', { userId: boundBuyer.id, subtotal: 1000, promoCode: 'PARTNER10' })
+    assert.equal(boundAdminPreview.status, 400)
+    assert.match((await boundAdminPreview.json()).error, /Партнёр не найден или неактивен/)
+    const boundSitePreview = await siteRequest(boundBuyer, '/promo/validate', { code: 'PARTNER10', amount: 1000 })
+    assert.equal(boundSitePreview.status, 400)
+    assert.match((await boundSitePreview.json()).error, /Партнёр, за которым закреплён клиент, неактивен/)
+    const boundSiteOrder = await siteRequest(boundBuyer, '', { ...payload, customerEmail: boundBuyer.email, items: [{ productId: product.id, quantity: 1 }], promoCode: 'PARTNER10' })
+    assert.equal(boundSiteOrder.status, 400)
+    assert.match((await boundSiteOrder.json()).error, /Партнёр, за которым закреплён клиент, неактивен/)
+    const historicalBuyer = await db.user.create({ data: { email: 'historical-buyer@manual.test', password: 'unused', name: 'Historical Buyer', role: 'USER' } })
+    await db.order.create({ data: { userId: historicalBuyer.id, partnerId: inactiveBoundPartner.id, total: 1000, customerName: historicalBuyer.name, customerEmail: historicalBuyer.email, customerPhone: '+79990000003' } })
+    assert.equal((await request(admin, '/promo/validate', { userId: historicalBuyer.id, subtotal: 1000, promoCode: 'PARTNER10' })).status, 400)
+    assert.equal((await siteRequest(historicalBuyer, '/promo/validate', { code: 'PARTNER10', amount: 1000 })).status, 400)
 
     assert.equal((await request(null, '', payload)).status, 401)
     assert.equal((await request(partnerUser, '', payload)).status, 403)
@@ -80,14 +123,14 @@ test('manual order promo discounts once and credits the partner, but never grant
 
     const repeated = await request(admin, '', { ...payload, userId: otherBuyer.id, customerEmail: otherBuyer.email })
     assert.equal(repeated.status, 400, await repeated.text())
-    assert.equal(await db.order.count(), 1)
+    assert.equal(await db.order.count(), 2)
     assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 1)
     assert.equal((await db.product.findUnique({ where: { id: product.id } })).stock, 9)
 
     const ownPromo = await db.promoCode.create({ data: { code: 'OWN10', discountType: 'percentage', discountValue: 10, partnerId: partner.id } })
     const ownResponse = await request(admin, '', { ...payload, userId: partnerUser.id, customerEmail: partnerUser.email, promoCode: ownPromo.code })
     assert.equal(ownResponse.status, 400, await ownResponse.text())
-    assert.equal(await db.order.count(), 1)
+    assert.equal(await db.order.count(), 2)
 
     const firstPurchasePromo = await db.promoCode.create({ data: { code: 'FIRST10', discountType: 'percentage', discountValue: 10, isFirstPurchase: true } })
     const firstPurchasePreview = await request(admin, '/promo/validate', { userId: buyer.id, subtotal: 1000, promoCode: firstPurchasePromo.code })

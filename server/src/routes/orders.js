@@ -11,7 +11,7 @@ import { decryptMarketingPayload } from '../utils/marketingToken.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { normalizePointAmount, spendUserPoints } from '../utils/userPoints.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
-import { isOwnPartnerPromoCode } from '../utils/promoEligibility.js'
+import { isActivePartner, isOwnPartnerPromoCode } from '../utils/promoEligibility.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -95,6 +95,23 @@ function logPromoCheck(reason, details = {}) {
   console.log('[PROMO] validate', JSON.stringify({ reason, ...details }))
 }
 
+async function findExistingPartnerIdForPromo(user) {
+  const binding = await prisma.partnerUser.findUnique({
+    where: { userId: user.id },
+    select: { partnerId: true }
+  })
+  if (binding) return binding.partnerId
+
+  const historicalOr = [{ customerEmail: user.email }]
+  if (user.phone) historicalOr.push({ customerPhone: user.phone })
+  const historicalOrder = await prisma.order.findFirst({
+    where: { partnerId: { not: null }, OR: historicalOr },
+    orderBy: { createdAt: 'desc' },
+    select: { partnerId: true }
+  })
+  return historicalOrder?.partnerId || null
+}
+
 async function applyPromoCode(code, userId) {
   const normalizedCode = normalizePromoCodeValue(code)
   const promoCode = await findPromoCodeByCode(code)
@@ -111,6 +128,11 @@ async function applyPromoCode(code, userId) {
   if (await isOwnPartnerPromoCode(prisma, promoCode, userId)) {
     logPromoCheck('own_partner_promo_rejected', { promoCodeId: promoCode.id, userId })
     return { error: 'Нельзя применить собственный партнёрский промокод' }
+  }
+
+  if (promoCode.partnerId && !await isActivePartner(prisma, promoCode.partnerId)) {
+    logPromoCheck('inactive_partner', { promoCodeId: promoCode.id, partnerId: promoCode.partnerId })
+    return { error: 'Партнёр промокода неактивен' }
   }
 
   if (promoCode.startDate && new Date() < promoCode.startDate) {
@@ -463,6 +485,12 @@ router.post('/promo/validate', authenticate, async (req, res, next) => {
     }
 
     const appliedPromoCode = promoResult.code || promoResult.promoCode
+    if (appliedPromoCode.partnerId) {
+      const existingPartnerId = await findExistingPartnerIdForPromo(req.user)
+      if (existingPartnerId && !await isActivePartner(prisma, existingPartnerId)) {
+        return res.status(400).json({ error: 'Партнёр, за которым закреплён клиент, неактивен' })
+      }
+    }
     const minOrderAmount = promoResult.minOrderAmount || appliedPromoCode?.minOrderAmount || 0
     if (minOrderAmount > 0 && amount < minOrderAmount) {
       logPromoCheck('min_order_amount_rejected', {
@@ -791,7 +819,17 @@ router.post('/', authenticate, async (req, res, next) => {
       partnerId = historicalPartnerId
     }
 
+    if (appliedPromoCode?.partnerId && partnerId && !await isActivePartner(prisma, partnerId)) {
+      return res.status(400).json({ error: 'Партнёр, за которым закреплён клиент, неактивен' })
+    }
+
     const order = await prisma.$transaction(async (tx) => {
+      if (appliedPromoCode?.partnerId && !await isActivePartner(tx, appliedPromoCode.partnerId)) {
+        throw createClientError('Партнёр промокода неактивен')
+      }
+      if (appliedPromoCode?.partnerId && partnerId && !await isActivePartner(tx, partnerId)) {
+        throw createClientError('Партнёр, за которым закреплён клиент, неактивен')
+      }
       for (const item of items) {
         await tx.product.update({
           where: { id: item.productId },
