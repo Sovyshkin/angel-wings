@@ -268,7 +268,12 @@ async function cdekRequest(endpoint, method = 'GET', body = null) {
   }
 
   log('info', `${method} ${CDEK_URL}${endpoint}`)
-  if (body) log('debug', 'Body:', body)
+  if (body) log('debug', 'Body:', endpoint === '/orders' ? {
+    number: body.number,
+    tariff_code: body.tariff_code,
+    delivery_point: body.delivery_point,
+    packages: body.packages?.length
+  } : body)
 
   try {
     const response = await fetch(`${CDEK_URL}${endpoint}`, options)
@@ -282,7 +287,11 @@ async function cdekRequest(endpoint, method = 'GET', body = null) {
       result = { raw: responseText }
     }
 
-    log('debug', 'Response:', result)
+    log('debug', 'Response:', endpoint.startsWith('/orders') ? {
+      uuid: result?.entity?.uuid || null,
+      number: result?.entity?.number || null,
+      requests: result?.requests?.map(request => ({ state: request.state, errors: request.errors }))
+    } : result)
 
     if (!response.ok) {
       throw { status: response.status, data: result }
@@ -628,7 +637,7 @@ export async function createOrder({
     orderPayload.sender = from_contact
   }
 
-  log('info', 'Creating CDEK order:', orderPayload)
+  log('info', 'Creating CDEK order:', { number: orderPayload.number, tariff_code: orderPayload.tariff_code, delivery_point: orderPayload.delivery_point })
   return cdekRequest('/orders', 'POST', orderPayload)
 }
 
@@ -640,11 +649,22 @@ export async function getOrder(uuid) {
 // Получить список заказов
 export async function getOrders({ order_number, date_from, date_to }) {
   const params = new URLSearchParams()
-  if (order_number) params.append('order_number', order_number)
+  if (order_number) params.append('im_number', order_number)
   if (date_from) params.append('date_from', date_from)
   if (date_to) params.append('date_to', date_to)
 
   return cdekRequest(`/orders?${params.toString()}`, 'GET')
+}
+
+// CDEK reports a missing shop order as HTTP 400, not 404.
+export async function findOrderByShopNumber(number) {
+  try {
+    return await cdekRequest(`/orders?im_number=${encodeURIComponent(number)}`, 'GET')
+  } catch (error) {
+    const errors = (error?.data?.requests || []).flatMap(request => request.errors || [])
+    if (error?.status === 400 && errors.some(item => item.code === 'v2_entity_not_found_im_number')) return null
+    throw error
+  }
 }
 
 // Удалить заказ
@@ -732,6 +752,7 @@ export default {
   createOrder,
   getOrder,
   getOrders,
+  findOrderByShopNumber,
   deleteOrder,
   cancelOrder,
   callCourier,

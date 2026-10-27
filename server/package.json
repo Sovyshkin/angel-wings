@@ -9,6 +9,7 @@
     "start": "node src/index.js",
     "worker:recovery": "node src/recovery-worker.js",
     "worker:telegram": "node src/telegram-worker.js",
+    "cdek:recover": "node scripts/recover-cdek-orders.mjs",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

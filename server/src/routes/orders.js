@@ -12,6 +12,7 @@ import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { normalizePointAmount, spendUserPoints } from '../utils/userPoints.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
 import { isActivePartner, isOwnPartnerPromoCode } from '../utils/promoEligibility.js'
+import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -1361,38 +1362,30 @@ router.get('/:id', authenticate, async (req, res, next) => {
   }
 })
 
-// Привязка CDEK UUID к заказу (для заказов пользователя/админа)
-router.put('/:id/cdek-link', authenticate, async (req, res, next) => {
+// Register the local order using trusted database values, never a client-supplied CDEK payload.
+router.post('/:id/cdek-register', authenticate, async (req, res, next) => {
   try {
-    const orderId = parseInt(req.params.id)
-    const { cdekOrderUuid } = req.body
-
-    if (!cdekOrderUuid || typeof cdekOrderUuid !== 'string') {
-      return res.status(400).json({ error: 'Необходимо указать cdekOrderUuid' })
-    }
-
+    const orderId = Number(req.params.id)
+    if (!Number.isSafeInteger(orderId) || orderId < 1) return res.status(400).json({ error: 'Некорректный номер заказа' })
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, userId: true, cdekOrderUuid: true }
+      select: { id: true, userId: true, origin: true }
     })
-
-    if (!order) {
-      return res.status(404).json({ error: 'Заказ не найден' })
-    }
-
-    if (order.userId && order.userId !== req.user.id && req.user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Доступ запрещён' })
-    }
-
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: { cdekOrderUuid: cdekOrderUuid.trim() }
-    })
-
-    res.json({ order: updatedOrder })
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' })
+    if (order.userId !== req.user.id && req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Доступ запрещён' })
+    if (order.origin !== 'CHECKOUT' && req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Доступ запрещён' })
+    const result = await ensureCdekOrderRegistered(prisma, orderId)
+    res.json(result)
   } catch (error) {
-    next(error)
+    console.error('[CDEK] Registration failed', JSON.stringify({ orderId: req.params.id, message: error?.message || 'Unknown CDEK error' }))
+    if (error?.status) return res.status(error.status).json({ error: error.message })
+    return res.status(502).json({ error: 'Не удалось зарегистрировать заказ в СДЭК. Повторите попытку позже.' })
   }
+})
+
+// Legacy endpoint must not let a customer attach an arbitrary UUID and bypass payment checks.
+router.put('/:id/cdek-link', authenticate, (_req, res) => {
+  res.status(410).json({ error: 'Используйте регистрацию заказа через сайт' })
 })
 
 router.put('/:id/status', authenticate, requireAdmin, async (req, res, next) => {

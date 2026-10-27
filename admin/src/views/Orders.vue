@@ -1520,11 +1520,17 @@ async function createCdekOrder() {
   
   creatingCdek.value = true
   try {
+    const isPickup = Boolean(selectedOrder.value.deliveryPickupPoint)
+    if (isPickup) {
+      const { data } = await axios.post(`${API_URL}/orders/${selectedOrder.value.id}/cdek-register`)
+      selectedOrder.value.cdekOrderUuid = data.uuid
+      alert(data.created ? 'Заказ успешно создан в СДЭК!' : 'Существующий заказ СДЭК найден и привязан!')
+      return
+    }
     const items = selectedOrder.value.items.map(item => ({
       weight: 500 * item.quantity // 500g per item
     }))
-    
-    const isPickup = Boolean(selectedOrder.value.deliveryPickupPoint)
+
     const { data } = await deliveryApi.post('/orders', {
       number: `order-${selectedOrder.value.id}`,
       tariff_code: selectedOrder.value.deliveryTariffCode || (isPickup ? 137 : 136),

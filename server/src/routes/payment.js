@@ -221,6 +221,9 @@ async function createPaymentForOrder(orderId, amount, description, miniApp = fal
     if (normalizePaymentStatus(order.paymentStatus) === 'PAID') {
       return { success: true, alreadyPaid: true, paymentStatus: 'PAID' }
     }
+    if (order.origin === 'CHECKOUT' && order.deliveryPickupPoint && !order.cdekOrderUuid) {
+      return { success: false, httpStatus: 409, error: 'Заказ ещё не зарегистрирован в СДЭК. Повторите оформление доставки перед оплатой.' }
+    }
     if (String(order.paymentStatus || '').toUpperCase() === 'CASH_ON_DELIVERY') {
       return { success: false, error: 'Этот заказ оплачивается при получении' }
     }

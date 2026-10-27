@@ -2627,6 +2627,10 @@ async function continuePendingOrderPayment() {
   showCheckoutSupportNotice.value = false
 
   try {
+    const { data: pendingOrderData } = await axios.get(`/api/orders/${pendingOrder.orderId}`)
+    if (pendingOrderData?.order?.deliveryPickupPoint && pendingOrderData?.order?.deliveryTariffCode && !pendingOrderData?.order?.cdekOrderUuid) {
+      await axios.post(`/api/orders/${pendingOrder.orderId}/cdek-register`)
+    }
     const { data } = await axios.post(`/api/payment/create-for-order/${pendingOrder.orderId}`, {
       description: `Оплата заказа #${pendingOrder.orderId}`
     })
@@ -3223,6 +3227,16 @@ async function placeOrder() {
       }
 
       if (createdOrderTotal > 0) {
+        if (ENABLE_CDEK && data?.order?.deliveryPickupPoint && data?.order?.deliveryTariffCode && !data?.order?.cdekOrderUuid) {
+          try {
+            await axios.post(`/api/orders/${lastOrderId.value}/cdek-register`)
+          } catch (error) {
+            orderError.value = error.response?.data?.error || 'Не удалось зарегистрировать заказ в СДЭК. Повторите попытку позже.'
+            showCheckoutSupport()
+            ordering.value = false
+            return
+          }
+        }
         persistPendingUnpaidOrder({
           orderId: lastOrderId.value,
           amount: createdOrderTotal,
@@ -3259,73 +3273,11 @@ async function placeOrder() {
     }
     
     if (ENABLE_CDEK && deliveryType.value === 'pvz') {
-      // Create CDEK order - critical error if fails
       try {
-        const safeWeight = Math.max(1, parseInt(cartStore.totalWeight) || 0)
-        const declaredGoodsTotal = Math.max(
-          0,
-          createdOrderTotal + actualPartnerBonusUsed + actualUserPointsUsed
-        )
-        const baseGoodsTotal = Math.max(0, Number(cartStore.total) || 0)
-        const targetCents = Math.round(declaredGoodsTotal * 100)
-        const units = cartStore.items.flatMap(item => {
-          const quantity = Math.max(1, parseInt(item.quantity, 10) || 1)
-          return Array.from({ length: quantity }, (_, unitIndex) => ({
-            name: `${item.title || 'Товар'}${item.selectedDosage ? ` (${item.selectedDosage})` : ''}`,
-            ware_key: `${item.sku || item.id}-${item.selectedDosage || 'base'}-${unitIndex + 1}`,
-            basePrice: Math.max(0, Number(item.price) || 0),
-            weight: Math.max(1, parseInt(item.weight, 10) || 1)
-          }))
-        })
-        let allocatedCents = 0
-        const cdekItems = units.map((item, index) => {
-          const isLast = index === units.length - 1
-          const itemCents = isLast
-            ? Math.max(0, targetCents - allocatedCents)
-            : Math.max(0, Math.floor(targetCents * (baseGoodsTotal > 0 ? item.basePrice / baseGoodsTotal : 0)))
-          allocatedCents += itemCents
-          return {
-            name: item.name,
-            ware_key: item.ware_key,
-            cost: itemCents / 100,
-            amount: 1,
-            weight: item.weight
-          }
-        })
-        const cdekPayload = {
-          number: `order-${lastOrderId.value}`,
-          tariff_code: deliveryData.tariff_code,
-          recipient_name: customer.value.name,
-          recipient_phone: orderPhone,
-          recipient_email: customer.value.email,
-          packages: [{
-            weight: safeWeight,
-            items: cdekItems
-          }],
-          delivery_recipient_cost: Number(data?.order?.deliveryPrice || deliveryPrice.value || 0)
-        }
-
-        cdekPayload.delivery_point = deliveryData.pickup_point
-        cdekPayload.to_location = {
-          code: foundCityCode.value,
-          city: foundCityName.value,
-          country: foundCityCountry.value,
-          country_code: foundCityCountryCode.value
-        }
-
-        const cdekResponse = await deliveryApi.post('/orders', {
-          ...cdekPayload
-        })
-
-        const cdekOrderUuid = cdekResponse?.data?.entity?.uuid || cdekResponse?.data?.uuid
-        if (cdekOrderUuid && lastOrderId.value) {
-          await axios.put(`/api/orders/${lastOrderId.value}/cdek-link`, {
-            cdekOrderUuid
-          })
-        }
+        await axios.post(`/api/orders/${lastOrderId.value}/cdek-register`)
       } catch (e) {
         console.error('CDEK order creation error:', e)
-        orderError.value = 'Ошибка создания заказа в системе доставки СДЭК. Пожалуйста, попробуйте позже или выберите другой способ доставки.'
+        orderError.value = e.response?.data?.error || 'Ошибка создания заказа в системе доставки СДЭК. Пожалуйста, попробуйте позже или выберите другой способ доставки.'
         showCheckoutSupport()
         ordering.value = false
         return
