@@ -18,7 +18,8 @@ export async function reconcilePaidCdekOrders(prisma, {
       cdekOrderUuid: null,
       deliveryPickupPoint: { not: null },
       deliveryTariffCode: { not: null },
-      status: { in: ['PENDING', 'PROCESSING'] },
+      // A manually changed order status must not strand a paid order without a CDEK shipment.
+      status: { in: ['PENDING', 'PROCESSING', 'SHIPPED'] },
       createdAt: { gte: new Date(now - RECENT_DAYS * 86_400_000) }
     },
     select: { id: true },
@@ -38,7 +39,8 @@ export async function reconcilePaidCdekOrders(prisma, {
       logger.error('[CDEK] Paid order registration failed', JSON.stringify({
         orderId: order.id,
         httpStatus: error?.status || null,
-        codes: errors.map(item => item.code).filter(Boolean)
+        codes: errors.map(item => item.code).filter(Boolean),
+        message: errors.map(item => item.message).filter(Boolean).join('; ') || error?.message || null
       }))
     }
   }

@@ -24,7 +24,7 @@ test('only recent paid checkout pickup orders are selected for recovery', async 
   assert.equal(where.origin, 'CHECKOUT')
   assert.equal(where.paymentStatus, 'PAID')
   assert.equal(where.cdekOrderUuid, null)
-  assert.deepEqual(where.status.in, ['PENDING', 'PROCESSING'])
+  assert.deepEqual(where.status.in, ['PENDING', 'PROCESSING', 'SHIPPED'])
   assert.deepEqual(registered, [629])
 })
 
