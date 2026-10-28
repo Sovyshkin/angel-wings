@@ -382,6 +382,7 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
   dosage    String?
   quantity  Int
+  dosageStockDeducted Int @default(0)
   price     Float
   adminAddedAt DateTime?
   adminAddedById Int?

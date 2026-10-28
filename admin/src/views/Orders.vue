@@ -169,10 +169,12 @@
                   <option value="RETURNED">Возврат</option>
                   <option value="CANCELLED">Отменён</option>
                 </select>
-                <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
-                  {{ getPaymentLabel(order.paymentStatus) }}
-                </span>
-                <PaymentMethodChip v-if="isOrderPaid(order.paymentStatus) && order.paymentType" :type="order.paymentType" class="order-payment-method" />
+                <div class="order-state-cell__payment">
+                  <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
+                    {{ getPaymentLabel(order.paymentStatus) }}
+                  </span>
+                  <PaymentMethodChip v-if="isOrderPaid(order.paymentStatus) && order.paymentType" :type="order.paymentType" />
+                </div>
                 <button
                   v-if="!isOrderPaid(order.paymentStatus)"
                   @click="markAsPaid(order)"
@@ -345,7 +347,12 @@
             <div class="manual-section-heading"><span>2</span><div><h4>Товары</h4><p>Цена за штуку подставляется из каталога, её можно изменить</p></div></div>
             <div v-for="(item, index) in manualDraft.items" :key="item.key" class="edit-item manual-item">
               <label>Товар<select v-model.number="item.productId" class="input" required @change="setManualProductPrice(item)"><option v-for="product in manualProducts" :key="product.id" :value="product.id">{{ product.title }}</option></select></label>
-              <label>Дозировка<input v-model.trim="item.dosage" class="input" placeholder="Если есть"></label>
+              <label>Дозировка
+                <select v-if="productDosages(manualProducts, item.productId).length" v-model="item.dosage" class="input" required @change="setManualDosagePrice(item)">
+                  <option v-for="variant in productDosages(manualProducts, item.productId)" :key="variant.dosage" :value="variant.dosage">{{ variant.dosage }} · {{ variant.quantity }} шт.</option>
+                </select>
+                <input v-else class="input" value="Без дозировки" disabled>
+              </label>
               <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" required></label>
               <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" required></label>
               <button type="button" class="edit-remove" :disabled="manualDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="manualDraft.items.splice(index, 1)">×</button>
@@ -453,6 +460,9 @@
         <div class="order-edit-actions">
           <button v-if="!editingOrder" type="button" class="btn btn-secondary" @click="startEditingOrder">Редактировать заказ</button>
           <template v-if="!editingOrder">
+            <button v-if="isCdekDelivery(selectedOrder) && !selectedOrder.cdekOrderUuid" type="button" class="btn btn-primary" :disabled="creatingCdek" @click="createCdekOrder">
+              {{ creatingCdek ? 'Создаём заказ СДЭК…' : 'Создать заказ СДЭК' }}
+            </button>
             <button type="button" class="btn btn-secondary" :disabled="downloadingWaybill" @click="downloadWaybill('pdf')">Накладная PDF</button>
             <button type="button" class="btn btn-secondary" :disabled="downloadingWaybill" @click="downloadWaybill('docx')">Накладная Word</button>
           </template>
@@ -487,7 +497,12 @@
                 <option v-for="product in editProducts" :key="product.id" :value="product.id">{{ product.title }}</option>
               </select>
             </label>
-            <label>Дозировка<input v-model.trim="item.dosage" class="input" maxlength="200"></label>
+            <label>Дозировка
+              <select v-if="productDosages(editProducts, item.productId).length" v-model="item.dosage" class="input" required @change="setDraftDosagePrice(item)">
+                <option v-for="variant in productDosages(editProducts, item.productId)" :key="variant.dosage" :value="variant.dosage">{{ variant.dosage }} · {{ variant.quantity }} шт.</option>
+              </select>
+              <input v-else class="input" value="Без дозировки" disabled>
+            </label>
             <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" required></label>
             <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" required></label>
             <button type="button" class="edit-remove" :disabled="orderDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="orderDraft.items.splice(index, 1)">×</button>
@@ -619,19 +634,8 @@
             </div>
 
             <div v-if="isCdekDelivery(selectedOrder)" class="cdek-actions">
-              <button 
-                v-if="!selectedOrder.cdekOrderUuid" 
-                @click="createCdekOrder" 
-                class="btn btn-primary"
-                :disabled="creatingCdek"
-              >
-                <span v-if="creatingCdek" class="spinner-sm"></span>
-                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                Создать заказ в СДЭК
-              </button>
-              <button v-else @click="syncCdekStatus" class="btn btn-secondary" :disabled="syncingCdek">
+              <p v-if="cdekRegisterError" class="cdek-register-error" role="alert">{{ cdekRegisterError }}</p>
+              <button v-if="selectedOrder.cdekOrderUuid" @click="syncCdekStatus" class="btn btn-secondary" :disabled="syncingCdek">
                 <span v-if="syncingCdek" class="spinner-sm"></span>
                 <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
@@ -781,6 +785,7 @@ const filterFavorites = ref(false)
 const search = ref('')
 const favoriteSavingId = ref(null)
 const selectedOrder = ref(null)
+const cdekRegisterError = ref('')
 const downloadingWaybill = ref(false)
 const exportLoading = ref(false)
 const showManualOrder = ref(false)
@@ -1099,12 +1104,28 @@ function clearManualUser() {
 function addManualItem() {
   const product = manualProducts.value[0]
   if (!product) return
-  manualDraft.value.items.push({ key: `manual-${Date.now()}-${Math.random()}`, productId: product.id, dosage: '', quantity: 1, price: Number(product.price) || 0 })
+  const variant = productDosages(manualProducts.value, product.id)[0]
+  manualDraft.value.items.push({ key: `manual-${Date.now()}-${Math.random()}`, productId: product.id, dosage: variant?.dosage || '', quantity: 1, price: Number(variant?.price ?? product.price) || 0 })
+}
+
+function productDosages(products, productId) {
+  const product = products.find(entry => entry.id === productId)
+  const dosages = Array.isArray(product?.specs?.dosages) ? product.specs.dosages : []
+  return dosages.filter(entry => String(entry?.dosage || '').trim())
 }
 
 function setManualProductPrice(item) {
   const product = manualProducts.value.find(product => product.id === item.productId)
-  if (product) item.price = Number(product.price) || 0
+  if (!product) return
+  const variant = productDosages(manualProducts.value, item.productId)[0]
+  item.dosage = variant?.dosage || ''
+  item.price = Number(variant?.price ?? product.price) || 0
+}
+
+function setManualDosagePrice(item) {
+  const variant = productDosages(manualProducts.value, item.productId).find(entry => entry.dosage === item.dosage)
+  const product = manualProducts.value.find(entry => entry.id === item.productId)
+  if (product) item.price = Number(variant?.price ?? product.price) || 0
 }
 
 async function validateManualPromo() {
@@ -1333,6 +1354,7 @@ function viewOrder(order) {
   editingOrder.value = false
   cdekStatus.value = null
   cdekMessages.value = []
+  cdekRegisterError.value = ''
 
   if (order.cdekOrderUuid) void syncCdekStatus()
 }
@@ -1421,12 +1443,23 @@ async function startEditingOrder() {
 
 function addOrderItem() {
   if (!editProducts.value.length) return
-  orderDraft.value.items.push({ key: `new-${Date.now()}-${Math.random()}`, id: null, productId: editProducts.value[0].id, dosage: '', quantity: 1, price: editProducts.value[0].price ?? 0 })
+  const product = editProducts.value[0]
+  const variant = productDosages(editProducts.value, product.id)[0]
+  orderDraft.value.items.push({ key: `new-${Date.now()}-${Math.random()}`, id: null, productId: product.id, dosage: variant?.dosage || '', quantity: 1, price: variant?.price ?? product.price ?? 0 })
 }
 
 function setDraftProductPrice(item) {
   const product = editProducts.value.find(product => product.id === item.productId)
-  if (product?.price != null) item.price = Number(product.price)
+  if (!product) return
+  const variant = productDosages(editProducts.value, item.productId)[0]
+  item.dosage = variant?.dosage || ''
+  item.price = Number(variant?.price ?? product.price) || 0
+}
+
+function setDraftDosagePrice(item) {
+  const variant = productDosages(editProducts.value, item.productId).find(entry => entry.dosage === item.dosage)
+  const product = editProducts.value.find(entry => entry.id === item.productId)
+  if (product) item.price = Number(variant?.price ?? product.price) || 0
 }
 
 function orderItemsChanged() {
@@ -1522,14 +1555,17 @@ async function createCdekOrder() {
     return
   }
   
+  cdekRegisterError.value = ''
   creatingCdek.value = true
   try {
-    const { data } = await axios.post(`/api/orders/${selectedOrder.value.id}/cdek-register`)
+    const { data } = await axios.post(`${API_URL}/orders/${selectedOrder.value.id}/cdek-register`)
     selectedOrder.value.cdekOrderUuid = data.uuid
+    const listedOrder = orders.value.find(order => order.id === selectedOrder.value?.id)
+    if (listedOrder) listedOrder.cdekOrderUuid = data.uuid
     alert(data.created ? 'Заказ успешно создан в СДЭК!' : 'Существующий заказ СДЭК найден и привязан!')
   } catch (e) {
     console.error('CDEK order error:', e)
-    alert('Ошибка создания заказа в СДЭК: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
+    cdekRegisterError.value = e.response?.data?.error || e.response?.data?.message || e.message || 'Неизвестная ошибка СДЭК'
   } finally {
     creatingCdek.value = false
   }
@@ -1970,8 +2006,11 @@ watch(manualCityQuery, query => {
   padding: .3rem .65rem;
 }
 
-.order-payment-method {
-  margin-top: .45rem;
+.order-state-cell__payment {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .45rem .55rem;
 }
 
 .order-state-cell .pay-now-btn {
@@ -2959,7 +2998,15 @@ watch(manualCityQuery, query => {
 
 .cdek-actions {
   display: flex;
+  flex-direction: column;
   gap: 0.75rem;
+}
+
+.cdek-register-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: .85rem;
+  line-height: 1.45;
 }
 
 .cdek-actions .btn {

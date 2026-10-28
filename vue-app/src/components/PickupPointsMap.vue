@@ -15,6 +15,7 @@
       </button>
       <button type="button" class="pickup-map-actions__nearest" :disabled="geoBusy" @click.stop="emit('nearest')">{{ geoBusy ? 'Определяем…' : 'Ближайший ко мне' }}</button>
     </div>
+    <p v-if="geoError" class="pickup-map-geo-error" role="alert">{{ geoError }}</p>
     <div v-if="!mappablePoints.length" class="pickup-map-message">У этих пунктов нет координат. Выберите ПВЗ в списке рядом.</div>
     <div v-else-if="mapState !== 'ready'" class="pickup-map-message" role="status">
       {{ mapState === 'loading' ? 'Загружаем карту ПВЗ…' : mapState === 'missing-key' ? 'Карта не настроена на сайте. Выберите ПВЗ в списке рядом.' : 'Не удалось загрузить карту. Выберите ПВЗ в списке рядом.' }}
@@ -36,7 +37,8 @@ const props = defineProps({
   userLocation: { type: Object, default: null },
   focusLocation: { type: Number, default: 0 },
   focusUserLocation: { type: Number, default: 0 },
-  geoBusy: { type: Boolean, default: false }
+  geoBusy: { type: Boolean, default: false },
+  geoError: { type: String, default: '' }
 })
 const emit = defineEmits(['preview', 'locate', 'nearest'])
 const mapElement = ref(null)
@@ -195,6 +197,7 @@ onUnmounted(() => {
 .pickup-map-actions button:disabled { opacity: .6; cursor: wait; }
 .pickup-map-actions__locate { display: grid; place-items: center; flex: 0 0 40px; width: 40px; padding: 0; }
 .pickup-map-actions .pickup-map-actions__nearest { padding: 0 10px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+.pickup-map-geo-error { position: absolute; z-index: 3; top: 64px; left: 14px; max-width: min(380px, calc(100% - 28px)); margin: 0; padding: 10px 12px; border: 1px solid rgba(246, 119, 119, .55); border-radius: 10px; background: rgba(24, 26, 35, .94); color: #fff; font-size: .8rem; line-height: 1.4; box-shadow: 0 8px 24px rgba(0, 0, 0, .2); }
 .pickup-map-message { position: absolute; z-index: 1; inset: 0; display: grid; place-items: center; padding: 2rem; text-align: center; color: var(--text-muted); background: var(--bg-secondary); }
 @media (max-width: 640px) { .pickup-map-shell { min-height: 340px; } .pickup-map { height: 340px; } .pickup-map-actions { top: 10px; left: 10px; } .pickup-map-actions__nearest { padding: 0 8px; } }
 </style>

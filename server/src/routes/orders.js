@@ -13,6 +13,7 @@ import { normalizePointAmount, spendUserPoints } from '../utils/userPoints.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
 import { isActivePartner, isOwnPartnerPromoCode } from '../utils/promoEligibility.js'
 import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
+import { applyOrderStockChanges, assertOrderStockAvailable } from '../utils/orderStock.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -380,9 +381,7 @@ async function buildOrderAdditionQuote(orderId, user, rawItems) {
     if (!product) {
       throw createClientError(`Товар ${item.productId} не найден или скрыт`)
     }
-    if (product.stock < item.quantity) {
-      throw createClientError(`Недостаточно товара "${product.title}"`)
-    }
+    assertOrderStockAvailable(product, item.selectedDosage, item.quantity)
 
     const dosagePrice = getDosagePriceFromSpecs(product, item.selectedDosage)
     const price = dosagePrice !== null ? dosagePrice : Math.max(0, Number(product.price) || 0)
@@ -683,9 +682,7 @@ router.post('/', authenticate, async (req, res, next) => {
       if (!product) {
         return res.status(400).json({ error: `Товар ${item.productId} не найден` })
       }
-      if (product.stock < item.quantity) {
-        return res.status(400).json({ error: `Недостаточно товара "${product.title}"` })
-      }
+      assertOrderStockAvailable(product, item.selectedDosage, item.quantity)
 
       const dosagePrice = getDosagePriceFromSpecs(product, item.selectedDosage)
       const price = dosagePrice !== null ? dosagePrice : parseFloat(product.price)
@@ -693,6 +690,7 @@ router.post('/', authenticate, async (req, res, next) => {
       orderItems.push({
         productId: item.productId,
         dosage: item.selectedDosage || null,
+        dosageStockDeducted: item.selectedDosage ? item.quantity : 0,
         quantity: item.quantity,
         price
       })
@@ -831,12 +829,9 @@ router.post('/', authenticate, async (req, res, next) => {
       if (appliedPromoCode?.partnerId && partnerId && !await isActivePartner(tx, partnerId)) {
         throw createClientError('Партнёр, за которым закреплён клиент, неактивен')
       }
-      for (const item of items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } }
-        })
-      }
+      await applyOrderStockChanges(tx, orderItems.map(item => ({
+        productId: item.productId, dosage: item.dosage, quantity: -item.quantity
+      })))
 
       if (appliedPromoCode) {
         await tx.promoCode.update({
@@ -1244,12 +1239,10 @@ router.post('/:id/add-items', authenticate, async (req, res, next) => {
     const quote = await buildOrderAdditionQuote(orderId, req.user, req.body?.items)
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
+      await applyOrderStockChanges(tx, quote.items.map(item => ({
+        productId: item.productId, dosage: item.selectedDosage, quantity: -item.quantity
+      })))
       for (const item of quote.items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } }
-        })
-
         const existingItem = quote.order.items.find(orderItem =>
           orderItem.productId === item.productId &&
           String(orderItem.dosage || '') === String(item.selectedDosage || '')
@@ -1260,6 +1253,7 @@ router.post('/:id/add-items', authenticate, async (req, res, next) => {
             where: { id: existingItem.id },
             data: {
               quantity: { increment: item.quantity },
+              dosageStockDeducted: { increment: item.selectedDosage ? item.quantity : 0 },
               price: item.price
             }
           })
@@ -1269,6 +1263,7 @@ router.post('/:id/add-items', authenticate, async (req, res, next) => {
               orderId: quote.order.id,
               productId: item.productId,
               dosage: item.selectedDosage || null,
+              dosageStockDeducted: item.selectedDosage ? item.quantity : 0,
               quantity: item.quantity,
               price: item.price
             }

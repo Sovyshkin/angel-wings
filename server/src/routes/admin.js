@@ -15,9 +15,11 @@ import { deleteProductForAdmin } from '../utils/productDeletion.js'
 import { refundUserPointsForOrder } from '../utils/userPoints.js'
 import emailService from '../services/email.js'
 import { queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
+import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
 import { buildOrderWaybill, createOrderWaybillDocx, createOrderWaybillPdf } from '../utils/orderWaybill.js'
 import { applyStockAdjustments, parseStockAdjustmentRequest } from '../utils/stockAdjustments.js'
+import { applyOrderStockChanges } from '../utils/orderStock.js'
 import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiringSettings.js'
 import { calculateOrderEditAmounts, getBilledOrderTotal } from '../utils/orderEditAmounts.js'
 import { resolveManualOrderPromo, claimManualOrderPromo } from '../utils/manualOrderPromo.js'
@@ -1126,12 +1128,9 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
       const effectivePartnerId = promo.partnerId
       const total = Math.round((subtotal + siteDelivery - promo.discountAmount) * 100) / 100
       if (paymentStatus === 'PAID' && total <= 0) throw Object.assign(new Error('Для оплаченного заказа сумма должна быть больше нуля'), { status: 400 })
-      const counts = new Map()
-      for (const item of normalizedItems) counts.set(item.productId, (counts.get(item.productId) || 0) + item.quantity)
-      for (const [productId, quantity] of counts) {
-        const result = await tx.product.updateMany({ where: { id: productId, stock: { gte: quantity } }, data: { stock: { decrement: quantity } } })
-        if (!result.count) throw Object.assign(new Error(`Недостаточно товара #${productId} на складе`), { status: 409 })
-      }
+      await applyOrderStockChanges(tx, normalizedItems.map(item => ({
+        productId: item.productId, dosage: item.dosage, quantity: -item.quantity
+      })))
       if (effectivePartnerId && !user?.partnerUser && !historical) {
         await tx.partnerUser.create({ data: { userId, partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null, referralSource: promo.promoCode?.partnerId ? 'promo_code' : 'admin' } })
       }
@@ -1148,7 +1147,7 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
           deliveryCity: String(req.body.deliveryCity || '').trim() || null,
           deliveryPickupPoint,
           deliveryPickupName: String(req.body.deliveryPickupName || '').trim() || null,
-          items: { create: normalizedItems }
+          items: { create: normalizedItems.map(item => ({ ...item, dosageStockDeducted: item.dosage ? item.quantity : 0 })) }
         }
       })
       if (paymentStatus === 'PAID') {
@@ -1166,6 +1165,26 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
     res.status(201).json({ order })
   } catch (error) {
     next(error)
+  }
+})
+
+router.post('/orders/:id/cdek-register', authenticate, requireAdmin, async (req, res, next) => {
+  const id = Number(req.params.id)
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректный номер заказа' })
+  try {
+    res.json(await ensureCdekOrderRegistered(prisma, id))
+  } catch (error) {
+    const cdekErrors = (error?.data?.requests || []).flatMap(request => request.errors || [])
+    const details = cdekErrors.map(item => item.message || item.code).filter(Boolean)
+    console.error('[CDEK] Admin registration failed', JSON.stringify({
+      orderId: id,
+      httpStatus: error?.status || null,
+      codes: cdekErrors.map(item => item.code).filter(Boolean),
+      message: error?.message || null
+    }))
+    res.status(error?.data ? 502 : (error?.status || 502)).json({
+      error: details.join('; ') || error?.message || 'СДЭК не принял заказ. Проверьте ответ сервиса в журнале сервера.'
+    })
   }
 })
 
@@ -1585,19 +1604,23 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
         const productIds = [...new Set(nextItems.map(item => item.productId))]
         const products = await tx.product.findMany({ where: { id: { in: productIds } }, select: { id: true } })
         if (products.length !== productIds.length) throw Object.assign(new Error('Один из товаров не найден'), { status: 400 })
-        const oldCounts = new Map()
-        const newCounts = new Map()
-        for (const item of previous.items) oldCounts.set(item.productId, (oldCounts.get(item.productId) || 0) + item.quantity)
-        for (const item of nextItems) newCounts.set(item.productId, (newCounts.get(item.productId) || 0) + item.quantity)
-        for (const productId of new Set([...oldCounts.keys(), ...newCounts.keys()])) {
-          const delta = (newCounts.get(productId) || 0) - (oldCounts.get(productId) || 0)
-          if (delta > 0) {
-            const updated = await tx.product.updateMany({ where: { id: productId, stock: { gte: delta } }, data: { stock: { decrement: delta } } })
-            if (!updated.count) throw Object.assign(new Error(`Недостаточно товара #${productId} на складе`), { status: 409 })
-          } else if (delta < 0) {
-            await tx.product.update({ where: { id: productId }, data: { stock: { increment: -delta } } })
+        for (const item of nextItems) {
+          const old = item.id === null ? null : previousById.get(item.id)
+          if (old && old.productId === item.productId && old.dosage === item.dosage) {
+            const previouslyDeducted = Math.min(old.quantity, Math.max(0, Number(old.dosageStockDeducted) || 0))
+            item.dosageStockDeducted = item.dosage
+              ? item.quantity >= old.quantity
+                ? previouslyDeducted + item.quantity - old.quantity
+                : Math.max(0, previouslyDeducted - (old.quantity - item.quantity))
+              : 0
+          } else {
+            item.dosageStockDeducted = item.dosage ? item.quantity : 0
           }
         }
+        await applyOrderStockChanges(tx, [
+          ...previous.items.map(item => ({ productId: item.productId, dosage: item.dosage, quantity: item.quantity, variantQuantity: item.dosageStockDeducted || 0 })),
+          ...nextItems.map(item => ({ productId: item.productId, dosage: item.dosage, quantity: -item.quantity, variantQuantity: -item.dosageStockDeducted }))
+        ])
         await tx.orderItem.deleteMany({ where: { orderId } })
         await tx.orderItem.createMany({ data: nextItems.map(({ id, ...item }) => {
           const oldItem = id === null ? null : previousById.get(id)
@@ -1782,8 +1805,15 @@ router.post('/products/stock-adjustments', authenticate, requireAdmin, async (re
     res.json({ changes })
   } catch (error) {
     if (error.status === 409 && error.productId) {
-      const current = await prisma.product.findUnique({ where: { id: error.productId }, select: { stock: true } })
-      return res.status(409).json({ error: error.message, productId: error.productId, currentStock: current?.stock ?? null })
+      const current = await prisma.product.findUnique({ where: { id: error.productId }, select: { stock: true, specs: true } })
+      let currentStock = current?.stock ?? null
+      if (error.dosage && current) {
+        try {
+          const variant = JSON.parse(current.specs || '{}').dosages?.find(item => String(item?.dosage || '').trim() === error.dosage)
+          currentStock = Number.isInteger(variant?.quantity) ? variant.quantity : null
+        } catch { currentStock = null }
+      }
+      return res.status(409).json({ error: error.message, productId: error.productId, dosage: error.dosage || null, currentStock })
     }
     next(error)
   }

@@ -163,7 +163,7 @@
             <button type="button" :class="{ active: stockMode === 'increase' }" :aria-pressed="stockMode === 'increase'" :disabled="stockSaving" @click="stockMode = 'increase'">+ Поступление</button>
             <button type="button" :class="{ active: stockMode === 'set' }" :aria-pressed="stockMode === 'set'" :disabled="stockSaving" @click="stockMode = 'set'">Установить остаток</button>
           </div>
-          <p class="stock-mode-hint">{{ stockMode === 'increase' ? 'Количество прибавится к текущему остатку каждого товара.' : 'Указанное число станет новым общим остатком товара. Можно указать 0.' }}</p>
+          <p class="stock-mode-hint">{{ stockMode === 'increase' ? 'Количество прибавится к выбранным товарам или дозировкам.' : 'Указанное число станет новым остатком каждой выбранной позиции. Можно указать 0.' }}</p>
 
           <div class="stock-dialog__grid" :class="{ 'is-saving': stockSaving }">
             <div class="stock-picker">
@@ -175,11 +175,13 @@
                 <div v-else-if="stockResultsError" class="stock-list-state stock-list-state--error">{{ stockResultsError }}</div>
                 <div v-else-if="!stockResults.length" class="stock-list-state">Товары не найдены</div>
                 <template v-else>
-                  <label v-for="product in stockResults" :key="product.id" class="stock-product" :class="{ selected: selectedStockIds.has(product.id) }">
-                    <input type="checkbox" :checked="selectedStockIds.has(product.id)" @change="toggleStockProduct(product)">
-                    <span class="stock-product__name">{{ product.title }}<small>#{{ product.id }}{{ product.sku ? ` · ${product.sku}` : '' }}</small></span>
-                    <span class="stock-product__count">{{ product.stock }} шт.</span>
-                  </label>
+                  <template v-for="product in stockResults" :key="product.id">
+                    <label v-for="option in stockOptions(product)" :key="stockKey(option)" class="stock-product" :class="{ selected: selectedStockIds.has(stockKey(option)) }">
+                      <input type="checkbox" :checked="selectedStockIds.has(stockKey(option))" @change="toggleStockProduct(option)">
+                      <span class="stock-product__name">{{ option.title }}<small>#{{ option.id }}{{ option.sku ? ` · ${option.sku}` : '' }}{{ option.dosage ? ` · ${option.dosage}` : '' }}</small></span>
+                      <span class="stock-product__count">{{ option.stock }} шт.</span>
+                    </label>
+                  </template>
                 </template>
               </div>
               <button v-if="stockResults.length && !stockResultsLoading" type="button" class="stock-select-visible" @click="selectVisibleStockProducts">Выбрать показанные товары</button>
@@ -187,7 +189,7 @@
             </div>
 
             <div class="stock-selected">
-              <div class="stock-section-heading"><strong>К изменению</strong><span>{{ selectedStockProducts.length }} выбрано</span></div>
+              <div class="stock-section-heading"><strong>К изменению</strong><span>{{ selectedStockProducts.length }} позиций</span></div>
               <div class="stock-common">
                 <label for="stock-common-quantity">Одно количество для всех</label>
                 <div class="stock-common__controls">
@@ -198,14 +200,14 @@
               </div>
               <div class="stock-selected-list">
                 <div v-if="!selectedStockProducts.length" class="stock-list-state">Выберите товары слева — они появятся здесь.</div>
-                <div v-for="item in selectedStockProducts" :key="item.id" class="stock-selected-item">
+                <div v-for="(item, index) in selectedStockProducts" :key="stockKey(item)" class="stock-selected-item">
                   <div class="stock-selected-item__top">
-                    <span>{{ item.title }}<small>#{{ item.id }} · сейчас {{ item.stock }} шт.</small></span>
-                    <button type="button" class="stock-remove" :aria-label="`Убрать ${item.title}`" @click="removeStockProduct(item.id)">×</button>
+                    <span>{{ item.title }}<small>#{{ item.id }}{{ item.dosage ? ` · ${item.dosage}` : '' }} · сейчас {{ item.stock }} шт.</small></span>
+                    <button type="button" class="stock-remove" :aria-label="`Убрать ${item.title}${item.dosage ? ` · ${item.dosage}` : ''}`" @click="removeStockProduct(item)">×</button>
                   </div>
                   <div class="stock-selected-item__bottom">
-                    <label :for="`stock-qty-${item.id}`">{{ stockMode === 'increase' ? 'Пришло' : 'Новый остаток' }}</label>
-                    <input :id="`stock-qty-${item.id}`" v-model="item.quantity" type="number" inputmode="numeric" :min="stockMode === 'increase' ? 1 : 0" step="1" placeholder="шт.">
+                    <label :for="`stock-qty-${index}`">{{ stockMode === 'increase' ? 'Пришло' : 'Новый остаток' }}</label>
+                    <input :id="`stock-qty-${index}`" v-model="item.quantity" type="number" inputmode="numeric" :min="stockMode === 'increase' ? 1 : 0" step="1" placeholder="шт.">
                     <span class="stock-preview">→ {{ previewStock(item) }} шт.</span>
                   </div>
                 </div>
@@ -213,10 +215,10 @@
             </div>
           </div>
 
-          <p class="stock-scope-note">Меняется общий остаток товара. Количество в карточках дозировок этим действием не меняется.</p>
+          <p class="stock-scope-note">Для товара с дозировками каждая дозировка меняется отдельно. Общий остаток обновляется на ту же величину.</p>
           <div v-if="stockError" class="stock-save-error" role="alert">{{ stockError }}</div>
           <div class="stock-dialog__footer">
-            <span>{{ selectedStockProducts.length ? `Будет изменено товаров: ${selectedStockProducts.length}` : 'Выберите хотя бы один товар' }}</span>
+            <span>{{ selectedStockProducts.length ? `Будет изменено позиций: ${selectedStockProducts.length}` : 'Выберите хотя бы одну позицию' }}</span>
             <div>
               <button type="button" class="btn btn-secondary" :disabled="stockSaving" @click="closeStockDialog">Отмена</button>
               <button type="button" class="btn btn-primary" :disabled="stockSaving || !selectedStockProducts.length" @click="saveStockAdjustments">{{ stockSaving ? 'Сохраняем…' : 'Сохранить остатки' }}</button>
@@ -254,12 +256,28 @@ const stockResultsLoading = ref(false)
 const stockResultsError = ref('')
 const stockCommonQuantity = ref('')
 const selectedStockProducts = ref([])
-const selectedStockIds = computed(() => new Set(selectedStockProducts.value.map(item => item.id)))
+const selectedStockIds = computed(() => new Set(selectedStockProducts.value.map(stockKey)))
 const stockSaving = ref(false)
 const stockError = ref('')
 const stockNotice = ref('')
 let stockSearchTimer = null
 let stockRequestId = 0
+
+function stockKey(item) {
+  return `${item.id}:${item.dosage || ''}`
+}
+
+function stockOptions(product) {
+  const dosages = Array.isArray(product.specs?.dosages) ? product.specs.dosages : []
+  if (!dosages.length) return [{ id: product.id, title: product.title, sku: product.sku, stock: product.stock, dosage: null }]
+  return dosages.filter(item => String(item?.dosage || '').trim()).map(item => ({
+    id: product.id,
+    title: product.title,
+    sku: product.sku,
+    dosage: String(item.dosage).trim(),
+    stock: Number(item.quantity) || 0
+  }))
+}
 
 function isValidStockQuantity(value) {
   if (value === '' || value === null || value === undefined) return false
@@ -308,23 +326,25 @@ function closeStockDialog() {
 }
 
 function toggleStockProduct(product) {
-  if (selectedStockIds.value.has(product.id)) {
-    removeStockProduct(product.id)
+  if (selectedStockIds.value.has(stockKey(product))) {
+    removeStockProduct(product)
   } else if (selectedStockProducts.value.length < 100) {
-    selectedStockProducts.value.push({ id: product.id, title: product.title, stock: product.stock, quantity: isValidStockQuantity(stockCommonQuantity.value) ? String(stockCommonQuantity.value) : '' })
+    selectedStockProducts.value.push({ ...product, quantity: isValidStockQuantity(stockCommonQuantity.value) ? String(stockCommonQuantity.value) : '' })
   } else {
-    stockError.value = 'За один раз можно изменить не более 100 товаров.'
+    stockError.value = 'За один раз можно изменить не более 100 позиций.'
   }
 }
 
-function removeStockProduct(id) {
-  selectedStockProducts.value = selectedStockProducts.value.filter(item => item.id !== id)
+function removeStockProduct(option) {
+  selectedStockProducts.value = selectedStockProducts.value.filter(item => stockKey(item) !== stockKey(option))
 }
 
 function selectVisibleStockProducts() {
   for (const product of stockResults.value) {
-    if (selectedStockProducts.value.length >= 100) break
-    if (!selectedStockIds.value.has(product.id)) toggleStockProduct(product)
+    for (const option of stockOptions(product)) {
+      if (selectedStockProducts.value.length >= 100) return
+      if (!selectedStockIds.value.has(stockKey(option))) toggleStockProduct(option)
+    }
   }
 }
 
@@ -348,21 +368,25 @@ async function saveStockAdjustments() {
   try {
     const entries = selectedStockProducts.value.map(item => ({
       productId: item.id,
+      ...(item.dosage ? { dosage: item.dosage } : {}),
       quantity: Number(item.quantity),
       ...(stockMode.value === 'set' ? { expectedStock: item.stock } : {})
     }))
     const { data } = await axios.post(`${API_URL}/stock-adjustments`, { mode: stockMode.value, entries })
-    stockNotice.value = `Остатки обновлены: ${data.changes.length} товаров.`
+    stockNotice.value = `Остатки обновлены: ${data.changes.length} позиций.`
     stockSaving.value = false
     closeStockDialog()
     await fetchProducts()
   } catch (e) {
     const conflict = e.response?.data
     if (e.response?.status === 409 && Number.isInteger(conflict?.currentStock)) {
-      const selected = selectedStockProducts.value.find(item => item.id === conflict.productId)
+      const selected = selectedStockProducts.value.find(item => item.id === conflict.productId && (item.dosage || null) === (conflict.dosage || null))
       if (selected) selected.stock = conflict.currentStock
       const result = stockResults.value.find(item => item.id === conflict.productId)
-      if (result) result.stock = conflict.currentStock
+      if (result && conflict.dosage) {
+        const variant = result.specs?.dosages?.find(item => String(item.dosage || '').trim() === conflict.dosage)
+        if (variant) variant.quantity = conflict.currentStock
+      } else if (result) result.stock = conflict.currentStock
     }
     stockError.value = e.response?.data?.error || 'Не удалось обновить остатки. Попробуйте ещё раз.'
   } finally {

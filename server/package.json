@@ -19,6 +19,7 @@
     "db:payment-type": "node scripts/apply-payment-type-schema.mjs",
     "db:acquiring-settings": "node scripts/apply-acquiring-settings-schema.mjs",
     "db:order-edit": "node scripts/apply-order-edit-schema.mjs",
+    "db:dosage-stock": "node scripts/apply-dosage-stock-schema.mjs",
     "db:manual-order-origin": "node scripts/apply-manual-order-origin-schema.mjs",
     "db:recommendations": "node scripts/apply-product-recommendations-schema.mjs",
     "db:favorite-pickups": "node scripts/apply-favorite-pickup-points-schema.mjs",

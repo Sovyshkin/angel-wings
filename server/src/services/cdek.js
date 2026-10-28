@@ -497,7 +497,16 @@ export async function getPickupPoints({ city_code, postcode, limit = 50, offset 
 
 // Получить информацию о конкретном ПВЗ
 export async function getPickupPoint(code) {
-  return cdekRequest(`/deliverypoints/${code}`, 'GET')
+  const pickupCode = String(code || '').trim()
+  if (!pickupCode) throw new Error('Не указан код ПВЗ')
+
+  // API СДЭК ищет пункт по параметру code и возвращает массив, даже для одного ПВЗ.
+  const points = await cdekRequest(`/deliverypoints?code=${encodeURIComponent(pickupCode)}`, 'GET')
+  const point = Array.isArray(points) ? points.find(item => item?.code === pickupCode) : null
+  if (!point) {
+    throw Object.assign(new Error('ПВЗ не найден в СДЭК'), { status: 404 })
+  }
+  return point
 }
 
 // ==================== ЛОКАЦИИ ====================

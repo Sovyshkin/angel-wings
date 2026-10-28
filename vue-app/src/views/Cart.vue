@@ -744,7 +744,7 @@
                   </button>
                   <button type="button" class="pickup-explorer__favorite-filter" :class="{ 'is-active': showOnlyFavoritePickups }" :aria-pressed="showOnlyFavoritePickups" :disabled="!favoritePickups.length" @click="showOnlyFavoritePickups = !showOnlyFavoritePickups">★ Только избранные</button>
                 </div>
-                <p v-if="pickupGeoError" class="pickup-explorer__notice" role="status">{{ pickupGeoError }}</p>
+                <p v-if="pickupGeoError && !pickupMapOpen" class="pickup-explorer__notice" role="alert">{{ pickupGeoError }}</p>
                 <p v-if="pickupResultsTruncated" class="pickup-explorer__notice">СДЭК показал не все пункты города. Уточните адрес поиском или попробуйте позже.</p>
                 <div class="pickup-explorer__map-action">
                   <button
@@ -772,6 +772,7 @@
                       :focus-location="pickupMapFocusCounter"
                       :focus-user-location="pickupUserFocusCounter"
                       :geo-busy="pickupGeoBusy"
+                      :geo-error="pickupGeoError"
                       @preview="previewPickupPoint"
                       @locate="focusMyLocation"
                       @nearest="findNearestPickup"
@@ -791,6 +792,7 @@
                   </div>
                   <div class="pickup-explorer__list-column">
                     <div class="pickup-explorer__count">{{ filteredPickupPoints.length }} ПВЗ · нажмите на пункт или метку</div>
+                    <p v-if="favoriteError" class="field-error" role="alert">{{ favoriteError }}</p>
                     <div class="pickup-list">
                       <div v-for="point in filteredPickupPoints" :key="point.code" class="pickup-explorer__list-entry">
                         <button
@@ -1227,6 +1229,7 @@ import PickupPointsMap from '../components/PickupPointsMap.vue'
 import { mergeRecent, normalizeRecentCity, normalizeRecentPickup, readRecentDelivery, writeRecentDelivery } from '../utils/recentDelivery'
 import { MAX_FAVORITE_PICKUPS, normalizeFavoritePickup, readFavoritePickups, writeFavoritePickups } from '../utils/favoritePickups'
 import { distanceKm, pickupCoordinates, pickupMatchesHours } from '../utils/pickupMap'
+import { requestBrowserLocation } from '../utils/browserGeolocation'
 import axios from 'axios'
 import deliveryApi from '../api/delivery'
 import {
@@ -2057,10 +2060,10 @@ function favoritePointFromSelection(point) {
   return normalizeFavoritePickup({
     ...point,
     address: point?.address || point?.location?.address_full || point?.location?.address,
-    city: point?.location?.city || foundCityName.value,
-    cityCode: point?.location?.city_code || point?.location?.cityCode || foundCityCode.value,
-    country: point?.location?.country || foundCityCountry.value,
-    countryCode: point?.location?.country_code || foundCityCountryCode.value
+    city: point?.city || point?.location?.city || foundCityName.value,
+    cityCode: point?.cityCode || point?.city_code || point?.location?.city_code || point?.location?.cityCode || foundCityCode.value,
+    country: point?.country || point?.location?.country || foundCityCountry.value,
+    countryCode: point?.countryCode || point?.country_code || point?.location?.country_code || foundCityCountryCode.value
   })
 }
 
@@ -2332,31 +2335,34 @@ function previewPickupPoint(point) {
 
 function selectPickupFromExplorer(point) {
   selectedPickupPoint.value = point
-  onPickupSelect()
+  return onPickupSelect()
 }
 
-function requestPickupLocation(onSuccess) {
+async function requestPickupLocation(onSuccess) {
   if (pickupGeoBusy.value) return
+  const searchRequest = pickupSearchRequest
   pickupGeoError.value = ''
-  if (!navigator.geolocation) {
-    pickupGeoError.value = 'Ваш браузер не поддерживает определение местоположения. Выберите ПВЗ на карте или в списке.'
+  if (window.isSecureContext === false || !navigator.geolocation) {
+    pickupGeoError.value = 'Геопозиция недоступна. Откройте сайт по HTTPS и проверьте разрешение браузера или выберите ПВЗ вручную.'
     return
   }
   pickupGeoBusy.value = true
-  navigator.geolocation.getCurrentPosition(position => {
+  let location
+  try {
+    location = await requestBrowserLocation(navigator.geolocation)
+    pickupUserLocation.value = location
+  } catch (error) {
+    pickupGeoError.value = error?.code === 1
+      ? 'Доступ к геопозиции запрещён. Разрешите его для сайта в настройках браузера или выберите ПВЗ вручную.'
+      : error?.code === 'TIMEOUT' || error?.code === 3
+        ? 'Браузер не ответил на запрос геопозиции. Проверьте разрешение и службы геолокации или выберите ПВЗ вручную.'
+        : 'Не удалось определить местоположение. Проверьте разрешение браузера или выберите ПВЗ вручную.'
+  } finally {
     pickupGeoBusy.value = false
-    pickupUserLocation.value = {
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      accuracy: position.coords.accuracy
-    }
-    onSuccess(pickupUserLocation.value)
-  }, error => {
-    pickupGeoBusy.value = false
-    pickupGeoError.value = error.code === 1
-      ? 'Доступ к геопозиции не предоставлен. Можно выбрать ПВЗ на карте или в списке.'
-      : 'Не удалось определить местоположение. Попробуйте ещё раз или выберите ПВЗ вручную.'
-  }, { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 })
+  }
+  if (location && searchRequest === pickupSearchRequest && deliveryType.value === 'pvz' && !selectedPickupPoint.value) {
+    await onSuccess(location)
+  }
 }
 
 function focusMyLocation() {
@@ -2366,7 +2372,7 @@ function focusMyLocation() {
 }
 
 function findNearestPickup() {
-  requestPickupLocation(location => {
+  requestPickupLocation(async location => {
     pickupFilter.value = ''
     pickupHouseFilter.value = ''
     pickupHoursFilter.value = 'all'
@@ -2382,7 +2388,9 @@ function findNearestPickup() {
     pickupMapFocusCounter.value++
     if (distance > 50) {
       pickupGeoError.value = 'Вы далеко от выбранного города. На карте показано ваше местоположение; найдите свой город в поиске выше.'
+      return
     }
+    await selectPickupFromExplorer(nearest)
   })
 }
 

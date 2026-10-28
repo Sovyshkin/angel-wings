@@ -64,6 +64,11 @@ test('only an admin can edit a paid order; bank amount stays fixed, stock and au
       body: JSON.stringify(payload)
     })
 
+    const cdekUrl = `http://127.0.0.1:${server.address().port}/api/admin/orders/999999/cdek-register`
+    assert.equal((await fetch(cdekUrl, { method: 'POST' })).status, 401)
+    assert.equal((await fetch(cdekUrl, { method: 'POST', headers: { Authorization: `Bearer ${jwt.sign({ userId: partner.id, purpose: 'session' }, process.env.JWT_SECRET)}` } })).status, 403)
+    assert.equal((await fetch(cdekUrl, { method: 'POST', headers: { Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` } })).status, 404)
+
     assert.equal((await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).status, 401)
     assert.equal((await send(partner, body)).status, 403)
     const response = await send(admin, body)
@@ -130,6 +135,52 @@ test('only an admin can edit a paid order; bank amount stays fixed, stock and au
     assert.equal((await calculatePartnerBalance(db, referral.id)).totalCommissions, 0)
     assert.equal((await db.product.findUnique({ where: { id: first.id } })).stock, 10)
     assert.equal((await db.product.findUnique({ where: { id: second.id } })).stock, 5)
+
+    const variants = await db.product.create({ data: {
+      title: 'С дозировками', slug: 'with-dosages', description: '', price: 1000, stock: 6,
+      specs: JSON.stringify({ dosages: [{ dosage: '20 мг', quantity: 1 }, { dosage: '40 мг', quantity: 5 }] })
+    } })
+    const variantOrder = await db.order.create({ data: {
+      customerName: 'Покупатель', customerEmail: 'buyer@example.test', customerPhone: '+79990000000',
+      status: 'PROCESSING', paymentStatus: 'PENDING', total: 1000, userId: buyer.id,
+      items: { create: [{ productId: variants.id, dosage: '20 мг', quantity: 1, dosageStockDeducted: 1, price: 1000 }] }
+    }, include: { items: true } })
+    const variantUrl = `http://127.0.0.1:${server.address().port}/api/admin/orders/${variantOrder.id}`
+    const editVariant = (existing, items) => fetch(variantUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` },
+      body: JSON.stringify({ expectedUpdatedAt: existing.updatedAt.toISOString(), expectedEditVersion: existing.editVersion, items })
+    })
+    const swapResponse = await editVariant(variantOrder, [{ id: variantOrder.items[0].id, productId: variants.id, dosage: '40 мг', quantity: 1, price: 1000 }])
+    assert.equal(swapResponse.status, 200, await swapResponse.text())
+    const afterSwap = await db.order.findUnique({ where: { id: variantOrder.id }, include: { items: true } })
+    const afterSwapProduct = await db.product.findUnique({ where: { id: variants.id } })
+    assert.equal(afterSwapProduct.stock, 6)
+    assert.deepEqual(JSON.parse(afterSwapProduct.specs).dosages.map(item => item.quantity), [2, 4])
+    assert.equal(afterSwap.items[0].dosageStockDeducted, 1)
+
+    const legacy = await db.product.create({ data: {
+      title: 'Старая партия', slug: 'legacy-dosages', description: '', price: 1000, stock: 4,
+      specs: JSON.stringify({ dosages: [{ dosage: '20 мг', quantity: 5 }, { dosage: '40 мг', quantity: 4 }] })
+    } })
+    const legacyOrder = await db.order.create({ data: {
+      customerName: 'Покупатель', customerEmail: 'buyer@example.test', customerPhone: '+79990000000',
+      status: 'PROCESSING', paymentStatus: 'PENDING', total: 1000, userId: buyer.id,
+      items: { create: [{ productId: legacy.id, dosage: '20 мг', quantity: 1, price: 1000 }] }
+    }, include: { items: true } })
+    const legacyEditUrl = `http://127.0.0.1:${server.address().port}/api/admin/orders/${legacyOrder.id}`
+    const legacyResponse = await fetch(legacyEditUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` },
+      body: JSON.stringify({
+        expectedUpdatedAt: legacyOrder.updatedAt.toISOString(), expectedEditVersion: legacyOrder.editVersion,
+        items: [{ id: legacyOrder.items[0].id, productId: legacy.id, dosage: '40 мг', quantity: 1, price: 1000 }]
+      })
+    })
+    assert.equal(legacyResponse.status, 200, await legacyResponse.text())
+    const afterLegacy = await db.product.findUnique({ where: { id: legacy.id } })
+    assert.equal(afterLegacy.stock, 4)
+    assert.deepEqual(JSON.parse(afterLegacy.specs).dosages.map(item => item.quantity), [5, 3])
   } finally {
     await db.$disconnect()
     await new Promise(resolve => server.close(resolve))
