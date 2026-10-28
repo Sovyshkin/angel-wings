@@ -32,7 +32,7 @@
       <router-link v-if="featured && !selectedCategory && !search" :to="`/blog/${featured.slug}`" class="blog-featured blog-glass blog-reveal">
         <div class="blog-featured__image"><img :src="featured.cover" :alt="featured.coverAlt"><span>✦ РЕКОМЕНДУЕМ</span></div>
         <div class="blog-featured__body">
-          <span class="blog-category">{{ featured.category?.name || 'Статья' }}</span>
+          <span class="blog-category">{{ featured.categories?.map(category => category.name).join(' · ') || 'Статья' }}</span>
           <h2>{{ featured.title }}</h2>
           <p>{{ featured.excerpt }}</p>
           <div class="blog-meta"><BlogDate :value="featured.publishedAt" /><span>◉ {{ featured.readingMinutes }} мин. чтения</span></div>
@@ -46,7 +46,7 @@
       <div v-else-if="!posts.length" class="blog-message blog-reveal">Пока нет опубликованных статей по этому запросу.</div>
       <div v-else class="blog-grid">
         <router-link v-for="(post, index) in posts" :key="post.id" :to="`/blog/${post.slug}`" class="blog-card blog-glass blog-reveal" :style="{ '--reveal-delay': `${Math.min(index % 3, 2) * 85}ms` }">
-          <div class="blog-card__image"><img :src="post.cover" :alt="post.coverAlt" loading="lazy"><span class="blog-category">{{ post.category?.name || 'Статья' }}</span></div>
+          <div class="blog-card__image"><img :src="post.cover" :alt="post.coverAlt" loading="lazy"><span class="blog-category">{{ post.categories?.map(category => category.name).join(' · ') || 'Статья' }}</span></div>
           <div class="blog-card__copy"><h3>{{ post.title }}</h3><p>{{ post.excerpt }}</p><div class="blog-meta"><BlogDate :value="post.publishedAt" /><span>◉ {{ post.readingMinutes }} мин.</span></div></div>
         </router-link>
       </div>

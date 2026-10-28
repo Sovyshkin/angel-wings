@@ -1,7 +1,7 @@
 <template>
   <div class="blog-page"><div class="blog-shell"><article v-if="post" class="blog-article">
     <router-link to="/blog" class="blog-article__back">← Все статьи</router-link>
-    <header class="blog-article__header"><span class="blog-category">{{ post.category?.name || 'Статья' }}</span><h1>{{ post.title }}</h1><p class="blog-article__lead">{{ post.excerpt }}</p><div class="blog-meta"><BlogDate :value="post.publishedAt" /><span>✎ {{ post.author }}</span><span>◉ {{ post.readingMinutes }} мин. чтения</span></div></header>
+    <header class="blog-article__header"><div class="blog-article__categories"><span v-for="category in post.categories || []" :key="category.id" class="blog-category">{{ category.name }}</span><span v-if="!post.categories?.length" class="blog-category">Статья</span></div><h1>{{ post.title }}</h1><p class="blog-article__lead">{{ post.excerpt }}</p><div class="blog-meta"><BlogDate :value="post.publishedAt" /><span>✎ {{ post.author }}</span><span>◉ {{ post.readingMinutes }} мин. чтения</span></div></header>
     <img v-if="post.cover" class="blog-article__cover" :src="post.cover" :alt="post.coverAlt">
     <div class="blog-article__content" v-html="post.content"></div>
     <section v-if="related.length" class="blog-article__related"><h2>Похожие статьи</h2><div class="blog-grid"><router-link v-for="item in related" :key="item.id" :to="`/blog/${item.slug}`" class="blog-card blog-glass"><div class="blog-card__image"><img :src="item.cover" :alt="item.coverAlt" loading="lazy"></div><div class="blog-card__copy"><h3>{{ item.title }}</h3><p>{{ item.excerpt }}</p><div class="blog-meta"><BlogDate :value="item.publishedAt" /><span>{{ item.readingMinutes }} мин.</span></div></div></router-link></div></section>

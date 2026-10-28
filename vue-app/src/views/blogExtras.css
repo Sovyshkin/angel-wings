@@ -273,3 +273,4 @@
   .blog-shell.is-motion-ready .blog-subscribe > form { opacity: 1; transform: none; transition: none; }
   .blog-shell.is-motion-ready .blog-subscribe > img { opacity: .52; transform: translateY(-50%); transition: none; }
 }
+.blog-article__categories{display:flex;flex-wrap:wrap;gap:8px}.blog-article__categories .blog-category{position:static;display:inline-flex;max-width:100%;white-space:normal}.blog-card__image .blog-category{max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

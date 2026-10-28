@@ -78,13 +78,17 @@
           </div>
         </div>
         
-        <div class="form-group">
-          <label class="form-label">Категория</label>
-          <select v-model="form.categoryId" class="input">
-            <option value="">Без категории</option>
-            <option v-for="cat in categories" :key="cat.term_id" :value="cat.term_id">{{ cat.name }}</option>
-          </select>
-        </div>
+        <fieldset class="form-group category-picker">
+          <legend class="form-label">Категории <span>{{ form.categoryIds.length }} выбрано</span></legend>
+          <p class="field-hint">Товар появится в каждом выбранном разделе каталога.</p>
+          <div class="category-picker__options">
+            <label v-for="cat in categories" :key="cat.term_id" class="category-picker__option" :class="{ 'is-selected': form.categoryIds.includes(cat.term_id) }">
+              <input v-model="form.categoryIds" type="checkbox" :value="cat.term_id">
+              <span>{{ cat.name }}</span>
+            </label>
+            <span v-if="!categories.length" class="field-hint">Категорий пока нет</span>
+          </div>
+        </fieldset>
 
         <div class="form-group">
           <label class="form-label">Страна</label>
@@ -362,7 +366,7 @@ const form = ref({
   packageWidth: 0,
   packageHeight: 0,
   repeatCycleDays: null,
-  categoryId: '',
+  categoryIds: [],
   description: '',
   specs: {},
   country: '',
@@ -464,7 +468,7 @@ async function fetchProduct() {
     packageWidth: p.packageWidth || 0,
     packageHeight: p.packageHeight || 0,
     repeatCycleDays: p.repeatCycleDays || null,
-    categoryId: p.categories?.[0]?.id || '',
+    categoryIds: p.categories?.map(category => category.id) || [],
     description: p.description,
     specs: p.specs || {},
     country: p.country || '',
@@ -632,7 +636,7 @@ async function handleSubmit() {
     formData.append('featuredPosition', form.value.featuredPosition)
     formData.append('active', form.value.active)
     if (form.value.country) formData.append('country', form.value.country)
-    if (form.value.categoryId) formData.append('categories', JSON.stringify([form.value.categoryId]))
+    formData.append('categories', JSON.stringify(form.value.categoryIds))
     if (file.value) formData.append('image', file.value)
     if (isEdit.value && mainImageRemoved.value && !file.value) formData.append('removeMainImage', 'true')
     formData.append('existingImages', JSON.stringify(existingGalleryImages.value))
@@ -747,6 +751,53 @@ onMounted(() => {
   color: var(--text-muted);
   font-size: 0.78rem;
   line-height: 1.45;
+}
+
+.category-picker {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.category-picker legend span {
+  margin-left: 0.45rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.category-picker__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.category-picker__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, color 0.18s;
+}
+
+.category-picker__option.is-selected {
+  border-color: var(--accent);
+  background: rgba(166, 185, 248, 0.14);
+  color: var(--text-primary);
+}
+
+.category-picker__option input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
 }
 
 .form-row {

@@ -188,6 +188,7 @@ model BlogCategory {
   slug      String     @unique
   position  Int        @default(0)
   posts     BlogPost[]
+  postCategories BlogPostCategory[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
@@ -205,6 +206,7 @@ model BlogPost {
   author          String        @default("ANGEL WINGS")
   categoryId      Int?
   category        BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryLinks   BlogPostCategory[]
   status          String        @default("DRAFT")
   featured        Boolean       @default(false)
   metaTitle       String        @default("")
@@ -217,6 +219,17 @@ model BlogPost {
   @@index([status, publishedAt])
   @@index([categoryId, status])
   @@map("blog_posts")
+}
+
+model BlogPostCategory {
+  postId     Int
+  categoryId Int
+  post       BlogPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category   BlogCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([postId, categoryId])
+  @@index([categoryId, postId])
+  @@map("blog_post_categories")
 }
 
 model BlogSubscriber {

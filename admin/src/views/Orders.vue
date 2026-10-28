@@ -1524,7 +1524,7 @@ async function createCdekOrder() {
   
   creatingCdek.value = true
   try {
-    const { data } = await axios.post(`${API_URL}/orders/${selectedOrder.value.id}/cdek-register`)
+    const { data } = await axios.post(`/api/orders/${selectedOrder.value.id}/cdek-register`)
     selectedOrder.value.cdekOrderUuid = data.uuid
     alert(data.created ? 'Заказ успешно создан в СДЭК!' : 'Существующий заказ СДЭК найден и привязан!')
   } catch (e) {

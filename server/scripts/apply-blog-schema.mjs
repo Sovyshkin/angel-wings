@@ -36,6 +36,15 @@ try {
   await prisma.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS blog_posts_slug_key ON blog_posts(slug)')
   await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS blog_posts_status_publishedAt_idx ON blog_posts(status, publishedAt)')
   await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS blog_posts_categoryId_status_idx ON blog_posts(categoryId, status)')
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "blog_post_categories" (
+    "postId" INTEGER NOT NULL,
+    "categoryId" INTEGER NOT NULL,
+    PRIMARY KEY ("postId", "categoryId"),
+    CONSTRAINT "blog_post_categories_postId_fkey" FOREIGN KEY ("postId") REFERENCES "blog_posts"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "blog_post_categories_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "blog_categories"("id") ON DELETE CASCADE ON UPDATE CASCADE
+  )`)
+  await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS blog_post_categories_categoryId_postId_idx ON blog_post_categories(categoryId, postId)')
+  await prisma.$executeRawUnsafe('INSERT OR IGNORE INTO blog_post_categories (postId, categoryId) SELECT id, categoryId FROM blog_posts WHERE categoryId IS NOT NULL')
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "blog_subscribers" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "email" TEXT NOT NULL,

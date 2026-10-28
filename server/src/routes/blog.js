@@ -9,11 +9,18 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import crypto from 'node:crypto'
 import emailService from '../services/email.js'
+import { normalizeSearchText, matchesAnySearchText, needsUnicodeSearch } from '../utils/searchText.js'
 
 const router = Router()
 const prisma = new PrismaClient()
 const siteUrl = 'https://angel-wings.ru'
-const postSelect = { id: true, title: true, slug: true, excerpt: true, cover: true, coverAlt: true, author: true, categoryId: true, category: true, status: true, featured: true, metaTitle: true, metaDescription: true, readingMinutes: true, publishedAt: true, createdAt: true, updatedAt: true }
+const postSelect = { id: true, title: true, slug: true, excerpt: true, cover: true, coverAlt: true, author: true, categoryId: true, category: true, categoryLinks: { include: { category: true } }, status: true, featured: true, metaTitle: true, metaDescription: true, readingMinutes: true, publishedAt: true, createdAt: true, updatedAt: true }
+const postInclude = { category: true, categoryLinks: { include: { category: true } } }
+const formatPost = ({ categoryLinks = [], ...post }) => ({
+  ...post,
+  categories: (categoryLinks.length ? categoryLinks.map(link => link.category) : post.category ? [post.category] : []).sort((a, b) => a.position - b.position || a.id - b.id)
+})
+const categorySlugFilter = slug => ({ OR: [{ category: { slug } }, { categoryLinks: { some: { category: { slug } } } }] })
 const allowedTags = ['p', 'br', 'h2', 'h3', 'strong', 'b', 'em', 'i', 'u', 's', 'blockquote', 'ul', 'ol', 'li', 'a', 'img', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr']
 const cleanContent = html => sanitizeHtml(String(html || ''), {
   allowedTags,
@@ -56,11 +63,11 @@ router.get('/render', async (req, res, next) => {
 
 router.get('/render/:slug', async (req, res, next) => {
   try {
-    const post = await prisma.blogPost.findFirst({ where: { slug: req.params.slug, status: 'PUBLISHED' }, include: { category: true } })
+    const post = await prisma.blogPost.findFirst({ where: { slug: req.params.slug, status: 'PUBLISHED' }, include: postInclude })
     if (!post) return res.status(404).type('html').send('<h1>Статья не найдена</h1>')
     const url = `${siteUrl}/blog/${post.slug}`
     const image = absoluteImage(post.cover) || `${siteUrl}/blog-assets/dna-molecules.webp`
-    const body = `<article><a href="/blog">Блог</a><h1>${html(post.title)}</h1><p>${html(post.excerpt)}</p><p>${html(post.category?.name || '')} · ${html(post.author)} · ${html(post.publishedAt?.toISOString() || '')}</p>${post.cover ? `<img src="${html(post.cover)}" alt="${html(post.coverAlt)}" width="900">` : ''}${post.content}</article>`
+    const body = `<article><a href="/blog">Блог</a><h1>${html(post.title)}</h1><p>${html(post.excerpt)}</p><p>${html(formatPost(post).categories.map(category => category.name).join(', '))} · ${html(post.author)} · ${html(post.publishedAt?.toISOString() || '')}</p>${post.cover ? `<img src="${html(post.cover)}" alt="${html(post.coverAlt)}" width="900">` : ''}${post.content}</article>`
     await sendRenderedPage(res, { title: post.metaTitle || post.title, description: post.metaDescription || post.excerpt, url, image, body, article: post })
   } catch (error) { next(error) }
 })
@@ -79,22 +86,33 @@ router.get('/posts', async (req, res, next) => {
     const where = {
       status: 'PUBLISHED',
       ...(!search && !category ? { featured: false } : {}),
-      ...(search ? { OR: [{ title: { contains: search } }, { excerpt: { contains: search } }, { content: { contains: search } }] } : {}),
-      ...(category ? { category: { slug: category } } : {})
+      ...(search && !needsUnicodeSearch(search) ? { OR: [{ title: { contains: search } }, { excerpt: { contains: search } }, { content: { contains: search } }] } : {}),
+      ...(category ? { AND: [categorySlugFilter(category)] } : {})
     }
     const orderBy = req.query.sort === 'oldest' ? [{ publishedAt: 'asc' }] : [{ publishedAt: 'desc' }]
+    if (search && needsUnicodeSearch(search)) {
+      const query = normalizeSearchText(search)
+      const candidates = await prisma.blogPost.findMany({ where, select: { id: true, title: true, excerpt: true, content: true }, orderBy })
+      const ids = candidates.filter(post => matchesAnySearchText(query, [post.title, post.excerpt, post.content])).map(post => post.id)
+      const posts = ids.length ? await prisma.blogPost.findMany({
+        where: { id: { in: ids.slice((currentPage - 1) * 9, currentPage * 9) } },
+        select: postSelect,
+        orderBy
+      }) : []
+      return res.json({ posts: posts.map(formatPost), total: ids.length, page: currentPage, pages: Math.max(1, Math.ceil(ids.length / 9)) })
+    }
     const [total, posts] = await Promise.all([
       prisma.blogPost.count({ where }),
       prisma.blogPost.findMany({ where, select: postSelect, orderBy, skip: (currentPage - 1) * 9, take: 9 })
     ])
-    res.json({ posts, total, page: currentPage, pages: Math.max(1, Math.ceil(total / 9)) })
+    res.json({ posts: posts.map(formatPost), total, page: currentPage, pages: Math.max(1, Math.ceil(total / 9)) })
   } catch (error) { next(error) }
 })
 
 router.get('/featured', async (req, res, next) => {
   try {
     const post = await prisma.blogPost.findFirst({ where: { status: 'PUBLISHED', featured: true }, select: postSelect, orderBy: { publishedAt: 'desc' } })
-    res.json(post)
+    res.json(post ? formatPost(post) : null)
   } catch (error) { next(error) }
 })
 
@@ -161,10 +179,11 @@ router.get('/sitemap.xml', async (req, res, next) => {
 
 router.get('/posts/:slug', async (req, res, next) => {
   try {
-    const post = await prisma.blogPost.findFirst({ where: { slug: req.params.slug, status: 'PUBLISHED' }, include: { category: true } })
+    const post = await prisma.blogPost.findFirst({ where: { slug: req.params.slug, status: 'PUBLISHED' }, include: postInclude })
     if (!post) return res.status(404).json({ error: 'Статья не найдена' })
-    const related = await prisma.blogPost.findMany({ where: { status: 'PUBLISHED', id: { not: post.id }, ...(post.categoryId ? { categoryId: post.categoryId } : {}) }, select: postSelect, take: 3, orderBy: { publishedAt: 'desc' } })
-    res.json({ post, related, canonical: `${siteUrl}/blog/${post.slug}`, ogImage: absoluteImage(post.cover) })
+    const categoryIds = post.categoryLinks.map(link => link.categoryId)
+    const related = await prisma.blogPost.findMany({ where: { status: 'PUBLISHED', id: { not: post.id }, ...(categoryIds.length ? { categoryLinks: { some: { categoryId: { in: categoryIds } } } } : {}) }, select: postSelect, take: 3, orderBy: { publishedAt: 'desc' } })
+    res.json({ post: formatPost(post), related: related.map(formatPost), canonical: `${siteUrl}/blog/${post.slug}`, ogImage: absoluteImage(post.cover) })
   } catch (error) { next(error) }
 })
 
@@ -175,16 +194,19 @@ router.get('/admin/posts', async (req, res, next) => {
     const search = String(req.query.search || '').trim().slice(0, 100)
     const status = ['DRAFT', 'PUBLISHED'].includes(req.query.status) ? req.query.status : undefined
     const categoryId = Number(req.query.categoryId)
-    const where = { ...(status ? { status } : {}), ...(categoryId > 0 ? { categoryId } : {}), ...(search ? { OR: [{ title: { contains: search } }, { slug: { contains: search } }] } : {}) }
-    res.json(await prisma.blogPost.findMany({ where, select: postSelect, orderBy: { updatedAt: 'desc' } }))
+    const where = { ...(status ? { status } : {}), ...(categoryId > 0 ? { categoryLinks: { some: { categoryId } } } : {}), ...(search && !needsUnicodeSearch(search) ? { OR: [{ title: { contains: search } }, { slug: { contains: search } }] } : {}) }
+    const posts = await prisma.blogPost.findMany({ where, select: postSelect, orderBy: { updatedAt: 'desc' } })
+    res.json(search && needsUnicodeSearch(search)
+      ? posts.filter(post => matchesAnySearchText(normalizeSearchText(search), [post.title, post.slug])).map(formatPost)
+      : posts.map(formatPost))
   } catch (error) { next(error) }
 })
 
 router.get('/admin/posts/:id', async (req, res, next) => {
   try {
-    const post = await prisma.blogPost.findUnique({ where: { id: Number(req.params.id) }, include: { category: true } })
+    const post = await prisma.blogPost.findUnique({ where: { id: Number(req.params.id) }, include: postInclude })
     if (!post) return res.status(404).json({ error: 'Статья не найдена' })
-    res.json(post)
+    res.json(formatPost(post))
   } catch (error) { next(error) }
 })
 
@@ -197,19 +219,26 @@ async function postData(body, existing = null) {
   const status = (body.status ?? existing?.status) === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT'
   const cover = String(body.cover ?? existing?.cover ?? '').trim().slice(0, 1000) || null
   const coverAlt = String(body.coverAlt ?? existing?.coverAlt ?? '').trim().slice(0, 250)
-  const categoryId = Number(body.categoryId ?? existing?.categoryId) > 0 ? Number(body.categoryId ?? existing?.categoryId) : null
-  if (status === 'PUBLISHED' && (!title || !plain(content) || !excerpt || !cover || !coverAlt || !categoryId)) {
+  const requestedCategories = body.categoryIds ?? (body.categoryId !== undefined ? (Number(body.categoryId) > 0 ? [body.categoryId] : []) : existing?.categoryLinks?.map(link => link.categoryId) || (existing?.categoryId ? [existing.categoryId] : []))
+  if (!Array.isArray(requestedCategories) || requestedCategories.length > 30 || requestedCategories.some(id => !Number.isSafeInteger(Number(id)) || Number(id) <= 0)) {
+    const error = new Error('Выберите корректные категории')
+    error.status = 400
+    throw error
+  }
+  const categoryIds = [...new Set(requestedCategories.map(Number))]
+  const categoryId = categoryIds[0] ?? null
+  if (status === 'PUBLISHED' && (!title || !plain(content) || !excerpt || !cover || !coverAlt || !categoryIds.length)) {
     const error = new Error('Для публикации нужны заголовок, текст, описание, категория, обложка и её ALT')
     error.status = 400
     throw error
   }
-  if (categoryId && !await prisma.blogCategory.findUnique({ where: { id: categoryId } })) {
+  if (categoryIds.length && await prisma.blogCategory.count({ where: { id: { in: categoryIds } } }) !== categoryIds.length) {
     const error = new Error('Категория не найдена')
     error.status = 400
     throw error
   }
   return {
-    title, slug, excerpt, content, cover, coverAlt, categoryId, status,
+    title, slug, excerpt, content, cover, coverAlt, categoryId, categoryIds, status,
     author: String(body.author ?? existing?.author ?? 'ANGEL WINGS').trim().slice(0, 100) || 'ANGEL WINGS',
     featured: Boolean(body.featured ?? existing?.featured),
     metaTitle: String(body.metaTitle ?? existing?.metaTitle ?? '').trim().slice(0, 180),
@@ -221,26 +250,29 @@ async function postData(body, existing = null) {
 
 router.post('/admin/posts', async (req, res, next) => {
   try {
-    const data = await postData(req.body)
+    const { categoryIds, ...data } = await postData(req.body)
     const post = await prisma.$transaction(async tx => {
       if (data.featured && data.status === 'PUBLISHED') await tx.blogPost.updateMany({ data: { featured: false } })
-      return tx.blogPost.create({ data, include: { category: true } })
+      return tx.blogPost.create({ data: { ...data, categoryLinks: { create: categoryIds.map(categoryId => ({ categoryId })) } }, include: postInclude })
     })
-    res.status(201).json(post)
+    res.status(201).json(formatPost(post))
   } catch (error) { next(error) }
 })
 
 router.put('/admin/posts/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id)
-    const existing = await prisma.blogPost.findUnique({ where: { id } })
+    const existing = await prisma.blogPost.findUnique({ where: { id }, include: { categoryLinks: true } })
     if (!existing) return res.status(404).json({ error: 'Статья не найдена' })
-    const data = await postData(req.body, existing)
+    const { categoryIds, ...data } = await postData(req.body, existing)
     const post = await prisma.$transaction(async tx => {
       if (data.featured && data.status === 'PUBLISHED') await tx.blogPost.updateMany({ where: { id: { not: id } }, data: { featured: false } })
-      return tx.blogPost.update({ where: { id }, data, include: { category: true } })
+      await tx.blogPost.update({ where: { id }, data })
+      await tx.blogPostCategory.deleteMany({ where: { postId: id } })
+      if (categoryIds.length) await tx.blogPostCategory.createMany({ data: categoryIds.map(categoryId => ({ postId: id, categoryId })) })
+      return tx.blogPost.findUnique({ where: { id }, include: postInclude })
     })
-    res.json(post)
+    res.json(formatPost(post))
   } catch (error) { next(error) }
 })
 

@@ -22,6 +22,7 @@ import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiring
 import { calculateOrderEditAmounts, getBilledOrderTotal } from '../utils/orderEditAmounts.js'
 import { resolveManualOrderPromo, claimManualOrderPromo } from '../utils/manualOrderPromo.js'
 import { isCustomAdminRole } from '../utils/adminPermissions.js'
+import { normalizeSearchText, matchesAnySearchText, needsUnicodeSearch } from '../utils/searchText.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -316,8 +317,24 @@ router.get('/users', authenticate, requireAdmin, async (req, res, next) => {
     const { limit = 50, offset = 0, q = '' } = req.query
     const search = String(q || '').trim()
     const where = { role: { not: 'DELETED' } }
+    let unicodeMatches = null
 
-    if (search) {
+    if (search && needsUnicodeSearch(search)) {
+      const query = normalizeSearchText(search)
+      const numericId = Number.parseInt(search, 10)
+      const digitsSearch = search.replace(/\D/g, '')
+      const candidates = await prisma.user.findMany({
+        where,
+        select: { id: true, email: true, name: true, phone: true },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+      })
+      unicodeMatches = candidates.filter(user =>
+        user.id === numericId ||
+        matchesAnySearchText(query, [user.email, user.name, user.phone]) ||
+        (digitsSearch && String(user.phone || '').includes(digitsSearch))
+      ).map(user => user.id)
+      where.id = { in: unicodeMatches.slice(Number(offset), Number(offset) + Number(limit)) }
+    } else if (search) {
       const numericId = Number.parseInt(search, 10)
       const digitsSearch = search.replace(/\D/g, '')
       where.OR = [
@@ -342,11 +359,11 @@ router.get('/users', authenticate, requireAdmin, async (req, res, next) => {
           createdAt: true,
           _count: { select: { orders: true } }
         },
-        take: parseInt(limit),
-        skip: parseInt(offset),
-        orderBy: { createdAt: 'desc' }
+        take: unicodeMatches ? undefined : parseInt(limit),
+        skip: unicodeMatches ? undefined : parseInt(offset),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
       }),
-      prisma.user.count({ where })
+      unicodeMatches ? Promise.resolve(unicodeMatches.length) : prisma.user.count({ where })
     ])
     
     res.json({ users, total })
@@ -1183,8 +1200,39 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
     const search = String(q || '').trim()
     const where = status ? { status } : {}
     if (String(favorites || '').toLowerCase() === 'true') where.isFavorite = true
+    let unicodeMatches = null
 
-    if (search) {
+    if (search && needsUnicodeSearch(search)) {
+      const query = normalizeSearchText(search)
+      const numericId = Number.parseInt(search.replace(/^#/, ''), 10)
+      const digitsSearch = search.replace(/\D/g, '')
+      const [candidates, promoCodes] = await Promise.all([
+        prisma.order.findMany({
+          where,
+          select: {
+            id: true, customerName: true, customerEmail: true, customerPhone: true,
+            shippingAddress: true, deliveryTariffName: true, deliveryCity: true,
+            deliveryPickupPoint: true, deliveryPickupName: true, paymentStatus: true,
+            status: true, paymentId: true, cdekOrderUuid: true, promoCodeId: true
+          },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+        }),
+        prisma.promoCode.findMany({ select: { id: true, code: true } })
+      ])
+      const promoIds = new Set(promoCodes.filter(promo => matchesAnySearchText(query, [promo.code])).map(promo => promo.id))
+      unicodeMatches = candidates.filter(order =>
+        order.id === numericId ||
+        (digitsSearch && String(order.customerPhone || '').includes(digitsSearch)) ||
+        (order.promoCodeId && promoIds.has(order.promoCodeId)) ||
+        matchesAnySearchText(query, [
+          order.customerName, order.customerEmail, order.customerPhone, order.shippingAddress,
+          order.deliveryTariffName, order.deliveryCity, order.deliveryPickupPoint,
+          order.deliveryPickupName, order.paymentStatus, order.status,
+          order.paymentId, order.cdekOrderUuid
+        ])
+      ).map(order => order.id)
+      where.id = { in: unicodeMatches.slice(Number(offset), Number(offset) + Number(limit)) }
+    } else if (search) {
       const numericId = Number.parseInt(search.replace(/^#/, ''), 10)
       const digitsSearch = search.replace(/\D/g, '')
       const promoCodes = await prisma.promoCode.findMany({
@@ -1250,11 +1298,11 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
             }
           }
         },
-        take: parseInt(limit),
-        skip: parseInt(offset),
-        orderBy: { createdAt: 'desc' }
+        take: unicodeMatches ? undefined : parseInt(limit),
+        skip: unicodeMatches ? undefined : parseInt(offset),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
       }),
-      prisma.order.count({ where }),
+      unicodeMatches ? Promise.resolve(unicodeMatches.length) : prisma.order.count({ where }),
       prisma.order.groupBy({
         by: ['status'],
         _count: { _all: true }
@@ -1654,8 +1702,34 @@ router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
     if (active !== undefined) {
       where.active = active === 'true'
     }
+    let unicodeMatches = null
 
-    if (search) {
+    if (search && needsUnicodeSearch(search)) {
+      const query = normalizeSearchText(search)
+      const numericId = Number.parseInt(search, 10)
+      const numericPrice = Number.parseFloat(search.replace(',', '.'))
+      const isHiddenSearch = ['скрыт', 'hidden', 'inactive', 'неактив'].some(token => query.includes(token))
+      const isActiveSearch = !isHiddenSearch && ['актив', 'active', 'видим', 'visible'].some(token => query.includes(token))
+      const candidates = await prisma.product.findMany({
+        where,
+        select: {
+          id: true, title: true, slug: true, sku: true, country: true,
+          stock: true, weight: true, price: true, active: true,
+          categories: { select: { name: true, slug: true } }
+        },
+        orderBy: [{ active: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }]
+      })
+      unicodeMatches = candidates.filter(product =>
+        product.id === numericId || product.stock === numericId || product.weight === numericId ||
+        product.price === numericPrice ||
+        (isActiveSearch && product.active) || (isHiddenSearch && !product.active) ||
+        matchesAnySearchText(query, [
+          product.title, product.slug, product.sku, product.country,
+          ...product.categories.flatMap(category => [category.name, category.slug])
+        ])
+      ).map(product => product.id)
+      where.id = { in: unicodeMatches.slice(Number(offset), Number(offset) + Number(limit)) }
+    } else if (search) {
       const numericId = Number.parseInt(search, 10)
       const numericPrice = Number.parseFloat(search.replace(',', '.'))
       const normalizedSearch = search.toLowerCase()
@@ -1682,11 +1756,11 @@ router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
         include: {
           categories: { select: { id: true, name: true, slug: true } }
         },
-        take: parseInt(limit),
-        skip: parseInt(offset),
-        orderBy: [{ active: 'desc' }, { createdAt: 'desc' }]
+        take: unicodeMatches ? undefined : parseInt(limit),
+        skip: unicodeMatches ? undefined : parseInt(offset),
+        orderBy: [{ active: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }]
       }),
-      prisma.product.count({ where })
+      unicodeMatches ? Promise.resolve(unicodeMatches.length) : prisma.product.count({ where })
     ])
 
     const parsedProducts = products.map(p => ({

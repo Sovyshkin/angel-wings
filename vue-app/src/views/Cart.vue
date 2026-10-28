@@ -328,12 +328,54 @@
           </div>
           </template>
         </div>
+
+        <ProductRecommendations
+          v-if="cartStore.items.length"
+          class="cart__recommendations"
+          title="Может заинтересовать"
+          description="Подборка к товарам в вашей корзине"
+          :products="visibleRecommendations"
+        />
         
         <div class="cart__summary" data-aos="fade-up" data-aos-delay="200">
           <div class="summary-header">
             <h3>{{ isOrderAdditionMode ? 'Расчёт дозаказа' : 'Ваш заказ' }}</h3>
-            <span class="item-count">{{ cartStore.count }} новых товаров</span>
+            <span class="item-count">{{ isOrderAdditionMode ? 'Новых товаров' : 'Товаров' }}: {{ cartStore.count }}</span>
           </div>
+
+          <section v-if="cartStore.items.length" class="order-composition" aria-label="Состав заказа">
+            <div class="order-composition__heading">
+              <span>{{ isOrderAdditionMode ? 'Новые позиции' : 'Состав заказа' }}</span>
+              <span>{{ cartStore.count }} шт.</span>
+            </div>
+            <ul class="order-composition__list">
+              <li
+                v-for="item in cartStore.items"
+                :key="item.cartKey || `${item.id}::${item.selectedDosage || ''}`"
+                class="order-composition__item"
+              >
+                <div class="order-composition__image">
+                  <img
+                    v-if="item.image"
+                    :src="item.image"
+                    :alt="item.title"
+                    width="64"
+                    height="64"
+                    loading="lazy"
+                    decoding="async"
+                    @error="handleImageError"
+                  >
+                  <span v-else aria-hidden="true">AW</span>
+                </div>
+                <div class="order-composition__details">
+                  <strong>{{ item.title }}</strong>
+                  <span v-if="item.selectedDosage">Дозировка: {{ item.selectedDosage }}</span>
+                  <span>{{ item.quantity }} шт. × {{ item.price.toLocaleString('ru-RU') }} ₽</span>
+                </div>
+                <strong class="order-composition__price">{{ (item.price * item.quantity).toLocaleString('ru-RU') }} ₽</strong>
+              </li>
+            </ul>
+          </section>
 
           <div class="cart__summary-grid" :class="{ 'cart__summary-grid--addition': isOrderAdditionMode }">
             <div class="cart__summary-financial">
@@ -1170,12 +1212,6 @@
           </div>
         </div>
       </div>
-      <ProductRecommendations
-        v-if="cartStore.items.length"
-        title="Может заинтересовать"
-        description="Подборка к товарам в вашей корзине"
-        :products="visibleRecommendations"
-      />
     </div>
   </div>
 </template>
@@ -3607,6 +3643,11 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
+.cart__recommendations {
+  margin: 0;
+  min-width: 0;
+}
+
 .checkout-support-notice {
   position: fixed;
   right: clamp(1rem, 3vw, 2rem);
@@ -4183,6 +4224,104 @@ onUnmounted(() => {
   background: var(--bg-secondary);
   padding: 0.35rem 0.75rem;
   border-radius: 100px;
+}
+
+.order-composition {
+  margin-bottom: 2rem;
+}
+
+.order-composition__heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.order-composition__list {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.order-composition__item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  padding: 0.7rem 0.9rem 0.7rem 0.7rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.order-composition__image {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: 11px;
+  background: #fff;
+  color: #5a72ac;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.order-composition__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.order-composition__details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.order-composition__details strong {
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.order-composition__price {
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .order-composition__item {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 0.7rem;
+    padding: 0.65rem;
+  }
+
+  .order-composition__image {
+    width: 52px;
+    height: 52px;
+  }
+
+  .order-composition__price {
+    grid-column: 2;
+    margin-top: -0.25rem;
+  }
 }
 
 .summary-items {

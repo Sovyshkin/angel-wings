@@ -6,6 +6,7 @@ import { generateUniqueSlug } from '../utils/slug.js'
 import { deleteProductForAdmin } from '../utils/productDeletion.js'
 import { stripInternalProductFields, publicProductSpecs } from '../utils/publicProduct.js'
 import { isRecommendationAvailable, parseRecommendationIds, publicRecommendationProduct, RECOMMENDATION_LIMIT, saveProductRecommendations } from '../utils/productRecommendations.js'
+import { normalizeSearchText, matchesAnySearchText, needsUnicodeSearch } from '../utils/searchText.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -78,6 +79,7 @@ router.get('/', async (req, res, next) => {
     const { category, search, featured, limit = 100, offset = 0 } = req.query
     const parsedLimit = Math.max(1, parseInt(limit, 10) || 100)
     const parsedOffset = Math.max(0, parseInt(offset, 10) || 0)
+    const searchText = String(search || '').trim().slice(0, 100)
     
     const where = { active: true }
     
@@ -87,10 +89,22 @@ router.get('/', async (req, res, next) => {
       }
     }
     
-    if (search) {
+    let unicodeMatches = null
+    if (searchText && needsUnicodeSearch(searchText)) {
+      const query = normalizeSearchText(searchText)
+      const candidates = await prisma.product.findMany({
+        where,
+        select: { id: true, title: true, description: true },
+        orderBy: featured === 'true'
+          ? [{ featuredPosition: 'asc' }, { createdAt: 'desc' }, { id: 'desc' }]
+          : [{ createdAt: 'desc' }, { id: 'desc' }]
+      })
+      unicodeMatches = candidates.filter(product => matchesAnySearchText(query, [product.title, product.description])).map(product => product.id)
+      where.id = { in: unicodeMatches.slice(parsedOffset, parsedOffset + (featured === 'true' ? Math.min(parsedLimit, 4) : parsedLimit)) }
+    } else if (searchText) {
       where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } }
+        { title: { contains: searchText, mode: 'insensitive' } },
+        { description: { contains: searchText, mode: 'insensitive' } }
       ]
     }
     
@@ -106,13 +120,13 @@ router.get('/', async (req, res, next) => {
             select: { id: true, name: true, slug: true }
           }
         },
-        take: featured === 'true' ? Math.min(parsedLimit, 4) : parsedLimit,
-        skip: parsedOffset,
+        take: unicodeMatches ? undefined : featured === 'true' ? Math.min(parsedLimit, 4) : parsedLimit,
+        skip: unicodeMatches ? undefined : parsedOffset,
         orderBy: featured === 'true'
-          ? [{ featuredPosition: 'asc' }, { createdAt: 'desc' }]
-          : { createdAt: 'desc' }
+          ? [{ featuredPosition: 'asc' }, { createdAt: 'desc' }, { id: 'desc' }]
+          : [{ createdAt: 'desc' }, { id: 'desc' }]
       }),
-      prisma.product.count({ where }),
+      unicodeMatches ? Promise.resolve(unicodeMatches.length) : prisma.product.count({ where }),
       featured === 'true'
         ? prisma.product.count({ where: { active: true } })
         : Promise.resolve(null)
