@@ -68,6 +68,10 @@ test('only an admin can edit a paid order; bank amount stays fixed, stock and au
     assert.equal((await fetch(cdekUrl, { method: 'POST' })).status, 401)
     assert.equal((await fetch(cdekUrl, { method: 'POST', headers: { Authorization: `Bearer ${jwt.sign({ userId: partner.id, purpose: 'session' }, process.env.JWT_SECRET)}` } })).status, 403)
     assert.equal((await fetch(cdekUrl, { method: 'POST', headers: { Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` } })).status, 404)
+    const waybillUrl = `http://127.0.0.1:${server.address().port}/api/admin/orders/${order.id}/cdek-waybill`
+    assert.equal((await fetch(waybillUrl, { method: 'POST' })).status, 401)
+    assert.equal((await fetch(waybillUrl, { method: 'POST', headers: { Authorization: `Bearer ${jwt.sign({ userId: partner.id, purpose: 'session' }, process.env.JWT_SECRET)}` } })).status, 403)
+    assert.equal((await fetch(waybillUrl, { method: 'POST', headers: { Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` } })).status, 409)
 
     assert.equal((await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).status, 401)
     assert.equal((await send(partner, body)).status, 403)

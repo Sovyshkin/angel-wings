@@ -463,7 +463,10 @@
             <button v-if="isCdekDelivery(selectedOrder) && !selectedOrder.cdekOrderUuid" type="button" class="btn btn-primary" :disabled="creatingCdek" @click="createCdekOrder">
               {{ creatingCdek ? 'Создаём заказ СДЭК…' : 'Создать заказ СДЭК' }}
             </button>
-            <button type="button" class="btn btn-secondary" :disabled="downloadingWaybill" @click="downloadWaybill('pdf')">Накладная PDF</button>
+            <button v-if="isCdekDelivery(selectedOrder) && selectedOrder.cdekOrderUuid && isOrderPaid(selectedOrder.paymentStatus)" type="button" class="btn btn-primary" :disabled="downloadingCdekWaybill" @click="downloadCdekWaybill">
+              {{ downloadingCdekWaybill ? 'Готовим накладную СДЭК…' : 'Накладная СДЭК PDF' }}
+            </button>
+            <button type="button" class="btn btn-secondary" :disabled="downloadingWaybill" @click="downloadWaybill('pdf')">Накладная сайта PDF</button>
             <button type="button" class="btn btn-secondary" :disabled="downloadingWaybill" @click="downloadWaybill('docx')">Накладная Word</button>
           </template>
           <template v-else>
@@ -787,6 +790,7 @@ const favoriteSavingId = ref(null)
 const selectedOrder = ref(null)
 const cdekRegisterError = ref('')
 const downloadingWaybill = ref(false)
+const downloadingCdekWaybill = ref(false)
 const exportLoading = ref(false)
 const showManualOrder = ref(false)
 const manualSaving = ref(false)
@@ -1384,6 +1388,31 @@ async function downloadWaybill(format) {
     alert(message)
   } finally {
     downloadingWaybill.value = false
+  }
+}
+
+async function downloadCdekWaybill() {
+  if (!selectedOrder.value?.cdekOrderUuid || downloadingCdekWaybill.value) return
+  downloadingCdekWaybill.value = true
+  try {
+    const id = selectedOrder.value.id
+    const { data } = await axios.post(`${API_URL}/orders/${id}/cdek-waybill`, null, { responseType: 'blob' })
+    const url = URL.createObjectURL(data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `Накладная-СДЭК-${id}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch (error) {
+    let message = 'Не удалось получить накладную СДЭК'
+    if (error.response?.data instanceof Blob) {
+      try { message = JSON.parse(await error.response.data.text()).error || message } catch { /* fallback */ }
+    }
+    alert(message)
+  } finally {
+    downloadingCdekWaybill.value = false
   }
 }
 

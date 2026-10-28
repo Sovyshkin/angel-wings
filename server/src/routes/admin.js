@@ -14,7 +14,8 @@ import { sendCloudKassirIncomeReceiptOnPaidTransition } from '../utils/cloudKass
 import { deleteProductForAdmin } from '../utils/productDeletion.js'
 import { refundUserPointsForOrder } from '../utils/userPoints.js'
 import emailService from '../services/email.js'
-import { queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
+import { createReadyCdekWaybill, queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
+import cdek from '../services/cdek.js'
 import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
 import { buildOrderWaybill, createOrderWaybillDocx, createOrderWaybillPdf } from '../utils/orderWaybill.js'
@@ -1184,6 +1185,37 @@ router.post('/orders/:id/cdek-register', authenticate, requireAdmin, async (req,
     }))
     res.status(error?.data ? 502 : (error?.status || 502)).json({
       error: details.join('; ') || error?.message || 'СДЭК не принял заказ. Проверьте ответ сервиса в журнале сервера.'
+    })
+  }
+})
+
+router.post('/orders/:id/cdek-waybill', authenticate, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректный номер заказа' })
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id },
+      select: { paymentStatus: true, cdekOrderUuid: true }
+    })
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' })
+    if (order.paymentStatus !== 'PAID') return res.status(409).json({ error: 'Накладная СДЭК доступна после оплаты заказа' })
+    if (!order.cdekOrderUuid) return res.status(409).json({ error: 'Сначала создайте заказ в СДЭК' })
+
+    const { printUuid } = await createReadyCdekWaybill(order.cdekOrderUuid)
+    const pdf = await cdek.downloadPrintFormPdf(printUuid)
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="cdek-waybill-order-${id}.pdf"`,
+      'Content-Length': pdf.length,
+      'Cache-Control': 'no-store'
+    })
+    res.send(pdf)
+  } catch (error) {
+    const details = (error?.data?.requests || []).flatMap(request => request.errors || [])
+      .map(item => item.message || item.code).filter(Boolean)
+    console.error('[CDEK] Admin waybill failed', JSON.stringify({ orderId: id, printUuid: error?.printUuid || null, message: error?.message || null }))
+    res.status([400, 404, 409, 429, 503].includes(error?.status) ? error.status : 502).json({
+      error: details.join('; ') || error?.message || 'СДЭК не смог сформировать накладную'
     })
   }
 })

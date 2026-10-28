@@ -235,7 +235,7 @@ export async function getAuthToken() {
     })
 
     const data = await response.json()
-    log('debug', 'Token response:', data)
+    log('debug', 'Token response:', { hasAccessToken: Boolean(data.access_token), expiresIn: data.expires_in || null })
 
     if (data.access_token) {
       cachedToken = data.access_token
@@ -243,7 +243,7 @@ export async function getAuthToken() {
       return cachedToken
     }
 
-    throw new Error('No access_token in response: ' + JSON.stringify(data))
+    throw new Error('СДЭК не вернул токен авторизации')
   } catch (error) {
     log('error', 'Failed to get CDEK token:', error)
     throw error
@@ -720,6 +720,25 @@ export async function getPrintForm(order_uuid) {
   })
 }
 
+export async function getPrintFormStatus(print_uuid) {
+  return cdekRequest(`/print/orders/${encodeURIComponent(print_uuid)}`, 'GET')
+}
+
+export async function downloadPrintFormPdf(print_uuid) {
+  const token = await getAuthToken()
+  const response = await fetch(`${CDEK_URL}/print/orders/${encodeURIComponent(print_uuid)}.pdf`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/pdf' }
+  })
+  if (!response.ok) {
+    throw Object.assign(new Error(`СДЭК не отдал PDF накладной (HTTP ${response.status})`), { status: response.status })
+  }
+  const pdf = Buffer.from(await response.arrayBuffer())
+  if (pdf.subarray(0, 5).toString('ascii') !== '%PDF-') {
+    throw Object.assign(new Error('СДЭК вернул ответ вместо PDF накладной'), { status: 502 })
+  }
+  return pdf
+}
+
 // ==================== БАЛАНС И СТАТУСЫ ====================
 
 // Информация о балансе
@@ -766,6 +785,8 @@ export default {
   cancelOrder,
   callCourier,
   getPrintForm,
+  getPrintFormStatus,
+  downloadPrintFormPdf,
   getBalance,
   getOrderStatuses
 }
