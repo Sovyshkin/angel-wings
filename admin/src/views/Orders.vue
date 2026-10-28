@@ -590,7 +590,11 @@
                 </svg>
                 <div>
                   <strong>{{ selectedOrder.deliveryTariffName }}</strong>
-                  <span v-if="isCdekDelivery(selectedOrder)">Оплачивается отдельно в СДЭК</span>
+                  <span v-if="isCdekDelivery(selectedOrder)">
+                    {{ Number(selectedOrder.deliveryPrice) > 0
+                      ? `Сбор за доставку с получателя: ${formatPrice(selectedOrder.deliveryPrice)}`
+                      : 'Стоимость доставки не указана — перед созданием заявки заполните её' }}
+                  </span>
                   <span v-else>{{ selectedOrder.deliveryPrice ? formatPrice(selectedOrder.deliveryPrice) : 'Не рассчитана' }}</span>
                 </div>
               </div>
@@ -1520,38 +1524,12 @@ async function createCdekOrder() {
   
   creatingCdek.value = true
   try {
-    const isPickup = Boolean(selectedOrder.value.deliveryPickupPoint)
-    if (isPickup) {
-      const { data } = await axios.post(`${API_URL}/orders/${selectedOrder.value.id}/cdek-register`)
-      selectedOrder.value.cdekOrderUuid = data.uuid
-      alert(data.created ? 'Заказ успешно создан в СДЭК!' : 'Существующий заказ СДЭК найден и привязан!')
-      return
-    }
-    const items = selectedOrder.value.items.map(item => ({
-      weight: 500 * item.quantity // 500g per item
-    }))
-
-    const { data } = await deliveryApi.post('/orders', {
-      number: `order-${selectedOrder.value.id}`,
-      tariff_code: selectedOrder.value.deliveryTariffCode || (isPickup ? 137 : 136),
-      recipient_name: selectedOrder.value.customerName,
-      recipient_phone: selectedOrder.value.customerPhone,
-      recipient_email: selectedOrder.value.customerEmail,
-      delivery_point: selectedOrder.value.deliveryPickupPoint,
-      packages: items,
-      address: selectedOrder.value.deliveryPickupPoint ? null : selectedOrder.value.shippingAddress
-    })
-    
-    // Update order with CDEK UUID
-    await axios.put(`${API_URL}/orders/${selectedOrder.value.id}`, {
-      cdekOrderUuid: data.entity?.uuid || data.uuid
-    })
-    
-    selectedOrder.value.cdekOrderUuid = data.entity?.uuid || data.uuid
-    alert('Заказ успешно создан в СДЭК!')
+    const { data } = await axios.post(`${API_URL}/orders/${selectedOrder.value.id}/cdek-register`)
+    selectedOrder.value.cdekOrderUuid = data.uuid
+    alert(data.created ? 'Заказ успешно создан в СДЭК!' : 'Существующий заказ СДЭК найден и привязан!')
   } catch (e) {
     console.error('CDEK order error:', e)
-    alert('Ошибка создания заказа в СДЭК: ' + (e.response?.data?.message || e.message))
+    alert('Ошибка создания заказа в СДЭК: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
   } finally {
     creatingCdek.value = false
   }

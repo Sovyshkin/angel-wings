@@ -35,8 +35,11 @@ async function acquireRegistrationLock(prisma, orderId) {
 }
 
 export function buildCdekOrderPayload(order, pickupPoint) {
-  if (!order?.deliveryPickupPoint || !order?.deliveryTariffCode) {
-    throw new Error('Для заказа не выбраны ПВЗ и тариф СДЭК')
+  if (!order?.deliveryTariffCode || (!order.deliveryPickupPoint && !order.shippingAddress)) {
+    throw new Error('Для заказа не выбраны адрес доставки и тариф СДЭК')
+  }
+  if (!Number.isFinite(Number(order.deliveryPrice)) || Number(order.deliveryPrice) <= 0) {
+    throw Object.assign(new Error('Стоимость доставки СДЭК не рассчитана. Укажите её в заказе до создания накладной, чтобы доставка не была оформлена за счёт отправителя.'), { status: 400 })
   }
   const phoneDigits = String(order.customerPhone || '').replace(/\D/g, '')
   const phone = phoneDigits.length === 11 && phoneDigits.startsWith('8')
@@ -86,7 +89,9 @@ export function buildCdekOrderPayload(order, pickupPoint) {
     recipient_name: order.customerName,
     recipient_phone: phone,
     recipient_email: order.customerEmail,
-    delivery_point: order.deliveryPickupPoint,
+    ...(order.deliveryPickupPoint
+      ? { delivery_point: order.deliveryPickupPoint }
+      : { address: order.shippingAddress }),
     to_location: {
       code: location.city_code || location.cityCode || null,
       city: location.city || order.deliveryCity || null,
@@ -107,8 +112,8 @@ export async function ensureCdekOrderRegistered(prisma, orderId, { cdekClient = 
     })
     if (!order) throw Object.assign(new Error('Заказ не найден'), { status: 404 })
     if (order.cdekOrderUuid) return { uuid: order.cdekOrderUuid, created: false, source: 'database' }
-    if (!order.deliveryPickupPoint || !order.deliveryTariffCode) {
-      throw Object.assign(new Error('Для заказа не выбраны ПВЗ и тариф СДЭК'), { status: 400 })
+    if ((!order.deliveryPickupPoint && !order.shippingAddress) || !order.deliveryTariffCode) {
+      throw Object.assign(new Error('Для заказа не выбраны адрес доставки и тариф СДЭК'), { status: 400 })
     }
     if (['CANCELLED', 'RETURNED'].includes(order.status)) {
       throw Object.assign(new Error('Отменённый заказ нельзя зарегистрировать в СДЭК'), { status: 409 })
@@ -123,7 +128,9 @@ export async function ensureCdekOrderRegistered(prisma, orderId, { cdekClient = 
     let result = await cdekClient.findOrderByShopNumber(number)
     let source = 'cdek'
     if (!result) {
-      const pickupPoint = await cdekClient.getPickupPoint(order.deliveryPickupPoint)
+      const pickupPoint = order.deliveryPickupPoint
+        ? await cdekClient.getPickupPoint(order.deliveryPickupPoint)
+        : null
       const payload = buildCdekOrderPayload(order, pickupPoint)
       result = await cdekClient.createOrder(payload)
       source = 'created'

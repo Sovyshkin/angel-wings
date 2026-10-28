@@ -2627,10 +2627,6 @@ async function continuePendingOrderPayment() {
   showCheckoutSupportNotice.value = false
 
   try {
-    const { data: pendingOrderData } = await axios.get(`/api/orders/${pendingOrder.orderId}`)
-    if (pendingOrderData?.order?.deliveryPickupPoint && pendingOrderData?.order?.deliveryTariffCode && !pendingOrderData?.order?.cdekOrderUuid) {
-      await axios.post(`/api/orders/${pendingOrder.orderId}/cdek-register`)
-    }
     const { data } = await axios.post(`/api/payment/create-for-order/${pendingOrder.orderId}`, {
       description: `Оплата заказа #${pendingOrder.orderId}`
     })
@@ -3214,6 +3210,13 @@ async function placeOrder() {
     const { data } = await axios.post('/api/orders', orderData)
     lastOrderId.value = data.order?.id
     const createdOrderTotal = Number(data?.order?.total ?? totalAfterPartnerBonus.value)
+    if (lastOrderId.value && createdOrderTotal > 0) {
+      persistPendingUnpaidOrder({
+        orderId: lastOrderId.value,
+        amount: createdOrderTotal,
+        clientRequestId: orderData.clientRequestId
+      })
+    }
 
     if (data?.meta?.duplicate && lastOrderId.value) {
       const duplicatePaymentStatus = String(data?.order?.paymentStatus || '').toUpperCase()
@@ -3227,21 +3230,6 @@ async function placeOrder() {
       }
 
       if (createdOrderTotal > 0) {
-        if (ENABLE_CDEK && data?.order?.deliveryPickupPoint && data?.order?.deliveryTariffCode && !data?.order?.cdekOrderUuid) {
-          try {
-            await axios.post(`/api/orders/${lastOrderId.value}/cdek-register`)
-          } catch (error) {
-            orderError.value = error.response?.data?.error || 'Не удалось зарегистрировать заказ в СДЭК. Повторите попытку позже.'
-            showCheckoutSupport()
-            ordering.value = false
-            return
-          }
-        }
-        persistPendingUnpaidOrder({
-          orderId: lastOrderId.value,
-          amount: createdOrderTotal,
-          clientRequestId: orderData.clientRequestId
-        })
         paymentRedirecting.value = true
         await continuePendingOrderPayment()
         return
@@ -3270,18 +3258,6 @@ async function placeOrder() {
     }
     if (data?.meta?.partnerNotice) {
       alert(data.meta.partnerNotice)
-    }
-    
-    if (ENABLE_CDEK && deliveryType.value === 'pvz') {
-      try {
-        await axios.post(`/api/orders/${lastOrderId.value}/cdek-register`)
-      } catch (e) {
-        console.error('CDEK order creation error:', e)
-        orderError.value = e.response?.data?.error || 'Ошибка создания заказа в системе доставки СДЭК. Пожалуйста, попробуйте позже или выберите другой способ доставки.'
-        showCheckoutSupport()
-        ordering.value = false
-        return
-      }
     }
     
     if (deliveryType.value === 'courier' && paymentMethod.value === 'cash_on_delivery') {

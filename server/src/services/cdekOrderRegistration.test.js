@@ -33,6 +33,24 @@ test('CDEK payload uses stored order and allocates the exact paid goods amount',
   assert.equal(payload.delivery_recipient_cost, 250)
 })
 
+test('courier registration includes goods prices and charges delivery to recipient', () => {
+  const payload = buildCdekOrderPayload({
+    ...order,
+    deliveryPickupPoint: null,
+    shippingAddress: 'Новосибирск, ул. Ленина, 1',
+    total: 850,
+    partnerBonusAmount: 50
+  }, null)
+  assert.equal(payload.delivery_point, undefined)
+  assert.equal(payload.address, 'Новосибирск, ул. Ленина, 1')
+  assert.equal(payload.packages[0].items.reduce((sum, item) => sum + item.cost, 0), 900)
+  assert.equal(payload.delivery_recipient_cost, 250)
+})
+
+test('registration refuses an unpriced delivery instead of making sender pay', () => {
+  assert.throws(() => buildCdekOrderPayload({ ...order, deliveryPrice: 0 }, null), /Стоимость доставки СДЭК не рассчитана/)
+})
+
 test('existing CDEK order is linked without another create request', async () => {
   let linkedUuid = null
   let creates = 0
@@ -76,6 +94,31 @@ test('concurrent registration of one order sends only one create request', async
   ])
   assert.equal(creates, 1)
   assert.equal(first.uuid, second.uuid)
+})
+
+test('courier registration uses the same trusted server payload', async () => {
+  let submitted = null
+  const prisma = {
+    ...lockMethods,
+    order: {
+      findUnique: async ({ select }) => select
+        ? { cdekOrderUuid: null }
+        : { ...order, deliveryPickupPoint: null, shippingAddress: 'Новосибирск, ул. Ленина, 1' },
+      updateMany: async () => ({ count: 1 })
+    }
+  }
+  const client = {
+    findOrderByShopNumber: async () => null,
+    getPickupPoint: async () => { throw new Error('Pickup lookup must not run for courier orders') },
+    createOrder: async payload => {
+      submitted = payload
+      return { entity: { uuid, number: 'order-618' } }
+    }
+  }
+  await ensureCdekOrderRegistered(prisma, order.id, { cdekClient: client })
+  assert.equal(submitted.address, 'Новосибирск, ул. Ленина, 1')
+  assert.equal(submitted.packages[0].items[0].cost, 450)
+  assert.equal(submitted.delivery_recipient_cost, 250)
 })
 
 test('unconfirmed CDEK response never links an order or retries POST automatically', async () => {

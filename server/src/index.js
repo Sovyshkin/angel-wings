@@ -26,6 +26,7 @@ import adminConsultationRoutes from './routes/adminConsultations.js'
 import blogRoutes from './routes/blog.js'
 import { recoveryRouter, adminRecoveryRouter } from './routes/recovery.js'
 import { startRecoveryWorker } from './services/recovery.js'
+import { startCdekRegistrationWorker } from './services/cdekRegistrationWorker.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { uploadDir } from './utils/fileUpload.js'
 
@@ -85,4 +86,5 @@ const PORT = process.env.PORT || 3000
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
   startRecoveryWorker()
+  startCdekRegistrationWorker(prisma)
 })
