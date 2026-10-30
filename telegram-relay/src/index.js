@@ -9,6 +9,10 @@ const app = express()
 const port = Number(process.env.PORT || 3010)
 
 app.disable('x-powered-by')
+app.use('/email/send', express.json({
+  limit: '4mb',
+  verify: (req, res, buffer) => { req.rawBody = buffer.toString('utf8') }
+}))
 app.use(express.json({
   limit: '300kb',
   verify: (req, res, buffer) => {
@@ -185,6 +189,7 @@ app.get('/health', (req, res) => {
     ok: true,
     service: 'angel-wings-telegram-relay',
     telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_ORDERS_CHAT_ID),
+    miniAppBotConfigured: Boolean(process.env.TELEGRAM_MINI_APP_BOT_TOKEN),
     emailConfigured: Boolean(
       process.env.SMTP_HOST &&
       process.env.SMTP_USER &&
@@ -200,10 +205,18 @@ app.post('/email/send', requireRelayAuth, async (req, res) => {
   const subject = String(req.body?.subject || '').trim()
   const text = String(req.body?.text || '')
   const html = String(req.body?.html || '')
+  const inlineImage = req.body?.inlineImage
 
   if (!/^\S+@\S+\.\S+$/.test(to) || !subject || (!text && !html)) {
     return res.status(400).json({ ok: false, error: 'Invalid email payload' })
   }
+  if (inlineImage && (
+    inlineImage.filename !== 'points-campaign-offer.png' ||
+    inlineImage.cid !== 'points-offer@angel-wings.ru' ||
+    typeof inlineImage.contentBase64 !== 'string' ||
+    inlineImage.contentBase64.length > 3_000_000 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(inlineImage.contentBase64)
+  )) return res.status(400).json({ ok: false, error: 'Invalid inline image' })
 
   try {
     const from = getSmtpFrom()
@@ -214,7 +227,13 @@ app.post('/email/send', requireRelayAuth, async (req, res) => {
       to,
       subject,
       text,
-      html: html || undefined
+      html: html || undefined,
+      ...(inlineImage ? { attachments: [{
+        filename: inlineImage.filename,
+        cid: inlineImage.cid,
+        content: Buffer.from(inlineImage.contentBase64, 'base64'),
+        contentType: 'image/png'
+      }] } : {})
     }
 
     let result
@@ -284,6 +303,40 @@ app.post('/email/send', requireRelayAuth, async (req, res) => {
       code: emailError.code,
       message: emailError.message
     })
+  }
+})
+
+app.post('/telegram/campaign', requireRelayAuth, async (req, res) => {
+  const chatId = String(req.body?.chatId || '').trim()
+  if (req.body?.campaignKey !== 'points-4000-2026-10-30' || !/^[1-9]\d*$/.test(chatId)) {
+    return res.status(400).json({ ok: false, error: 'Invalid campaign request' })
+  }
+
+  const token = String(process.env.TELEGRAM_MINI_APP_BOT_TOKEN || '').trim()
+  if (!token) return res.status(503).json({ ok: false, error: 'Mini App bot is not configured' })
+
+  try {
+    const response = await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      chat_id: chatId,
+      photo: 'https://angel-wings.ru/uploads/points-campaign-offer.png',
+      caption: '🎁 Вам доступны 4 000 баллов Angel Wings!\n\nНажмите «Получить» в мини-приложении — только после этого баллы появятся на балансе. 1 балл = 1 ₽. Неиспользованные баллы сгорят через 1 месяц после получения.',
+      reply_markup: { inline_keyboard: [[{
+        text: 'Получить 4 000 баллов',
+        web_app: { url: 'https://app.angel-wings.ru/' }
+      }]] }
+    }, {
+      timeout: Number(process.env.TELEGRAM_SEND_TIMEOUT_MS || 30000),
+      httpsAgent: telegramAgent,
+      validateStatus: () => true
+    })
+    const data = response.data || {}
+    if (response.status >= 400 || data.ok !== true) {
+      return res.status(response.status >= 400 ? response.status : 502).json({ ok: false, error: data.description || 'Telegram rejected message' })
+    }
+    return res.json({ ok: true, messageId: data.result?.message_id || null })
+  } catch (error) {
+    console.error('[RELAY] Campaign message failed', JSON.stringify({ chatId, code: error?.code || null, message: error?.message || null }))
+    return res.status(503).json({ ok: false, error: 'Telegram unavailable' })
   }
 })
 

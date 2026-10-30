@@ -8,12 +8,15 @@ export function normalizeCampaignEmail(value) {
 export function hasDeliverableCampaignEmail(user) {
   const email = normalizeCampaignEmail(user.email)
   return Boolean(
-    EMAIL_PATTERN.test(email) &&
-    !email.endsWith('.invalid') &&
-    user.emailVerified &&
+    hasVerifiedCampaignEmail(user) &&
     user.marketingConsentAt &&
     !user.marketingUnsubscribedAt
   )
+}
+
+export function hasVerifiedCampaignEmail(user) {
+  const email = normalizeCampaignEmail(user.email)
+  return Boolean(EMAIL_PATTERN.test(email) && !email.endsWith('.invalid') && user.emailVerified)
 }
 
 export function hasTelegramCampaignId(user) {
@@ -50,12 +53,13 @@ export function buildPointsCampaignPreview(users, orders, now = new Date()) {
       purchaseDateField: 'order.createdAt',
       eligibleRoles: [...CUSTOMER_ROLES],
       excludedOrderStatuses: ['CANCELLED', 'RETURNED'],
-      emailRequiresVerifiedAddressAndMarketingConsent: true
+      emailRequiresVerifiedAddressAndMarketingConsent: false
     },
     accountsChecked: users.length,
     excludedStaffOrDeleted: 0,
     excludedWithTwoOrMorePurchases: 0,
     eligibleAccounts: 0,
+    eligibleUserIds: [],
     plannedPointsAt4000Each: 0,
     eligibleWithZeroPurchases: 0,
     eligibleWithOnePurchase: 0,
@@ -93,6 +97,7 @@ export function buildPointsCampaignPreview(users, orders, now = new Date()) {
     }
 
     result.eligibleAccounts += 1
+    result.eligibleUserIds.push(user.id)
     result.plannedPointsAt4000Each += 4000
     result.siteNotificationCandidates += 1
     if (matchingOrderIds.size === 0) result.eligibleWithZeroPurchases += 1
@@ -102,7 +107,7 @@ export function buildPointsCampaignPreview(users, orders, now = new Date()) {
     if (!emailValid) result.emailSkippedInvalidOrUnverified += 1
     else if (!user.marketingConsentAt || user.marketingUnsubscribedAt) result.emailSkippedNoConsent += 1
 
-    const canEmail = hasDeliverableCampaignEmail(user) && !uniqueEmails.has(email)
+    const canEmail = hasVerifiedCampaignEmail(user) && !uniqueEmails.has(email)
     if (canEmail) {
       uniqueEmails.add(email)
       result.emailCandidates += 1

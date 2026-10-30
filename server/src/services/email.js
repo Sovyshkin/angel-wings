@@ -120,7 +120,14 @@ class EmailService {
       to: message.to,
       subject: message.subject,
       text: message.text || '',
-      html: message.html || ''
+      html: message.html || '',
+      ...(message.inlineImage ? {
+        inlineImage: {
+          filename: message.inlineImage.filename,
+          cid: message.inlineImage.cid,
+          contentBase64: message.inlineImage.content.toString('base64')
+        }
+      } : {})
     }
     const body = JSON.stringify(payload)
     const timestamp = String(Date.now())
@@ -186,7 +193,7 @@ class EmailService {
     return this.transporter
   }
 
-  async sendMail({ to, subject, text, html }) {
+  async sendMail({ to, subject, text, html, inlineImage = null }) {
     const config = getSmtpConfig()
     const relay = getRelayConfig()
     const deliveryTarget = this.getDeliveryTarget(config, relay)
@@ -202,7 +209,11 @@ class EmailService {
       to,
       subject,
       text,
-      html: html || textToHtml(text || '')
+      html: html || textToHtml(text || ''),
+      ...(inlineImage ? {
+        inlineImage,
+        attachments: [{ filename: inlineImage.filename, content: inlineImage.content, cid: inlineImage.cid, contentType: 'image/png' }]
+      } : {})
     }
 
     console.log('[EMAIL] sendMail request', JSON.stringify({

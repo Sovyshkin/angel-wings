@@ -192,7 +192,7 @@ async function selectRelayRoute(relayUrl, orderId) {
   return { httpsAgent, direct: true }
 }
 
-async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId }) {
+async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId, endpoint = '/telegram/orders' }) {
   // Durable retries are handled by telegramQueue. Keep this request bounded so one
   // unavailable relay cannot block the worker for several minutes.
   const maxAttempts = getPositiveInt(process.env.TELEGRAM_RELAY_RETRY_ATTEMPTS, 1)
@@ -217,7 +217,7 @@ async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId
     try {
       const route = await selectRelayRoute(relayUrl, orderId)
       if (route.direct) console.warn('[TELEGRAM] using direct relay route', JSON.stringify({ orderId }))
-      const response = await axios.post(`${relayUrl}/telegram/orders`, relayBody, {
+      const response = await axios.post(`${relayUrl}${endpoint}`, relayBody, {
         timeout: timeoutMs,
         httpsAgent: route.httpsAgent,
         ...(route.direct ? { proxy: false } : {}),
@@ -277,6 +277,20 @@ async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId
   }
 
   throw lastError || new Error('[TELEGRAM] relay failed without response')
+}
+
+export async function sendPointsCampaignTelegram(chatId) {
+  const relayUrl = String(process.env.TELEGRAM_RELAY_URL || '').trim().replace(/\/+$/, '')
+  const relaySecret = String(process.env.TELEGRAM_RELAY_SECRET || '').trim()
+  if (!relayUrl || !relaySecret) throw new Error('Telegram relay для кампании не настроен')
+  const response = await postRelayWithRetry({
+    relayUrl,
+    relaySecret,
+    relayPayload: { campaignKey: 'points-4000-2026-10-30', chatId: String(chatId) },
+    orderId: null,
+    endpoint: '/telegram/campaign'
+  })
+  return response.data
 }
 
 export async function notifyCourierOrderToTelegram(order) {

@@ -1,5 +1,6 @@
 <template>
   <div class="app telegram-app">
+    <PointsCampaignClaim :enabled="ready && auth.isAuthenticated" @claimed="auth.fetchUser()" />
     <header class="header">
       <div class="header__container">
         <router-link to="/catalog" class="header__logo" aria-label="Angel Wings — каталог">
@@ -74,6 +75,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import PointsCampaignClaim from './components/PointsCampaignClaim.vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from './store/auth.js'

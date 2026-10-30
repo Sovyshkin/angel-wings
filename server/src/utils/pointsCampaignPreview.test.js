@@ -54,7 +54,7 @@ test('ignores unpaid, returned, cancelled and older orders', () => {
   assert.equal(result.eligibleWithZeroPurchases, 1)
 })
 
-test('separates site, email and Telegram candidates and respects email consent', () => {
+test('separates site, email and Telegram candidates; includes verified emails without marketing consent', () => {
   const users = [
     user(1, { telegramId: '123' }),
     user(2, { email: 'tg-456@telegram.invalid', emailVerified: false, telegramId: '456', marketingConsentAt: null }),
@@ -64,11 +64,13 @@ test('separates site, email and Telegram candidates and respects email consent',
   ]
   const result = buildPointsCampaignPreview(users, [], now)
   assert.equal(result.siteNotificationCandidates, 4)
-  assert.equal(result.emailCandidates, 1)
+  assert.equal(result.emailCandidates, 3)
   assert.equal(result.telegramCandidates, 2)
   assert.equal(result.telegramWithMarketingConsent, 1)
   assert.equal(result.emailAndTelegramCandidates, 1)
+  assert.equal(result.emailOnlyCandidates, 2)
   assert.equal(result.telegramOnlyCandidates, 1)
-  assert.equal(result.noOutboundChannelCandidates, 2)
+  assert.equal(result.noOutboundChannelCandidates, 0)
+  assert.equal(result.emailSkippedNoConsent, 2)
   assert.equal(result.excludedStaffOrDeleted, 1)
 })

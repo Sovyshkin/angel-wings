@@ -1,0 +1,64 @@
+<template>
+  <div v-if="offer && !dismissed" class="campaign-backdrop" @click.self="dismissed = true">
+    <section class="campaign-card" role="dialog" aria-modal="true" aria-labelledby="campaign-title">
+      <button class="campaign-close" type="button" aria-label="Закрыть" @click="dismissed = true">×</button>
+      <span class="campaign-eyebrow">Подарок Angel Wings</span>
+      <div class="campaign-orbit" aria-hidden="true"><span>4 000</span></div>
+      <h2 id="campaign-title">Ваши баллы ждут вас</h2>
+      <p>Получите <strong>4 000 баллов</strong> для следующего заказа. Они появятся на балансе только после нажатия кнопки.</p>
+      <div class="campaign-terms"><span>1 балл = 1 ₽</span><span>Действуют 1 месяц после получения</span></div>
+      <p v-if="error" class="campaign-error" role="alert">{{ error }}</p>
+      <button class="campaign-claim" type="button" :disabled="claiming" @click="claim">{{ claiming ? 'Начисляем…' : 'Получить 4 000 баллов' }}</button>
+      <button class="campaign-later" type="button" @click="dismissed = true">Позже</button>
+    </section>
+  </div>
+</template>
+
+<script setup>
+import { ref, watch } from 'vue'
+import axios from 'axios'
+
+const props = defineProps({ enabled: { type: Boolean, default: false } })
+const emit = defineEmits(['claimed'])
+const offer = ref(null)
+const dismissed = ref(false)
+const claiming = ref(false)
+const error = ref('')
+
+watch(() => props.enabled, async enabled => {
+  if (!enabled) { offer.value = null; dismissed.value = false; return }
+  try {
+    const { data } = await axios.get('/api/points/campaign/offer')
+    offer.value = data.offer
+  } catch { offer.value = null }
+}, { immediate: true })
+
+async function claim() {
+  if (claiming.value) return
+  claiming.value = true
+  error.value = ''
+  try {
+    const { data } = await axios.post('/api/points/campaign/claim')
+    offer.value = null
+    emit('claimed', data)
+  } catch (cause) {
+    error.value = cause?.response?.data?.error || 'Не удалось начислить баллы. Попробуйте ещё раз.'
+  } finally { claiming.value = false }
+}
+</script>
+
+<style scoped>
+.campaign-backdrop{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:18px;background:rgba(3,6,20,.78);backdrop-filter:blur(12px)}
+.campaign-card{position:relative;isolation:isolate;width:min(100%,460px);overflow:hidden;padding:28px 22px 20px;border:1px solid rgba(166,188,255,.34);border-radius:26px;background:radial-gradient(circle at 50% 2%,rgba(42,93,219,.38),transparent 49%),#111521;box-shadow:0 28px 90px rgba(0,0,0,.45);color:#f7f8ff;text-align:center}
+.campaign-card::before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(130deg,rgba(255,255,255,.08),transparent 40%)}
+.campaign-close{position:absolute;top:12px;right:17px;border:0;background:transparent;color:#aeb7d4;font-size:31px;line-height:1;cursor:pointer}
+.campaign-eyebrow{color:#a8bdff;font-size:11px;font-weight:700;letter-spacing:.19em;text-transform:uppercase}
+.campaign-orbit{width:142px;height:142px;margin:19px auto 18px;display:grid;place-items:center;border:1px solid rgba(171,197,255,.58);border-radius:50%;background:radial-gradient(circle at 34% 28%,#74a7ff 0,#214fae 37%,#101f52 72%,#09112f 100%);box-shadow:inset 0 0 28px #9bc6ff60,0 0 45px #4f86ff65;transform:rotate(-9deg)}
+.campaign-orbit span{font-size:39px;font-weight:800;letter-spacing:-.06em;color:#fff;text-shadow:0 2px 18px #b8d6ff}
+h2{margin:0 0 12px;font-size:26px;line-height:1.12;letter-spacing:-.035em}
+p{margin:0;color:#c3c8d7;font-size:14px;line-height:1.55}p strong{color:#fff}
+.campaign-terms{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:18px 0 22px}.campaign-terms span{padding:7px 10px;border:1px solid rgba(174,191,238,.2);border-radius:30px;color:#b5c9ff;background:#ffffff0c;font-size:11px}
+.campaign-claim{width:100%;min-height:50px;border:0;border-radius:14px;background:#a8baff;color:#111a34;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 10px 28px #5c84ff40}.campaign-claim:disabled{opacity:.65;cursor:wait}
+.campaign-later{margin-top:12px;padding:7px;border:0;background:transparent;color:#aeb6d0;cursor:pointer}.campaign-error{margin:0 0 12px;color:#ff9c9c}
+@media(prefers-reduced-motion:no-preference){.campaign-card{animation:campaign-arrive .36s cubic-bezier(.17,.85,.3,1) both}@keyframes campaign-arrive{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}}
+</style>

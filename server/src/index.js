@@ -18,6 +18,7 @@ import analyticsRoutes from './routes/analytics.js'
 import dealerRoutes from './routes/dealers.js'
 import adminDealerRoutes from './routes/adminDealers.js'
 import pointsRoutes from './routes/points.js'
+import pointsCampaignRoutes from './routes/pointsCampaign.js'
 import adminPointsRoutes from './routes/adminPoints.js'
 import contactRequestsRoutes from './routes/contactRequests.js'
 import adminContactRequestsRoutes from './routes/adminContactRequests.js'
@@ -76,6 +77,7 @@ app.use('/api/admin/consultations', adminConsultationRoutes)
 app.use('/api/delivery', deliveryRoutes)
 app.use('/api/dealers', dealerRoutes)
 app.use('/api/points', pointsRoutes)
+app.use('/api/points/campaign', pointsCampaignRoutes)
 app.use('/api/recovery', recoveryRouter)
 app.use('/api/admin/recovery', adminRecoveryRouter)
 
