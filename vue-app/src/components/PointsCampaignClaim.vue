@@ -1,37 +1,71 @@
 <template>
-  <div v-if="offer && !dismissed" class="campaign-backdrop" @click.self="dismissed = true">
+  <div v-if="visible" class="campaign-backdrop" @click.self="dismissed = true">
     <section class="campaign-card" role="dialog" aria-modal="true" aria-labelledby="campaign-title">
       <button class="campaign-close" type="button" aria-label="Закрыть" @click="dismissed = true">×</button>
       <span class="campaign-eyebrow">Подарок Angel Wings</span>
       <div class="campaign-orbit" aria-hidden="true"><span>4 000</span></div>
-      <h2 id="campaign-title">Ваши баллы ждут вас</h2>
-      <p>Получите <strong>4 000 баллов</strong> для следующего заказа. Они появятся на балансе только после нажатия кнопки.</p>
-      <div class="campaign-terms"><span>1 балл = 1 ₽</span><span>Действуют 1 месяц после получения</span></div>
+      <h2 id="campaign-title">{{ offer ? 'Ваши баллы ждут вас' : 'Получить 4 000 баллов' }}</h2>
+      <p v-if="offer">Получите <strong>4 000 баллов</strong> для следующего заказа. Они появятся на балансе только после нажатия кнопки.</p>
+      <p v-else-if="!enabled">Войдите в аккаунт, на который пришло письмо, чтобы получить подарок.</p>
+      <p v-else-if="loading">Проверяем ваше предложение…</p>
+      <p v-else-if="status === 'claimed'">Вы уже получили эти баллы. Проверьте баланс в личном кабинете.</p>
+      <p v-else-if="status === 'error'">Не удалось проверить предложение. Попробуйте ещё раз.</p>
+      <p v-else>Для этого аккаунта предложение не найдено. Проверьте, что вы вошли под адресом, на который пришло письмо.</p>
+      <div v-if="offer" class="campaign-terms"><span>1 балл = 1 ₽</span><span>Действуют 1 месяц после получения</span></div>
       <p v-if="error" class="campaign-error" role="alert">{{ error }}</p>
-      <button class="campaign-claim" type="button" :disabled="claiming" @click="claim">{{ claiming ? 'Начисляем…' : 'Получить 4 000 баллов' }}</button>
+      <button v-if="offer" class="campaign-claim" type="button" :disabled="claiming" @click="claim">{{ claiming ? 'Начисляем…' : 'Получить 4 000 баллов' }}</button>
+      <button v-else-if="!enabled" class="campaign-claim" type="button" @click="signIn">Войти в аккаунт</button>
+      <button v-else-if="status === 'error'" class="campaign-claim" type="button" @click="loadOffer">Повторить</button>
       <button class="campaign-later" type="button" @click="dismissed = true">Позже</button>
     </section>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import axios from 'axios'
+import { useRoute, useRouter } from 'vue-router'
 
 const props = defineProps({ enabled: { type: Boolean, default: false } })
 const emit = defineEmits(['claimed'])
+const route = useRoute()
+const router = useRouter()
+const campaignKey = 'points-4000-2026-10-30'
 const offer = ref(null)
 const dismissed = ref(false)
 const claiming = ref(false)
+const loading = ref(false)
+const status = ref('')
 const error = ref('')
+const invited = computed(() => route.query.claim === campaignKey)
+const visible = computed(() => route.path !== '/auth' && !dismissed.value && (Boolean(offer.value) || invited.value))
 
-watch(() => props.enabled, async enabled => {
-  if (!enabled) { offer.value = null; dismissed.value = false; return }
+async function loadOffer() {
+  if (!props.enabled) return
+  loading.value = true
+  status.value = ''
   try {
     const { data } = await axios.get('/api/points/campaign/offer')
-    offer.value = data.offer
-  } catch { offer.value = null }
+    offer.value = data?.offer || null
+    status.value = data?.claimed ? 'claimed' : 'unavailable'
+  } catch {
+    offer.value = null
+    status.value = 'error'
+  } finally {
+    loading.value = false
+  }
+}
+
+watch([() => props.enabled, () => route.query.claim, () => route.path], ([enabled, claim, path], [previousEnabled, previousClaim, previousPath] = []) => {
+  if (claim === campaignKey && (previousClaim !== claim || (path === '/' && previousPath !== path))) dismissed.value = false
+  if (!enabled) { offer.value = null; return }
+  if (enabled !== previousEnabled || claim !== previousClaim || (path === '/' && previousPath === '/auth')) loadOffer()
 }, { immediate: true })
+
+function signIn() {
+  dismissed.value = true
+  router.push({ path: '/auth', query: { claim: campaignKey } })
+}
 
 async function claim() {
   if (claiming.value) return
@@ -40,6 +74,7 @@ async function claim() {
   try {
     const { data } = await axios.post('/api/points/campaign/claim')
     offer.value = null
+    if (invited.value) router.replace({ path: route.path, query: { ...route.query, claim: undefined } })
     emit('claimed', data)
   } catch (cause) {
     error.value = cause?.response?.data?.error || 'Не удалось начислить баллы. Попробуйте ещё раз.'

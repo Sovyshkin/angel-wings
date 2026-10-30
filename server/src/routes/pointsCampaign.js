@@ -12,7 +12,7 @@ router.get('/offer', authenticate, async (req, res, next) => {
       where: { campaignKey_userId: { campaignKey: POINTS_CAMPAIGN_KEY, userId: req.user.id } },
       select: { amount: true, claimedAt: true }
     })
-    res.json({ offer: offer && !offer.claimedAt ? { amount: offer.amount } : null })
+    res.json({ offer: offer && !offer.claimedAt ? { amount: offer.amount } : null, claimed: Boolean(offer?.claimedAt) })
   } catch (error) {
     next(error)
   }

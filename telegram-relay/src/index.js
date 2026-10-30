@@ -329,7 +329,7 @@ app.post('/telegram/campaign', requireRelayAuth, async (req, res) => {
     form.append('caption', '🎁 Вам доступны 4 000 баллов Angel Wings!\n\nНажмите «Получить» в мини-приложении — только после этого баллы появятся на балансе. 1 балл = 1 ₽. Неиспользованные баллы сгорят через 1 месяц после получения.')
     form.append('reply_markup', JSON.stringify({ inline_keyboard: [[{
         text: 'Получить 4 000 баллов',
-        web_app: { url: 'https://app.angel-wings.ru/' }
+        web_app: { url: 'https://app.angel-wings.ru/catalog?claim=points-4000-2026-10-30' }
       }]] }))
     // Upload bytes from this server: Telegram rejected the public image URL
     // with "failed to get HTTP URL content" for campaign recipients.

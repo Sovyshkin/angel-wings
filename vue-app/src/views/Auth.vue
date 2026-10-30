@@ -141,11 +141,18 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
+const campaignKey = 'points-4000-2026-10-30'
+
+function goAfterAuth() {
+  if (route.query.claim === campaignKey) return router.push({ path: '/', query: { claim: campaignKey } })
+  return router.push('/profile')
+}
 
 const isLogin = ref(true)
 const showPassword = ref(false)
@@ -193,7 +200,7 @@ async function handleSubmit() {
         verificationCode.value = ''
         return
       }
-      router.push('/profile')
+      goAfterAuth()
     } else {
       if (form.value.password !== form.value.confirmPassword) {
         error.value = 'Пароли не совпадают'
@@ -215,7 +222,7 @@ async function handleSubmit() {
         verificationCode.value = ''
         return
       }
-      router.push('/profile')
+      goAfterAuth()
     }
   } catch (e) {
     if (e.code === 'EMAIL_NOT_VERIFIED') {
@@ -242,7 +249,7 @@ async function handleVerifyEmail() {
       purpose: verificationPurpose.value,
       challengeToken: loginChallengeToken.value
     })
-    router.push('/profile')
+    goAfterAuth()
   } catch (e) {
     error.value = e.response?.data?.error || e.message || 'Не удалось подтвердить email'
   } finally {
