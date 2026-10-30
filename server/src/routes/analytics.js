@@ -6,6 +6,7 @@ import { getOrderItemUnitCost } from '../utils/productCost.js'
 import { getAcquiringEstimate } from '../utils/paymentAcquiring.js'
 import { getBilledOrderTotal } from '../utils/orderEditAmounts.js'
 import { getAcquiringSettings, UNKNOWN_PAYMENT_PERCENT } from '../utils/acquiringSettings.js'
+import emailService from '../services/email.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -1306,7 +1307,7 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
           createdAt: { gte: ninetyDaysAgo }
         },
         include: {
-          user: { select: { id: true, name: true, email: true, phone: true } },
+          user: { select: { id: true, name: true, email: true, phone: true, emailVerified: true, marketingConsentAt: true, marketingUnsubscribedAt: true } },
           items: {
             include: {
               product: {
@@ -1380,6 +1381,7 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
           userId: order.userId,
           name: getCustomerLabel(order),
           email: order.customerEmail || order.user?.email || null,
+          canEmailOffer: Boolean(order.user?.emailVerified && order.user?.marketingConsentAt && !order.user?.marketingUnsubscribedAt),
           phone: order.customerPhone || order.user?.phone || null,
           orders: [],
           totalRevenue: 0,
@@ -1542,6 +1544,7 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
           userId: customer.userId,
           name: customer.name,
           email: customer.email,
+          canEmailOffer: customer.canEmailOffer,
           phone: customer.phone,
           lastOrderAt: customer.lastOrderAt,
           daysSinceLastOrder,
@@ -1557,22 +1560,28 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
       .sort((a, b) => b.probability - a.probability)
       .slice(0, 12)
 
-    for (const candidate of repeatCandidates.slice(0, 5)) {
+    const eligibleCandidates = repeatCandidates.filter(candidate => candidate.userId && candidate.canEmailOffer)
+    const existingOffers = eligibleCandidates.length ? await prisma.promoCode.findMany({
+      where: { analyticsActionKey: { in: eligibleCandidates.map(candidate => `return:${candidate.userId}:${candidate.product.productId}:${candidate.lastOrderId}`) } },
+      select: { analyticsActionKey: true, emailSentAt: true, isActive: true, endDate: true, activationCount: true }
+    }) : []
+    const offerByKey = new Map(existingOffers.map(offer => [offer.analyticsActionKey, offer]))
+
+    for (const candidate of eligibleCandidates.slice(0, 5)) {
+      const actionKey = `return:${candidate.userId}:${candidate.product.productId}:${candidate.lastOrderId}`
+      const existingOffer = offerByKey.get(actionKey)
+      if (existingOffer && (existingOffer.emailSentAt || !existingOffer.isActive || existingOffer.activationCount > 0 || (existingOffer.endDate && existingOffer.endDate <= new Date()))) continue
       actions.push({
         id: buildActionId('personal_discount', { customerKey: candidate.customerKey, productId: candidate.product.productId }),
         type: 'personal_discount',
         priority: candidate.probability >= 75 ? 'high' : 'medium',
         title: `Вернуть ${candidate.name}`,
         description: `${candidate.daysSinceLastOrder} дней без заказа. Раньше брал(а) ${candidate.product.title}. Цикл: ${candidate.repeatCycleDays} дней. Вероятность повтора: ${candidate.probability}%.`,
-        buttonLabel: 'Создать скидку 15%',
+        buttonLabel: existingOffer ? 'Повторить отправку письма' : 'Создать и отправить скидку 15%',
         payload: {
-          customerKey: candidate.customerKey,
           userId: candidate.userId,
-          customerName: candidate.name,
-          customerEmail: candidate.email,
           productId: candidate.product.productId,
-          productTitle: candidate.product.title,
-          discountValue: 15
+          lastOrderId: candidate.lastOrderId
         }
       })
     }
@@ -1604,24 +1613,53 @@ router.post('/actions/:type', authenticate, requireAdmin, async (req, res, next)
     const payload = req.body?.payload && typeof req.body.payload === 'object' ? req.body.payload : {}
 
     if (actionType === 'personal_discount') {
-      const discountValue = Math.max(1, Math.min(80, Number(payload.discountValue || 15) || 15))
+      const userId = Number(payload.userId)
+      const productId = Number(payload.productId)
+      const lastOrderId = Number(payload.lastOrderId)
+      if (![userId, productId, lastOrderId].every(value => Number.isSafeInteger(value) && value > 0)) {
+        return res.status(400).json({ error: 'Для скидки нужен зарегистрированный клиент и его оплаченный заказ' })
+      }
+      const [user, order, productPurchase] = await Promise.all([
+        prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, emailVerified: true, marketingConsentAt: true, marketingUnsubscribedAt: true } }),
+        prisma.order.findFirst({ where: { id: lastOrderId, userId, status: { not: 'CANCELLED' }, paymentStatus: { in: [...SUCCESS_PAYMENT_STATUSES] } }, select: { id: true } }),
+        prisma.order.findFirst({ where: { userId, status: { not: 'CANCELLED' }, paymentStatus: { in: [...SUCCESS_PAYMENT_STATUSES] }, items: { some: { productId } } }, select: { id: true } })
+      ])
+      if (!user || !order || !productPurchase) return res.status(400).json({ error: 'Клиент или его оплаченный заказ не найден' })
+      if (!user.emailVerified || !user.marketingConsentAt || user.marketingUnsubscribedAt || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email) || user.email.endsWith('.invalid')) {
+        return res.status(400).json({ error: 'Клиент не подтвердил почту или не дал согласие на письма с предложениями' })
+      }
+      const discountValue = 15
+      const analyticsActionKey = `return:${userId}:${productId}:${lastOrderId}`
       const code = `RETURN${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`
-      const promoCode = await prisma.promoCode.create({
-        data: {
-          code,
-          discountType: 'percentage',
-          discountValue,
-          usageType: 'single',
-          maxActivations: 1,
-          isFirstPurchase: false,
-          isActive: true,
-          endDate: addDaysToNow(14)
-        }
+      const promoCode = await prisma.promoCode.upsert({
+        where: { analyticsActionKey },
+        create: { code, analyticsActionKey, recipientUserId: userId, discountType: 'percentage', discountValue, usageType: 'single', maxActivations: 1, isFirstPurchase: false, isActive: true, endDate: addDaysToNow(14) },
+        update: {}
       })
+      if (promoCode.emailSentAt) return res.json({ ok: true, message: `Промокод ${promoCode.code} уже создан и письмо отправлено клиенту.`, promoCode })
+      if (!promoCode.isActive || promoCode.activationCount > 0 || (promoCode.endDate && promoCode.endDate <= new Date())) {
+        return res.status(409).json({ error: 'Этот персональный промокод больше не действует' })
+      }
+
+      let emailSent = false
+      try {
+        await emailService.sendMail({
+          to: user.email,
+          subject: 'Ваша персональная скидка 15% — Angel Wings',
+          text: `Здравствуйте, ${user.name}!\n\nДля вас подготовлена персональная скидка 15% на товары Angel Wings.\nПромокод: ${promoCode.code}\nОн действует 14 дней с момента создания и применяется один раз только в вашем аккаунте.\n\nОформить заказ: https://angel-wings.ru/cart\n\nЕсли вы не хотите получать такие предложения, настройте согласие в личном кабинете.`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:28px;background:#f6f7fb;color:#151722"><div style="background:#fff;border:1px solid #e7e9f2;border-radius:24px;padding:30px"><p style="color:#5672c9;font-weight:700;letter-spacing:.12em">ANGEL WINGS</p><h1 style="font-size:25px">Ваша персональная скидка 15%</h1><p>Здравствуйте, ${String(user.name).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])}! Мы подготовили для вас скидку на товары.</p><p style="background:#f3f5ff;border-radius:16px;padding:20px;font-size:22px;font-weight:700;letter-spacing:.08em">${promoCode.code}</p><p>Код действует 14 дней с момента создания, один раз и только в вашем аккаунте.</p><a href="https://angel-wings.ru/cart" style="display:inline-block;background:#9fb3ff;color:#10131f;text-decoration:none;border-radius:12px;padding:14px 20px;font-weight:700">Перейти в корзину</a><p style="color:#687087;font-size:12px">Отписаться от предложений можно в личном кабинете.</p></div></div>`
+        })
+        await prisma.promoCode.update({ where: { id: promoCode.id }, data: { emailSentAt: new Date(), emailError: null } })
+        emailSent = true
+      } catch (error) {
+        await prisma.promoCode.update({ where: { id: promoCode.id }, data: { emailError: String(error.message || 'Ошибка отправки').slice(0, 500) } })
+        console.error('[ANALYTICS] Personal promo email failed', JSON.stringify({ promoCodeId: promoCode.id, userId, message: error.message }))
+      }
 
       return res.status(201).json({
         ok: true,
-        message: `Создан одноразовый промокод ${promoCode.code} на ${discountValue}% сроком на 14 дней.`,
+        emailSent,
+        message: emailSent ? `Персональный промокод ${promoCode.code} на ${discountValue}% создан и отправлен на ${user.email}. Срок — 14 дней.` : `Промокод ${promoCode.code} создан, но письмо не отправлено. Повторите отправку этой кнопкой; уведомление на сайте клиент увидит.`,
         promoCode
       })
     }

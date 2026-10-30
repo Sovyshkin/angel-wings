@@ -12,6 +12,7 @@ import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { normalizePointAmount, spendUserPoints } from '../utils/userPoints.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
 import { isActivePartner, isOwnPartnerPromoCode } from '../utils/promoEligibility.js'
+import { personalPromoError } from '../utils/personalPromo.js'
 import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
 import { applyOrderStockChanges, assertOrderStockAvailable } from '../utils/orderStock.js'
 
@@ -126,6 +127,9 @@ async function applyPromoCode(code, userId) {
     })
     return { error: 'Промокод не найден или неактивен' }
   }
+
+  const recipientError = personalPromoError(promoCode, userId)
+  if (recipientError) return { error: recipientError }
 
   if (await isOwnPartnerPromoCode(prisma, promoCode, userId)) {
     logPromoCheck('own_partner_promo_rejected', { promoCodeId: promoCode.id, userId })
@@ -469,7 +473,32 @@ async function bindUserToPartner(userId, partnerId, promoCodeId = null, source =
   return { bound: true }
 }
 
-// Создание заказа - требуется авторизация
+// Персональные предложения доступны только владельцу аккаунта.
+router.get('/personal-promos/unseen', authenticate, async (req, res, next) => {
+  try {
+    const promos = await prisma.promoCode.findMany({
+      where: { recipientUserId: req.user.id, notificationSeenAt: null, isActive: true, activationCount: 0, endDate: { gt: new Date() } },
+      select: { id: true, code: true, discountValue: true, endDate: true },
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    })
+    res.set('Cache-Control', 'no-store, private')
+    res.json({ promos })
+  } catch (error) { next(error) }
+})
+
+router.post('/personal-promos/:id/seen', authenticate, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: 'Некорректный промокод' })
+    const result = await prisma.promoCode.updateMany({
+      where: { id, recipientUserId: req.user.id, notificationSeenAt: null },
+      data: { notificationSeenAt: new Date() }
+    })
+    res.json({ marked: result.count })
+  } catch (error) { next(error) }
+})
+
 router.post('/promo/validate', authenticate, async (req, res, next) => {
   try {
     const code = String(req.body?.code || '').trim().toUpperCase()
@@ -834,10 +863,17 @@ router.post('/', authenticate, async (req, res, next) => {
       })))
 
       if (appliedPromoCode) {
-        await tx.promoCode.update({
-          where: { id: appliedPromoCode.id },
+        const limit = appliedPromoCode.usageType === 'single' ? 1 : Number(appliedPromoCode.maxActivations || 0)
+        const claimed = await tx.promoCode.updateMany({
+          where: {
+            id: appliedPromoCode.id,
+            isActive: true,
+            ...(appliedPromoCode.recipientUserId ? { recipientUserId: req.user.id } : {}),
+            ...(limit > 0 ? { activationCount: { lt: limit } } : {})
+          },
           data: { activationCount: { increment: 1 } }
         })
+        if (claimed.count !== 1) throw createClientError('Промокод больше недоступен')
       }
 
       const promoDiscountAmount = Math.min(itemsSubtotal, Math.max(0, Number(discountAmount || 0)))

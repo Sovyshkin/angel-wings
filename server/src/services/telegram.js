@@ -1,5 +1,6 @@
 import https from 'node:https'
 import crypto from 'node:crypto'
+import { isIP } from 'node:net'
 import axios from 'axios'
 
 // The primary server can reach the relay through Cloudflare with TLS 1.2, while
@@ -149,6 +150,48 @@ function getPositiveInt(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
+async function selectRelayRoute(relayUrl, orderId) {
+  const originIp = String(process.env.TELEGRAM_RELAY_ORIGIN_IP || '').trim()
+  if (!originIp) return { httpsAgent: relayHttpsAgent, direct: false }
+
+  if (isIP(originIp) !== 4 || new URL(relayUrl).protocol !== 'https:') {
+    throw new Error('TELEGRAM_RELAY_ORIGIN_IP requires an IPv4 address and an HTTPS relay URL')
+  }
+
+  try {
+    // Check the public route before sending the order. Falling back only before
+    // POST avoids sending the same order twice when a POST response is lost.
+    const health = await axios.get(`${relayUrl}/health`, {
+      timeout: getPositiveInt(process.env.TELEGRAM_RELAY_PREFLIGHT_TIMEOUT_MS, 5000),
+      httpsAgent: relayHttpsAgent,
+      maxRedirects: 0,
+      validateStatus: () => true
+    })
+    if (health.status === 200 && health.data?.ok === true) {
+      return { httpsAgent: relayHttpsAgent, direct: false }
+    }
+    console.warn('[TELEGRAM] relay public route unhealthy', JSON.stringify({ orderId, httpStatus: health.status }))
+  } catch (error) {
+    console.warn('[TELEGRAM] relay public route unavailable', JSON.stringify({
+      orderId, code: error?.cause?.code || error?.code || null, message: error?.message || null
+    }))
+  }
+
+  // Keep the original HTTPS hostname for SNI and certificate validation while
+  // resolving it to the trusted origin IP instead of a Cloudflare edge address.
+  const httpsAgent = new https.Agent({
+    family: 4,
+    keepAlive: true,
+    minVersion: 'TLSv1.2',
+    maxVersion: 'TLSv1.2',
+    lookup: (_hostname, options, callback) => {
+      if (options?.all) callback(null, [{ address: originIp, family: 4 }])
+      else callback(null, originIp, 4)
+    }
+  })
+  return { httpsAgent, direct: true }
+}
+
 async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId }) {
   // Durable retries are handled by telegramQueue. Keep this request bounded so one
   // unavailable relay cannot block the worker for several minutes.
@@ -172,9 +215,13 @@ async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId
     }))
 
     try {
+      const route = await selectRelayRoute(relayUrl, orderId)
+      if (route.direct) console.warn('[TELEGRAM] using direct relay route', JSON.stringify({ orderId }))
       const response = await axios.post(`${relayUrl}/telegram/orders`, relayBody, {
         timeout: timeoutMs,
-        httpsAgent: relayHttpsAgent,
+        httpsAgent: route.httpsAgent,
+        ...(route.direct ? { proxy: false } : {}),
+        maxRedirects: 0,
         headers: {
           'Content-Type': 'application/json',
           'X-AngelWings-Timestamp': relayTimestamp,

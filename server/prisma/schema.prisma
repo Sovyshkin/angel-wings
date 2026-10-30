@@ -36,6 +36,7 @@ model User {
   consultationRequests        ConsultationRequest[]  @relation("ConsultationClient")
   handledConsultations        ConsultationRequest[]  @relation("ConsultationHandler")
   favoritePickupPoints        FavoritePickupPoint[]
+  personalPromoCodes          PromoCode[]             @relation("PersonalPromoRecipient")
 
   @@map("users")
 }
@@ -586,10 +587,17 @@ model PromoCode {
   isActive        Boolean       @default(true)
   partnerId       Int?
   partner         Partner?      @relation(fields: [partnerId], references: [id])
+  recipientUserId Int?
+  recipientUser   User?         @relation("PersonalPromoRecipient", fields: [recipientUserId], references: [id], onDelete: Restrict)
+  analyticsActionKey String?    @unique
+  notificationSeenAt DateTime?
+  emailSentAt     DateTime?
+  emailError      String?
   partnerUsers    PartnerUser[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
+  @@index([recipientUserId, notificationSeenAt])
   @@map("promo_codes")
 }
 

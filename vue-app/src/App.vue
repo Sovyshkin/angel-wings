@@ -51,6 +51,21 @@
           <img src="/orthodox-cross-close-mask.png" alt="">
       </button>
     </div>
+    <div
+      v-if="personalPromoToast"
+      class="points-toast personal-promo-toast"
+      :class="{ 'points-toast--closing': personalPromoToastClosing, 'personal-promo-toast--stacked': pointsToast }"
+      role="status"
+      aria-live="polite"
+    >
+      <div>
+        <span>Персональная скидка</span>
+        <strong>−{{ personalPromoToast.discountValue }}% для вас</strong>
+        <p>Промокод {{ personalPromoToast.code }} · действует до {{ formatPersonalPromoDate(personalPromoToast.endDate) }}</p>
+      </div>
+      <router-link to="/cart" class="points-toast__link" @click="dismissPersonalPromoToast">В корзину</router-link>
+      <button class="points-toast__close" @click="dismissPersonalPromoToast" aria-label="Закрыть уведомление о скидке"></button>
+    </div>
     <header class="header">
       <div class="header__container">
         <router-link to="/" class="header__logo">
@@ -533,6 +548,8 @@ const cursorDotRefs = ref([])
 const cursorDots = Array.from({ length: 8 })
 const pointsToast = ref(null)
 const pointsToastClosing = ref(false)
+const personalPromoToast = ref(null)
+const personalPromoToastClosing = ref(false)
 const telegramWidget = ref(null)
 const telegramChatOpen = ref(false)
 const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
@@ -712,6 +729,40 @@ async function dismissPointsToast() {
   }
 }
 
+function formatPersonalPromoDate(value) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '14 дней' : new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(date)
+}
+
+async function checkPersonalPromoNotifications() {
+  if (!authStore.isAuthenticated) {
+    personalPromoToast.value = null
+    return
+  }
+  try {
+    const { data } = await axios.get('/api/orders/personal-promos/unseen')
+    personalPromoToast.value = data?.promos?.[0] || null
+    personalPromoToastClosing.value = false
+  } catch {
+    personalPromoToast.value = null
+  }
+}
+
+async function dismissPersonalPromoToast() {
+  const id = personalPromoToast.value?.id
+  if (!id || personalPromoToastClosing.value) return
+  personalPromoToastClosing.value = true
+  await new Promise(resolve => setTimeout(resolve, 260))
+  personalPromoToast.value = null
+  personalPromoToastClosing.value = false
+  try {
+    await axios.post(`/api/orders/personal-promos/${id}/seen`)
+    await checkPersonalPromoNotifications()
+  } catch {
+    // Показываем предложение снова при следующем посещении, если отметка не сохранилась.
+  }
+}
+
 onMounted(() => {
   // A forced recovery reload is only a last resort for a genuinely empty
   // router view. Restore its exact scroll position after Vue has rendered;
@@ -730,6 +781,7 @@ onMounted(() => {
 
   captureAttributionFromUrl()
   checkPointNotifications()
+  checkPersonalPromoNotifications()
 
   const closeTelegramOnOutsideInteraction = (event) => {
     if (telegramChatOpen.value && !telegramWidget.value?.contains(event.target)) {
@@ -954,6 +1006,7 @@ onMounted(() => {
 
 watch(() => authStore.isAuthenticated, () => {
   checkPointNotifications()
+  checkPersonalPromoNotifications()
 })
 
 onBeforeUnmount(() => {
@@ -1042,6 +1095,10 @@ onBeforeUnmount(() => {
 .points-toast--closing {
   pointer-events: none;
   animation: pointsToastOut 0.26s cubic-bezier(0.72, 0, 0.24, 1) both;
+}
+
+.personal-promo-toast--stacked {
+  bottom: 13rem;
 }
 
 .points-toast span {
