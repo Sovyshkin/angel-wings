@@ -146,9 +146,14 @@ async function send() {
           consecutiveTelegramFailures = 0
           await new Promise(resolve => setTimeout(resolve, 250))
         } catch (error) {
-          await db.pointCampaignOffer.update({ where: { id: offer.id }, data: { telegramStatus: 'FAILED', telegramError: String(error.message || error).slice(0, 500) } })
+          const recipientUnavailable = [400, 403].includes(Number(error.relayStatus)) &&
+            /bot was blocked|chat not found|user is deactivated|bot can't initiate/i.test(error.relayError || '')
+          await db.pointCampaignOffer.update({
+            where: { id: offer.id },
+            data: { telegramStatus: recipientUnavailable ? 'SKIPPED' : 'FAILED', telegramError: String(error.message || error).slice(0, 500) }
+          })
           console.error(`Telegram не отправлен: пользователь #${offer.userId}: ${error.message || error}`)
-          consecutiveTelegramFailures += 1
+          if (!recipientUnavailable) consecutiveTelegramFailures += 1
         }
       }
     }

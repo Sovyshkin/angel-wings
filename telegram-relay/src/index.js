@@ -1,6 +1,8 @@
 import 'dotenv/config'
 import https from 'node:https'
 import crypto from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import express from 'express'
 import axios from 'axios'
 import nodemailer from 'nodemailer'
@@ -24,6 +26,9 @@ const telegramAgent = new https.Agent({
   family: 4,
   keepAlive: true
 })
+
+const campaignImagePath = String(process.env.POINTS_CAMPAIGN_IMAGE_PATH || '').trim() ||
+  new URL('../../server/assets/points-campaign-offer.png', import.meta.url)
 
 function maskSecret(value) {
   const text = String(value || '')
@@ -190,6 +195,7 @@ app.get('/health', (req, res) => {
     service: 'angel-wings-telegram-relay',
     telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_ORDERS_CHAT_ID),
     miniAppBotConfigured: Boolean(process.env.TELEGRAM_MINI_APP_BOT_TOKEN),
+    campaignImageAvailable: existsSync(campaignImagePath),
     emailConfigured: Boolean(
       process.env.SMTP_HOST &&
       process.env.SMTP_USER &&
@@ -316,17 +322,21 @@ app.post('/telegram/campaign', requireRelayAuth, async (req, res) => {
   if (!token) return res.status(503).json({ ok: false, error: 'Mini App bot is not configured' })
 
   try {
-    const response = await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, {
-      chat_id: chatId,
-      photo: 'https://angel-wings.ru/uploads/points-campaign-offer.png',
-      caption: '🎁 Вам доступны 4 000 баллов Angel Wings!\n\nНажмите «Получить» в мини-приложении — только после этого баллы появятся на балансе. 1 балл = 1 ₽. Неиспользованные баллы сгорят через 1 месяц после получения.',
-      reply_markup: { inline_keyboard: [[{
+    const image = await readFile(campaignImagePath)
+    const form = new FormData()
+    form.append('chat_id', chatId)
+    form.append('photo', new Blob([image], { type: 'image/png' }), 'points-campaign-offer.png')
+    form.append('caption', '🎁 Вам доступны 4 000 баллов Angel Wings!\n\nНажмите «Получить» в мини-приложении — только после этого баллы появятся на балансе. 1 балл = 1 ₽. Неиспользованные баллы сгорят через 1 месяц после получения.')
+    form.append('reply_markup', JSON.stringify({ inline_keyboard: [[{
         text: 'Получить 4 000 баллов',
         web_app: { url: 'https://app.angel-wings.ru/' }
-      }]] }
-    }, {
+      }]] }))
+    // Upload bytes from this server: Telegram rejected the public image URL
+    // with "failed to get HTTP URL content" for campaign recipients.
+    const response = await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, form, {
       timeout: Number(process.env.TELEGRAM_SEND_TIMEOUT_MS || 30000),
       httpsAgent: telegramAgent,
+      maxBodyLength: 10 * 1024 * 1024,
       validateStatus: () => true
     })
     const data = response.data || {}

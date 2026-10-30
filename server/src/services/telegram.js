@@ -243,6 +243,8 @@ async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId
       }
 
       lastError = new Error(`[TELEGRAM] relay failed: ${JSON.stringify(response?.data || {})}`)
+      lastError.relayStatus = Number(response?.status || 0)
+      lastError.relayError = String(response?.data?.error || '')
 
       // 4xx usually means bad secret/body/configuration; retrying won't help.
       if (Number(response?.status || 0) >= 400 && Number(response?.status || 0) < 500) {
