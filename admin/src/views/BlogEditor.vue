@@ -3,6 +3,7 @@
     <p v-if="error" class="blog-admin__error">{{ error }}</p>
     <div v-show="preview" class="blog-editor__preview"><img v-if="form.cover" :src="form.cover" :alt="form.coverAlt"><span>{{ selectedCategories.map(category => category.name).join(' · ') || 'Без категории' }}</span><h1>{{ form.title || 'Заголовок статьи' }}</h1><p>{{ form.excerpt }}</p><div class="blog-editor__preview-body" v-html="previewHtml"></div></div>
     <div v-show="!preview" class="blog-editor__layout"><div class="blog-editor__main"><div class="blog-editor__cover" :style="form.cover ? { backgroundImage: `url(${form.cover})` } : {}"><div v-if="!form.cover">Обложка статьи</div><label>↑ {{ form.cover ? 'Заменить обложку' : 'Загрузить обложку' }}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden @change="uploadCover"></label><button v-if="form.cover" type="button" @click="form.cover = ''; form.coverAlt = ''">Удалить</button></div>
+      <p class="blog-editor__cover-note" :class="{ 'is-warning': coverTooSmall }">{{ coverDimensions ? `Обложка: ${coverDimensions.width} × ${coverDimensions.height} px. ` : '' }}{{ coverTooSmall ? 'Для чёткого отображения замените её файлом не меньше 1800 × 960 px.' : 'Для чёткого отображения загружайте изображение от 1800 × 960 px.' }}</p>
       <input v-model="form.title" class="blog-editor__title" placeholder="Заголовок статьи" aria-label="Заголовок статьи"><textarea v-model="form.excerpt" class="blog-editor__excerpt" rows="2" placeholder="Краткое описание для карточки и читателя…" aria-label="Краткое описание"></textarea>
       <div class="blog-editor__toolbar" role="toolbar" aria-label="Форматирование текста"><button type="button" title="Обычный текст" @mousedown.prevent @click="formatBlock('p')">Текст</button><button type="button" title="Заголовок 2" @mousedown.prevent @click="formatBlock('h2')">H2</button><button type="button" title="Заголовок 3" @mousedown.prevent @click="formatBlock('h3')">H3</button><button type="button" title="Жирный" @mousedown.prevent @click="command('bold')"><b>B</b></button><button type="button" title="Курсив" @mousedown.prevent @click="command('italic')"><i>I</i></button><button type="button" title="Маркированный список" @mousedown.prevent @click="command('insertUnorderedList')">• Список</button><button type="button" title="Нумерованный список" @mousedown.prevent @click="command('insertOrderedList')">1. Список</button><button type="button" title="Цитата" @mousedown.prevent @click="formatBlock('blockquote')">❝</button><button type="button" title="Ссылка" @mousedown.prevent @click="addLink">🔗</button><button type="button" title="Таблица" @mousedown.prevent @click="addTable">▦</button><label title="Вставить изображение">▧<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden @change="uploadInline"></label></div>
       <div ref="editable" class="blog-editor__editable" contenteditable="true" role="textbox" aria-label="Текст статьи" aria-multiline="true" data-placeholder="Начните писать статью. Перетащите изображение сюда или используйте панель инструментов…" @input="onContentInput" @keyup="rememberSelection" @mouseup="rememberSelection" @dragover.prevent @drop.prevent="handleDrop" @paste="handlePaste"></div><p class="blog-editor__tip">Изображения можно перетащить в текст. Для каждого изображения требуется ALT-описание.</p>
@@ -18,6 +19,8 @@ import './blogTypography.css'
 
 const route = useRoute(), router = useRouter(), editable = ref(null), categories = ref([]), preview = ref(false), error = ref(''), saving = ref(false), saveState = ref('Не сохранено'), loading = ref(true)
 const form = reactive({ title: '', slug: '', excerpt: '', content: '', cover: '', coverAlt: '', author: 'ANGEL WINGS', categoryIds: [], status: 'DRAFT', featured: false, metaTitle: '', metaDescription: '' })
+const coverDimensions = ref(null)
+const coverTooSmall = computed(() => coverDimensions.value && (coverDimensions.value.width < 1800 || coverDimensions.value.height < 960))
 let timer = null, saveQueue = Promise.resolve(), suppressWatch = false
 let metaTitleCustom = false, metaDescriptionCustom = false
 let savedRange = null
@@ -70,8 +73,42 @@ function command(name, value) { focusEditor(); document.execCommand(name, false,
 function formatBlock(tag) { command('formatBlock', tag) }
 function addLink() { const href = prompt('Адрес ссылки (https://):'); if (href && /^https?:\/\//i.test(href)) command('createLink', href) }
 function addTable() { focusEditor(); document.execCommand('insertHTML', false, '<table><tbody><tr><th>Заголовок 1</th><th>Заголовок 2</th></tr><tr><td>Текст</td><td>Текст</td></tr></tbody></table><p><br></p>'); onContentInput() }
+function readImageDimensions(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight })
+    image.onerror = () => reject(new Error('Не удалось прочитать изображение'))
+    image.src = source
+  })
+}
+let coverProbeId = 0
+watch(() => form.cover, async source => {
+  const probeId = ++coverProbeId
+  coverDimensions.value = null
+  if (!source) return
+  try {
+    const dimensions = await readImageDimensions(source)
+    if (probeId === coverProbeId) coverDimensions.value = dimensions
+  } catch { /* Размер старого внешнего файла может быть недоступен */ }
+})
 async function uploadFile(file) { const data = new FormData(); data.append('image', file); const result = await axios.post('/api/blog/admin/images', data); return result.data.url }
-async function uploadCover(event) { const file = event.target.files?.[0]; if (!file) return; try { form.cover = await uploadFile(file); if (!form.coverAlt) form.coverAlt = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ') } catch { error.value = 'Не удалось загрузить обложку (максимум 5 МБ)' } event.target.value = '' }
+async function uploadCover(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  try {
+    const objectUrl = URL.createObjectURL(file)
+    let dimensions
+    try { dimensions = await readImageDimensions(objectUrl) } finally { URL.revokeObjectURL(objectUrl) }
+    if (dimensions.width < 1800 || dimensions.height < 960) {
+      error.value = `Изображение ${dimensions.width} × ${dimensions.height} px слишком маленькое для обложки. Выберите файл от 1800 × 960 px.`
+      return
+    }
+    form.cover = await uploadFile(file)
+    if (!form.coverAlt) form.coverAlt = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+    error.value = ''
+  } catch { error.value = 'Не удалось загрузить обложку (максимум 5 МБ)' }
+  finally { event.target.value = '' }
+}
 async function insertImage(file) { const range = savedRange?.cloneRange(); const alt = prompt('ALT: кратко опишите изображение'); if (!alt?.trim()) return; try { const url = await uploadFile(file); savedRange = range; focusEditor(); document.execCommand('insertHTML', false, `<figure><img src="${url}" alt="${alt.replace(/[<>&"']/g, '')}"><figcaption></figcaption></figure><p><br></p>`); onContentInput() } catch { error.value = 'Не удалось загрузить изображение (максимум 5 МБ)' } }
 async function uploadInline(event) { const file = event.target.files?.[0]; if (file) await insertImage(file); event.target.value = '' }
 async function handleDrop(event) { const file = [...event.dataTransfer.files].find(file => file.type.startsWith('image/')); if (!file) return; savedRange = document.caretRangeFromPoint?.(event.clientX, event.clientY) || savedRange; await insertImage(file) }

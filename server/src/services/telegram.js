@@ -2,6 +2,16 @@ import https from 'node:https'
 import crypto from 'node:crypto'
 import axios from 'axios'
 
+// The primary server can reach the relay through Cloudflare with TLS 1.2, while
+// its Node.js TLS 1.3 handshake stalls. Scope this compatibility setting to the
+// relay connection; all other HTTPS clients keep their normal TLS negotiation.
+const relayHttpsAgent = new https.Agent({
+  family: 4,
+  keepAlive: true,
+  minVersion: 'TLSv1.2',
+  maxVersion: 'TLSv1.2'
+})
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -164,6 +174,7 @@ async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId
     try {
       const response = await axios.post(`${relayUrl}/telegram/orders`, relayBody, {
         timeout: timeoutMs,
+        httpsAgent: relayHttpsAgent,
         headers: {
           'Content-Type': 'application/json',
           'X-AngelWings-Timestamp': relayTimestamp,

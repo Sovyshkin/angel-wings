@@ -4,7 +4,7 @@ function clientError(message, status = 400) {
   return Object.assign(new Error(message), { status })
 }
 
-export async function resolveManualOrderPromo(tx, { code, userId, subtotal, boundPartnerId = null, requestedPartnerId = null }) {
+export async function resolveManualOrderPromo(tx, { code, userId, subtotal, boundPartnerId = null, requestedPartnerId = null, excludeOrderId = null }) {
   const normalizedCode = String(code || '').trim().toUpperCase()
   if (!normalizedCode) return { promoCode: null, discountAmount: 0, partnerId: boundPartnerId || requestedPartnerId || null }
   if (normalizedCode.length > 100) throw clientError('Промокод слишком длинный')
@@ -25,7 +25,7 @@ export async function resolveManualOrderPromo(tx, { code, userId, subtotal, boun
   if (promoCode.endDate && now > promoCode.endDate) throw clientError('Срок действия промокода истёк')
   const activationLimit = promoCode.usageType === 'single' ? 1 : Number(promoCode.maxActivations || 0)
   if (activationLimit > 0 && promoCode.activationCount >= activationLimit) throw clientError('Промокод достиг лимита использований')
-  if (promoCode.isFirstPurchase && await tx.order.count({ where: { userId } }) > 0) throw clientError('Этот промокод только для первого заказа')
+  if (promoCode.isFirstPurchase && await tx.order.count({ where: { userId, ...(excludeOrderId ? { id: { not: excludeOrderId } } : {}) } }) > 0) throw clientError('Этот промокод только для первого заказа')
   if (Number(subtotal) < Number(promoCode.minOrderAmount || 0)) {
     throw clientError(`Минимальная сумма заказа для этого промокода: ${promoCode.minOrderAmount}`)
   }

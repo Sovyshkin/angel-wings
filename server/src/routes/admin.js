@@ -1553,6 +1553,72 @@ router.put('/orders/:id/payment-status', authenticate, requireAdmin, async (req,
   }
 })
 
+router.post('/orders/:id/promo', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const orderId = Number(req.params.id)
+    const code = typeof req.body?.promoCode === 'string' ? req.body.promoCode.trim() : ''
+    if (!Number.isSafeInteger(orderId) || orderId < 1 || !code || code.length > 100) {
+      return res.status(400).json({ error: 'Укажите корректный промокод и заказ' })
+    }
+    if (!Number.isInteger(req.body?.expectedEditVersion) || typeof req.body?.expectedUpdatedAt !== 'string' || !Number.isFinite(Date.parse(req.body.expectedUpdatedAt))) {
+      return res.status(400).json({ error: 'Обновите заказ перед применением промокода' })
+    }
+    const order = await prisma.$transaction(async tx => {
+      const previous = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } })
+      if (!previous) throw Object.assign(new Error('Заказ не найден'), { status: 404 })
+      if (previous.editVersion !== req.body.expectedEditVersion || previous.updatedAt.toISOString() !== new Date(req.body.expectedUpdatedAt).toISOString()) {
+        throw Object.assign(new Error('Заказ уже изменён. Обновите страницу и повторите попытку'), { status: 409 })
+      }
+      if (previous.promoCodeId) throw Object.assign(new Error('К заказу уже применён промокод'), { status: 409 })
+      if (!previous.userId) throw Object.assign(new Error('Промокод можно добавить только к заказу зарегистрированного клиента'), { status: 400 })
+      const locked = previous.paymentId || previous.paymentLinkId || previous.paymentUrl || previous.paymentCreationToken || previous.paymentCreationStartedAt ||
+        ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].includes(String(previous.paymentStatus || '').toUpperCase()) ||
+        (previous.paymentStatus === 'CASH_ON_DELIVERY' && ['SHIPPED', 'DELIVERED', 'RETURNED'].includes(previous.status))
+      if (locked || previous.cdekOrderUuid || ['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(previous.status)) {
+        throw Object.assign(new Error('Промокод нельзя применить после выставления счёта, оплаты, передачи в СДЭК или завершения заказа'), { status: 409 })
+      }
+      const user = await tx.user.findUnique({ where: { id: previous.userId }, select: { id: true, role: true, partnerUser: { select: { partnerId: true } } } })
+      if (!user || user.role === 'DELETED') throw Object.assign(new Error('Клиент не найден'), { status: 404 })
+      const historical = !user.partnerUser ? await tx.order.findFirst({ where: { userId: user.id, id: { not: orderId }, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
+      const boundPartnerId = user.partnerUser?.partnerId || historical?.partnerId || previous.partnerId || null
+      if (previous.partnerId && boundPartnerId !== previous.partnerId) throw Object.assign(new Error('Партнёр заказа не совпадает с закреплённым партнёром клиента'), { status: 409 })
+      const subtotalCents = previous.items.reduce((sum, item) => sum + Math.round(item.price * 100) * item.quantity, 0)
+      const existingDiscountCents = Math.round(Number(previous.discountAmount || 0) * 100)
+      const promo = await resolveManualOrderPromo(tx, {
+        code, userId: user.id, subtotal: subtotalCents / 100, boundPartnerId,
+        requestedPartnerId: previous.partnerId, excludeOrderId: orderId
+      })
+      const promoDiscountCents = Math.min(Math.max(0, subtotalCents - existingDiscountCents), Math.round(promo.discountAmount * 100))
+      if (promoDiscountCents < 1) throw Object.assign(new Error('В заказе не осталось суммы товаров для скидки'), { status: 400 })
+      const deliveryCents = previous.deliveryTariffCode || previous.deliveryPickupPoint ? 0 : Math.round(Number(previous.deliveryPrice || 0) * 100)
+      const nextTotalCents = subtotalCents + deliveryCents - existingDiscountCents - promoDiscountCents
+      if (nextTotalCents < 0) throw Object.assign(new Error('Скидка превышает стоимость заказа'), { status: 400 })
+      const nextPartnerId = promo.partnerId || previous.partnerId || null
+      await claimManualOrderPromo(tx, promo.promoCode)
+      if (promo.promoCode.partnerId === nextPartnerId && nextPartnerId && !previous.partnerId && !user.partnerUser && !historical) {
+        await tx.partnerUser.create({ data: { userId: user.id, partnerId: nextPartnerId, promoCodeId: promo.promoCode.id, referralSource: 'promo_code' } })
+      }
+      const updated = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          promoCodeId: promo.promoCode.id, partnerId: nextPartnerId,
+          discountAmount: (existingDiscountCents + promoDiscountCents) / 100,
+          total: nextTotalCents / 100, paymentAmount: previous.paymentStatus === 'CASH_ON_DELIVERY' ? null : nextTotalCents / 100,
+          editVersion: { increment: 1 }
+        }
+      })
+      await tx.orderEditLog.create({ data: {
+        orderId, adminId: req.user.id,
+        beforeJson: JSON.stringify({ promoCodeId: null, discountAmount: previous.discountAmount, total: previous.total, partnerId: previous.partnerId }),
+        afterJson: JSON.stringify({ promoCodeId: promo.promoCode.id, promoCode: promo.promoCode.code, promoDiscountAmount: promoDiscountCents / 100, discountAmount: updated.discountAmount, total: updated.total, partnerId: updated.partnerId })
+      } })
+      return updated
+    })
+    res.set('Cache-Control', 'no-store')
+    res.json({ order })
+  } catch (error) { next(error) }
+})
+
 router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const orderId = Number(req.params.id)

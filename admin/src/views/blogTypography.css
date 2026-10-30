@@ -1,3 +1,24 @@
+.blog-editor__cover-note {
+  margin: 9px 2px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.blog-editor__cover-note.is-warning {
+  color: #eab676;
+}
+
+.blog-editor__preview > img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 430px;
+  object-fit: contain;
+  margin-inline: auto;
+}
+
 .blog-editor .blog-editor__editable,
 .blog-editor .blog-editor__preview-body {
   font-size: 16px;

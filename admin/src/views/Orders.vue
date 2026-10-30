@@ -573,8 +573,19 @@
                 >
                   {{ selectedOrder.promoCode.partner.user?.name || `Партнёр #${selectedOrder.promoCode.partner.id}` }}
                 </router-link>
+                <button v-if="!selectedOrder.promoCodeId && !showOrderPromo" type="button" class="order-promo-toggle" :disabled="!canEditOrderAmount || !selectedOrder.userId" @click="showOrderPromo = true">+ Добавить промокод</button>
+                <small v-if="!selectedOrder.promoCodeId && (!canEditOrderAmount || !selectedOrder.userId)" class="order-promo-hint">{{ !selectedOrder.userId ? 'Нужен зарегистрированный клиент' : 'Сумму этого заказа уже нельзя менять' }}</small>
               </div>
             </div>
+            <form v-if="showOrderPromo && !selectedOrder.promoCodeId" class="order-promo-form" @submit.prevent="applyOrderPromo">
+              <div class="order-promo-form__row">
+                <input v-model.trim="orderPromoCode" class="input" maxlength="100" autocomplete="off" aria-label="Промокод для заказа" placeholder="Введите промокод" required>
+                <button type="submit" class="btn btn-primary" :disabled="applyingOrderPromo || !orderPromoCode">{{ applyingOrderPromo ? 'Применяем…' : 'Применить' }}</button>
+                <button type="button" class="btn btn-secondary" :disabled="applyingOrderPromo" @click="showOrderPromo = false; orderPromoError = ''">Отмена</button>
+              </div>
+              <p class="edit-notice">Скидка изменит сумму неоплаченного заказа. Баллы за консультацию не начисляются.</p>
+              <p v-if="orderPromoError" class="edit-error" role="alert">{{ orderPromoError }}</p>
+            </form>
             <div v-if="getPartnerBonusAmount(selectedOrder) > 0" class="partner-bonus-card">
               <div class="partner-bonus-card__icon">₽</div>
               <div class="partner-bonus-card__content">
@@ -837,7 +848,11 @@ const savingOrder = ref(false)
 const orderDraft = ref(null)
 const editProducts = ref([])
 const editError = ref('')
-const hasFixedPayment = computed(() => Boolean(selectedOrder.value && (selectedOrder.value.paymentId || selectedOrder.value.paymentLinkId || selectedOrder.value.paymentUrl || isOrderPaid(selectedOrder.value.paymentStatus) || (selectedOrder.value.paymentStatus === 'CASH_ON_DELIVERY' && ['SHIPPED', 'DELIVERED', 'RETURNED'].includes(selectedOrder.value.status)))))
+const showOrderPromo = ref(false)
+const orderPromoCode = ref('')
+const orderPromoError = ref('')
+const applyingOrderPromo = ref(false)
+const hasFixedPayment = computed(() => Boolean(selectedOrder.value && (selectedOrder.value.paymentId || selectedOrder.value.paymentLinkId || selectedOrder.value.paymentUrl || selectedOrder.value.paymentCreationToken || selectedOrder.value.paymentCreationStartedAt || isOrderPaid(selectedOrder.value.paymentStatus) || (selectedOrder.value.paymentStatus === 'CASH_ON_DELIVERY' && ['SHIPPED', 'DELIVERED', 'RETURNED'].includes(selectedOrder.value.status)))))
 const canEditOrderAmount = computed(() => {
   const order = selectedOrder.value
   return Boolean(order && !hasFixedPayment.value && !order.cdekOrderUuid && !['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(order.status))
@@ -1355,6 +1370,9 @@ async function markAsPaid(order) {
 
 function viewOrder(order) {
   selectedOrder.value = order
+  showOrderPromo.value = false
+  orderPromoCode.value = ''
+  orderPromoError.value = ''
   editingOrder.value = false
   cdekStatus.value = null
   cdekMessages.value = []
@@ -1447,6 +1465,30 @@ function closeOrder() {
   if (savingOrder.value) return
   editingOrder.value = false
   selectedOrder.value = null
+  showOrderPromo.value = false
+}
+
+async function applyOrderPromo() {
+  const current = selectedOrder.value
+  if (!current || applyingOrderPromo.value || !orderPromoCode.value.trim()) return
+  orderPromoError.value = ''
+  applyingOrderPromo.value = true
+  try {
+    const { data } = await axios.post(`${API_URL}/orders/${current.id}/promo`, {
+      promoCode: orderPromoCode.value.trim(), expectedUpdatedAt: current.updatedAt,
+      expectedEditVersion: current.editVersion
+    })
+    await fetchOrders()
+    selectedOrder.value = orders.value.find(order => order.id === current.id) || {
+      ...current, ...data.order, promoCode: { code: orderPromoCode.value.trim().toUpperCase() }
+    }
+    showOrderPromo.value = false
+    orderPromoCode.value = ''
+  } catch (error) {
+    orderPromoError.value = error.response?.data?.error || 'Не удалось применить промокод'
+  } finally {
+    applyingOrderPromo.value = false
+  }
 }
 
 async function startEditingOrder() {
@@ -2451,6 +2493,23 @@ watch(manualCityQuery, query => {
 .promo-partner-link:hover {
   color: var(--accent);
 }
+
+.order-promo-toggle {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  padding: .2rem 0;
+  font: inherit;
+  font-size: .8rem;
+  cursor: pointer;
+}
+
+.order-promo-toggle:disabled { color: var(--text-muted); cursor: not-allowed; }
+.order-promo-hint { max-width: 19rem; text-align: right; color: var(--text-muted); font-size: .72rem; line-height: 1.35; }
+.order-promo-form { padding: .85rem 0 1rem; border-top: 1px solid var(--border); }
+.order-promo-form__row { display: flex; gap: .55rem; flex-wrap: wrap; }
+.order-promo-form__row .input { flex: 1 1 180px; min-width: 0; }
+.order-promo-form .edit-notice { margin: .55rem 0 0; }
 
 .loading-state {
   display: flex;
