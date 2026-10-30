@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -35,11 +35,16 @@ const claiming = ref(false)
 const loading = ref(false)
 const status = ref('')
 const error = ref('')
+let lastCheckedAt = 0
+let retryTimer = null
 const invited = computed(() => route.query.claim === campaignKey)
-const visible = computed(() => !dismissed.value && props.enabled && (Boolean(offer.value) || invited.value))
+const visible = computed(() => !dismissed.value && props.enabled && status.value !== 'claimed' && (Boolean(offer.value) || invited.value))
 
-async function loadOffer() {
-  if (!props.enabled) return
+async function loadOffer(retryOnFailure = true) {
+  if (!props.enabled || loading.value || claiming.value) return
+  if (retryTimer) window.clearTimeout(retryTimer)
+  retryTimer = null
+  lastCheckedAt = Date.now()
   loading.value = true
   status.value = ''
   try {
@@ -49,6 +54,9 @@ async function loadOffer() {
   } catch {
     offer.value = null
     status.value = 'error'
+    if (retryOnFailure && props.enabled) {
+      retryTimer = window.setTimeout(() => loadOffer(false), 1500)
+    }
   } finally {
     loading.value = false
   }
@@ -60,6 +68,38 @@ watch([() => props.enabled, () => route.query.claim], ([enabled, claim], [, prev
   loadOffer()
 }, { immediate: true })
 
+function refreshWhenActive() {
+  if (document.visibilityState === 'hidden' || !props.enabled || dismissed.value || claiming.value) return
+  if (Date.now() - lastCheckedAt < 15000) return
+  loadOffer()
+}
+
+function reopenOnLaunch() {
+  if (document.visibilityState === 'hidden' || !props.enabled || claiming.value) return
+  // Telegram can keep its WebView alive between launches. "Позже" closes the
+  // offer only for the current launch; an unclaimed offer opens again next time.
+  dismissed.value = false
+  if (Date.now() - lastCheckedAt >= 1000) loadOffer()
+}
+
+function reopenRestoredPage(event) {
+  if (event.persisted) reopenOnLaunch()
+}
+
+onMounted(() => {
+  window.addEventListener('focus', refreshWhenActive)
+  document.addEventListener('visibilitychange', reopenOnLaunch)
+  window.addEventListener('pageshow', reopenRestoredPage)
+  window.Telegram?.WebApp?.onEvent?.('activated', reopenOnLaunch)
+})
+onBeforeUnmount(() => {
+  if (retryTimer) window.clearTimeout(retryTimer)
+  window.removeEventListener('focus', refreshWhenActive)
+  document.removeEventListener('visibilitychange', reopenOnLaunch)
+  window.removeEventListener('pageshow', reopenRestoredPage)
+  window.Telegram?.WebApp?.offEvent?.('activated', reopenOnLaunch)
+})
+
 async function claim() {
   if (claiming.value) return
   claiming.value = true
@@ -67,6 +107,7 @@ async function claim() {
   try {
     const { data } = await axios.post('/api/points/campaign/claim')
     offer.value = null
+    status.value = 'claimed'
     if (invited.value) router.replace({ path: route.path, query: { ...route.query, claim: undefined } })
     emit('claimed', data)
   } catch (cause) {

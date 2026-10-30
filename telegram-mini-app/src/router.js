@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Catalog from './views/Catalog.vue'
 
 const routes = [
-  { path: '/', redirect: '/catalog' },
+  { path: '/', redirect: to => ({ path: '/catalog', query: to.query, hash: to.hash }) },
   { path: '/catalog', component: Catalog },
   { path: '/product/:id', component: () => import('./views/ProductDetail.vue') },
   { path: '/cart', component: () => import('./views/Cart.vue') },

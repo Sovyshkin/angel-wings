@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -38,7 +38,7 @@ const loading = ref(false)
 const status = ref('')
 const error = ref('')
 const invited = computed(() => route.query.claim === campaignKey)
-const visible = computed(() => route.path !== '/auth' && !dismissed.value && (Boolean(offer.value) || invited.value))
+const visible = computed(() => route.path !== '/auth' && !dismissed.value && status.value !== 'claimed' && (Boolean(offer.value) || invited.value))
 
 async function loadOffer() {
   if (!props.enabled) return
@@ -62,6 +62,15 @@ watch([() => props.enabled, () => route.query.claim, () => route.path], ([enable
   if (enabled !== previousEnabled || claim !== previousClaim || (path === '/' && previousPath === '/auth')) loadOffer()
 }, { immediate: true })
 
+function reopenRestoredPage(event) {
+  if (!event.persisted || !props.enabled || claiming.value) return
+  dismissed.value = false
+  loadOffer()
+}
+
+onMounted(() => window.addEventListener('pageshow', reopenRestoredPage))
+onBeforeUnmount(() => window.removeEventListener('pageshow', reopenRestoredPage))
+
 function signIn() {
   dismissed.value = true
   router.push({ path: '/auth', query: { claim: campaignKey } })
@@ -74,6 +83,7 @@ async function claim() {
   try {
     const { data } = await axios.post('/api/points/campaign/claim')
     offer.value = null
+    status.value = 'claimed'
     if (invited.value) router.replace({ path: route.path, query: { ...route.query, claim: undefined } })
     emit('claimed', data)
   } catch (cause) {
