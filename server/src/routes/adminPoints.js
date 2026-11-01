@@ -4,6 +4,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 import {
   createPointBatchId,
   creditUserPoints,
+  debitUserPointsByAdmin,
   normalizePointAmount,
   normalizePointMessage
 } from '../utils/userPoints.js'
@@ -414,6 +415,58 @@ router.post('/credit', authenticate, requireAdmin, async (req, res, next) => {
       balance: user.pointsBalance,
       batchId
     })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/users/:id/transactions', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const userId = Number(req.params.id)
+    if (!Number.isSafeInteger(userId) || userId <= 0) return res.status(400).json({ error: 'Некорректный пользователь' })
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true } })
+    if (!user || user.role !== 'USER') return res.status(404).json({ error: 'Пользователь не найден' })
+
+    const offset = Math.max(0, Math.min(10000, Number.parseInt(req.query.offset, 10) || 0))
+    const limit = 20
+    const [transactions, total] = await Promise.all([
+      prisma.userPointTransaction.findMany({
+        where: { userId },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: offset,
+        take: limit,
+        include: { createdBy: { select: { name: true, email: true } } }
+      }),
+      prisma.userPointTransaction.count({ where: { userId } })
+    ])
+    res.json({ transactions, total, hasMore: offset + transactions.length < total })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/users/:id/debit', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const userId = Number(req.params.id)
+    const amount = Number(req.body?.amount)
+    const reset = req.body?.mode === 'reset'
+    const message = normalizePointMessage(req.body?.message)
+    if (!Number.isSafeInteger(userId) || userId <= 0) return res.status(400).json({ error: 'Некорректный пользователь' })
+    if (!reset && (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1_000_000)) {
+      return res.status(400).json({ error: 'Укажите целое количество баллов от 1 до 1 000 000' })
+    }
+    if (!message) return res.status(400).json({ error: 'Укажите причину списания' })
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true } })
+    if (!user || user.role !== 'USER') return res.status(404).json({ error: 'Пользователь не найден' })
+
+    const result = await prisma.$transaction(tx => debitUserPointsByAdmin(tx, {
+      userId,
+      amount,
+      reset,
+      message,
+      createdById: req.user.id
+    }))
+    res.json({ message: reset ? 'Баланс пользователя обнулён' : 'Баллы списаны у пользователя', amount: result.amount, balance: result.balance })
   } catch (error) {
     next(error)
   }

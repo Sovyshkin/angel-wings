@@ -57,6 +57,62 @@
         </article>
       </section>
 
+      <section v-if="user.role === 'USER'" class="points-panel card">
+        <div class="panel-head panel-head--row">
+          <div>
+            <h2>Баллы пользователя</h2>
+            <p>Ручные операции сохраняются в истории. Начисление появится в уведомлениях клиента.</p>
+          </div>
+          <strong class="points-balance">{{ formatPoints(user.pointsBalance) }} баллов</strong>
+        </div>
+
+        <div class="points-actions">
+          <form class="points-action points-action--credit" @submit.prevent="submitPoints('credit')">
+            <h3>Начислить</h3>
+            <label :for="'credit-amount'">Количество баллов</label>
+            <input id="credit-amount" v-model="creditForm.amount" type="number" min="1" max="1000000" step="1" required placeholder="Например, 1000">
+            <label :for="'credit-message'">Комментарий для пользователя</label>
+            <textarea id="credit-message" v-model="creditForm.message" maxlength="500" rows="2" required placeholder="Причина начисления"></textarea>
+            <button type="submit" class="points-button points-button--primary" :disabled="pointsBusy">{{ pointsBusy === 'credit' ? 'Начисляем…' : 'Начислить баллы' }}</button>
+          </form>
+
+          <form class="points-action points-action--debit" @submit.prevent="submitPoints('debit')">
+            <h3>Списать</h3>
+            <label for="debit-amount">Количество баллов</label>
+            <input id="debit-amount" v-model="debitForm.amount" type="number" min="1" max="1000000" step="1" required placeholder="Например, 500">
+            <label for="debit-message">Причина списания</label>
+            <textarea id="debit-message" v-model="debitForm.message" maxlength="500" rows="2" required placeholder="Будет сохранена в истории"></textarea>
+            <div class="points-action__buttons">
+              <button type="submit" class="points-button points-button--danger" :disabled="!!pointsBusy || Number(user.pointsBalance || 0) <= 0">{{ pointsBusy === 'debit' ? 'Списываем…' : 'Списать баллы' }}</button>
+              <button type="button" class="points-button points-button--danger" :disabled="!!pointsBusy || Number(user.pointsBalance || 0) <= 0" @click="resetPointsBalance">Обнулить баланс</button>
+            </div>
+          </form>
+        </div>
+
+        <p v-if="pointsError" class="points-feedback points-feedback--error" role="alert">{{ pointsError }}</p>
+        <p v-if="pointsSuccess" class="points-feedback points-feedback--success" role="status">{{ pointsSuccess }}</p>
+
+        <div class="points-history">
+          <div class="panel-head panel-head--row">
+            <div><h3>История баллов</h3><p>Начисления, списания, покупки и возвраты</p></div>
+            <span class="orders-count">{{ pointsTotal }}</span>
+          </div>
+          <p v-if="historyLoading && !pointsTransactions.length" class="empty-mini">Загружаем операции…</p>
+          <p v-else-if="historyError && !pointsTransactions.length" class="points-feedback points-feedback--error">{{ historyError }}</p>
+          <div v-for="transaction in pointsTransactions" :key="transaction.id" class="points-transaction">
+            <span :class="['points-transaction__amount', { 'points-transaction__amount--debit': transaction.amount < 0 }]">{{ transaction.amount > 0 ? '+' : '' }}{{ formatPoints(transaction.amount) }}</span>
+            <div>
+              <strong>{{ pointTypeLabel(transaction.type) }}</strong>
+              <p v-if="transaction.message">{{ transaction.message }}</p>
+              <small v-if="transaction.createdBy">Администратор: {{ transaction.createdBy.name || transaction.createdBy.email }}</small>
+            </div>
+            <div class="points-transaction__meta"><time>{{ formatDateTime(transaction.createdAt) }}</time><span>После: {{ formatPoints(transaction.balanceAfter) }}</span></div>
+          </div>
+          <p v-if="!historyLoading && !historyError && !pointsTransactions.length" class="empty-mini">Операций пока нет.</p>
+          <button v-if="historyHasMore" type="button" class="points-button points-button--more" :disabled="historyLoading" @click="fetchPointsHistory(false)">{{ historyLoading ? 'Загружаем…' : 'Показать ещё' }}</button>
+        </div>
+      </section>
+
       <div class="detail-grid">
         <section class="info-panel card">
           <div class="panel-head">
@@ -150,6 +206,106 @@ const loading = ref(true)
 const user = ref(null)
 const stats = ref({})
 const roleNames = ref({})
+const creditForm = ref({ amount: '', message: '' })
+const debitForm = ref({ amount: '', message: '' })
+const pointsBusy = ref('')
+const pointsError = ref('')
+const pointsSuccess = ref('')
+const pointsTransactions = ref([])
+const pointsTotal = ref(0)
+const historyHasMore = ref(false)
+const historyLoading = ref(false)
+const historyError = ref('')
+
+function formatPoints(value) {
+  return Number(value || 0).toLocaleString('ru-RU')
+}
+
+function pointTypeLabel(type) {
+  return {
+    ADMIN_CREDIT: 'Ручное начисление',
+    ADMIN_DEBIT: 'Ручное списание',
+    CONSULTATION_REWARD: 'Награда за консультацию',
+    ORDER_SPEND: 'Оплата заказа',
+    ORDER_REFUND: 'Возврат по заказу',
+    CAMPAIGN_EXPIRE: 'Сгорание подарочных баллов'
+  }[type] || 'Операция с баллами'
+}
+
+async function fetchPointsHistory(reset = true) {
+  if (historyLoading.value) return
+  historyLoading.value = true
+  historyError.value = ''
+  try {
+    const offset = reset ? 0 : pointsTransactions.value.length
+    const { data } = await axios.get(`/api/admin/points/users/${route.params.id}/transactions`, { params: { offset } })
+    pointsTransactions.value = reset ? data.transactions : [...pointsTransactions.value, ...data.transactions]
+    pointsTotal.value = data.total
+    historyHasMore.value = data.hasMore
+  } catch (error) {
+    historyError.value = error.response?.data?.error || 'Не удалось загрузить историю баллов'
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+async function submitPoints(action) {
+  if (pointsBusy.value) return
+  const form = action === 'credit' ? creditForm.value : debitForm.value
+  const amount = Number(form.amount)
+  const message = form.message.trim()
+  pointsError.value = ''
+  pointsSuccess.value = ''
+  if (!Number.isSafeInteger(amount) || amount < 1 || amount > 1_000_000 || !message) {
+    pointsError.value = 'Укажите целое количество баллов от 1 до 1 000 000 и комментарий.'
+    return
+  }
+  if (action === 'debit') {
+    if (amount > Number(user.value.pointsBalance || 0)) {
+      pointsError.value = 'Сумма списания больше текущего баланса.'
+      return
+    }
+    if (!window.confirm(`Списать ${formatPoints(amount)} баллов у пользователя #${user.value.id}?`)) return
+  }
+
+  pointsBusy.value = action
+  try {
+    const url = action === 'credit' ? '/api/admin/points/credit' : `/api/admin/points/users/${user.value.id}/debit`
+    const payload = action === 'credit' ? { scope: 'user', userId: user.value.id, amount, message } : { amount, message }
+    const { data } = await axios.post(url, payload)
+    user.value.pointsBalance = data.balance
+    form.amount = ''
+    form.message = ''
+    pointsSuccess.value = action === 'credit' ? 'Баллы начислены.' : 'Баллы списаны.'
+    await fetchPointsHistory(true)
+  } catch (error) {
+    pointsError.value = error.response?.data?.error || 'Не удалось выполнить операцию с баллами'
+  } finally {
+    pointsBusy.value = ''
+  }
+}
+
+async function resetPointsBalance() {
+  if (pointsBusy.value || Number(user.value?.pointsBalance || 0) <= 0) return
+  if (!window.confirm(`Обнулить весь баланс (${formatPoints(user.value.pointsBalance)} баллов) у пользователя #${user.value.id}?`)) return
+  pointsBusy.value = 'reset'
+  pointsError.value = ''
+  pointsSuccess.value = ''
+  try {
+    const { data } = await axios.post(`/api/admin/points/users/${user.value.id}/debit`, {
+      mode: 'reset',
+      message: debitForm.value.message.trim() || 'Обнуление баланса администратором'
+    })
+    user.value.pointsBalance = data.balance
+    debitForm.value = { amount: '', message: '' }
+    pointsSuccess.value = 'Баланс обнулён.'
+    await fetchPointsHistory(true)
+  } catch (error) {
+    pointsError.value = error.response?.data?.error || 'Не удалось обнулить баланс'
+  } finally {
+    pointsBusy.value = ''
+  }
+}
 
 function goBack() {
   if (window.history.length > 1) router.back()
@@ -223,6 +379,7 @@ async function fetchUser() {
     const { data } = await axios.get(`/api/admin/users/${route.params.id}`)
     user.value = data.user
     stats.value = data.stats || {}
+    if (data.user?.role === 'USER') await fetchPointsHistory(true)
   } finally {
     loading.value = false
   }
@@ -382,6 +539,69 @@ onMounted(() => {
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
+
+.points-panel { padding: 1.4rem; }
+.points-balance { color: var(--accent); font-size: 1.25rem; white-space: nowrap; }
+.points-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.points-action {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg-secondary);
+}
+.points-action--credit { border-color: rgba(159, 181, 255, 0.35); }
+.points-action h3, .points-history h3 { margin: 0; color: var(--text-primary); }
+.points-action label { color: var(--text-secondary); font-size: 0.84rem; font-weight: 700; }
+.points-action input, .points-action textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font: inherit;
+}
+.points-action input:focus-visible, .points-action textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.points-button {
+  justify-self: start;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.points-button:disabled { opacity: 0.55; cursor: not-allowed; }
+.points-action__buttons { display: flex; flex-wrap: wrap; gap: 0.65rem; }
+.points-button--primary { background: var(--accent); color: #0b0b10; border-color: transparent; }
+.points-button--danger { color: #ef4444; border-color: rgba(239, 68, 68, 0.45); }
+.points-button--more { margin-top: 1rem; }
+.points-feedback { margin: 0.9rem 0 0; padding: 0.75rem 1rem; border-radius: 12px; }
+.points-feedback--error { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.points-feedback--success { color: #22c55e; background: rgba(34, 197, 94, 0.1); }
+.points-history { margin-top: 1.5rem; }
+.points-transaction {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: start;
+  padding: 0.9rem 0;
+  border-top: 1px solid var(--border);
+}
+.points-transaction__amount { color: #22c55e; font-weight: 800; font-variant-numeric: tabular-nums; }
+.points-transaction__amount--debit { color: #ef4444; }
+.points-transaction strong { color: var(--text-primary); }
+.points-transaction p { margin: 0.25rem 0; color: var(--text-secondary); overflow-wrap: anywhere; }
+.points-transaction small, .points-transaction__meta { color: var(--text-muted); }
+.points-transaction__meta { display: grid; gap: 0.25rem; text-align: right; white-space: nowrap; }
 
 .panel-head {
   margin-bottom: 1rem;
@@ -576,6 +796,9 @@ onMounted(() => {
 }
 
 @media (max-width: 720px) {
+  .points-actions, .points-transaction { grid-template-columns: 1fr; }
+  .points-transaction { gap: 0.3rem; }
+  .points-transaction__meta { text-align: left; white-space: normal; }
   .profile-hero,
   .stats-grid,
   .order-card__meta {

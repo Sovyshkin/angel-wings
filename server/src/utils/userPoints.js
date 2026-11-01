@@ -2,9 +2,72 @@ import { v4 as uuidv4 } from 'uuid'
 
 export const USER_POINT_TYPES = {
   ADMIN_CREDIT: 'ADMIN_CREDIT',
+  ADMIN_DEBIT: 'ADMIN_DEBIT',
   CONSULTATION_REWARD: 'CONSULTATION_REWARD',
   ORDER_SPEND: 'ORDER_SPEND',
   ORDER_REFUND: 'ORDER_REFUND'
+}
+
+export async function debitUserPointsByAdmin(tx, { userId, amount, reset = false, message = null, createdById = null }) {
+  if (!Number.isInteger(userId) || userId <= 0) {
+    throw Object.assign(new Error('Некорректный пользователь'), { status: 400 })
+  }
+  if (!reset && (!Number.isSafeInteger(amount) || amount <= 0)) {
+    throw Object.assign(new Error('Укажите положительное целое количество баллов'), { status: 400 })
+  }
+
+  const now = new Date()
+  const user = await tx.user.findUnique({ where: { id: userId }, select: { pointsBalance: true } })
+  if (!user) throw Object.assign(new Error('Пользователь не найден'), { status: 404 })
+  if (reset) amount = user.pointsBalance
+  if (amount <= 0) throw Object.assign(new Error('Баланс уже равен нулю'), { status: 400 })
+
+  const offers = await tx.pointCampaignOffer.findMany({
+    where: { userId, claimedAt: { not: null }, expiredAt: null, remainingPoints: { gt: 0 } },
+    orderBy: { expiresAt: 'asc' },
+    select: { id: true, expiresAt: true, remainingPoints: true }
+  })
+  const expiredPoints = offers.reduce((sum, offer) => sum + (offer.expiresAt && offer.expiresAt <= now ? offer.remainingPoints : 0), 0)
+  if (!reset && user.pointsBalance - expiredPoints < amount) {
+    throw Object.assign(new Error('Недостаточно действующих баллов для списания'), { status: 400 })
+  }
+
+  const updated = await tx.user.updateMany({
+    where: { id: userId, pointsBalance: reset ? amount : { gte: amount } },
+    data: { pointsBalance: { decrement: amount } }
+  })
+  if (updated.count !== 1) {
+    throw Object.assign(new Error('Баланс изменился. Обновите страницу и повторите операцию'), { status: 409 })
+  }
+
+  // Ручное списание, как и оплата заказа, сначала расходует баллы с ближайшим сроком сгорания.
+  let remaining = amount
+  for (const offer of offers) {
+    if (!reset && remaining <= 0) break
+    if (!reset && (!offer.expiresAt || offer.expiresAt <= now)) continue
+    const applied = reset ? offer.remainingPoints : Math.min(remaining, offer.remainingPoints)
+    const changed = await tx.pointCampaignOffer.updateMany({
+      where: { id: offer.id, expiredAt: null, remainingPoints: { gte: applied } },
+      data: { remainingPoints: { decrement: applied } }
+    })
+    if (changed.count !== 1) {
+      throw Object.assign(new Error('Баланс изменился. Обновите страницу и повторите операцию'), { status: 409 })
+    }
+    remaining -= applied
+  }
+
+  const balanceOwner = await tx.user.findUnique({ where: { id: userId }, select: { pointsBalance: true } })
+  await tx.userPointTransaction.create({
+    data: {
+      userId,
+      amount: -amount,
+      balanceAfter: balanceOwner.pointsBalance,
+      type: USER_POINT_TYPES.ADMIN_DEBIT,
+      message: normalizePointMessage(message) || (reset ? 'Обнуление баланса администратором' : 'Ручное списание администратором'),
+      createdById
+    }
+  })
+  return { amount, balance: balanceOwner.pointsBalance }
 }
 
 export function normalizePointAmount(value) {
