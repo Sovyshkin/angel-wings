@@ -183,10 +183,7 @@ router.get('/cabinet/users', authenticate, requirePartner, async (req, res, next
       return res.status(404).json({ error: 'Партнёр не найден' })
     }
 
-    const where = {
-      partnerId: partner.id,
-      order: { paymentStatus: 'PAID' }
-    }
+    const where = { partnerId: partner.id }
     if (startDate || endDate) {
       where.boundAt = {}
       if (startDate) where.boundAt.gte = new Date(startDate)
@@ -204,6 +201,7 @@ router.get('/cabinet/users', authenticate, requirePartner, async (req, res, next
               name: true,
               createdAt: true,
               orders: {
+                where: { paymentStatus: 'PAID', status: { not: 'CANCELLED' } },
                 select: { total: true, status: true, deliveryPrice: true }
               }
             }

@@ -390,7 +390,7 @@
                   v-if="getFeaturedCartQty(product.id) === 0"
                   class="featured-add-btn"
                   type="button"
-                  aria-label="Добавить в корзину"
+                  :aria-label="hasDosages(product) ? 'Выбрать дозировку' : 'Добавить в корзину'"
                   @click.stop.prevent="increaseFeaturedQty(product)"
                   :disabled="!product.stock"
                 >
@@ -700,6 +700,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
 import { trackProductEvent } from '../api/analytics'
@@ -707,6 +708,7 @@ import ConsultationSection from '../components/ConsultationSection.vue'
 
 const productStore = useProductStore()
 const cartStore = useCartStore()
+const router = useRouter()
 const DISPLAY_CATEGORY_SLUGS = ['longevitiya', 'immunomodulyatory', 'neiropeptide', 'growth']
 const homeRoot = ref(null)
 const catalogPreview = ref(null)
@@ -830,7 +832,15 @@ function getFeaturedCartQty(productId) {
   return Math.max(0, Number(baseItem?.quantity || 0))
 }
 
+function hasDosages(product) {
+  return Array.isArray(product?.specs?.dosages) && product.specs.dosages.length > 0
+}
+
 function increaseFeaturedQty(product) {
+  if (hasDosages(product)) {
+    router.push(`/product/${product.id}`)
+    return
+  }
   const qty = getFeaturedCartQty(product.id)
   const maxStock = Math.max(0, Number(product?.stock || 0))
   if (maxStock > 0 && qty >= maxStock) return

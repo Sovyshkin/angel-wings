@@ -52,7 +52,7 @@
           v-if="cartQuantity === 0"
           class="add-to-cart-btn"
           type="button"
-          aria-label="Добавить в корзину"
+          :aria-label="hasDosages ? 'Выбрать дозировку' : 'Добавить в корзину'"
           :disabled="!product.stock"
           @click.prevent="increaseQuantity"
         >
@@ -72,6 +72,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
 import { trackProductEvent } from '../api/analytics'
@@ -82,6 +83,7 @@ const props = defineProps({
   animated: { type: Boolean, default: false }
 })
 const emit = defineEmits(['open'])
+const router = useRouter()
 const productStore = useProductStore()
 const cartStore = useCartStore()
 
@@ -108,10 +110,15 @@ const oldPrice = computed(() => {
 const discountPercent = computed(() => oldPrice.value && displayPrice.value > 0
   ? Math.round(((oldPrice.value - displayPrice.value) / oldPrice.value) * 100)
   : 0)
+const hasDosages = computed(() => Array.isArray(props.product.specs?.dosages) && props.product.specs.dosages.length > 0)
 const baseCartItem = computed(() => cartStore.items.find(item => item.id === props.product.id && !item.selectedDosage))
 const cartQuantity = computed(() => Math.max(0, Number(baseCartItem.value?.quantity || 0)))
 
 function increaseQuantity() {
+  if (hasDosages.value) {
+    router.push(`/product/${props.product.id}`)
+    return
+  }
   const maxStock = Math.max(0, Number(props.product.stock || 0))
   if (maxStock === 0 || cartQuantity.value >= maxStock) return
   cartStore.addItem({ ...props.product, selectedDosage: null })

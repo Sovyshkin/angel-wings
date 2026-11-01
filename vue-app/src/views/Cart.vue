@@ -288,6 +288,14 @@
               <div class="item-info">
                 <h4>{{ item.title }}</h4>
                 <span v-if="item.selectedDosage" class="item-category">Дозировка: {{ item.selectedDosage }}</span>
+                <button
+                  v-if="requiresDosageSelection(item)"
+                  type="button"
+                  class="item-dosage-warning"
+                  @click="chooseDosageForItem(item)"
+                >
+                  Удалить позицию и выбрать дозировку
+                </button>
                 <span class="item-category">{{ getCategoryName(item.categories?.[0]?.slug) }}</span>
               </div>
             </div>
@@ -1877,6 +1885,17 @@ function getCategoryName(slug) {
   return cat ? cat.name : slug
 }
 
+function requiresDosageSelection(item) {
+  const dosages = item?.specs?.dosages
+  if (!Array.isArray(dosages) || dosages.length === 0) return false
+  return dosages.filter(variant => String(variant?.dosage || '').trim() === String(item.selectedDosage || '').trim()).length !== 1
+}
+
+function chooseDosageForItem(item) {
+  cartStore.removeItem(item.id, item.selectedDosage)
+  router.push(`/product/${item.id}`)
+}
+
 function increaseQty(item) {
   cartStore.updateQuantity(item.id, item.quantity + 1, item.selectedDosage)
 }
@@ -3065,6 +3084,12 @@ async function placeOrder() {
     return
   }
 
+  const itemWithoutDosage = cartStore.items.find(requiresDosageSelection)
+  if (itemWithoutDosage) {
+    orderError.value = `Выберите существующую дозировку товара «${itemWithoutDosage.title}» в корзине`
+    return
+  }
+
   if (!isFormValid.value) {
     validationErrors.value = getValidationErrors()
     scrollToFirstInvalidField()
@@ -3989,6 +4014,20 @@ onUnmounted(() => {
 .item-category {
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.item-dosage-warning {
+  display: block;
+  margin: 0.35rem 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f59e0b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .col-price,
