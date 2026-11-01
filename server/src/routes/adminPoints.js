@@ -425,7 +425,7 @@ router.get('/users/:id/transactions', authenticate, requireAdmin, async (req, re
     const userId = Number(req.params.id)
     if (!Number.isSafeInteger(userId) || userId <= 0) return res.status(400).json({ error: 'Некорректный пользователь' })
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true } })
-    if (!user || user.role !== 'USER') return res.status(404).json({ error: 'Пользователь не найден' })
+    if (!user || !['USER', 'PARTNER'].includes(user.role)) return res.status(404).json({ error: 'Пользователь не найден' })
 
     const offset = Math.max(0, Math.min(10000, Number.parseInt(req.query.offset, 10) || 0))
     const limit = 20
@@ -457,7 +457,7 @@ router.post('/users/:id/debit', authenticate, requireAdmin, async (req, res, nex
     }
     if (!message) return res.status(400).json({ error: 'Укажите причину списания' })
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true } })
-    if (!user || user.role !== 'USER') return res.status(404).json({ error: 'Пользователь не найден' })
+    if (!user || !['USER', 'PARTNER'].includes(user.role)) return res.status(404).json({ error: 'Пользователь не найден' })
 
     const result = await prisma.$transaction(tx => debitUserPointsByAdmin(tx, {
       userId,

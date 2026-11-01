@@ -57,11 +57,11 @@
         </article>
       </section>
 
-      <section v-if="user.role === 'USER'" class="points-panel card">
+      <section v-if="['USER', 'PARTNER'].includes(user.role)" class="points-panel card">
         <div class="panel-head panel-head--row">
           <div>
             <h2>Баллы пользователя</h2>
-            <p>Ручные операции сохраняются в истории. Начисление появится в уведомлениях клиента.</p>
+            <p>Баллы покупателя, отдельно от партнёрских комиссий. Ручные операции сохраняются в истории.</p>
           </div>
           <strong class="points-balance">{{ formatPoints(user.pointsBalance) }} баллов</strong>
         </div>
@@ -379,7 +379,7 @@ async function fetchUser() {
     const { data } = await axios.get(`/api/admin/users/${route.params.id}`)
     user.value = data.user
     stats.value = data.stats || {}
-    if (data.user?.role === 'USER') await fetchPointsHistory(true)
+    if (['USER', 'PARTNER'].includes(data.user?.role)) await fetchPointsHistory(true)
   } finally {
     loading.value = false
   }
