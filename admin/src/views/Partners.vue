@@ -206,6 +206,7 @@ import OrderReportExport from '../components/OrderReportExport.vue'
 const router = useRouter()
 const API_URL = '/api/admin/partners'
 const STATS_URL = '/api/admin/partners/stats/partner'
+const PARTNERS_PAGE_SIZE = 50
 
 const partners = ref([])
 const stats = ref({})
@@ -268,8 +269,21 @@ const filteredPartners = computed(() => {
 
 async function fetchPartners() {
   try {
-    const { data } = await axios.get(API_URL)
-    partners.value = data.partners
+    const allPartners = []
+    let total = Infinity
+
+    while (allPartners.length < total) {
+      const { data } = await axios.get(API_URL, {
+        params: { limit: PARTNERS_PAGE_SIZE, offset: allPartners.length }
+      })
+      const page = Array.isArray(data.partners) ? data.partners : []
+      if (!page.length) break
+
+      allPartners.push(...page)
+      total = Number.isFinite(Number(data.total)) ? Number(data.total) : allPartners.length
+    }
+
+    partners.value = allPartners
   } catch (e) {
     console.error(e)
   } finally {
