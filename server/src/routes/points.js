@@ -52,6 +52,36 @@ router.get('/summary', authenticate, async (req, res, next) => {
   }
 })
 
+// A read-only preview. Order creation independently rechecks the actual payable
+// amount and spends points atomically, so this endpoint never reserves balance.
+router.post('/spend/preview', authenticate, async (req, res, next) => {
+  try {
+    const amount = Number(req.body?.amount)
+    const maxSpendable = Number(req.body?.maxSpendable)
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Укажите целое количество баллов больше нуля' })
+    }
+    if (!Number.isFinite(maxSpendable) || maxSpendable <= 0) {
+      return res.status(400).json({ error: 'Баллы нельзя списать на этот заказ' })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { pointsBalance: true }
+    })
+    const balance = Math.max(0, Number(user?.pointsBalance || 0))
+    if (amount > balance) {
+      return res.status(400).json({ error: `Доступно только ${balance.toLocaleString('ru-RU')} баллов`, balance })
+    }
+    if (amount > Math.floor(maxSpendable)) {
+      return res.status(400).json({ error: 'Сумма списания превышает допустимую сумму заказа', balance })
+    }
+    res.json({ amount, balance })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.post('/seen', authenticate, async (req, res, next) => {
   try {
     const ids = Array.isArray(req.body?.ids)

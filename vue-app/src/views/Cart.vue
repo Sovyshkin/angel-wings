@@ -971,73 +971,72 @@
           </div>
           
           <div v-if="!isOrderAdditionMode" class="checkout-form">
-            <h4 v-if="authStore.isAuthenticated">Данные из профиля</h4>
-            <h4 v-else>Контактные данные</h4>
-            <p class="required-note">Поля со <span class="required-mark">*</span> обязательны</p>
-            <div class="form-group">
-              <label>Имя <span class="required-mark">*</span></label>
-              <input
-                ref="nameInputRef"
-                v-model="customer.name"
-                type="text"
-                class="input"
-                :class="{ 'input--error': showValidationErrors && isNameMissing }"
-                placeholder="Иван Иванов"
-                :disabled="authStore.isAuthenticated"
-                required
-              >
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Телефон <span class="required-mark">*</span></label>
-                <input
-                  ref="phoneInputRef"
-                  v-model="customer.phone"
-                  type="tel"
-                  class="input"
-                  :class="{ 'input--error': showValidationErrors && (isPhoneMissing || isPhoneInvalid) }"
-                  placeholder="+7 966 179-00-13"
-                  required
-                >
-                <p v-if="showValidationErrors && isPhoneInvalid" class="field-error">
-                  Укажите телефон в формате +7 999 999-99-99
-                </p>
+            <img class="checkout-form__molecule checkout-form__molecule--top" src="/checkout-assets/molecule-top-right.png" alt="" aria-hidden="true">
+            <img class="checkout-form__molecule checkout-form__molecule--bottom" src="/checkout-assets/molecule-bottom-left.png" alt="" aria-hidden="true">
+            <div class="checkout-form__content">
+              <div class="checkout-form__heading">
+                <h4>{{ authStore.isAuthenticated ? 'Данные из профиля' : 'Контактные данные' }}</h4>
+                <p class="required-note">Поля, отмеченные <span class="required-mark">*</span> обязательны для заполнения</p>
               </div>
-              <div class="form-group">
-                <label>Email для чека <span class="required-mark">*</span></label>
-                <input
-                  ref="emailInputRef"
-                  v-model="customer.email"
-                  type="email"
-                  class="input"
-                  :class="{ 'input--error': showValidationErrors && isEmailMissing }"
-                  placeholder="example@mail.ru"
-                  required
-                >
+              <div class="checkout-form__contacts">
+                <div class="form-group">
+                  <label for="checkout-name">Имя <span class="required-mark">*</span></label>
+                  <div class="checkout-glass-field" :class="{ 'checkout-glass-field--error': showValidationErrors && isNameMissing }">
+                    <img src="/checkout-assets/icon-user.svg" alt="" aria-hidden="true">
+                    <input id="checkout-name" ref="nameInputRef" v-model="customer.name" type="text" placeholder="Иван Иванов" :readonly="authStore.isAuthenticated" autocomplete="name" required>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="checkout-phone">Телефон <span class="required-mark">*</span></label>
+                  <div class="checkout-glass-field" :class="{ 'checkout-glass-field--error': showValidationErrors && (isPhoneMissing || isPhoneInvalid) }">
+                    <img src="/checkout-assets/icon-phone.svg" alt="" aria-hidden="true">
+                    <input id="checkout-phone" ref="phoneInputRef" v-model="customer.phone" type="tel" placeholder="+7 966 179-00-13" autocomplete="tel" required>
+                  </div>
+                  <p v-if="showValidationErrors && isPhoneInvalid" class="field-error">Укажите телефон в формате +7 999 999-99-99</p>
+                </div>
+                <div class="form-group">
+                  <label for="checkout-email">Email для чека <span class="required-mark">*</span></label>
+                  <div class="checkout-glass-field" :class="{ 'checkout-glass-field--error': showValidationErrors && isEmailMissing }">
+                    <img src="/checkout-assets/icon-email.svg" alt="" aria-hidden="true">
+                    <input id="checkout-email" ref="emailInputRef" v-model="customer.email" type="email" placeholder="example@mail.ru" autocomplete="email" required>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div class="form-group">
-              <label>Комментарий к заказу <span class="optional-mark">(необязательно)</span></label>
-              <textarea v-model="customer.comment" class="input" rows="2" placeholder="Дополнительные пожелания..."></textarea>
-            </div>
+              <div class="form-group checkout-form__comment">
+                <label for="checkout-comment">Комментарий к заказу</label>
+                <div class="checkout-glass-field checkout-glass-field--textarea">
+                  <img src="/checkout-assets/icon-comment.svg" alt="" aria-hidden="true">
+                  <textarea id="checkout-comment" v-model="customer.comment" rows="2" placeholder="Дополнительные пожелания..."></textarea>
+                </div>
+              </div>
 
-            <div class="promo-code-card">
-              <label class="promo-code-label" for="promo-code-input">Промокод <span class="optional-mark">(необязательно)</span></label>
-              <div class="promo-code-controls">
-                <input
-                  id="promo-code-input"
-                  v-model="promoCode"
-                  type="text"
-                  class="input promo-code-input"
-                  placeholder="Введите промокод"
-                  @input="normalizePromoCodeInput"
-                >
-                <button v-if="promoCode" type="button" class="promo-code-clear" @click="clearPromoCode">Сбросить</button>
+              <div class="checkout-form__offers">
+                <div class="promo-code-card checkout-offer-card">
+                  <div class="checkout-offer-card__head">
+                    <label class="promo-code-label" for="promo-code-input"><img src="/checkout-assets/icon-promo.svg" alt="" aria-hidden="true">Промокод</label>
+                  </div>
+                  <div class="promo-code-controls">
+                    <input id="promo-code-input" v-model="promoInput" type="text" class="input promo-code-input" placeholder="Введите промокод" autocomplete="off" @input="normalizePromoCodeInput" @keydown.enter.prevent="applyPromoCode">
+                    <button type="button" class="checkout-apply-button" :disabled="validatingPromo" @click="applyPromoCode">{{ validatingPromo ? 'Проверяем…' : 'Применить' }}</button>
+                  </div>
+                  <button v-if="promoCodeNormalized" type="button" class="promo-code-clear" @click="clearPromoCode">Отменить промокод</button>
+                  <p v-if="promoFeedbackMessage" :class="['promo-code-status', `promo-code-status--${promoFeedbackType}`]">{{ promoFeedbackMessage }}</p>
+                </div>
+                <div class="promo-code-card user-points-card checkout-offer-card">
+                  <div class="checkout-offer-card__head">
+                    <label class="promo-code-label" for="user-points-input"><img src="/checkout-assets/icon-bonus.svg" alt="" aria-hidden="true">Списание бонусов</label>
+                    <span class="checkout-offer-card__balance">Доступно: <strong>{{ userPointsBalance.toLocaleString('ru-RU') }}</strong> баллов</span>
+                  </div>
+                  <div class="promo-code-controls">
+                    <div class="checkout-points-input"><input id="user-points-input" v-model="userPointsAmount" type="number" min="0" step="1" inputmode="numeric" placeholder="0" :disabled="!authStore.isAuthenticated || !userPointsBalance" @input="normalizeUserPointsInput" @keydown.enter.prevent="applyUserPoints"><span>баллов</span></div>
+                    <button type="button" class="checkout-apply-button" :disabled="validatingUserPoints || !authStore.isAuthenticated || !userPointsBalance" @click="applyUserPoints">{{ validatingUserPoints ? 'Проверяем…' : 'Применить' }}</button>
+                  </div>
+                  <button v-if="userPointsToUse > 0" type="button" class="promo-code-clear" @click="clearUserPoints">Отменить списание</button>
+                  <p v-if="userPointsError" class="promo-code-status promo-code-status--error" role="alert">{{ userPointsError }}</p>
+                  <p v-else-if="userPointsToUse > 0" class="promo-code-status promo-code-status--success">Скидка баллами: {{ userPointsToUse.toLocaleString('ru-RU') }} ₽</p>
+                </div>
               </div>
-              <p v-if="promoFeedbackMessage" :class="['promo-code-status', `promo-code-status--${promoFeedbackType}`]">
-                {{ promoFeedbackMessage }}
-              </p>
-              <p v-else class="promo-code-hint">Промокод применяется автоматически после ввода.</p>
+              <label class="consent-item checkout-remember"><input type="checkbox" v-model="consents.rememberContacts"><img src="/checkout-assets/icon-check.svg" alt="" aria-hidden="true"><span>Запомнить контакты в браузере для повторной покупки</span></label>
             </div>
 
             <div v-if="authStore.isAuthenticated && hasPartnerBalanceAccess" class="promo-code-card partner-balance-card">
@@ -1067,35 +1066,6 @@
                 Можно списать до 100% суммы заказа.
               </p>
               <p v-if="partnerBalanceError" class="promo-code-status promo-code-status--error">{{ partnerBalanceError }}</p>
-            </div>
-
-            <div v-if="authStore.isAuthenticated && userPointsBalance > 0" class="promo-code-card user-points-card">
-              <label class="promo-code-label" for="user-points-input">Списать баллы</label>
-              <div class="promo-code-controls">
-                <input
-                  id="user-points-input"
-                  v-model="userPointsAmount"
-                  type="number"
-                  min="0"
-                  step="1"
-                  class="input promo-code-input"
-                  placeholder="0"
-                  @input="normalizeUserPointsInput"
-                >
-                <button
-                  v-if="userPointsToUse > 0"
-                  type="button"
-                  class="promo-code-clear"
-                  @click="userPointsAmount = ''"
-                >
-                  Сбросить
-                </button>
-              </div>
-              <p class="promo-code-hint">
-                Доступно: <strong>{{ userPointsBalance.toLocaleString('ru-RU') }} баллов</strong>.
-                1 балл = 1 ₽, можно списать до полной суммы заказа.
-              </p>
-              <p v-if="userPointsError" class="promo-code-status promo-code-status--error">{{ userPointsError }}</p>
             </div>
 
             <div v-if="deliveryType === 'courier'" class="payment-method-card">
@@ -1145,10 +1115,6 @@
             </div>
 
             <div ref="consentsSectionRef" class="consents" :class="{ 'consents--error': showValidationErrors && hasConsentErrors }" tabindex="-1">
-              <label class="consent-item">
-                <input type="checkbox" v-model="consents.rememberContacts">
-                <span>Запомнить контакты в браузере для повторной покупки</span>
-              </label>
               <label class="consent-item" :class="{ 'consent-item--error': showValidationErrors && !consents.acceptOffer }">
                 <input type="checkbox" v-model="consents.acceptOffer">
                 <span>
@@ -1351,6 +1317,7 @@ const consents = ref({
   acceptResearchTerms: true
 })
 const promoCode = ref('')
+const promoInput = ref('')
 const promoDiscountPreview = ref(0)
 const promoFeedbackType = ref('idle')
 const promoFeedbackMessage = ref('')
@@ -1361,7 +1328,10 @@ const partnerBalanceError = ref('')
 const partnerBonusAmount = ref('')
 const userPointsBalance = ref(0)
 const userPointsAmount = ref('')
+const appliedUserPointsAmount = ref(0)
 const userPointsError = ref('')
+const validatingUserPoints = ref(false)
+let userPointsPreviewSeq = 0
 const validatingPromo = ref(false)
 const ordering = ref(false)
 const paymentRedirecting = ref(false)
@@ -1703,9 +1673,17 @@ const courierMinOrderText = computed(() => {
 const promoCodeNormalized = computed(() => String(promoCode.value || '').trim().toUpperCase())
 
 function normalizePromoCodeInput() {
-  promoCode.value = String(promoCode.value || '')
+  promoInput.value = String(promoInput.value || '')
     .toUpperCase()
     .replace(/\s+/g, '')
+  if (promoInput.value !== promoCode.value) {
+    promoCode.value = ''
+    promoDiscountPreview.value = 0
+    promoFeedbackMessage.value = ''
+    promoValidateSeq++
+    validatingPromo.value = false
+    if (promoValidateTimer) clearTimeout(promoValidateTimer)
+  }
 }
 
 function normalizePartnerBonusInput() {
@@ -1724,6 +1702,10 @@ function normalizePartnerBonusInput() {
 }
 
 function normalizeUserPointsInput() {
+  userPointsPreviewSeq++
+  validatingUserPoints.value = false
+  appliedUserPointsAmount.value = 0
+  userPointsError.value = ''
   const raw = String(userPointsAmount.value || '')
   if (!raw.trim()) {
     userPointsAmount.value = ''
@@ -1739,10 +1721,67 @@ function normalizeUserPointsInput() {
 }
 
 function clearPromoCode() {
+  promoInput.value = ''
   promoCode.value = ''
   promoDiscountPreview.value = 0
   promoFeedbackType.value = 'idle'
   promoFeedbackMessage.value = ''
+  promoValidateSeq++
+  validatingPromo.value = false
+  if (promoValidateTimer) clearTimeout(promoValidateTimer)
+}
+
+async function applyPromoCode() {
+  const nextCode = String(promoInput.value || '').trim().toUpperCase()
+  if (!nextCode) {
+    setPromoFeedback('error', 'Введите промокод')
+    return
+  }
+  promoCode.value = nextCode
+  const result = await validatePromoCode()
+  if (!result.valid && result.reason !== 'stale') {
+    promoCode.value = ''
+    promoDiscountPreview.value = 0
+  }
+}
+
+function clearUserPoints() {
+  userPointsPreviewSeq++
+  validatingUserPoints.value = false
+  userPointsAmount.value = ''
+  appliedUserPointsAmount.value = 0
+  userPointsError.value = ''
+}
+
+async function applyUserPoints() {
+  const amount = Math.floor(Number(userPointsAmount.value) || 0)
+  if (!authStore.isAuthenticated) {
+    userPointsError.value = 'Войдите в аккаунт, чтобы списать баллы'
+    return
+  }
+  if (amount <= 0) {
+    userPointsError.value = 'Введите количество баллов больше нуля'
+    return
+  }
+  validatingUserPoints.value = true
+  userPointsError.value = ''
+  const seq = ++userPointsPreviewSeq
+  try {
+    const { data } = await axios.post('/api/points/spend/preview', {
+      amount,
+      maxSpendable: totalAfterPartnerBonus.value
+    })
+    if (seq !== userPointsPreviewSeq) return
+    userPointsBalance.value = Math.max(0, Number(data.balance || 0))
+    appliedUserPointsAmount.value = Number(data.amount || 0)
+  } catch (error) {
+    if (seq !== userPointsPreviewSeq) return
+    appliedUserPointsAmount.value = 0
+    userPointsError.value = error.response?.data?.error || 'Не удалось применить баллы'
+    await fetchUserPoints()
+  } finally {
+    if (seq === userPointsPreviewSeq) validatingUserPoints.value = false
+  }
 }
 
 function setPromoFeedback(type, message) {
@@ -1857,7 +1896,7 @@ async function fetchPartnerBalance() {
 async function fetchUserPoints() {
   if (!authStore.isAuthenticated) {
     userPointsBalance.value = 0
-    userPointsAmount.value = ''
+    clearUserPoints()
     userPointsError.value = ''
     return
   }
@@ -1865,10 +1904,10 @@ async function fetchUserPoints() {
   try {
     const { data } = await axios.get('/api/points/summary')
     userPointsBalance.value = Math.max(0, Number(data?.balance || 0))
-    normalizeUserPointsInput()
+    if (appliedUserPointsAmount.value > userPointsBalance.value) clearUserPoints()
   } catch (error) {
     userPointsBalance.value = 0
-    userPointsAmount.value = ''
+    clearUserPoints()
     userPointsError.value = error?.response?.data?.error || 'Не удалось получить баланс баллов'
   }
 }
@@ -2755,6 +2794,7 @@ function buildCheckoutSignature(orderData) {
     delivery: orderData.delivery,
     promoCode: orderData.promoCode || '',
     partnerBonusAmount: orderData.partnerBonusAmount || 0,
+    userPointsAmount: orderData.userPointsAmount || 0,
     attribution: orderData.attribution || {}
   })
 }
@@ -2787,7 +2827,7 @@ const totalAfterPartnerBonus = computed(() => {
 })
 
 const userPointsToUse = computed(() => {
-  const requested = Math.max(0, Math.floor(Number(userPointsAmount.value) || 0))
+  const requested = Math.max(0, Math.floor(Number(appliedUserPointsAmount.value) || 0))
   const maxAllowed = Math.min(
     Math.max(0, Number(userPointsBalance.value || 0)),
     Math.max(0, Number(totalAfterPartnerBonus.value || 0))
@@ -3571,15 +3611,6 @@ watch(
   }
 )
 
-watch(promoCodeNormalized, (nextCode) => {
-  if (!nextCode) {
-    promoDiscountPreview.value = 0
-    setPromoFeedback('idle', '')
-    return
-  }
-  schedulePromoValidation()
-})
-
 watch(totalWithDelivery, () => {
   if (!promoCodeNormalized.value || !authStore.isAuthenticated) return
   schedulePromoValidation(250)
@@ -3599,7 +3630,10 @@ watch(totalWithPromo, () => {
 })
 
 watch(totalAfterPartnerBonus, () => {
-  normalizeUserPointsInput()
+  if (appliedUserPointsAmount.value > totalAfterPartnerBonus.value) {
+    appliedUserPointsAmount.value = Math.max(0, Math.floor(totalAfterPartnerBonus.value))
+    userPointsAmount.value = String(appliedUserPointsAmount.value)
+  }
 })
 
 watch(() => authStore.isAuthenticated, (isAuthenticated) => {
@@ -4151,11 +4185,68 @@ onUnmounted(() => {
 }
 
 .checkout-form {
-  width: min(100%, 960px);
+  position: relative;
+  isolation: isolate;
+  width: 100%;
   margin: 2.25rem auto 0;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border);
+  padding: clamp(1.5rem, 3vw, 3rem);
+  overflow: hidden;
+  border: 1px solid rgba(154, 189, 255, 0.12);
+  border-radius: 22px;
+  background: radial-gradient(circle at 2% 2%, rgba(120, 150, 215, 0.13), transparent 26%),
+    radial-gradient(circle at 100% 10%, rgba(24, 75, 154, 0.11), transparent 30%), #070f20;
+  color: #f5f7ff;
 }
+
+.checkout-form__content { position: relative; z-index: 1; }
+.checkout-form__molecule { position: absolute; z-index: 0; width: clamp(150px, 20vw, 260px); opacity: .34; pointer-events: none; user-select: none; }
+.checkout-form__molecule--top { top: -95px; right: -90px; }
+.checkout-form__molecule--bottom { bottom: -120px; left: -120px; }
+.checkout-form .checkout-form__heading { margin-bottom: 2.2rem; }
+.checkout-form .checkout-form__heading h4 { margin: 0 0 .25rem; color: #f6f8ff; font-size: clamp(1.6rem, 2.55vw, 2.65rem); line-height: 1.16; letter-spacing: -.035em; text-transform: none; }
+.checkout-form .required-note { margin: 0; color: #9fb6e7; font-size: clamp(.9rem, 1.15vw, 1.2rem); }
+.checkout-form__contacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1rem, 2.4vw, 2.8rem); }
+.checkout-form .form-group { min-width: 0; margin-bottom: 1.4rem; }
+.checkout-form .form-group label { display: block; margin: 0 0 .55rem .2rem; color: #f1f4ff; font-size: clamp(.88rem, 1.08vw, 1.14rem); font-weight: 500; letter-spacing: 0; text-transform: none; }
+.checkout-form .checkout-glass-field { position: relative; display: flex; align-items: center; min-width: 0; height: 68px; border: 1px solid rgba(166, 195, 255, .68); border-radius: 17px; background: linear-gradient(180deg, rgba(145, 179, 241, .15), rgba(119, 153, 220, .075) 23%, rgba(118, 145, 212, .11) 100%); box-shadow: inset 0 1px rgba(233, 243, 255, .3), inset 1px 0 rgba(184, 212, 255, .11), inset 0 -3px 9px rgba(127, 170, 250, .09), 0 14px 32px rgba(0, 0, 0, .12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.checkout-form .checkout-glass-field:focus-within { border-color: #d3e4ff; box-shadow: inset 0 1px rgba(255,255,255,.42), 0 0 0 3px rgba(146, 182, 255, .12); }
+.checkout-form .checkout-glass-field--error { border-color: #ff7c8d; }
+.checkout-form .checkout-glass-field > img { width: 28px; height: 28px; margin: 0 1.2rem 0 1.5rem; flex: none; }
+.checkout-form .checkout-glass-field input, .checkout-form .checkout-glass-field textarea { min-width: 0; width: 100%; height: 100%; padding: 0 1rem 0 0; border: 0; outline: 0; background: transparent; color: #f5f7ff; font: inherit; font-size: clamp(.98rem, 1.25vw, 1.25rem); }
+.checkout-form .checkout-glass-field input::placeholder, .checkout-form .checkout-glass-field textarea::placeholder { color: #aab9d9; opacity: 1; }
+.checkout-form .checkout-glass-field input:read-only { cursor: default; }
+.checkout-form .checkout-glass-field--textarea { min-height: 104px; height: auto; align-items: flex-start; }
+.checkout-form .checkout-glass-field--textarea img { margin-top: 1.2rem; }
+.checkout-form .checkout-glass-field textarea { min-height: 102px; padding-top: 1.15rem; resize: vertical; }
+.checkout-form__offers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1rem, 1.8vw, 1.8rem); margin-top: .5rem; }
+.checkout-form .checkout-offer-card { min-width: 0; margin: 0; padding: 1rem 1.25rem 1.1rem; border: 1px solid rgba(166, 195, 255, .73); border-radius: 17px; background: linear-gradient(165deg, rgba(154, 186, 245, .16), rgba(55, 83, 139, .09) 45%, rgba(126, 160, 225, .17)); box-shadow: inset 0 1px rgba(236, 245, 255, .3), inset 0 -3px 8px rgba(136, 172, 248, .11), 0 15px 35px rgba(0,0,0,.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.checkout-form .checkout-offer-card__head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; min-height: 36px; margin-bottom: .65rem; }
+.checkout-form .checkout-offer-card .promo-code-label { display: inline-flex; align-items: center; gap: .8rem; min-width: 0; margin: 0; color: #f5f7ff; font-size: clamp(.9rem, 1.1vw, 1.17rem); font-weight: 600; letter-spacing: 0; text-transform: none; white-space: nowrap; }
+.checkout-form .checkout-offer-card .promo-code-label img { width: 28px; height: 28px; flex: none; }
+.checkout-form .checkout-offer-card__balance { padding: .3rem .65rem; border-radius: 999px; background: rgba(149, 177, 235, .14); color: #a9c4ff; font-size: clamp(.7rem, .92vw, .99rem); white-space: nowrap; }
+.checkout-form .checkout-offer-card__balance strong { font-weight: 700; }
+.checkout-form .checkout-offer-card .promo-code-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 27%); gap: 1rem; }
+.checkout-form .checkout-offer-card .promo-code-input, .checkout-form .checkout-points-input { width: 100%; min-width: 0; height: 56px; margin: 0; border: 1px solid rgba(166, 195, 255, .45); border-radius: 14px; background: rgba(8, 20, 45, .25); color: #f6f8ff; font-size: clamp(.94rem, 1.1vw, 1.12rem); box-shadow: inset 0 1px rgba(225, 237, 255, .13); }
+.checkout-form .checkout-offer-card .promo-code-input { padding: 0 1.2rem; }
+.checkout-form .checkout-offer-card .promo-code-input::placeholder, .checkout-form .checkout-points-input input::placeholder { color: #b8c5dd; opacity: 1; }
+.checkout-form .checkout-points-input { display: flex; align-items: center; padding: 0 1rem; }
+.checkout-form .checkout-points-input input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #f6f8ff; font: inherit; font-size: clamp(.94rem, 1.1vw, 1.12rem); }
+.checkout-form .checkout-points-input input::-webkit-inner-spin-button, .checkout-form .checkout-points-input input::-webkit-outer-spin-button { appearance: none; }
+.checkout-form .checkout-points-input span { color: #b8c5dd; white-space: nowrap; }
+.checkout-form .checkout-apply-button { min-width: 0; height: 56px; padding: 0 .8rem; border: 1px solid rgba(226, 237, 255, .5); border-radius: 999px; background: linear-gradient(180deg, #bcd0ff, #9ebaff 55%, #b5c9ff); color: #07112b; font: inherit; font-size: clamp(.88rem, 1.08vw, 1.12rem); font-weight: 600; cursor: pointer; box-shadow: inset 0 2px rgba(255,255,255,.5), 0 8px 18px rgba(77, 110, 190, .15); }
+.checkout-form .checkout-apply-button:hover:not(:disabled) { background: linear-gradient(180deg, #d3e0ff, #acc5ff); }
+.checkout-form .checkout-apply-button:disabled { opacity: .56; cursor: not-allowed; }
+.checkout-form .checkout-offer-card .promo-code-clear { margin-top: .65rem; padding: .2rem 0; border: 0; color: #b9cefc; text-decoration: underline; }
+.checkout-form .checkout-offer-card .promo-code-status { margin-top: .55rem; font-size: .83rem; }
+.checkout-form .checkout-remember { position: relative; display: flex; align-items: center; gap: .7rem; width: fit-content; margin: 1.2rem 0 0 .2rem; color: #f3f5ff; font-size: clamp(.85rem, 1.05vw, 1.09rem); cursor: pointer; }
+.checkout-form .checkout-remember input[type="checkbox"] { position: absolute; width: 26px; height: 26px; margin: 0; appearance: none; border: 1px solid #9eb9f6; border-radius: 6px; background: rgba(123, 155, 221, .12); cursor: pointer; }
+.checkout-form .checkout-remember input:checked { background: #a9c3ff; }
+.checkout-form .checkout-remember img { position: relative; width: 26px; height: 26px; flex: none; opacity: 0; pointer-events: none; }
+.checkout-form .checkout-remember input:checked + img { opacity: 1; filter: brightness(.25); }
+.checkout-form .checkout-remember input:focus-visible + img { outline: 2px solid #d2e3ff; border-radius: 4px; }
+@media (max-width: 1100px) { .checkout-form__contacts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .checkout-form__contacts .form-group:last-child { grid-column: 1 / -1; } }
+@media (max-width: 700px) { .checkout-form { width: calc(100% + 4rem); margin-left: -2rem; padding: 1.25rem; border-radius: 18px; } .checkout-form__contacts, .checkout-form__offers { grid-template-columns: minmax(0, 1fr); gap: .25rem; } .checkout-form__contacts .form-group:last-child { grid-column: auto; } .checkout-form .checkout-form__heading { margin-bottom: 1.5rem; } .checkout-form .checkout-glass-field { height: 58px; } .checkout-form .checkout-glass-field--textarea { height: auto; } .checkout-form .checkout-glass-field textarea { min-height: 96px; } .checkout-form .checkout-offer-card { margin-bottom: .75rem; padding: 1rem; } .checkout-form .checkout-offer-card__head { flex-wrap: wrap; } .checkout-form .checkout-offer-card__balance { margin-left: auto; } .checkout-form .checkout-remember { align-items: flex-start; line-height: 1.4; } .checkout-form__molecule { opacity: .2; } }
+@media (max-width: 390px) { .checkout-form .checkout-offer-card .promo-code-controls { grid-template-columns: minmax(0, 1fr) 105px; gap: .5rem; } .checkout-form .checkout-offer-card .promo-code-input, .checkout-form .checkout-points-input, .checkout-form .checkout-apply-button { height: 50px; } .checkout-form .checkout-points-input { padding: 0 .6rem; } .checkout-form .checkout-points-input span { font-size: .75rem; } }
 
 @media (max-width: 1100px) {
   .cart__summary-grid {

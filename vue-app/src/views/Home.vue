@@ -17,45 +17,62 @@
       <img class="home-global-decor__item home-global-decor__item--drop-6" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
     </div>
 
-    <section class="hero">
-      <div class="hero__bg">
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="grid-lines"></div>
+    <section ref="heroRoot" class="hero hero--neon" :class="{ 'is-assembly-pending': !heroMotionReady, 'is-background-paused': heroFxPaused }">
+      <div class="hero-neon__background hero-neon__background--dark" aria-hidden="true"></div>
+      <div class="hero-neon__background hero-neon__background--light" aria-hidden="true"></div>
+      <div class="hero-neon__background-fx" aria-hidden="true">
+        <div class="hero-neon__comets">
+          <span v-for="comet in heroComets" :key="comet.id" class="hero-neon__comet" :style="comet.style"></span>
+        </div>
+        <div class="hero-neon__stars">
+          <span v-for="star in heroStars" :key="star.id" class="hero-neon__star" :style="star.style"></span>
+        </div>
+        <div class="hero-neon__light-fx">
+          <div class="hero-neon__light-sparks">
+            <span v-for="index in 7" :key="index" class="hero-neon__light-spark"></span>
+          </div>
+          <div class="hero-neon__light-grid-glints">
+            <span v-for="index in 6" :key="index" class="hero-neon__light-grid-glint"></span>
+          </div>
+        </div>
       </div>
-      <div class="hero__container">
-        <div class="hero__content">
-          <div class="hero__badge">
-            <span class="badge-dot"></span>
-            Высокочистые пептиды
-          </div>
-          <h1 class="hero__title">
-            Единственный
-            <br class="hero-title-mobile-break">
-            производитель
-            <br>
-            пептидов с действующей
-            <br>
-            <span class="accent">
-              фармацевтической
-              <br class="hero-title-mobile-break">
-              лицензией
-            </span>
+      <div ref="heroScene" class="hero-neon__scene" aria-hidden="true">
+        <div class="hero-neon__floor-light"></div>
+        <div class="hero-neon__assembly hero-neon__assembly--molecule-top" data-assembly="molecule-top"><img class="hero-neon__object hero-neon__object--molecule-top hero-neon__object--theme-dark" src="/hero-assets/neon-lab-molecule-top.webp" alt="" width="512" height="512" loading="eager" decoding="async"><img class="hero-neon__object hero-neon__object--molecule-top hero-neon__object--theme-light" src="/hero-assets/neon-lab-light-molecule-top.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"></div>
+        <div class="hero-neon__assembly hero-neon__assembly--molecule-mid" data-assembly="molecule-mid"><img class="hero-neon__object hero-neon__object--molecule-mid hero-neon__object--theme-dark" src="/hero-assets/neon-lab-molecule-mid.webp" alt="" width="512" height="512" loading="eager" decoding="async"><img class="hero-neon__object hero-neon__object--molecule-mid hero-neon__object--theme-light" src="/hero-assets/neon-lab-light-molecule-mid.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"></div>
+        <div class="hero-neon__assembly hero-neon__assembly--molecule-right" data-assembly="molecule-right"><img class="hero-neon__object hero-neon__object--molecule-right hero-neon__object--theme-dark" src="/hero-assets/neon-lab-molecule-right.webp" alt="" width="512" height="512" loading="eager" decoding="async"><img class="hero-neon__object hero-neon__object--molecule-right hero-neon__object--theme-light" src="/hero-assets/neon-lab-light-molecule-right.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"></div>
+        <div class="hero-neon__assembly hero-neon__assembly--sphere-top" data-assembly="sphere-top"><img class="hero-neon__object hero-neon__object--sphere-top hero-neon__object--theme-dark" src="/hero-assets/neon-lab-sphere-top.webp" alt="" width="384" height="384" loading="eager" decoding="async"><img class="hero-neon__object hero-neon__object--sphere-top hero-neon__object--theme-light" src="/hero-assets/neon-lab-light-sphere-top.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"></div>
+        <div class="hero-neon__assembly hero-neon__assembly--sphere-right" data-assembly="sphere-right"><img class="hero-neon__object hero-neon__object--sphere-right hero-neon__object--theme-dark" src="/hero-assets/neon-lab-sphere-right.webp" alt="" width="384" height="384" loading="eager" decoding="async"><img class="hero-neon__object hero-neon__object--sphere-right hero-neon__object--theme-light" src="/hero-assets/neon-lab-light-sphere-right.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"></div>
+        <div class="hero-neon__assembly hero-neon__assembly--sphere-small" data-assembly="sphere-small"><img class="hero-neon__object hero-neon__object--sphere-small hero-neon__object--theme-dark" src="/hero-assets/neon-lab-sphere-small.webp" alt="" width="384" height="384" loading="eager" decoding="async"><img class="hero-neon__object hero-neon__object--sphere-small hero-neon__object--theme-light" src="/hero-assets/neon-lab-light-sphere-small.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"></div>
+        <div class="hero-neon__assembly hero-neon__assembly--bubbles-left" data-assembly="bubbles-left"><img class="hero-neon__object hero-neon__object--bubbles-left hero-neon__object--theme-dark" src="/hero-assets/neon-lab-bubbles-left.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"><img class="hero-neon__object hero-neon__object--bubbles-left hero-neon__object--theme-light" src="/hero-assets/neon-lab-light-bubbles.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"></div>
+        <div class="hero-neon__assembly hero-neon__assembly--bubbles-right" data-assembly="bubbles-right"><img class="hero-neon__object hero-neon__object--bubbles-right hero-neon__object--theme-dark" src="/hero-assets/neon-lab-bubbles-right.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"><img class="hero-neon__object hero-neon__object--bubbles-right hero-neon__object--theme-light" src="/hero-assets/neon-lab-light-bubbles.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"></div>
+        <div class="hero-neon__assembly hero-neon__assembly--podium" data-assembly="podium"><img class="hero-neon__object hero-neon__object--podium hero-neon__object--theme-dark" src="/hero-assets/neon-lab-podium.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"><img class="hero-neon__object hero-neon__object--podium hero-neon__object--theme-light" src="/hero-assets/neon-lab-light-podium.webp" alt="" width="1254" height="1254" loading="eager" decoding="async"></div>
+        <div class="hero-neon__energy" aria-hidden="true"></div>
+        <div class="hero-neon__assembly hero-neon__assembly--pen" data-assembly="pen"><img class="hero-neon__object hero-neon__object--pen" src="/hero-assets/ручка-720.webp" alt="" width="720" height="1080" loading="eager" decoding="async" fetchpriority="high"></div>
+      </div>
+      <div class="hero-neon__content">
+          <div class="hero-neon__badge"><span class="hero-neon__dot"></span>Высокочистые пептиды</div>
+          <h1 class="hero-neon__title">
+            <span>Единственный</span>{{ ' ' }}
+            <span>производитель</span>{{ ' ' }}
+            <span>пептидов с действующей</span>{{ ' ' }}
+            <span class="hero-neon__accent">фармацевтической</span>{{ ' ' }}
+            <span class="hero-neon__accent">лицензией</span>
           </h1>
-          <div class="hero__chips">
-            <span class="hero-chip">in vitro only</span>
-            <span class="hero-chip">Фармлицензия</span>
-            <span class="hero-chip">Контроль партий</span>
+          <div class="hero-neon__chips">
+            <span class="hero-neon__chip"><span class="hero-neon__dot"></span>IN VITRO ONLY</span>
+            <span class="hero-neon__chip"><span class="hero-neon__dot"></span>Фармлицензия</span>
+            <span class="hero-neon__chip"><span class="hero-neon__dot"></span>Контроль партий</span>
           </div>
-          <div class="hero__actions">
-            <router-link to="/catalog" class="btn btn-primary">
+          <div class="hero-neon__actions">
+            <router-link to="/catalog" class="hero-neon__button hero-neon__button--primary">
               Перейти в каталог
               <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
             </router-link>
-            <a href="#features" class="btn btn-secondary">Узнать больше</a>
-            <a href="/pharmaceutical-license.pdf" class="btn btn-license" target="_blank" rel="noopener">
+            <a href="#features" class="hero-neon__button hero-neon__button--secondary">Узнать больше</a>
+            <a href="/pharmaceutical-license.pdf" class="hero-neon__button hero-neon__button--license" target="_blank" rel="noopener">
               Лицензия PDF
               <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -64,75 +81,6 @@
               </svg>
             </a>
           </div>
-        </div>
-
-        <div ref="heroVisual" class="hero__visual" aria-hidden="true">
-          <div class="hero-scene">
-            <div class="hero-orbits">
-              <img
-                class="hero-orbit-image hero-orbit-image--back"
-                src="/hero-assets/кольцо-1300.webp"
-                alt=""
-                width="1300"
-                height="431"
-                loading="eager"
-                decoding="async"
-                fetchpriority="high"
-              >
-            </div>
-
-            <div class="hero-molecule hero-molecule--one">
-              <img class="hero-molecule__image" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-            </div>
-            <div class="hero-molecule hero-molecule--two">
-              <img class="hero-molecule__image" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-            </div>
-            <div class="hero-molecule hero-molecule--background">
-              <img class="hero-molecule__image" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
-            </div>
-
-            <div class="hero-sphere hero-sphere--top">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-            </div>
-            <div class="hero-sphere hero-sphere--right">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
-            </div>
-            <div class="hero-sphere hero-sphere--orbit">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-            </div>
-            <div class="hero-sphere hero-sphere--far-left">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
-            </div>
-            <div class="hero-sphere hero-sphere--far-right">
-              <img class="hero-sphere__image" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
-            </div>
-
-            <div class="hero-pen-wrap">
-              <img
-                class="hero-pen"
-                src="/hero-assets/ручка-720.webp"
-                alt=""
-                width="720"
-                height="1080"
-                loading="eager"
-                decoding="sync"
-                fetchpriority="high"
-              >
-            </div>
-
-            <div class="hero-platform">
-              <img
-                src="/hero-assets/подставка-1200.webp"
-                alt=""
-                width="1200"
-                height="676"
-                loading="eager"
-                decoding="sync"
-                fetchpriority="high"
-              >
-            </div>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -712,16 +660,36 @@ const router = useRouter()
 const DISPLAY_CATEGORY_SLUGS = ['longevitiya', 'immunomodulyatory', 'neiropeptide', 'growth']
 const homeRoot = ref(null)
 const catalogPreview = ref(null)
-const heroVisual = ref(null)
+const heroRoot = ref(null)
+const heroScene = ref(null)
+const heroMotionReady = ref(false)
+const heroFxPaused = ref(false)
+const heroAnimations = new Set()
+let heroMotionStarted = false
+let heroIsUnmounted = false
+const heroComets = [
+  { id: 'c1', style: { '--fx-top': '12%', '--fx-right': '-15%', '--fx-length': '166px', '--fx-distance-x': '-64vw', '--fx-distance-y': '33vh', '--fx-angle': '-27deg', '--fx-cycle': '13s', '--fx-delay': '3.1s', '--fx-peak': '.66' } },
+  { id: 'c2', style: { '--fx-top': '26%', '--fx-right': '-20%', '--fx-length': '114px', '--fx-distance-x': '-60vw', '--fx-distance-y': '26vh', '--fx-angle': '-23deg', '--fx-cycle': '17s', '--fx-delay': '6.7s', '--fx-peak': '.5' } },
+  { id: 'c3', style: { '--fx-top': '5%', '--fx-right': '-17%', '--fx-length': '205px', '--fx-distance-x': '-62vw', '--fx-distance-y': '39vh', '--fx-angle': '-32deg', '--fx-cycle': '21s', '--fx-delay': '10.3s', '--fx-peak': '.56' } },
+  { id: 'c4', style: { '--fx-top': '35%', '--fx-right': '-13%', '--fx-length': '92px', '--fx-distance-x': '-55vw', '--fx-distance-y': '22vh', '--fx-angle': '-20deg', '--fx-cycle': '24s', '--fx-delay': '14.2s', '--fx-peak': '.42' } }
+]
+const heroStars = [
+  { id: 's1', style: { '--fx-top': '13%', '--fx-right': '15%', '--fx-distance-x': '-110px', '--fx-distance-y': '58px', '--fx-angle': '-28deg', '--fx-cycle': '10s', '--fx-delay': '4.2s' } },
+  { id: 's2', style: { '--fx-top': '31%', '--fx-right': '33%', '--fx-distance-x': '-85px', '--fx-distance-y': '44px', '--fx-angle': '-27deg', '--fx-cycle': '13s', '--fx-delay': '7.9s' } },
+  { id: 's3', style: { '--fx-top': '8%', '--fx-right': '41%', '--fx-distance-x': '-65px', '--fx-distance-y': '32px', '--fx-angle': '-24deg', '--fx-cycle': '17s', '--fx-delay': '11.4s' } },
+  { id: 's4', style: { '--fx-top': '22%', '--fx-right': '8%', '--fx-distance-x': '-95px', '--fx-distance-y': '52px', '--fx-angle': '-29deg', '--fx-cycle': '19s', '--fx-delay': '5.8s' } },
+  { id: 's5', style: { '--fx-top': '42%', '--fx-right': '22%', '--fx-distance-x': '-80px', '--fx-distance-y': '41px', '--fx-angle': '-25deg', '--fx-cycle': '22s', '--fx-delay': '12.6s' } },
+  { id: 's6', style: { '--fx-top': '17%', '--fx-right': '48%', '--fx-distance-x': '-68px', '--fx-distance-y': '35px', '--fx-angle': '-31deg', '--fx-cycle': '24s', '--fx-delay': '8.6s' } },
+  { id: 's7', style: { '--fx-top': '36%', '--fx-right': '4%', '--fx-distance-x': '-102px', '--fx-distance-y': '54px', '--fx-angle': '-25deg', '--fx-cycle': '27s', '--fx-delay': '16.1s' } },
+  { id: 's8', style: { '--fx-top': '6%', '--fx-right': '26%', '--fx-distance-x': '-73px', '--fx-distance-y': '39px', '--fx-angle': '-29deg', '--fx-cycle': '29s', '--fx-delay': '19.3s' } }
+]
 let catalogObserver = null
 let moleculeObserver = null
 let catalogFallbackTimer = null
 let catalogLoaded = false
 let heroScrollFrame = null
-let heroScrollProgress = '0'
 let heroScrollIdleTimer = null
 let heroScrollActive = false
-let lastHeroScrollProgress = -1
 let lastMoleculeScrollY = -1
 
 const featuredProducts = computed(() => {
@@ -761,6 +729,9 @@ async function loadCatalogPreview() {
 }
 
 onMounted(() => {
+  document.addEventListener('visibilitychange', syncHeroAnimationVisibility)
+  syncHeroAnimationVisibility()
+  startHeroAssembly()
   updateHeroScrollProgress()
   window.addEventListener('scroll', queueHeroScrollProgress, { passive: true })
   window.addEventListener('resize', queueHeroScrollProgress, { passive: true })
@@ -778,6 +749,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  heroIsUnmounted = true
+  document.removeEventListener('visibilitychange', syncHeroAnimationVisibility)
+  heroAnimations.forEach(animation => animation.cancel())
+  heroAnimations.clear()
   catalogObserver?.disconnect()
   moleculeObserver?.disconnect()
   if (catalogFallbackTimer) window.clearTimeout(catalogFallbackTimer)
@@ -787,6 +762,139 @@ onBeforeUnmount(() => {
   window.removeEventListener('scroll', queueHeroScrollProgress)
   window.removeEventListener('resize', queueHeroScrollProgress)
 })
+
+// One master schedule, implemented with the browser's composited animations.
+// The full-scene wrappers move while their images keep the original positioning.
+function startHeroAssembly() {
+  if (heroMotionStarted) return
+  heroMotionStarted = true
+  const root = heroRoot.value
+  const scene = heroScene.value
+  if (!root || !scene || !Element.prototype.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    heroMotionReady.value = true
+    return
+  }
+
+  try {
+    const sceneRect = scene.getBoundingClientRect()
+    const mobile = window.matchMedia('(max-width: 767px)').matches
+    const tablet = !mobile && window.matchMedia('(max-width: 1100px)').matches
+    const tempo = mobile ? 0.66 : tablet ? 0.85 : 1
+    const sceneDelay = mobile ? 0.65 : 0
+    const power3 = 'cubic-bezier(0.22, 1, 0.36, 1)'
+    const power2 = 'cubic-bezier(0.3, 0.8, 0.4, 1)'
+    const intro = []
+
+    function run(target, from, delay, duration, easing = power3, to = { transform: 'none', opacity: 1 }) {
+      if (!target) return
+      target.style.willChange = 'transform, opacity'
+      const animation = target.animate([from, to], {
+        delay: delay * tempo * 1000,
+        duration: duration * tempo * 1000,
+        easing,
+        fill: 'both'
+      })
+      heroAnimations.add(animation)
+      animation.addEventListener('finish', () => {
+        target.style.willChange = ''
+        heroAnimations.delete(animation)
+        animation.cancel()
+      }, { once: true })
+      intro.push(animation.finished.catch(() => {}))
+      return animation
+    }
+
+    function layer(name) {
+      const wrapper = scene.querySelector(`[data-assembly="${name}"]`)
+      const image = wrapper?.querySelector('img')
+      if (!wrapper || !image) return null
+      const rect = image.getBoundingClientRect()
+      wrapper.style.transformOrigin = `${rect.left + rect.width / 2 - sceneRect.left}px ${rect.top + rect.height / 2 - sceneRect.top}px`
+      return { wrapper, rect }
+    }
+
+    const podium = layer('podium')
+    const pen = layer('pen')
+    const topMolecule = layer('molecule-top')
+    const midMolecule = layer('molecule-mid')
+    const rightMolecule = layer('molecule-right')
+    const leftBubbles = layer('bubbles-left')
+    const rightBubbles = layer('bubbles-right')
+    const topSphere = layer('sphere-top')
+    const rightSphere = layer('sphere-right')
+    const smallSphere = layer('sphere-small')
+
+    if (podium) run(podium.wrapper, { transform: `translate3d(${Math.ceil(sceneRect.right - podium.rect.left + 24)}px, 20px, 0) scale(.88)`, opacity: 1 }, .15 + sceneDelay, 1.35)
+    if (pen) run(pen.wrapper, { transform: `translate3d(38px, ${Math.floor(sceneRect.top - pen.rect.bottom - 24)}px, 0) rotate(8deg) scale(1.05)`, opacity: 1 }, .4 + sceneDelay, 1.5)
+    if (topMolecule) run(topMolecule.wrapper, { transform: 'translate3d(35px, -120px, 0) rotate(-12deg) scale(.35)', opacity: 0 }, .65 + sceneDelay, 1.2)
+    if (midMolecule) run(midMolecule.wrapper, { transform: 'translate3d(100px, 0, 0) rotate(9deg) scale(.45)', opacity: 0 }, .9 + sceneDelay, 1.1, power2)
+    if (rightMolecule) run(rightMolecule.wrapper, { transform: `translate3d(${Math.ceil(sceneRect.right - rightMolecule.rect.left + 20)}px, 0, 0) rotate(-15deg) scale(.8)`, opacity: 1 }, 1.05 + sceneDelay, 1.1)
+    if (leftBubbles) run(leftBubbles.wrapper, { transform: `translate3d(${Math.floor(sceneRect.left - leftBubbles.rect.right - 24)}px, 0, 0) scale(1.12)`, opacity: 1 }, .9 + sceneDelay, 1.2)
+    if (rightBubbles) run(rightBubbles.wrapper, { transform: `translate3d(${Math.ceil(sceneRect.right - rightBubbles.rect.left + 24)}px, 30px, 0) scale(1.08)`, opacity: 1 }, 1.1 + sceneDelay, 1.25)
+    if (topSphere) run(topSphere.wrapper, { transform: 'translate3d(70px, -50px, 0) scale(.6)', opacity: 0 }, 1.12 + sceneDelay, .85, power2)
+    if (rightSphere) run(rightSphere.wrapper, { transform: 'translate3d(80px, 35px, 0) scale(.6)', opacity: 0 }, 1.25 + sceneDelay, .85, power2)
+    if (smallSphere) run(smallSphere.wrapper, { transform: 'translate3d(-35px, -65px, 0) scale(.6)', opacity: 0 }, 1.38 + sceneDelay, .8, power2)
+
+    run(root.querySelector('.hero-neon__badge'), { transform: 'translateY(16px)', opacity: 0 }, mobile ? .05 : .1, .65, power2)
+    run(root.querySelector('.hero-neon__title'), { transform: 'translateY(16px)', opacity: 0 }, mobile ? .2 : .25, .75, power2)
+    run(root.querySelector('.hero-neon__chips'), { transform: 'translateY(16px)', opacity: 0 }, mobile ? .45 : .55, .65, power2)
+    run(root.querySelector('.hero-neon__actions'), { transform: 'translateY(16px)', opacity: 0 }, mobile ? 2.65 : .75, .65, power2)
+
+    const energy = scene.querySelector('.hero-neon__energy')
+    if (energy) {
+      const pulse = energy.animate([{ opacity: 0 }, { opacity: .82, offset: .36 }, { opacity: 0 }], {
+        delay: (1.95 + sceneDelay) * tempo * 1000,
+        duration: .65 * tempo * 1000,
+        easing: 'ease-in-out',
+        fill: 'both'
+      })
+      heroAnimations.add(pulse)
+      pulse.addEventListener('finish', () => { heroAnimations.delete(pulse); pulse.cancel() }, { once: true })
+      intro.push(pulse.finished.catch(() => {}))
+    }
+
+    heroMotionReady.value = true
+    syncHeroAnimationVisibility()
+    Promise.all(intro).then(() => {
+      if (heroIsUnmounted || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+      startHeroIdle(scene, mobile)
+    })
+  } catch (error) {
+    heroAnimations.forEach(animation => animation.cancel())
+    heroAnimations.clear()
+    heroMotionReady.value = true
+    console.warn('[Hero] Assembly animation unavailable:', error)
+  }
+}
+
+function startHeroIdle(scene, mobile) {
+  const easing = 'ease-in-out'
+  const idle = [
+    ['pen', mobile ? -4 : -5, 5600],
+    ['molecule-top', mobile ? -3 : -4, 8500],
+    ['molecule-mid', mobile ? 2 : 3, 9900],
+    ['sphere-top', mobile ? -2 : -3, 9000]
+  ]
+  for (const [name, y, duration] of idle) {
+    const target = scene.querySelector(`[data-assembly="${name}"]`)
+    if (!target) continue
+    const animation = target.animate([
+      { transform: 'translate3d(0, 0, 0)' },
+      { transform: `translate3d(0, ${y}px, 0)` },
+      { transform: 'translate3d(0, 0, 0)' }
+    ], { duration, iterations: Infinity, easing })
+    heroAnimations.add(animation)
+  }
+  syncHeroAnimationVisibility()
+}
+
+function syncHeroAnimationVisibility() {
+  heroFxPaused.value = document.hidden
+  for (const animation of heroAnimations) {
+    if (document.hidden) animation.pause()
+    else if (animation.playState === 'paused') animation.play()
+  }
+}
 
 function handleImageError(e) {
   const img = e.target
@@ -879,27 +987,6 @@ function updateHeroScrollProgress() {
   if (document.hidden) return
 
   updateBackgroundMoleculeParallax()
-  if (!heroVisual.value) return
-
-  const hero = heroVisual.value.closest('.hero')
-  if (!hero) return
-
-  const rect = hero.getBoundingClientRect()
-  if (rect.bottom < 0 && heroScrollProgress === '1.00') return
-  if (rect.top > window.innerHeight && heroScrollProgress === '0.00') return
-
-  const range = Math.max(1, rect.height * 0.82)
-  const progress = Math.min(1, Math.max(0, -rect.top / range))
-  const roundedProgress = Math.round(progress * 1000) / 1000
-
-  if (Math.abs(roundedProgress - lastHeroScrollProgress) < 0.002) return
-  lastHeroScrollProgress = roundedProgress
-
-  const next = roundedProgress.toFixed(3)
-
-  if (next === heroScrollProgress) return
-  heroScrollProgress = next
-  heroVisual.value.style.setProperty('--hero-scroll-progress', next)
 }
 
 function updateBackgroundMoleculeParallax() {
@@ -949,14 +1036,12 @@ function setupAmbientMoleculeObserver() {
 function queueHeroScrollProgress() {
   if (!heroScrollActive) {
     heroScrollActive = true
-    heroVisual.value?.classList.add('is-scroll-active')
     homeRoot.value?.classList.add('is-scroll-active')
   }
 
   if (heroScrollIdleTimer) window.clearTimeout(heroScrollIdleTimer)
   heroScrollIdleTimer = window.setTimeout(() => {
     heroScrollActive = false
-    heroVisual.value?.classList.remove('is-scroll-active')
     homeRoot.value?.classList.remove('is-scroll-active')
   }, 320)
 
@@ -5895,5 +5980,742 @@ function queueHeroScrollProgress() {
 
 .cart-count {
   animation: countBounce 0.3s ease;
+}
+
+/* The landing hero is a single coordinate system; every image remains an
+   independent asset so the composition can adapt without flattening it. */
+.hero--neon {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: calc(100svh - 72px);
+  min-height: 620px;
+  padding: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: #020b23;
+  color: #fff;
+  transition: background-color .45s ease, color .45s ease;
+}
+
+.hero-neon__background,
+.hero-neon__background::after,
+.hero-neon__scene {
+  position: absolute;
+  inset: 0;
+}
+
+.hero-neon__background {
+  z-index: 0;
+  background: #020b23 url('/hero-assets/neon-lab-background.webp') center bottom / cover no-repeat;
+  transition: opacity 0.45s ease;
+  pointer-events: none;
+}
+
+.hero-neon__background--light {
+  opacity: 0;
+  background: #e8f2ff url('/hero-assets/neon-lab-background-light.webp') center bottom / cover no-repeat;
+}
+
+.hero-neon__background::after {
+  content: '';
+  background:
+    linear-gradient(90deg, rgba(1, 7, 24, .84) 0%, rgba(1, 7, 24, .58) 28%, rgba(1, 7, 24, .15) 52%, transparent 74%),
+    linear-gradient(0deg, rgba(0, 5, 25, .08), transparent 32%);
+}
+
+.hero-neon__background-fx {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-neon__comets,
+.hero-neon__stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hero-neon__light-fx {
+  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hero-neon__light-sparks,
+.hero-neon__light-grid-glints {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hero-neon__light-spark,
+.hero-neon__light-grid-glint {
+  position: absolute;
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hero-neon__light-spark {
+  left: var(--spark-x);
+  top: var(--spark-y);
+  background: #f7fdff;
+  box-shadow: 0 0 5px 2px rgba(127, 207, 255, .52), 0 0 13px 4px rgba(89, 179, 255, .2);
+  animation: heroLightSparkFloat var(--spark-duration) ease-in-out var(--spark-delay) infinite;
+}
+
+.hero-neon__light-spark:nth-child(1) { --spark-x: 55%; --spark-y: 51%; --spark-rise: -42px; --spark-duration: 9s; --spark-delay: -2s; }
+.hero-neon__light-spark:nth-child(2) { --spark-x: 63%; --spark-y: 33%; --spark-rise: -54px; --spark-duration: 11s; --spark-delay: -7s; }
+.hero-neon__light-spark:nth-child(3) { --spark-x: 71%; --spark-y: 59%; --spark-rise: -36px; --spark-duration: 10s; --spark-delay: -4s; }
+.hero-neon__light-spark:nth-child(4) { --spark-x: 79%; --spark-y: 27%; --spark-rise: -48px; --spark-duration: 12s; --spark-delay: -9s; }
+.hero-neon__light-spark:nth-child(5) { --spark-x: 88%; --spark-y: 43%; --spark-rise: -60px; --spark-duration: 10.5s; --spark-delay: -6s; }
+.hero-neon__light-spark:nth-child(6) { --spark-x: 95%; --spark-y: 58%; --spark-rise: -39px; --spark-duration: 9.5s; --spark-delay: -8s; }
+.hero-neon__light-spark:nth-child(7) { --spark-x: 68%; --spark-y: 19%; --spark-rise: -47px; --spark-duration: 11.5s; --spark-delay: -3s; }
+
+.hero-neon__light-grid-glint {
+  left: var(--glint-x);
+  top: var(--glint-y);
+  width: 3px;
+  height: 3px;
+  background: #d6f7ff;
+  box-shadow: 0 0 5px 2px rgba(53, 183, 255, .58), 0 0 10px 3px rgba(48, 150, 240, .24);
+  animation: heroLightGridGlint 6s ease-in-out var(--glint-delay) infinite;
+}
+
+.hero-neon__light-grid-glint:nth-child(1) { --glint-x: 48%; --glint-y: 78%; --glint-delay: -1s; }
+.hero-neon__light-grid-glint:nth-child(2) { --glint-x: 58%; --glint-y: 87%; --glint-delay: -4s; }
+.hero-neon__light-grid-glint:nth-child(3) { --glint-x: 67%; --glint-y: 76%; --glint-delay: -2.5s; }
+.hero-neon__light-grid-glint:nth-child(4) { --glint-x: 76%; --glint-y: 90%; --glint-delay: -5s; }
+.hero-neon__light-grid-glint:nth-child(5) { --glint-x: 85%; --glint-y: 79%; --glint-delay: -3.5s; }
+.hero-neon__light-grid-glint:nth-child(6) { --glint-x: 93%; --glint-y: 93%; --glint-delay: -.5s; }
+
+@keyframes heroLightSparkFloat {
+  0%, 100% { opacity: 0; transform: translate3d(0, 0, 0); }
+  26% { opacity: .7; }
+  72% { opacity: .55; }
+  88% { opacity: 0; transform: translate3d(0, var(--spark-rise), 0); }
+}
+
+@keyframes heroLightGridGlint {
+  0%, 100% { opacity: 0; transform: scale(.65); }
+  42% { opacity: .8; transform: scale(1.2); }
+  70% { opacity: .35; transform: scale(1); }
+}
+
+.hero-neon__comet,
+.hero-neon__star {
+  position: absolute;
+  top: var(--fx-top);
+  right: var(--fx-right);
+  display: block;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0) rotate(var(--fx-angle));
+  transform-origin: 0 50%;
+  animation-delay: var(--fx-delay);
+  animation-duration: var(--fx-cycle);
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+
+.hero-neon__comet {
+  width: var(--fx-length);
+  height: 3px;
+  background: linear-gradient(90deg, rgba(225, 253, 255, .98) 0%, rgba(80, 203, 255, .7) 7%, rgba(12, 117, 255, .26) 38%, transparent 100%);
+  box-shadow: 0 0 7px rgba(32, 165, 255, .33);
+  animation-name: heroCometPass;
+}
+
+.hero-neon__comet::before,
+.hero-neon__star::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #e7fbff;
+  box-shadow: 0 0 7px 1px rgba(77, 189, 255, .74);
+  transform: translateY(-50%);
+}
+
+.hero-neon__star {
+  width: 28px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(231, 251, 255, .92), rgba(35, 146, 255, .28) 48%, transparent);
+  animation-name: heroStarPass;
+}
+
+.hero-neon__star::before { width: 3px; height: 3px; }
+
+.hero--neon.is-background-paused :is(.hero-neon__comet, .hero-neon__star, .hero-neon__light-spark, .hero-neon__light-grid-glint) {
+  animation-play-state: paused;
+}
+
+@keyframes heroCometPass {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(var(--fx-angle)); }
+  1.5% { opacity: var(--fx-peak); }
+  6.5% { opacity: var(--fx-peak); }
+  9% { opacity: 0; transform: translate3d(var(--fx-distance-x), var(--fx-distance-y), 0) rotate(var(--fx-angle)); }
+  100% { opacity: 0; transform: translate3d(var(--fx-distance-x), var(--fx-distance-y), 0) rotate(var(--fx-angle)); }
+}
+
+@keyframes heroStarPass {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(var(--fx-angle)) scale(.7); }
+  1% { opacity: .65; }
+  2.5% { opacity: .5; }
+  4% { opacity: 0; transform: translate3d(var(--fx-distance-x), var(--fx-distance-y), 0) rotate(var(--fx-angle)) scale(1); }
+  100% { opacity: 0; transform: translate3d(var(--fx-distance-x), var(--fx-distance-y), 0) rotate(var(--fx-angle)) scale(1); }
+}
+
+.hero-neon__scene {
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hero-neon__assembly {
+  position: absolute;
+  inset: 0;
+  transform: none;
+  pointer-events: none;
+}
+.hero-neon__assembly--molecule-top { z-index: 3; }
+.hero-neon__assembly--molecule-mid { z-index: 2; }
+.hero-neon__assembly--molecule-right { z-index: 5; }
+.hero-neon__assembly--sphere-top { z-index: 5; }
+.hero-neon__assembly--sphere-right { z-index: 6; }
+.hero-neon__assembly--sphere-small { z-index: 4; }
+.hero-neon__assembly--bubbles-left { z-index: 9; }
+.hero-neon__assembly--bubbles-right { z-index: 7; }
+.hero-neon__assembly--podium { z-index: 4; }
+.hero-neon__assembly--pen { z-index: 8; }
+
+.hero--neon.is-assembly-pending .hero-neon__assembly,
+.hero--neon.is-assembly-pending :is(.hero-neon__badge, .hero-neon__title, .hero-neon__chips, .hero-neon__actions) {
+  visibility: hidden;
+}
+
+.hero-neon__energy {
+  position: absolute;
+  z-index: 7;
+  left: 70%;
+  top: 71%;
+  width: 18%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(222, 252, 255, .95), rgba(50, 190, 255, .55) 20%, rgba(0, 112, 255, .12) 52%, transparent 70%);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.hero-neon__floor-light {
+  position: absolute;
+  z-index: 1;
+  left: 71%;
+  top: 80%;
+  width: 45%;
+  height: 27%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0, 142, 255, .55), rgba(0, 58, 191, .2) 42%, transparent 74%);
+  filter: blur(32px);
+}
+
+.hero-neon__object {
+  position: absolute;
+  display: block;
+  height: auto;
+  max-width: none;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  backface-visibility: hidden;
+}
+
+/* Theme assets share their animated wrapper; only their opacity changes. */
+.hero-neon__object.hero-neon__object--theme-light { opacity: 0; }
+.hero-neon__object--theme-dark,
+.hero-neon__object--theme-light { transition: opacity .45s ease; }
+
+.hero-neon__object--podium {
+  z-index: 4;
+  left: 70%;
+  top: 32%;
+  width: 36%;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 16px 24px rgba(0, 47, 148, .5));
+}
+
+.hero-neon__object--pen {
+  z-index: 8;
+  left: 60%;
+  top: 6%;
+  width: auto;
+  height: 62%;
+  filter: drop-shadow(-19px 19px 25px rgba(0, 2, 18, .68)) drop-shadow(0 0 18px rgba(45, 153, 255, .28));
+}
+
+.hero-neon__object--molecule-top {
+  z-index: 3;
+  left: 43%;
+  top: 10%;
+  width: 11%;
+  transform: rotate(-15deg);
+  filter: drop-shadow(0 0 13px rgba(42, 157, 255, .35));
+}
+
+.hero-neon__object--molecule-mid {
+  z-index: 2;
+  left: 55%;
+  top: 20%;
+  width: 13%;
+  opacity: .7;
+}
+
+.hero-neon__object--molecule-right {
+  z-index: 5;
+  left: 82%;
+  top: 40%;
+  width: 13%;
+  filter: drop-shadow(0 0 12px rgba(51, 154, 255, .25));
+}
+
+.hero-neon__object--sphere-top {
+  z-index: 5;
+  left: 85%;
+  top: 15%;
+  width: 8%;
+}
+
+.hero-neon__object--sphere-right {
+  z-index: 6;
+  left: 84%;
+  top: 57%;
+  width: 9%;
+}
+
+.hero-neon__object--sphere-small {
+  z-index: 4;
+  left: 49%;
+  top: 22%;
+  width: 4%;
+}
+
+.hero-neon__object--bubbles-left {
+  z-index: 9;
+  left: -18%;
+  top: 36%;
+  width: 30%;
+  opacity: .57;
+  filter: blur(2px);
+}
+
+.hero-neon__object--bubbles-right {
+  z-index: 7;
+  right: -10%;
+  top: 21%;
+  width: 25%;
+  opacity: .75;
+  filter: blur(2px);
+}
+
+.hero-neon__content {
+  position: relative;
+  z-index: 12;
+  width: min(52%, 700px);
+  margin-left: clamp(40px, 9.5vw, 180px);
+  padding-top: clamp(48px, 7.5vh, 80px);
+  text-shadow: 0 2px 18px rgba(0, 3, 18, .6);
+}
+
+.hero-neon__badge,
+.hero-neon__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(35, 137, 255, .68);
+  border-radius: 999px;
+  background: rgba(1, 14, 44, .72);
+  box-shadow: inset 0 0 13px rgba(13, 81, 178, .2), 0 0 14px rgba(0, 94, 255, .32);
+  color: #d9efff;
+  white-space: nowrap;
+  transition: background-color .45s ease, border-color .45s ease, color .45s ease, box-shadow .45s ease;
+}
+
+.hero-neon__badge {
+  min-height: 32px;
+  padding: 5px 15px;
+  margin-bottom: clamp(19px, 3vh, 27px);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: .015em;
+  text-transform: uppercase;
+}
+
+.hero-neon__dot {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2dd5ff;
+  box-shadow: 0 0 5px 2px #11b7ff, 0 0 12px #007dff;
+}
+
+.hero-neon__title {
+  margin: 0 0 21px;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 3.4vw, 54px);
+  font-weight: 800;
+  line-height: .98;
+  letter-spacing: -.055em;
+  transition: color .45s ease, text-shadow .45s ease;
+}
+.hero-neon__title span { display: block; }
+.hero-neon__accent {
+  width: fit-content;
+  background: linear-gradient(100deg, #64b2ff 5%, #319bff 55%, #b1e1ff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 20px rgba(17, 122, 255, .23));
+}
+
+.hero-neon__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 21px;
+}
+.hero-neon__chip {
+  min-height: 27px;
+  padding: 4px 11px;
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+.hero-neon__chip .hero-neon__dot { flex-basis: 5px; width: 5px; height: 5px; }
+
+.hero-neon__actions { display: flex; flex-wrap: wrap; gap: 11px; }
+.hero-neon__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 20px;
+  border: 1px solid rgba(25, 120, 255, .7);
+  border-radius: 11px;
+  background: rgba(1, 13, 39, .75);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: inset 0 0 12px rgba(0, 82, 189, .16), 0 0 16px rgba(0, 83, 247, .16);
+  transition: transform .25s ease, border-color .45s ease, box-shadow .45s ease, background-color .45s ease, color .45s ease;
+}
+.hero-neon__button:hover,
+.hero-neon__button:focus-visible { transform: translateY(-2px); border-color: #42c8ff; box-shadow: 0 0 22px rgba(0, 116, 255, .42); }
+.hero-neon__button--primary {
+  border-color: #4ec9ff;
+  background: linear-gradient(115deg, #0b77f9, #03aafa);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.27), 0 0 14px rgba(0, 127, 255, .76), 0 0 27px rgba(0, 99, 255, .55);
+}
+.hero-neon__button--license { color: #aee7ff; }
+.hero-neon__button svg { width: 17px; height: 17px; }
+
+
+@media (max-width: 1100px) {
+  .hero-neon__comet:nth-child(4),
+  .hero-neon__star:nth-child(n+7) { display: none; }
+  .hero--neon { height: auto; min-height: 650px; }
+  .hero-neon__content { width: 53%; margin-left: 5%; padding-top: 80px; }
+  .hero-neon__title { font-size: clamp(33px, 3.8vw, 43px); }
+  .hero-neon__button { padding: 0 14px; font-size: 12px; }
+  .hero-neon__object--pen { left: 62%; height: 56%; top: 9%; }
+  .hero-neon__object--podium { left: 76%; top: 46%; width: 42%; }
+}
+
+@media (max-width: 767px) {
+  .hero-neon__background-fx { opacity: .65; }
+  .hero-neon__comet:nth-child(n+3),
+  .hero-neon__star:nth-child(n+5) { display: none; }
+  .hero--neon {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto auto;
+    min-height: 0;
+    height: auto;
+    padding: 26px 0 calc(104px + env(safe-area-inset-bottom));
+  }
+  .hero-neon__background { background-position: 58% bottom; background-size: auto 100%; }
+  .hero-neon__background::after {
+    background: linear-gradient(180deg, rgba(0, 5, 23, .78) 0%, rgba(0, 5, 23, .62) 35%, rgba(0, 5, 23, .05) 70%, rgba(0, 5, 23, .68) 100%);
+  }
+  .hero-neon__content { display: contents; }
+  .hero-neon__badge,
+  .hero-neon__title,
+  .hero-neon__chips,
+  .hero-neon__actions { position: relative; z-index: 12; min-width: 0; }
+  .hero-neon__badge {
+    grid-row: 1;
+    justify-self: start;
+    min-height: 30px;
+    margin: 0 20px 20px;
+    padding: 4px 13px;
+    font-size: 10px;
+  }
+  .hero-neon__title {
+    grid-row: 2;
+    margin: 0 20px 20px;
+    font-size: clamp(28px, 7.5vw, 38px);
+    line-height: 1.06;
+    letter-spacing: -.048em;
+    text-shadow: 0 2px 18px rgba(0, 3, 18, .65);
+  }
+  .hero-neon__title span { display: inline; }
+  .hero-neon__accent { -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .hero-neon__chips {
+    grid-row: 3;
+    gap: 8px;
+    margin: 0 20px 0;
+    text-shadow: 0 2px 14px rgba(0, 3, 18, .6);
+  }
+  .hero-neon__chip { min-height: 26px; font-size: 9px; padding: 4px 9px; }
+  .hero-neon__scene {
+    --mobile-product-x: 52%;
+    --mobile-scene-height: clamp(390px, 101vw, 450px);
+    --mobile-podium-width: min(75vw, 400px);
+    /* Keep the pen and podium at their original height, but reserve enough
+       canvas below the podium before the action buttons begin. */
+    --mobile-product-y: calc(var(--mobile-scene-height) - 70px);
+    --mobile-pen-height: clamp(300px, 47vw, 360px);
+    --mobile-pen-tip-offset: clamp(72px, 11.3vw, 86px);
+    position: relative;
+    grid-row: 4;
+    inset: auto;
+    width: 100%;
+    height: calc(var(--mobile-scene-height) + min(37.5vw, 200px) - 58px);
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .hero-neon__object--pen {
+    left: calc(var(--mobile-product-x) - var(--mobile-pen-tip-offset));
+    top: calc(var(--mobile-product-y) - var(--mobile-pen-height) - 18px);
+    height: var(--mobile-pen-height);
+  }
+  .hero-neon__object--podium {
+    left: var(--mobile-product-x);
+    top: var(--mobile-product-y);
+    width: var(--mobile-podium-width);
+    transform: translate(-50%, -50%);
+  }
+  .hero-neon__floor-light { left: var(--mobile-product-x); top: var(--mobile-product-y); width: 88%; }
+  .hero-neon__energy { left: var(--mobile-product-x); top: var(--mobile-product-y); width: 22%; }
+  .hero-neon__object--molecule-top { left: 12%; top: 8%; width: 23%; }
+  .hero-neon__object--molecule-mid { left: 29%; top: 29%; width: 24%; }
+  .hero-neon__object--molecule-right { left: 75%; top: 39%; width: 22%; }
+  .hero-neon__object--sphere-top { left: 77%; top: 12%; width: 17%; }
+  .hero-neon__object--sphere-right { left: 78%; top: 66%; width: 18%; }
+  .hero-neon__object--sphere-small { left: 22%; top: 63%; width: 10%; }
+  .hero-neon__object--bubbles-left { left: -19%; top: 49%; width: 39%; }
+  .hero-neon__object--bubbles-right { right: -20%; top: 10%; width: 38%; }
+  .hero-neon__actions {
+    grid-row: 5;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px;
+    margin: 10px 20px 0;
+  }
+  .hero-neon__button { min-width: 0; min-height: 50px; padding: 0 8px; border-radius: 14px; font-size: 12px; }
+  .hero-neon__button--primary { grid-column: 1 / -1; min-height: 56px; font-size: 15px; }
+  .hero-neon__button--license { gap: 6px; }
+}
+
+@media (max-width: 360px) {
+  .hero-neon__badge { margin-inline: 16px; }
+  .hero-neon__title { margin-inline: 16px; }
+  .hero-neon__chips { margin-inline: 16px; }
+  .hero-neon__actions { margin-inline: 16px; gap: 9px; }
+  .hero-neon__button { font-size: 11px; }
+  .hero-neon__button--primary { font-size: 14px; }
+}
+
+[data-theme="light"] .hero--neon {
+  background: #e8f2ff;
+  color: #081a35;
+}
+
+[data-theme="light"] .hero-neon__background--dark { opacity: 0; }
+[data-theme="light"] .hero-neon__background--light { opacity: 1; }
+[data-theme="light"] .hero-neon__comets,
+[data-theme="light"] .hero-neon__stars { display: none; }
+[data-theme="light"] .hero-neon__light-fx { display: block; }
+[data-theme="light"] .hero-neon__background--light::after {
+  background: none;
+}
+[data-theme="light"] .hero-neon__object--theme-dark { opacity: 0; }
+[data-theme="light"] .hero-neon__object--theme-light { opacity: 1; }
+[data-theme="light"] .hero-neon__content { margin-left: clamp(40px, 7.8vw, 150px); }
+[data-theme="light"] .hero-neon__floor-light {
+  background: radial-gradient(ellipse, rgba(37, 166, 255, .28), rgba(78, 176, 255, .12) 42%, transparent 74%);
+  filter: blur(26px);
+}
+[data-theme="light"] .hero-neon__object--podium { filter: drop-shadow(0 18px 20px rgba(16, 90, 205, .16)); }
+[data-theme="light"] .hero-neon__object--pen { filter: drop-shadow(0 18px 20px rgba(24, 92, 181, .22)); }
+[data-theme="light"] .hero-neon__object--molecule-top,
+[data-theme="light"] .hero-neon__object--molecule-right { filter: drop-shadow(0 4px 10px rgba(42, 145, 255, .12)); }
+[data-theme="light"] .hero-neon__object--molecule-mid.hero-neon__object--theme-light { opacity: .8; }
+[data-theme="light"] .hero-neon__object--bubbles-left.hero-neon__object--theme-light { opacity: .54; }
+[data-theme="light"] .hero-neon__object--bubbles-right.hero-neon__object--theme-light { opacity: .48; transform: scaleX(-1); }
+[data-theme="light"] .hero-neon__content { text-shadow: none; }
+[data-theme="light"] .hero-neon__title { color: #071a38; text-shadow: none; }
+[data-theme="light"] .hero-neon__accent {
+  background-image: linear-gradient(100deg, #1769f5, #329cf5);
+  filter: none;
+}
+[data-theme="light"] .hero-neon__badge,
+[data-theme="light"] .hero-neon__chip {
+  border-color: rgba(76, 151, 242, .44);
+  background: rgba(255, 255, 255, .73);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .92), 0 4px 14px rgba(34, 106, 216, .16);
+}
+[data-theme="light"] .hero-neon__badge { color: #1769e8; }
+[data-theme="light"] .hero-neon__chip { color: #12254b; }
+[data-theme="light"] .hero-neon__chips { text-shadow: none; }
+[data-theme="light"] .hero-neon__button--primary {
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .36), 0 5px 18px rgba(14, 107, 234, .3);
+}
+[data-theme="light"] .hero-neon__button--secondary {
+  border-color: rgba(65, 142, 240, .32);
+  background: rgba(255, 255, 255, .86);
+  color: #12254b;
+  box-shadow: 0 5px 17px rgba(40, 92, 166, .13);
+}
+[data-theme="light"] .hero-neon__button--license {
+  border-color: rgba(65, 142, 240, .37);
+  background: rgba(239, 247, 255, .76);
+  color: #1769e8;
+  box-shadow: 0 5px 17px rgba(40, 92, 166, .12);
+}
+[data-theme="light"] .hero-neon__comet {
+  background: linear-gradient(90deg, rgba(5, 99, 220, .9), rgba(24, 125, 233, .42) 38%, transparent 100%);
+  box-shadow: 0 0 8px rgba(16, 108, 221, .3);
+}
+[data-theme="light"] .hero-neon__star {
+  background: linear-gradient(90deg, rgba(17, 108, 229, .84), rgba(32, 137, 240, .25) 48%, transparent);
+}
+[data-theme="light"] :is(.hero-neon__comet, .hero-neon__star)::before {
+  background: #1679ec;
+  box-shadow: 0 0 7px 1px rgba(21, 122, 231, .62);
+}
+
+@media (min-width: 1101px) {
+  [data-theme="light"] .hero-neon__object--podium { left: 69%; top: 35%; width: 38%; }
+  [data-theme="light"] .hero-neon__object--pen { top: 7%; }
+}
+
+@media (min-width: 1450px) {
+  [data-theme="light"] .hero-neon__content { padding-top: clamp(58px, 8.6vh, 95px); }
+  [data-theme="light"] .hero-neon__badge {
+    min-width: 275px;
+    min-height: 44px;
+    margin-bottom: 38px;
+    padding-inline: 17px;
+    font-size: 13px;
+  }
+  [data-theme="light"] .hero-neon__title { margin-bottom: 33px; }
+  [data-theme="light"] .hero-neon__chips { margin-bottom: 32px; }
+  [data-theme="light"] .hero-neon__chip { min-height: 36px; padding: 6px 13px; font-size: 12px; }
+  [data-theme="light"] .hero-neon__button { min-height: 56px; padding-inline: 26px; font-size: 14px; }
+  [data-theme="light"] .hero-neon__button--primary { min-width: 250px; }
+  [data-theme="light"] .hero-neon__button--secondary { min-width: 178px; }
+  [data-theme="light"] .hero-neon__button--license { min-width: 206px; }
+}
+
+@media (max-width: 767px) {
+  .hero-neon__light-spark:nth-child(n+5),
+  .hero-neon__light-grid-glint:nth-child(n+4) { display: none; }
+  [data-theme="light"] .hero-neon__background--light {
+    background-position: center bottom;
+    background-size: cover;
+  }
+  [data-theme="light"] .hero-neon__background--light::after {
+    background: none;
+  }
+  [data-theme="light"] .hero-neon__content { margin-left: 0; }
+}
+
+/* Tablet and compact desktop: the pen tip and podium centre use the same
+   coordinates. Keep this separate from the finished phone and wide layouts. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .hero--neon {
+    --hero-product-x: 73%;
+    --hero-product-y: 72%;
+    --hero-podium-size: clamp(350px, 42vw, 520px);
+    --hero-pen-height: clamp(360px, 39vw, 470px);
+    --hero-pen-tip-offset: clamp(86px, 9.36vw, 113px);
+    height: min(calc(100svh - 72px), clamp(700px, 68vw, 800px));
+    min-height: 650px;
+  }
+
+  .hero-neon__content,
+  [data-theme="light"] .hero-neon__content {
+    width: min(52%, 610px);
+    margin-left: 5%;
+    padding-top: clamp(58px, 7vh, 80px);
+  }
+
+  .hero-neon__object--podium,
+  [data-theme="light"] .hero-neon__object--podium {
+    left: var(--hero-product-x);
+    top: var(--hero-product-y);
+    width: var(--hero-podium-size);
+    transform: translate(-50%, -50%);
+  }
+
+  .hero-neon__object--pen,
+  [data-theme="light"] .hero-neon__object--pen {
+    left: calc(var(--hero-product-x) - var(--hero-pen-tip-offset));
+    top: calc(var(--hero-product-y) - var(--hero-pen-height) - 8px);
+    height: var(--hero-pen-height);
+  }
+
+  .hero-neon__floor-light { left: var(--hero-product-x); top: 80%; }
+  .hero-neon__energy { left: var(--hero-product-x); top: var(--hero-product-y); }
+
+  .hero-neon__object--molecule-top { left: 54%; top: 10%; width: clamp(95px, 11vw, 140px); }
+  .hero-neon__object--molecule-mid { left: 57%; top: 34%; width: clamp(100px, 12vw, 150px); }
+  .hero-neon__object--molecule-right { left: 85%; top: 44%; width: clamp(100px, 12vw, 155px); }
+  .hero-neon__object--sphere-top { left: 88%; top: 16%; width: clamp(74px, 8vw, 102px); }
+  .hero-neon__object--sphere-right { left: 87%; top: 66%; width: clamp(80px, 9vw, 115px); }
+  .hero-neon__object--sphere-small { left: 62%; top: 30%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-neon__background-fx { display: none; }
+  .hero-neon__background,
+  .hero--neon,
+  .hero-neon__title,
+  .hero-neon__badge,
+  .hero-neon__chip,
+  .hero-neon__button { transition-duration: .01ms; }
+  .hero-neon__object--theme-dark,
+  .hero-neon__object--theme-light { transition-duration: .01ms; }
+  .hero--neon.is-assembly-pending .hero-neon__assembly,
+  .hero--neon.is-assembly-pending :is(.hero-neon__badge, .hero-neon__title, .hero-neon__chips, .hero-neon__actions) { visibility: visible; }
 }
 </style>
