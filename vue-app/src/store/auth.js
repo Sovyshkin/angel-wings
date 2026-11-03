@@ -20,9 +20,9 @@ export const useAuthStore = defineStore('auth', () => {
     axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
   }
 
-  async function login(email, password) {
+  async function login(email) {
     try {
-      const { data } = await axios.post(`${API_URL}/auth/login`, { email, password })
+      const { data } = await axios.post(`${API_URL}/auth/login`, { email })
       if (data.requiresLoginVerification) {
         return data
       }
@@ -55,11 +55,9 @@ export const useAuthStore = defineStore('auth', () => {
     }
     
     const errors = {
-      'Invalid credentials': 'Неверный email или пароль',
+      'Invalid credentials': 'Не удалось войти',
       'User not found': 'Пользователь не найден',
-      'Incorrect password': 'Неверный пароль',
       'Validation error': 'Ошибка валидации',
-      'password': 'Пароль должен содержать минимум 6 символов',
       'Network Error': 'Ошибка сети. Проверьте подключение к интернету',
     }
     const lowerMessage = message.toLowerCase()

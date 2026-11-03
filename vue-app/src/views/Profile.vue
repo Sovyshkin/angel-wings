@@ -11,7 +11,8 @@
         <aside class="profile__sidebar" data-aos="fade-right" data-aos-delay="100">
           <div class="user-card">
             <div class="user-avatar">
-              {{ getInitials }}
+              <img v-if="authStore.user?.telegramPhotoUrl && !avatarFailed" :src="authStore.user.telegramPhotoUrl" :alt="`Фото ${authStore.user.name || 'пользователя'}`" @error="avatarFailed = true">
+              <template v-else>{{ getInitials }}</template>
             </div>
             <div class="user-info">
               <h3>{{ authStore.user?.name || 'Пользователь' }}</h3>
@@ -299,10 +300,6 @@
                   <label>Адрес доставки</label>
                   <input v-model="editForm.address" type="text" class="input" placeholder="Город, улица, дом, квартира">
                 </div>
-                <div class="form-group">
-                  <label>Новый пароль</label>
-                  <input v-model="editForm.newPassword" type="password" class="input" placeholder="Оставьте пустым, чтобы не менять">
-                </div>
                 <button type="submit" class="btn btn-primary">Сохранить изменения</button>
               </form>
               <div v-if="successMessage" class="success-message">
@@ -316,7 +313,7 @@
             
             <div class="section-card">
               <h2 class="section-title">Выйти из аккаунта</h2>
-              <p>Вы сможете войти снова с помощью email и пароля.</p>
+              <p>Вы сможете войти снова с помощью кода из письма.</p>
               <button @click="handleLogout" class="btn btn-secondary btn-logout">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
@@ -352,6 +349,7 @@ const authStore = useAuthStore()
 const cartStore = useCartStore()
 
 const activeTab = ref('info')
+const avatarFailed = ref(false)
 const orders = ref([])
 const successMessage = ref('')
 const expandedOrderId = ref(null)
@@ -377,7 +375,6 @@ const editForm = ref({
   email: '',
   phone: '',
   address: '',
-  newPassword: ''
 })
 
 const getInitials = computed(() => {
@@ -674,8 +671,7 @@ onMounted(async () => {
     name: authStore.user?.name || '',
     email: authStore.user?.email || '',
     phone: authStore.user?.phone || '',
-    address: authStore.user?.address || '',
-    newPassword: ''
+    address: authStore.user?.address || ''
   }
 
   loadOrders()
@@ -730,7 +726,9 @@ onMounted(async () => {
   font-size: 1.25rem;
   font-weight: 700;
   border-radius: 14px;
+  overflow: hidden;
 }
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .points-award-banner {
   display: flex;

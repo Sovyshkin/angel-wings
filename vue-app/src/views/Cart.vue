@@ -81,31 +81,10 @@
           </div>
           
           <h3 class="login-modal-title">Вход в аккаунт</h3>
-          <p class="login-modal-subtitle">Войдите, чтобы оформить заказ</p>
+          <p class="login-modal-subtitle">Получите код на почту, чтобы оформить заказ. Корзина сохранится.</p>
           
           <div class="login-form">
-            <div class="login-input-group">
-              <label>Email</label>
-              <input v-model="loginForm.email" type="email" class="login-input" placeholder="your@email.com">
-            </div>
-            <div class="login-input-group">
-              <label>Пароль</label>
-              <input v-model="loginForm.password" type="password" class="login-input" placeholder="Введите пароль">
-            </div>
-            
-            <div v-if="loginError" class="login-error">{{ loginError }}</div>
-            
-            <button class="login-btn login-btn-primary" @click="handleLogin" :disabled="loggingIn">
-              <span v-if="loggingIn" class="spinner"></span>
-              {{ loggingIn ? 'Вход...' : 'Войти' }}
-            </button>
-            
-            <div class="login-or">
-              <span>Нет аккаунта?</span>
-              <router-link to="/auth" class="login-link" @click="showLoginModal = false">
-                Зарегистрироваться
-              </router-link>
-            </div>
+            <router-link :to="{ path: '/auth', query: { redirect: '/cart' } }" class="login-btn login-btn-primary" @click="showLoginModal = false">Получить код для входа</router-link>
           </div>
         </div>
       </div>
@@ -1344,9 +1323,6 @@ const pendingUnpaidOrder = ref(null)
 const continuingPendingOrder = ref(false)
 const pendingPaymentError = ref('')
 const showLoginModal = ref(false)
-const loginForm = ref({ email: '', password: '' })
-const loginError = ref('')
-const loggingIn = ref(false)
 const showCheckoutSupportNotice = ref(false)
 const supportCartCopyStatus = ref('idle')
 
@@ -3092,27 +3068,6 @@ async function copyCheckoutSupportText() {
   } catch (error) {
     fallbackCopyToClipboard(text)
     supportCartCopyStatus.value = 'copied'
-  }
-}
-
-async function handleLogin() {
-  loginError.value = ''
-  loggingIn.value = true
-  
-  try {
-    const { data } = await axios.post('/api/auth/login', {
-      email: loginForm.value.email,
-      password: loginForm.value.password
-    })
-    
-    authStore.setAuth(data.token, data.user)
-    showLoginModal.value = false
-    loginForm.value = { email: '', password: '' }
-    prefillFromProfile()
-  } catch (e) {
-    loginError.value = e.response?.data?.message || 'Неверный email или пароль'
-  } finally {
-    loggingIn.value = false
   }
 }
 

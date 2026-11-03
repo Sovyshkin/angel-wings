@@ -13,67 +13,17 @@
               decoding="async"
             >
           </router-link>
-          <h1 class="auth__title">{{ isLogin ? 'Добро пожаловать' : 'Создать аккаунт' }}</h1>
+          <h1 class="auth__title">Вход в Angel Wings</h1>
           <p class="auth__subtitle">
-            {{ verificationStep ? 'Введите код из письма' : (isLogin ? 'Войдите в свой аккаунт' : 'Заполните данные для регистрации') }}
+            {{ verificationStep ? 'Введите код из письма' : 'Укажите почту — отправим код для входа или создадим аккаунт' }}
           </p>
         </div>
         
         <form v-if="!verificationStep" @submit.prevent="handleSubmit" class="auth__form">
-          <div v-if="!isLogin" class="form-group">
-            <label>Имя</label>
-            <input v-model="form.name" type="text" class="input" placeholder="Иван Иванов" required>
-          </div>
-          
           <div class="form-group">
             <label>Email</label>
-            <input v-model="form.email" type="email" class="input" placeholder="example@mail.ru" required>
+            <input v-model="form.email" type="email" class="input" placeholder="example@mail.ru" autocomplete="email" required>
           </div>
-          
-          <div class="form-group">
-            <div class="password-label-row">
-              <label>Пароль</label>
-              <router-link v-if="isLogin" to="/forgot-password" class="forgot-password-link">
-                Забыли пароль?
-              </router-link>
-            </div>
-            <div class="password-input">
-              <input 
-                v-model="form.password" 
-                :type="showPassword ? 'text' : 'password'" 
-                class="input" 
-                placeholder="Минимум 6 символов"
-                required
-                minlength="6"
-              >
-              <button type="button" class="password-toggle" @click="showPassword = !showPassword">
-                <svg v-if="showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
-                  <line x1="1" y1="1" x2="23" y2="23"/>
-                </svg>
-                <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          
-          <div v-if="!isLogin" class="form-group">
-            <label>Подтвердите пароль</label>
-            <input v-model="form.confirmPassword" type="password" class="input" placeholder="Повторите пароль" required>
-            <span v-if="form.confirmPassword && form.password !== form.confirmPassword" class="error-text">Пароли не совпадают</span>
-          </div>
-          
-          <div v-if="!isLogin" class="form-group">
-            <label>Телефон</label>
-            <input v-model="form.phone" type="tel" class="input" placeholder="+7 (999) 999-99-99">
-          </div>
-
-          <label v-if="!isLogin" class="marketing-consent">
-            <input v-model="form.marketingConsent" type="checkbox">
-            <span>Получать полезные письма и напоминания о товарах, оставленных в корзине <small>(необязательно)</small></span>
-          </label>
           
           <div v-if="error" class="error-message">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -84,9 +34,9 @@
             {{ error }}
           </div>
           
-          <button type="submit" class="btn btn-primary btn-submit" :disabled="loading || (!isLogin && form.password !== form.confirmPassword)">
+          <button type="submit" class="btn btn-primary btn-submit" :disabled="loading">
             <span v-if="loading" class="spinner"></span>
-            <span v-else>{{ isLogin ? 'Войти' : 'Зарегистрироваться' }}</span>
+            <span v-else>Получить код</span>
           </button>
         </form>
 
@@ -121,7 +71,7 @@
 
           <button type="submit" class="btn btn-primary btn-submit" :disabled="loading || verificationCode.length !== 6">
             <span v-if="loading" class="spinner"></span>
-            <span v-else>{{ verificationPurpose === 'login_verification' ? 'Подтвердить вход' : 'Подтвердить email' }}</span>
+            <span v-else>Подтвердить вход</span>
           </button>
 
           <button type="button" class="link-btn verification-resend" :disabled="resending" @click="resendCode">
@@ -129,11 +79,7 @@
           </button>
         </form>
         
-        <div class="auth__footer">
-          <p>{{ isLogin ? 'Нет аккаунта?' : 'Уже есть аккаунт?' }}
-            <button @click="toggleMode" class="link-btn">{{ isLogin ? 'Зарегистрироваться' : 'Войти' }}</button>
-          </p>
-        </div>
+        <div v-if="verificationStep" class="auth__footer"><button type="button" @click="resetEmail" class="link-btn">Изменить email</button></div>
       </div>
     </div>
   </div>
@@ -151,38 +97,26 @@ const campaignKey = 'points-4000-2026-10-30'
 
 function goAfterAuth() {
   if (route.query.claim === campaignKey) return router.push({ path: '/', query: { claim: campaignKey } })
+  if (route.query.redirect === '/cart') return router.push('/cart')
   return router.push('/profile')
 }
 
-const isLogin = ref(true)
-const showPassword = ref(false)
 const loading = ref(false)
 const resending = ref(false)
 const error = ref('')
 const verificationStep = ref(false)
 const pendingEmail = ref('')
 const verificationCode = ref('')
-const verificationPurpose = ref('email_verification')
 const loginChallengeToken = ref('')
 
-const form = ref({
-  name: '',
-  email: '',
-  password: '',
-  confirmPassword: '',
-  phone: '',
-  marketingConsent: false
-})
+const form = ref({ email: '' })
 
-function toggleMode() {
-  isLogin.value = !isLogin.value
+function resetEmail() {
   error.value = ''
   verificationStep.value = false
   pendingEmail.value = ''
   verificationCode.value = ''
-  verificationPurpose.value = 'email_verification'
   loginChallengeToken.value = ''
-  form.value = { name: '', email: '', password: '', confirmPassword: '', phone: '', marketingConsent: false }
 }
 
 async function handleSubmit() {
@@ -190,50 +124,12 @@ async function handleSubmit() {
   loading.value = true
 
   try {
-    if (isLogin.value) {
-      const result = await authStore.login(form.value.email, form.value.password)
-      if (result?.requiresLoginVerification) {
-        pendingEmail.value = result.email || form.value.email
-        verificationPurpose.value = 'login_verification'
-        loginChallengeToken.value = result.challengeToken || ''
-        verificationStep.value = true
-        verificationCode.value = ''
-        return
-      }
-      goAfterAuth()
-    } else {
-      if (form.value.password !== form.value.confirmPassword) {
-        error.value = 'Пароли не совпадают'
-        return
-      }
-      const result = await authStore.register({
-        name: form.value.name,
-        email: form.value.email,
-        password: form.value.password,
-        phone: form.value.phone,
-        marketingConsent: form.value.marketingConsent
-      })
-      localStorage.setItem('peptidi_marketing_consent', form.value.marketingConsent ? 'true' : 'false')
-      if (result?.requiresEmailVerification) {
-        pendingEmail.value = result.email || form.value.email
-        verificationPurpose.value = 'email_verification'
-        loginChallengeToken.value = ''
-        verificationStep.value = true
-        verificationCode.value = ''
-        return
-      }
-      goAfterAuth()
-    }
+    const result = await authStore.login(form.value.email)
+    pendingEmail.value = result.email || form.value.email
+    loginChallengeToken.value = result.challengeToken || ''
+    verificationStep.value = true
+    verificationCode.value = ''
   } catch (e) {
-    if (e.code === 'EMAIL_NOT_VERIFIED') {
-      pendingEmail.value = e.email || form.value.email
-      verificationPurpose.value = 'email_verification'
-      loginChallengeToken.value = ''
-      verificationStep.value = true
-      verificationCode.value = ''
-      error.value = ''
-      return
-    }
     error.value = e.message || 'Произошла ошибка. Попробуйте снова.'
   } finally {
     loading.value = false
@@ -246,7 +142,7 @@ async function handleVerifyEmail() {
 
   try {
     await authStore.verifyEmail(pendingEmail.value, verificationCode.value, {
-      purpose: verificationPurpose.value,
+      purpose: 'login_verification',
       challengeToken: loginChallengeToken.value
     })
     goAfterAuth()
@@ -263,7 +159,7 @@ async function resendCode() {
 
   try {
     await authStore.resendVerification(pendingEmail.value, {
-      purpose: verificationPurpose.value,
+      purpose: 'login_verification',
       challengeToken: loginChallengeToken.value
     })
   } catch (e) {

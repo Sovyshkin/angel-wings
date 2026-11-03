@@ -6,7 +6,6 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
 import tochkaService from '../services/tochka.js'
 import { v4 as uuidv4 } from 'uuid'
-import { validateBasicPassword } from '../utils/passwordPolicy.js'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
@@ -146,13 +145,11 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;')
 }
 
-async function sendPartnerWelcomeEmail({ to, name, password, partnerUrl }) {
+async function sendPartnerWelcomeEmail({ to, name, partnerUrl }) {
   const rawName = String(name || 'партнёр')
   const safeName = escapeHtml(rawName)
   const safeEmail = escapeHtml(to)
-  const safePassword = password ? escapeHtml(password) : ''
   const safePartnerUrl = escapeHtml(partnerUrl)
-  const hasPassword = Boolean(password)
 
   return emailService.sendMail({
     to,
@@ -163,9 +160,9 @@ async function sendPartnerWelcomeEmail({ to, name, password, partnerUrl }) {
       'Ваша заявка в партнёрскую программу Angel Wings одобрена.',
       `Личный кабинет партнёра: ${partnerUrl}`,
       `Email для входа: ${to}`,
-      hasPassword ? `Временный пароль: ${password}` : 'Используйте ваш текущий пароль от сайта для входа.',
+      'Для входа получите код подтверждения на этот email.',
       '',
-      hasPassword ? 'После входа рекомендуем сменить пароль в профиле.' : 'Партнёрский кабинет уже доступен в вашем аккаунте.'
+      'Партнёрский кабинет уже доступен в вашем аккаунте.'
     ].join('\n'),
     html: `
       <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:28px;background:#f6f7fb;color:#151722">
@@ -176,12 +173,7 @@ async function sendPartnerWelcomeEmail({ to, name, password, partnerUrl }) {
           <div style="background:#f3f5ff;border-radius:18px;padding:20px;margin:0 0 20px;border:1px solid #dfe5ff">
             <p style="margin:0 0 8px;color:#687087;font-size:14px">Email для входа</p>
             <div style="font-size:17px;font-weight:700;color:#22305f;margin-bottom:16px">${safeEmail}</div>
-            ${hasPassword ? `
-              <p style="margin:0 0 8px;color:#687087;font-size:14px">Временный пароль</p>
-              <div style="font-family:Menlo,Consolas,monospace;font-size:20px;font-weight:700;letter-spacing:.04em;background:#151722;color:#fff;border-radius:14px;padding:14px 16px">${safePassword}</div>
-            ` : `
-              <p style="margin:0;color:#687087;font-size:14px;line-height:1.5">Используйте ваш текущий пароль от сайта. Партнёрский кабинет уже доступен в аккаунте.</p>
-            `}
+            <p style="margin:0;color:#687087;font-size:14px;line-height:1.5">Для входа получите код на этот email. Партнёрский кабинет уже доступен в аккаунте.</p>
           </div>
           <a href="${safePartnerUrl}" style="display:block;text-align:center;background:#9fb3ff;color:#10131f;text-decoration:none;font-weight:700;border-radius:16px;padding:16px 20px">Открыть кабинет партнёра</a>
         </div>
@@ -489,7 +481,6 @@ router.post('/partner-applications/:id/approve', authenticate, requireAdmin, asy
       await sendPartnerWelcomeEmail({
         to: result.user.email,
         name: result.user.name,
-        password: createdUser ? generatedPassword : null,
         partnerUrl
       })
       welcomeEmailSent = true
@@ -683,7 +674,7 @@ router.get('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
 
 router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { password, name, role = 'USER', phone } = req.body
+    const { name, role = 'USER', phone } = req.body
     const email = normalizeEmail(req.body.email)
     const normalizedRole = String(role || 'USER').toUpperCase()
 
@@ -692,9 +683,7 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
     }
 
     const generatedStaffPassword = (['ADMIN', 'COPYWRITER'].includes(normalizedRole) || isCustomAdminRole(normalizedRole)) ? generateSecureAdminPassword() : null
-    const effectivePassword = generatedStaffPassword || password
-    const passwordError = generatedStaffPassword ? null : validateBasicPassword(effectivePassword)
-    if (passwordError) return res.status(400).json({ error: passwordError })
+    const effectivePassword = generatedStaffPassword || crypto.randomBytes(32).toString('hex')
     
     const existing = await findUserByEmail(prisma, email)
     if (existing) {

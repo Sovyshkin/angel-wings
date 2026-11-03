@@ -198,7 +198,6 @@ export async function refundUserPointsForOrder(tx, { order, createdById = null }
 
   const existingRefund = await tx.userPointTransaction.findFirst({
     where: {
-      userId,
       orderId,
       type: USER_POINT_TYPES.ORDER_REFUND
     },

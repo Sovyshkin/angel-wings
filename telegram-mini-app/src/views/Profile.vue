@@ -5,11 +5,12 @@
         <aside class="profile__sidebar" data-aos="fade-right" data-aos-delay="100">
           <div class="user-card">
             <div class="user-avatar">
-              {{ getInitials }}
+              <img v-if="authStore.user?.telegramPhotoUrl && !avatarFailed" :src="authStore.user.telegramPhotoUrl" :alt="`Фото ${authStore.user.name || 'пользователя'}`" @error="avatarFailed = true">
+              <template v-else>{{ getInitials }}</template>
             </div>
             <div class="user-info">
               <h3>{{ authStore.user?.name || 'Пользователь' }}</h3>
-              <p>{{ authStore.user?.telegramId ? 'Telegram' : authStore.user?.email }}</p>
+              <p>{{ authStore.user?.email || 'Telegram' }}</p>
             </div>
           </div>
           
@@ -39,7 +40,7 @@
                 </div>
                 <div class="info-item">
                   <span class="info-label">Email</span>
-                  <span class="info-value">{{ authStore.user?.telegramId ? 'Укажите email при оформлении заказа' : (authStore.user?.email || '—') }}</span>
+                  <span class="info-value">{{ authStore.user?.email || '—' }}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Телефон</span>
@@ -266,6 +267,14 @@
           </div>
           
           <div v-if="activeTab === 'settings'" class="tab-content">
+            <div v-if="authStore.user?.telegramId" class="section-card account-link-card">
+              <h2 class="section-title">Аккаунт сайта</h2>
+              <p>Если вы покупали на сайте с другой почтой, подтвердите её кодом. Заказы и баллы будут доступны в одном аккаунте, а подарок из одной акции не удвоится. Почта сайта станет основной для входа.</p>
+              <button class="btn btn-secondary" type="button" :disabled="linkRequestBusy" @click="beginAccountLink">
+                {{ linkRequestBusy ? 'Подготавливаем…' : 'Объединить с аккаунтом сайта' }}
+              </button>
+              <p v-if="linkRequestError" class="account-link-error" role="alert">{{ linkRequestError }}</p>
+            </div>
             <div class="section-card">
               <h2 class="section-title">Настройки профиля</h2>
               <form @submit.prevent="updateProfile" class="settings-form">
@@ -312,6 +321,9 @@ const authStore = useAuthStore()
 const cartStore = useCartStore()
 
 const activeTab = ref('info')
+const avatarFailed = ref(false)
+const linkRequestBusy = ref(false)
+const linkRequestError = ref('')
 const orders = ref([])
 const successMessage = ref('')
 const expandedOrderId = ref(null)
@@ -601,6 +613,19 @@ function updateProfile() {
   setTimeout(() => { successMessage.value = '' }, 3000)
 }
 
+async function beginAccountLink() {
+  linkRequestBusy.value = true
+  linkRequestError.value = ''
+  try {
+    const { data } = await axios.post('/api/auth/telegram/email/challenge')
+    window.dispatchEvent(new CustomEvent('telegram-link-account', { detail: data }))
+  } catch (error) {
+    linkRequestError.value = error.response?.data?.error || 'Не удалось начать объединение. Попробуйте позже.'
+  } finally {
+    linkRequestBusy.value = false
+  }
+}
+
 function handleLogout() {
   authStore.logout()
   router.push('/catalog')
@@ -684,7 +709,12 @@ onMounted(async () => {
   font-size: 1.25rem;
   font-weight: 700;
   border-radius: 14px;
+  overflow: hidden;
 }
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.account-link-card { margin-bottom: 1.5rem; }
+.account-link-card p { color: var(--text-secondary); line-height: 1.55; margin: 0 0 1rem; }
+.account-link-card .account-link-error { color: #f87171; margin: .75rem 0 0; }
 
 .points-award-banner {
   display: flex;

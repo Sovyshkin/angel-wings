@@ -170,11 +170,6 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Пароль</label>
-            <input type="password" v-model="form.password" required minlength="6" class="input" placeholder="Минимум 6 символов">
-          </div>
-
-          <div class="form-group">
             <label class="form-label">Телефон</label>
             <input type="tel" v-model="form.phone" class="input" placeholder="+7 (999) 123-45-67">
           </div>
@@ -241,7 +236,7 @@ async function exportAllPartnerOrders(format, period = {}) {
   }
 }
 
-const form = ref({ name: '', email: '', password: '', phone: '', percentage: 5 })
+const form = ref({ name: '', email: '', phone: '', percentage: 5 })
 
 const filteredPartners = computed(() => {
   const query = search.value.trim().toLowerCase()
@@ -330,7 +325,7 @@ async function deletePartner(id) {
 }
 
 function openModal() {
-  form.value = { name: '', email: '', password: '', phone: '', percentage: 5 }
+  form.value = { name: '', email: '', phone: '', percentage: 5 }
   error.value = ''
   showModal.value = true
 }

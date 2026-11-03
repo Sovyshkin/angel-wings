@@ -199,12 +199,7 @@
             </select>
           </div>
 
-          <div v-if="!isStaffRole(form.role)" class="form-group">
-            <label class="form-label">Пароль</label>
-            <input type="password" v-model="form.password" required minlength="6" class="input" placeholder="Минимум 6 символов">
-          </div>
-
-          <div v-else class="admin-password-notice">
+          <div v-if="isStaffRole(form.role)" class="admin-password-notice">
             <strong>Пароль для сотрудника создастся автоматически</strong>
             <span>Мы сгенерируем безопасный временный пароль и отправим его на email вместе со ссылкой на вход.</span>
           </div>
@@ -246,7 +241,7 @@ const error = ref('')
 const loadingForm = ref(false)
 const resendingInviteId = ref(null)
 
-const form = ref({ name: '', email: '', password: '', phone: '', role: 'USER' })
+const form = ref({ name: '', email: '', phone: '', role: 'USER' })
 const search = ref('')
 const currentPage = ref(1)
 const USERS_PER_PAGE = 20
@@ -351,14 +346,14 @@ function getRoleLabel(role) {
 }
 
 function openModal() {
-  form.value = { name: '', email: '', password: '', phone: '', role: 'USER' }
+  form.value = { name: '', email: '', phone: '', role: 'USER' }
   error.value = ''
   showModal.value = true
 }
 
 function closeModal() {
   showModal.value = false
-  form.value = { name: '', email: '', password: '', phone: '', role: 'USER' }
+  form.value = { name: '', email: '', phone: '', role: 'USER' }
 }
 
 async function handleSubmit() {
@@ -366,9 +361,6 @@ async function handleSubmit() {
   loadingForm.value = true
   try {
     const payload = { ...form.value }
-    if (isStaffRole(payload.role)) {
-      delete payload.password
-    }
     const { data } = await axios.post(API_URL + '/users', payload)
     closeModal()
     if (currentPage.value === 1) {

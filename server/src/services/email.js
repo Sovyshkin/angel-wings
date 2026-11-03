@@ -279,7 +279,7 @@ class EmailService {
   async sendVerificationCode({ to, name, code, purpose = 'email_verification' }) {
     const safeName = escapeHtml(name || 'клиент')
     const safeCode = escapeHtml(code)
-    const isLogin = purpose === 'login_verification'
+    const isLogin = purpose === 'login_verification' || purpose === 'telegram_link'
     const subject = isLogin ? 'Код для входа в Angel Wings' : 'Код подтверждения Angel Wings'
     const heading = isLogin ? 'Подтверждение входа' : 'Подтверждение email'
 

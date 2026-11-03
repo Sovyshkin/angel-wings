@@ -25,6 +25,26 @@
     </header>
 
     <main v-if="ready" class="main"><router-view :key="route.fullPath" /></main>
+    <main v-else-if="emailSetupRequired" class="main telegram-auth-state">
+      <div class="telegram-email-card">
+        <img v-if="telegramAvatar" :src="telegramAvatar" alt="Ваш аватар Telegram" class="telegram-email-avatar" @error="telegramAvatar = ''">
+        <h1>{{ emailSetupOptional ? 'Объединить аккаунты' : 'Свяжите почту с Telegram' }}</h1>
+        <p>Отправим код на почту аккаунта сайта. После подтверждения его заказы и баллы появятся в mini app; одинаковый подарок по акции учтём один раз. Для дальнейшего входа используйте подтверждённую почту сайта.</p>
+        <form v-if="!linkToken" @submit.prevent="startEmailLink">
+          <label for="telegram-account-email">Email</label>
+          <input id="telegram-account-email" v-model="accountEmail" type="email" autocomplete="email" placeholder="you@example.com" required>
+          <button class="btn btn-primary" type="submit" :disabled="emailBusy">{{ emailBusy ? 'Отправляем…' : 'Получить код' }}</button>
+        </form>
+        <form v-else @submit.prevent="verifyEmailLink">
+          <label for="telegram-account-code">Код отправлен на {{ accountEmail }}</label>
+          <input id="telegram-account-code" v-model="accountCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required>
+          <button class="btn btn-primary" type="submit" :disabled="emailBusy || accountCode.length !== 6">{{ emailBusy ? 'Проверяем…' : 'Подтвердить почту' }}</button>
+          <button class="telegram-email-change" type="button" @click="linkToken = ''; accountCode = ''">Изменить email или запросить код</button>
+        </form>
+        <p v-if="emailError" class="telegram-email-error" role="alert">{{ emailError }}</p>
+        <button v-if="emailSetupOptional" class="telegram-email-change telegram-email-cancel" type="button" :disabled="emailBusy" @click="cancelEmailLink">Отмена</button>
+      </div>
+    </main>
     <main v-else class="main telegram-auth-state" role="status">
       <div v-if="error">
         <h1>Не удалось войти через Telegram</h1>
@@ -90,6 +110,15 @@ const theme = useThemeStore()
 const ready = ref(false)
 const error = ref('')
 const diagnostics = ref('')
+const emailSetupRequired = ref(false)
+const emailSetupOptional = ref(false)
+const telegramChallengeToken = ref('')
+const telegramAvatar = ref('')
+const accountEmail = ref('')
+const accountCode = ref('')
+const linkToken = ref('')
+const emailBusy = ref(false)
+const emailError = ref('')
 const webApp = window.Telegram?.WebApp
 let authenticating = false
 
@@ -142,6 +171,8 @@ async function authenticate() {
   ready.value = false
   error.value = ''
   diagnostics.value = ''
+  emailSetupRequired.value = false
+  emailSetupOptional.value = false
   try {
     const initData = getTelegramInitData()
     if (!initData) {
@@ -151,7 +182,7 @@ async function authenticate() {
       const telegramId = webApp?.initDataUnsafe?.user?.id || getUnsignedLaunchUserId()
       const sameTelegramUser = telegramId && String(telegramId) === String(auth.user?.telegramId)
       const paymentResult = /^\/order-(success|failed)$/.test(route.path)
-      if (auth.isAuthenticated && (sameTelegramUser || paymentResult)) {
+      if (auth.isAuthenticated && auth.user?.emailVerified && !auth.user?.email?.endsWith('.invalid') && (sameTelegramUser || paymentResult)) {
         await auth.fetchUser()
         if (auth.isAuthenticated && (paymentResult || String(auth.user?.telegramId) === String(telegramId))) {
           ready.value = true
@@ -165,6 +196,12 @@ async function authenticate() {
       return
     }
     const { data } = await axios.post('/api/auth/telegram', { initData })
+    if (data.requiresEmailVerification) {
+      telegramChallengeToken.value = data.telegramChallengeToken
+      telegramAvatar.value = data.telegramPhotoUrl || ''
+      emailSetupRequired.value = true
+      return
+    }
     const previousTelegramId = localStorage.getItem('aw_tg_last_user_id')
     if (previousTelegramId && previousTelegramId !== String(data.user.telegramId)) {
       for (const key of Object.keys(localStorage)) {
@@ -183,12 +220,67 @@ async function authenticate() {
   }
 }
 
+async function startEmailLink() {
+  emailBusy.value = true
+  emailError.value = ''
+  try {
+    const { data } = await axios.post('/api/auth/telegram/email/start', {
+      telegramChallengeToken: telegramChallengeToken.value,
+      email: accountEmail.value
+    })
+    accountEmail.value = data.email
+    linkToken.value = data.linkToken
+    accountCode.value = ''
+  } catch (cause) {
+    emailError.value = cause?.response?.data?.error || 'Не удалось отправить код.'
+  } finally { emailBusy.value = false }
+}
+
+async function verifyEmailLink() {
+  emailBusy.value = true
+  emailError.value = ''
+  try {
+    const { data } = await axios.post('/api/auth/telegram/email/verify', { linkToken: linkToken.value, code: accountCode.value })
+    auth.setAuth(data.token, data.user)
+    localStorage.setItem('aw_tg_last_user_id', String(data.user.telegramId))
+    emailSetupRequired.value = false
+    emailSetupOptional.value = false
+    ready.value = true
+  } catch (cause) {
+    emailError.value = cause?.response?.data?.error || 'Не удалось подтвердить почту.'
+  } finally { emailBusy.value = false }
+}
+
 function onExpired() { authenticate() }
+function onLinkAccount(event) {
+  if (!event.detail?.telegramChallengeToken) return
+  telegramChallengeToken.value = event.detail.telegramChallengeToken
+  telegramAvatar.value = auth.user?.telegramPhotoUrl || ''
+  accountEmail.value = ''
+  accountCode.value = ''
+  linkToken.value = ''
+  emailError.value = ''
+  emailSetupOptional.value = true
+  emailSetupRequired.value = true
+  ready.value = false
+}
+function cancelEmailLink() {
+  emailSetupRequired.value = false
+  emailSetupOptional.value = false
+  telegramChallengeToken.value = ''
+  linkToken.value = ''
+  accountCode.value = ''
+  ready.value = true
+}
 onMounted(() => {
   webApp?.ready()
   webApp?.expand()
   window.addEventListener('telegram-auth-expired', onExpired)
+  window.addEventListener('telegram-link-account', onLinkAccount)
   authenticate()
 })
-onBeforeUnmount(() => window.removeEventListener('telegram-auth-expired', onExpired))
+onBeforeUnmount(() => {
+  window.removeEventListener('telegram-auth-expired', onExpired)
+  window.removeEventListener('telegram-link-account', onLinkAccount)
+})
 </script>

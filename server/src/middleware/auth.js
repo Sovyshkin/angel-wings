@@ -28,10 +28,10 @@ export const authenticate = async (req, res, next) => {
     
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, telegramId: true, email: true, name: true, role: true, phone: true, address: true, pointsBalance: true, emailVerified: true, marketingConsentAt: true, marketingUnsubscribedAt: true, createdAt: true }
+      select: { id: true, telegramId: true, telegramPhotoUrl: true, email: true, name: true, role: true, phone: true, address: true, pointsBalance: true, emailVerified: true, marketingConsentAt: true, marketingUnsubscribedAt: true, createdAt: true }
     })
     
-    if (!user || user.role === 'DELETED') {
+    if (!user || user.role === 'DELETED' || (user.telegramId && user.email.endsWith('.invalid'))) {
       return res.status(401).json({ error: 'User not found' })
     }
     

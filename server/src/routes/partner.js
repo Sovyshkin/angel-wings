@@ -879,15 +879,11 @@ router.get('/', authenticate, requireAdmin, async (req, res, next) => {
 
 router.post('/', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { password, name, phone, percentage = 5.0 } = req.body
+    const { name, phone, percentage = 5.0 } = req.body
     const email = normalizeEmail(req.body.email)
 
     if (!email) {
       return res.status(400).json({ error: 'Укажите корректный email партнёра' })
-    }
-
-    if (typeof password !== 'string' || password.length < 6) {
-      return res.status(400).json({ error: 'Пароль должен содержать минимум 6 символов' })
     }
 
     const existing = await findUserByEmail(prisma, email)
@@ -895,7 +891,7 @@ router.post('/', authenticate, requireAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'Пользователь с таким email уже существует' })
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10)
+    const hashedPassword = await bcrypt.hash(uuidv4() + uuidv4(), 10)
     const internalPartnerCode = uuidv4().substring(0, 8).toUpperCase()
 
     const user = await prisma.user.create({

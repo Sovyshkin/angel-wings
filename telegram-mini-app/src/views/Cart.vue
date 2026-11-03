@@ -1120,10 +1120,6 @@ const completedOrderAddition = ref(false)
 const pendingUnpaidOrder = ref(null)
 const continuingPendingOrder = ref(false)
 const pendingPaymentError = ref('')
-const showLoginModal = ref(false)
-const loginForm = ref({ email: '', password: '' })
-const loginError = ref('')
-const loggingIn = ref(false)
 const showCheckoutSupportNotice = ref(false)
 const supportCartCopyStatus = ref('idle')
 
@@ -1620,7 +1616,7 @@ function prefillFromAdditionOrder(order) {
   customer.value = {
     name: order.customerName || authStore.user?.name || '',
     phone: order.customerPhone || authStore.user?.phone || '',
-    email: order.customerEmail || (authStore.user?.telegramId ? '' : authStore.user?.email) || '',
+    email: order.customerEmail || authStore.user?.email || '',
     comment: ''
   }
 
@@ -1683,7 +1679,7 @@ function prefillFromProfile() {
     customer.value = {
       name: authStore.user.name || '',
       phone: authStore.user.phone || savedContacts?.phone || '',
-      email: authStore.user.telegramId ? (savedContacts?.email || '') : (authStore.user.email || ''),
+      email: authStore.user.email || savedContacts?.email || '',
       comment: ''
     }
     return
@@ -2032,7 +2028,7 @@ async function continuePendingOrderPayment() {
   if (!pendingOrder?.orderId) return
 
   if (!authStore.isAuthenticated) {
-    showLoginModal.value = true
+    window.dispatchEvent(new Event('telegram-auth-expired'))
     pendingPaymentError.value = 'Войдите в аккаунт, чтобы продолжить оплату сохранённого заказа.'
     return
   }
@@ -2412,27 +2408,6 @@ async function copyCheckoutSupportText() {
   }
 }
 
-async function handleLogin() {
-  loginError.value = ''
-  loggingIn.value = true
-  
-  try {
-    const { data } = await axios.post('/api/auth/login', {
-      email: loginForm.value.email,
-      password: loginForm.value.password
-    })
-    
-    authStore.setAuth(data.token, data.user)
-    showLoginModal.value = false
-    loginForm.value = { email: '', password: '' }
-    prefillFromProfile()
-  } catch (e) {
-    loginError.value = e.response?.data?.message || 'Неверный email или пароль'
-  } finally {
-    loggingIn.value = false
-  }
-}
-
 async function placeOrder() {
   showCheckoutSupportNotice.value = false
 
@@ -2450,7 +2425,7 @@ async function placeOrder() {
   
   // Check if user is authenticated
   if (!authStore.isAuthenticated) {
-    showLoginModal.value = true
+    window.dispatchEvent(new Event('telegram-auth-expired'))
     return
   }
 

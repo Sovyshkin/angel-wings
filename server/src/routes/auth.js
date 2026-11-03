@@ -5,9 +5,10 @@ import crypto from 'node:crypto'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, isAdminPanelRole } from '../middleware/auth.js'
 import { isCustomAdminRole } from '../utils/adminPermissions.js'
-import { validateBasicPassword, validatePasswordPolicy } from '../utils/passwordPolicy.js'
+import { validatePasswordPolicy } from '../utils/passwordPolicy.js'
 import emailService, { generateEmailCode, hashEmailCode } from '../services/email.js'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
+import { linkTelegramAccount } from '../services/telegramAccountLink.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -19,6 +20,7 @@ function getPublicUser(user) {
   return {
     id: user.id,
     telegramId: user.telegramId,
+    telegramPhotoUrl: user.telegramPhotoUrl || null,
     email: user.email,
     name: user.name,
     role: user.role,
@@ -67,6 +69,20 @@ export function verifyTelegramInitData(initData, botToken, now = Date.now()) {
   return inspectTelegramInitData(initData, botToken, now).user || null
 }
 
+function telegramPhotoUrl(value) {
+  const url = String(value || '')
+  return url.length <= 2048 && /^https:\/\//i.test(url) ? url : null
+}
+
+function readTelegramChallenge(token, purpose) {
+  try {
+    const value = jwt.verify(String(token || ''), process.env.JWT_SECRET)
+    return value?.purpose === purpose && value?.telegramId && value?.sourceId ? value : null
+  } catch {
+    return null
+  }
+}
+
 router.post('/telegram', async (req, res, next) => {
   try {
     const botToken = String(process.env.TELEGRAM_MINI_APP_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim()
@@ -92,11 +108,13 @@ router.post('/telegram', async (req, res, next) => {
     const telegramUser = validation.user
     const telegramId = String(telegramUser.id)
     const name = [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(' ').trim().slice(0, 120) || 'Пользователь Telegram'
+    const photoUrl = telegramPhotoUrl(telegramUser.photo_url)
     const user = await prisma.user.upsert({
       where: { telegramId },
-      update: {},
+      update: photoUrl ? { telegramPhotoUrl: photoUrl } : {},
       create: {
         telegramId,
+        telegramPhotoUrl: photoUrl,
         email: `tg-${telegramId}@telegram.invalid`,
         password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10),
         name,
@@ -104,8 +122,98 @@ router.post('/telegram', async (req, res, next) => {
       }
     })
     if (user.role === 'DELETED') return res.status(403).json({ error: 'Учётная запись недоступна' })
+    if (!user.emailVerified || user.email.endsWith('.invalid')) {
+      return res.status(202).json({
+        requiresEmailVerification: true,
+        telegramPhotoUrl: photoUrl || user.telegramPhotoUrl || null,
+        telegramChallengeToken: jwt.sign({ purpose: 'telegram_email_setup', telegramId, sourceId: user.id, name, photoUrl }, process.env.JWT_SECRET, { expiresIn: '15m' })
+      })
+    }
     res.json({ user: getPublicUser(user), token: createSessionToken(user.id) })
   } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/telegram/email/challenge', authenticate, (req, res) => {
+  if (!req.user.telegramId || !req.user.emailVerified || req.user.email.endsWith('.invalid') || isAdminPanelRole(req.user.role)) {
+    return res.status(403).json({ error: 'Привязка доступна только в Telegram-аккаунте с подтверждённой почтой.' })
+  }
+  res.json({
+    telegramChallengeToken: jwt.sign({
+      purpose: 'telegram_email_setup', telegramId: req.user.telegramId,
+      sourceId: req.user.id, name: req.user.name, photoUrl: req.user.telegramPhotoUrl || null
+    }, process.env.JWT_SECRET, { expiresIn: '15m' })
+  })
+})
+
+router.post('/telegram/email/start', async (req, res, next) => {
+  try {
+    const challenge = readTelegramChallenge(req.body?.telegramChallengeToken, 'telegram_email_setup')
+    const email = normalizeEmail(req.body?.email)
+    if (!challenge) return res.status(401).json({ error: 'Сессия Telegram устарела. Откройте мини-приложение заново.' })
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith('.invalid')) {
+      return res.status(400).json({ error: 'Укажите корректный email' })
+    }
+    const source = await prisma.user.findUnique({ where: { id: Number(challenge.sourceId) } })
+    if (!source || source.telegramId !== challenge.telegramId || source.role === 'DELETED') {
+      return res.status(401).json({ error: 'Сессия Telegram изменилась. Откройте мини-приложение заново.' })
+    }
+    const existing = await findUserByEmail(prisma, email)
+    const target = existing || source
+    if (target.role === 'DELETED' || isAdminPanelRole(target.role) || (target.telegramId && target.telegramId !== challenge.telegramId)) {
+      return res.status(403).json({ error: 'Эту почту нельзя связать с данным Telegram-аккаунтом.' })
+    }
+    const recent = await prisma.emailVerificationCode.findFirst({
+      where: { userId: target.id, email, purpose: 'telegram_link', createdAt: { gt: new Date(Date.now() - 60_000) } }
+    })
+    if (recent) return res.status(429).json({ error: 'Новый код можно запросить через минуту.' })
+    try {
+      await createAndSendEmailCode(target, 'telegram_link', email)
+    } catch (error) {
+      if (!isEmailDeliveryError(error)) throw error
+      return res.status(503).json({ error: 'Не удалось отправить код. Попробуйте позже.' })
+    }
+    res.status(202).json({
+      email,
+      linkToken: jwt.sign({ purpose: 'telegram_email_link', telegramId: challenge.telegramId, sourceId: source.id, targetId: target.id, email, name: challenge.name, photoUrl: challenge.photoUrl }, process.env.JWT_SECRET, { expiresIn: '15m' })
+    })
+  } catch (error) { next(error) }
+})
+
+router.post('/telegram/email/verify', async (req, res, next) => {
+  try {
+    const challenge = readTelegramChallenge(req.body?.linkToken, 'telegram_email_link')
+    const code = String(req.body?.code || '').trim()
+    if (!challenge) return res.status(401).json({ error: 'Сессия подтверждения истекла. Запросите код заново.' })
+    if (!/^\d{6}$/.test(code)) return res.status(400).json({ error: 'Введите код из 6 цифр.' })
+    const verification = await prisma.emailVerificationCode.findFirst({
+      where: { userId: Number(challenge.targetId), email: challenge.email, purpose: 'telegram_link', usedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' }
+    })
+    if (!verification) return res.status(400).json({ error: 'Код истёк. Запросите новый.' })
+    if (verification.attempts >= 5) return res.status(429).json({ error: 'Слишком много попыток. Запросите новый код.' })
+    if (verification.codeHash !== hashEmailCode(code)) {
+      await prisma.emailVerificationCode.update({ where: { id: verification.id }, data: { attempts: { increment: 1 } } })
+      return res.status(400).json({ error: 'Неверный код.' })
+    }
+    const currentOwner = await findUserByEmail(prisma, challenge.email)
+    if (currentOwner && currentOwner.id !== Number(challenge.targetId)) {
+      return res.status(409).json({ error: 'Аккаунт для этого email изменился. Запросите новый код.' })
+    }
+    const targetId = Number(challenge.targetId)
+    if (currentOwner && (currentOwner.role === 'DELETED' || isAdminPanelRole(currentOwner.role) || (currentOwner.telegramId && currentOwner.telegramId !== challenge.telegramId))) {
+      return res.status(403).json({ error: 'Эту почту нельзя связать с данным Telegram-аккаунтом.' })
+    }
+    const user = await linkTelegramAccount(prisma, {
+      sourceId: Number(challenge.sourceId), targetId, telegramId: challenge.telegramId,
+      email: challenge.email, name: challenge.name, photoUrl: challenge.photoUrl, verificationId: verification.id
+    })
+    res.json({ user: getPublicUser(user), token: createSessionToken(user.id) })
+  } catch (error) {
+    if (error.message?.includes('аккаунт') || error.message?.includes('поддержку') || error.message?.includes('подарки') || error.message?.includes('Telegram') || error.message?.includes('Код')) {
+      return res.status(409).json({ error: error.message })
+    }
     next(error)
   }
 })
@@ -153,31 +261,14 @@ function isEmailDeliveryError(error) {
     ].includes(error?.code)
 }
 
-async function createAuthResponse(user, message, extra = {}) {
-  const actualUser = user.emailVerified
-    ? user
-    : await prisma.user.update({
-      where: { id: user.id },
-      data: { emailVerified: true }
-    })
-
-  return {
-    user: getPublicUser(actualUser),
-    token: createSessionToken(actualUser.id),
-    message,
-    emailVerificationBypassed: true,
-    ...extra
-  }
-}
-
-async function createAndSendEmailCode(user, purpose = 'email_verification') {
+async function createAndSendEmailCode(user, purpose = 'email_verification', recipientEmail = user.email) {
   const code = generateEmailCode()
   const expiresAt = new Date(Date.now() + EMAIL_CODE_TTL_MINUTES * 60 * 1000)
 
   const verification = await prisma.emailVerificationCode.create({
     data: {
       userId: user.id,
-      email: user.email,
+      email: recipientEmail,
       codeHash: hashEmailCode(code),
       purpose,
       expiresAt
@@ -186,7 +277,7 @@ async function createAndSendEmailCode(user, purpose = 'email_verification') {
 
   try {
     await emailService.sendVerificationCode({
-      to: user.email,
+      to: recipientEmail,
       name: user.name,
       code,
       purpose
@@ -218,18 +309,18 @@ async function createOrReuseLoginCode(user) {
 
 router.post('/register', async (req, res, next) => {
   try {
-    const { password, name, phone, marketingConsent } = req.body
+    const { name, phone, marketingConsent } = req.body
     const email = normalizeEmail(req.body.email)
-
-    const passwordError = validateBasicPassword(password)
-    if (passwordError) return res.status(400).json({ error: passwordError })
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith('.invalid')) {
+      return res.status(400).json({ error: 'Укажите корректный email' })
+    }
     
     const existing = await findUserByEmail(prisma, email)
     if (existing) {
       return res.status(400).json({ error: 'Email уже зарегистрирован' })
     }
     
-    const hashedPassword = await bcrypt.hash(password, 10)
+    const hashedPassword = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10)
     
     const user = await prisma.user.create({
       data: {
@@ -243,6 +334,7 @@ router.post('/register', async (req, res, next) => {
       select: {
         id: true,
         telegramId: true,
+        telegramPhotoUrl: true,
         email: true,
         name: true,
         phone: true,
@@ -259,16 +351,7 @@ router.post('/register', async (req, res, next) => {
       expiresAt = await createAndSendEmailCode(user)
     } catch (error) {
       if (!isEmailDeliveryError(error)) throw error
-      console.warn('[AUTH] Email verification bypassed after register because email delivery failed', JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        code: error.code || null
-      }))
-      return res.status(201).json(await createAuthResponse(
-        user,
-        'Регистрация завершена. Почта временно недоступна, поэтому код подтверждения пропущен.',
-        { emailDeliveryUnavailable: true }
-      ))
+      return res.status(503).json({ error: 'Не удалось отправить код. Попробуйте позже.' })
     }
 
     res.status(201).json({
@@ -287,18 +370,16 @@ router.post('/login', async (req, res, next) => {
     const { password } = req.body
     const isAdminLogin = req.body.adminLogin === true
     const email = normalizeEmail(req.body.email)
-    
-    const user = await findUserByEmail(prisma, email)
-    if (!user) {
-      return res.status(401).json({ error: 'Неверные учётные данные' })
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith('.invalid')) {
+      return res.status(400).json({ error: 'Укажите корректный email' })
     }
     
-    const isValid = await bcrypt.compare(password, user.password)
-    if (!isValid) {
-      return res.status(401).json({ error: 'Неверные учётные данные' })
-    }
+    let user = await findUserByEmail(prisma, email)
 
     if (isAdminLogin) {
+      if (!user || !await bcrypt.compare(String(password || ''), user.password)) {
+        return res.status(401).json({ error: 'Неверные учётные данные' })
+      }
       if (!isAdminPanelRole(user.role)) {
         return res.status(403).json({ error: 'Доступ в админку запрещён' })
       }
@@ -322,27 +403,26 @@ router.post('/login', async (req, res, next) => {
       })
     }
 
-    if (!user.emailVerified) {
+    if (user && (isAdminPanelRole(user.role) || user.role === 'DELETED')) {
+      return res.status(403).json({ error: 'Для этого аккаунта вход через сайт недоступен' })
+    }
+    if (!user) {
       try {
-        await createAndSendEmailCode(user)
+        user = await prisma.user.create({
+          data: {
+            email,
+            password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10),
+            name: email.split('@')[0].slice(0, 120),
+            emailVerified: false
+          }
+        })
       } catch (error) {
-        if (!isEmailDeliveryError(error)) throw error
-        console.warn('[AUTH] Email verification bypassed on unverified login because email delivery failed', JSON.stringify({
-          userId: user.id,
-          email: user.email,
-          code: error.code || null
-        }))
-        return res.json(await createAuthResponse(
-          user,
-          'Вход выполнен. Почтовый сервис временно недоступен, поэтому код подтверждения пропущен.',
-          { emailDeliveryUnavailable: true }
-        ))
+        if (error.code !== 'P2002') throw error
+        user = await findUserByEmail(prisma, email)
+        if (!user || isAdminPanelRole(user.role) || user.role === 'DELETED') {
+          return res.status(403).json({ error: 'Для этого аккаунта вход через сайт недоступен' })
+        }
       }
-      return res.status(403).json({
-        error: 'Email не подтверждён. Мы отправили новый код подтверждения на почту.',
-        code: 'EMAIL_NOT_VERIFIED',
-        email: user.email
-      })
     }
 
     let expiresAt
@@ -350,16 +430,7 @@ router.post('/login', async (req, res, next) => {
       expiresAt = await createOrReuseLoginCode(user)
     } catch (error) {
       if (!isEmailDeliveryError(error)) throw error
-      console.warn('[AUTH] Login email verification bypassed because email delivery failed', JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        code: error.code || null
-      }))
-      return res.json(await createAuthResponse(
-        user,
-        'Вход выполнен. Почтовый сервис временно недоступен, поэтому код подтверждения пропущен.',
-        { emailDeliveryUnavailable: true }
-      ))
+      return res.status(503).json({ error: 'Не удалось отправить код. Попробуйте позже.' })
     }
     res.status(202).json({
       requiresLoginVerification: true,
@@ -390,7 +461,7 @@ router.post('/verify-email', async (req, res, next) => {
     if (purpose === 'login_verification') {
       challenge = readLoginChallenge(req.body.challengeToken)
       if (!challenge) {
-        return res.status(401).json({ error: 'Сессия подтверждения истекла. Введите email и пароль ещё раз.' })
+        return res.status(401).json({ error: 'Сессия подтверждения истекла. Введите email ещё раз.' })
       }
       if (req.body.adminLogin === true && challenge.adminPanel !== true) {
         return res.status(403).json({ error: 'Войдите через страницу админки заново' })
@@ -450,7 +521,7 @@ router.post('/verify-email', async (req, res, next) => {
         data: { usedAt: new Date() }
       })
 
-      if (purpose === 'email_verification') {
+      if (purpose === 'email_verification' || !user.emailVerified) {
         return tx.user.update({
           where: { id: user.id },
           data: { emailVerified: true }
@@ -536,7 +607,7 @@ router.post('/forgot-password', async (req, res, next) => {
     if (!email) return res.json(genericResponse)
 
     const user = await findUserByEmail(prisma, email)
-    if (!user) return res.json(genericResponse)
+    if (!user || !isAdminPanelRole(user.role)) return res.json(genericResponse)
 
     const recentReset = await prisma.emailVerificationCode.findFirst({
       where: {
@@ -605,14 +676,15 @@ router.post('/reset-password', async (req, res, next) => {
     if (!resetRecord) {
       return res.status(400).json({ error: 'Ссылка восстановления истекла или уже была использована.' })
     }
+    if (!isAdminPanelRole(resetRecord.user?.role)) {
+      return res.status(403).json({ error: 'Вход для этого аккаунта выполняется по коду из письма.' })
+    }
 
     if (resetRecord.attempts >= 5) {
       return res.status(429).json({ error: 'Слишком много попыток. Запросите новую ссылку восстановления.' })
     }
 
-    const passwordError = isAdminPanelRole(resetRecord.user?.role)
-      ? validatePasswordPolicy(newPassword, resetRecord.user)
-      : validateBasicPassword(newPassword)
+    const passwordError = validatePasswordPolicy(newPassword, resetRecord.user)
     if (passwordError) {
       await prisma.emailVerificationCode.update({
         where: { id: resetRecord.id },
@@ -662,6 +734,7 @@ router.put('/me', authenticate, async (req, res, next) => {
       select: {
         id: true,
         telegramId: true,
+        telegramPhotoUrl: true,
         email: true,
         name: true,
         role: true,
@@ -685,10 +758,11 @@ router.put('/password', authenticate, async (req, res, next) => {
     const { currentPassword, newPassword } = req.body
 
     const user = await prisma.user.findUnique({ where: { id: req.user.id } })
+    if (!isAdminPanelRole(user?.role)) {
+      return res.status(403).json({ error: 'Вход для этого аккаунта выполняется по коду из письма.' })
+    }
 
-    const passwordError = isAdminPanelRole(user?.role)
-      ? validatePasswordPolicy(newPassword, user)
-      : validateBasicPassword(newPassword)
+    const passwordError = validatePasswordPolicy(newPassword, user)
     if (passwordError) return res.status(400).json({ error: passwordError })
     
     const isValid = await bcrypt.compare(currentPassword, user.password)
