@@ -73,7 +73,7 @@
             <input id="credit-amount" v-model="creditForm.amount" type="number" min="1" max="1000000" step="1" required placeholder="Например, 1000">
             <label :for="'credit-message'">Комментарий для пользователя</label>
             <textarea id="credit-message" v-model="creditForm.message" maxlength="500" rows="2" required placeholder="Причина начисления"></textarea>
-            <button type="submit" class="points-button points-button--primary" :disabled="pointsBusy">{{ pointsBusy === 'credit' ? 'Начисляем…' : 'Начислить баллы' }}</button>
+            <button type="submit" class="points-button points-button--primary" :disabled="!!pointsBusy">{{ pointsBusy === 'credit' ? 'Начисляем…' : 'Начислить баллы' }}</button>
           </form>
 
           <form class="points-action points-action--debit" @submit.prevent="submitPoints('debit')">
