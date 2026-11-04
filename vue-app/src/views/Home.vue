@@ -870,17 +870,20 @@ function startHeroAssembly() {
 function startHeroIdle(scene, mobile) {
   const easing = 'ease-in-out'
   const idle = [
-    ['pen', mobile ? -4 : -5, 5600],
-    ['molecule-top', mobile ? -3 : -4, 8500],
-    ['molecule-mid', mobile ? 2 : 3, 9900],
-    ['sphere-top', mobile ? -2 : -3, 9000]
+    ['pen', mobile ? -10 : -16, mobile ? 2 : 4, 6000],
+    ['molecule-top', mobile ? -12 : -20, mobile ? -3 : -5, 7800],
+    ['molecule-mid', mobile ? 10 : 17, mobile ? 2 : 5, 9200],
+    ['molecule-right', mobile ? -9 : -15, mobile ? 3 : 6, 8400],
+    ['sphere-top', mobile ? -11 : -18, mobile ? -2 : -4, 7100],
+    ['sphere-right', mobile ? 9 : 15, mobile ? 2 : 4, 8800],
+    ['sphere-small', mobile ? -8 : -13, mobile ? 2 : 4, 6600]
   ]
-  for (const [name, y, duration] of idle) {
+  for (const [name, y, x, duration] of idle) {
     const target = scene.querySelector(`[data-assembly="${name}"]`)
     if (!target) continue
     const animation = target.animate([
       { transform: 'translate3d(0, 0, 0)' },
-      { transform: `translate3d(0, ${y}px, 0)` },
+      { transform: `translate3d(${x}px, ${y}px, 0)` },
       { transform: 'translate3d(0, 0, 0)' }
     ], { duration, iterations: Infinity, easing })
     heroAnimations.add(animation)
