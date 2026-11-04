@@ -1,6 +1,36 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { calculateOrderEditAmounts, getBilledOrderTotal } from './orderEditAmounts.js'
+import { calculateEditedOrderDiscount, calculateOrderEditAmounts, getBilledOrderTotal } from './orderEditAmounts.js'
+
+test('percentage promo applies to the changed merchandise once and preserves other deductions', () => {
+  const input = {
+    previousItems: [{ price: 1000, quantity: 1 }],
+    nextItems: [{ price: 1000, quantity: 1 }, { price: 500, quantity: 1 }],
+    previousDiscountAmount: 250,
+    partnerBonusAmount: 100,
+    userPointsUsed: 50,
+    promoCode: { discountType: 'percentage', discountValue: 10 }
+  }
+  assert.equal(calculateEditedOrderDiscount(input), 300)
+  assert.equal(calculateEditedOrderDiscount({ ...input, previousItems: input.nextItems, previousDiscountAmount: 300 }), 300)
+  assert.equal(calculateEditedOrderDiscount({ ...input, previousItems: input.nextItems, nextItems: input.previousItems, previousDiscountAmount: 300 }), 250)
+})
+
+test('fixed promo is used once, including when the original subtotal capped it', () => {
+  const promoCode = { discountType: 'fixed', discountValue: 200 }
+  assert.equal(calculateEditedOrderDiscount({
+    previousItems: [{ price: 500, quantity: 1 }], nextItems: [{ price: 1000, quantity: 1 }],
+    previousDiscountAmount: 200, promoCode
+  }), 200)
+  assert.equal(calculateEditedOrderDiscount({
+    previousItems: [{ price: 100, quantity: 1 }], nextItems: [{ price: 300, quantity: 1 }],
+    previousDiscountAmount: 100, promoCode
+  }), 200)
+  assert.equal(calculateEditedOrderDiscount({
+    previousItems: [{ price: 100, quantity: 1 }], nextItems: [{ price: 300, quantity: 1 }],
+    previousDiscountAmount: 100, promoCode: { ...promoCode, discountValue: 50 }
+  }), 100)
+})
 
 test('paid order composition changes its total without changing the existing payment', () => {
   assert.deepEqual(calculateOrderEditAmounts({

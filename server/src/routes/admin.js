@@ -21,7 +21,7 @@ import { buildOrderWaybill, createOrderWaybillDocx, createOrderWaybillPdf } from
 import { applyStockAdjustments, parseStockAdjustmentRequest } from '../utils/stockAdjustments.js'
 import { applyOrderStockChanges } from '../utils/orderStock.js'
 import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiringSettings.js'
-import { calculateOrderEditAmounts, getBilledOrderTotal } from '../utils/orderEditAmounts.js'
+import { calculateEditedOrderDiscount, calculateOrderEditAmounts, getBilledOrderTotal } from '../utils/orderEditAmounts.js'
 import { resolveManualOrderPromo, claimManualOrderPromo } from '../utils/manualOrderPromo.js'
 import { isCustomAdminRole } from '../utils/adminPermissions.js'
 import { normalizeSearchText, matchesAnySearchText, needsUnicodeSearch } from '../utils/searchText.js'
@@ -1723,12 +1723,23 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
         }) })
         const nextTariffCode = data.deliveryTariffCode !== undefined ? data.deliveryTariffCode : previous.deliveryTariffCode
         const nextPickupPoint = data.deliveryPickupPoint !== undefined ? data.deliveryPickupPoint : previous.deliveryPickupPoint
+        const promoCode = previous.promoCodeId
+          ? await tx.promoCode.findUnique({ where: { id: previous.promoCodeId } })
+          : null
+        data.discountAmount = calculateEditedOrderDiscount({
+          previousItems: previous.items,
+          nextItems,
+          previousDiscountAmount: previous.discountAmount,
+          partnerBonusAmount: previous.partnerBonusAmount,
+          userPointsUsed: previous.userPointsUsed,
+          promoCode
+        })
         const amounts = calculateOrderEditAmounts({
           items: nextItems,
           deliveryPrice: data.deliveryPrice ?? previous.deliveryPrice,
           deliveryTariffCode: nextTariffCode,
           deliveryPickupPoint: nextPickupPoint,
-          discountAmount: previous.discountAmount,
+          discountAmount: data.discountAmount,
           financialLocked,
           previousTotal: previous.total,
           previousUnbilledAdjustment: previous.unbilledAdjustment
@@ -1753,8 +1764,8 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
           data: {
             orderId,
             adminId: req.user.id,
-            beforeJson: JSON.stringify({ total: previous.total, paymentAmount: previous.paymentAmount, unbilledAdjustment: previous.unbilledAdjustment, items: previous.items.map(({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled }) => ({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled })) }),
-            afterJson: JSON.stringify({ total: updated.total, paymentAmount: updated.paymentAmount, unbilledAdjustment: updated.unbilledAdjustment, items: updated.items.map(({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled }) => ({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled })) })
+            beforeJson: JSON.stringify({ total: previous.total, discountAmount: previous.discountAmount, paymentAmount: previous.paymentAmount, unbilledAdjustment: previous.unbilledAdjustment, items: previous.items.map(({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled }) => ({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled })) }),
+            afterJson: JSON.stringify({ total: updated.total, discountAmount: updated.discountAmount, paymentAmount: updated.paymentAmount, unbilledAdjustment: updated.unbilledAdjustment, items: updated.items.map(({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled }) => ({ id, productId, dosage, quantity, price, adminAddedById, adminUnbilled })) })
           }
         })
         await syncPartnerCommissionForOrder(tx, updated.id)

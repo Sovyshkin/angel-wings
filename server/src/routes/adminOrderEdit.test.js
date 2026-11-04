@@ -140,6 +140,57 @@ test('only an admin can edit a paid order; bank amount stays fixed, stock and au
     assert.equal((await db.product.findUnique({ where: { id: first.id } })).stock, 10)
     assert.equal((await db.product.findUnique({ where: { id: second.id } })).stock, 5)
 
+    const promo = await db.promoCode.create({ data: {
+      code: 'EDIT10', discountType: 'percentage', discountValue: 10,
+      usageType: 'single', activationCount: 1, partnerId: referral.id
+    } })
+    const promoOrder = await db.order.create({ data: {
+      customerName: 'Покупатель', customerEmail: buyer.email, customerPhone: '+79990000000',
+      status: 'PROCESSING', paymentStatus: 'PAID', paymentId: 'bank-promo-payment', paymentAmount: 900,
+      total: 900, discountAmount: 100, promoCodeId: promo.id, userId: buyer.id, partnerId: referral.id,
+      items: { create: [{ productId: first.id, quantity: 1, price: 1000 }] }
+    }, include: { items: true } })
+    const promoCommission = await db.partnerCommission.create({ data: {
+      partnerId: referral.id, orderId: promoOrder.id, userId: buyer.id, amount: 90, percentage: 10
+    } })
+    const promoEditUrl = `http://127.0.0.1:${server.address().port}/api/admin/orders/${promoOrder.id}`
+    const editPromoOrder = (existing, items) => fetch(promoEditUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` },
+      body: JSON.stringify({ expectedUpdatedAt: existing.updatedAt.toISOString(), expectedEditVersion: existing.editVersion, items })
+    })
+    const originalPromoItem = { id: promoOrder.items[0].id, productId: first.id, quantity: 1, price: 1000 }
+    const promoAdd = await editPromoOrder(promoOrder, [originalPromoItem, { productId: second.id, quantity: 2, price: 700 }])
+    assert.equal(promoAdd.status, 200, await promoAdd.text())
+    const afterPromoAdd = await db.order.findUnique({ where: { id: promoOrder.id }, include: { items: true } })
+    assert.equal(afterPromoAdd.discountAmount, 240)
+    assert.equal(afterPromoAdd.total, 2160)
+    assert.equal(afterPromoAdd.paymentAmount, 900)
+    assert.equal(afterPromoAdd.unbilledAdjustment, 1260)
+    assert.equal((await db.partnerCommission.findUnique({ where: { orderId: promoOrder.id } })).amount, 216)
+    assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 1)
+
+    const promoRepeat = await editPromoOrder(afterPromoAdd, afterPromoAdd.items.map(item => ({
+      id: item.id, productId: item.productId, quantity: item.quantity, price: item.price
+    })))
+    assert.equal(promoRepeat.status, 200, await promoRepeat.text())
+    const afterPromoRepeat = await db.order.findUnique({ where: { id: promoOrder.id }, include: { items: true } })
+    assert.equal(afterPromoRepeat.discountAmount, 240)
+    assert.equal(await db.partnerCommission.count({ where: { orderId: promoOrder.id } }), 1)
+    assert.equal((await db.partnerCommission.findUnique({ where: { orderId: promoOrder.id } })).id, promoCommission.id)
+    assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 1)
+
+    const promoRemove = await editPromoOrder(afterPromoRepeat, [afterPromoRepeat.items.find(item => item.productId === first.id)].map(item => ({
+      id: item.id, productId: item.productId, quantity: item.quantity, price: item.price
+    })))
+    assert.equal(promoRemove.status, 200, await promoRemove.text())
+    const afterPromoRemove = await db.order.findUnique({ where: { id: promoOrder.id } })
+    assert.equal(afterPromoRemove.discountAmount, 100)
+    assert.equal(afterPromoRemove.total, 900)
+    assert.equal(afterPromoRemove.unbilledAdjustment, 0)
+    assert.equal((await db.partnerCommission.findUnique({ where: { orderId: promoOrder.id } })).amount, 90)
+    assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 1)
+
     const variants = await db.product.create({ data: {
       title: 'С дозировками', slug: 'with-dosages', description: '', price: 1000, stock: 6,
       specs: JSON.stringify({ dosages: [{ dosage: '20 мг', quantity: 1 }, { dosage: '40 мг', quantity: 5 }] })
