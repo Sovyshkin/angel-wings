@@ -4198,7 +4198,7 @@ onUnmounted(() => {
 .checkout-form .checkout-apply-button:disabled { opacity: .56; cursor: not-allowed; }
 .checkout-form .checkout-offer-card .promo-code-clear { margin-top: .65rem; padding: .2rem 0; border: 0; color: #b9cefc; text-decoration: underline; }
 .checkout-form .checkout-offer-card .promo-code-status { margin-top: .55rem; font-size: .83rem; }
-.checkout-form .checkout-remember { position: relative; display: flex; align-items: center; gap: .7rem; width: fit-content; margin: 1.2rem 0 0 .2rem; color: #f3f5ff; font-size: clamp(.85rem, 1.05vw, 1.09rem); cursor: pointer; }
+.checkout-form .checkout-remember { position: relative; display: flex; align-items: flex-start; gap: .6rem; width: fit-content; margin: 1.2rem 0 0; color: #f3f5ff; font-size: clamp(.85rem, 1.05vw, 1.09rem); cursor: pointer; }
 .checkout-form .consent-item input[type="checkbox"] { position: absolute; top: 0; left: 0; width: 26px; height: 26px; margin: 0; appearance: none; border: 1px solid #9eb9f6; border-radius: 6px; background: rgba(123, 155, 221, .12); cursor: pointer; }
 .checkout-form .consent-item input:checked { background: #a9c3ff; }
 .checkout-form .consent-item img { position: relative; width: 26px; height: 26px; flex: none; opacity: 0; pointer-events: none; }
@@ -5781,10 +5781,6 @@ onUnmounted(() => {
 .consent-item a {
   color: var(--accent);
   text-decoration: underline;
-}
-
-.consent-item--full {
-  padding-top: 0.25rem;
 }
 
 .consent-item--error {
