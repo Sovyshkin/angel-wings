@@ -355,7 +355,7 @@
               </label>
               <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" required></label>
               <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" required></label>
-              <button type="button" class="edit-remove" :disabled="manualDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="manualDraft.items.splice(index, 1)">×</button>
+              <button type="button" class="edit-remove" :disabled="manualDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="manualDraft.items.splice(index, 1)"><span aria-hidden="true">×</span><span class="edit-remove-text" aria-hidden="true">Удалить товар</span></button>
             </div>
             <button type="button" class="btn btn-secondary manual-add-item" :disabled="!manualProducts.length" @click="addManualItem">+ Добавить товар</button>
           </section>
@@ -508,10 +508,10 @@
             </label>
             <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" required></label>
             <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" required></label>
-            <button type="button" class="edit-remove" :disabled="orderDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="orderDraft.items.splice(index, 1)">×</button>
+            <button type="button" class="edit-remove" :disabled="orderDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="orderDraft.items.splice(index, 1)"><span aria-hidden="true">×</span><span class="edit-remove-text" aria-hidden="true">Удалить товар</span></button>
           </div>
           <button type="button" class="btn btn-secondary" @click="addOrderItem">+ Добавить товар</button>
-          <div class="edit-summary">Новая сумма заказа после скидок: {{ formatPrice(draftTotal) }}</div>
+          <div class="edit-summary"><span>Новая сумма заказа после скидок</span><strong>{{ formatPrice(draftTotal) }}</strong></div>
           <p v-if="hasFixedPayment" class="edit-notice">Ранее выставлено к оплате: {{ formatPrice(getFixedPaymentAmount(selectedOrder)) }}. Новые товары будут отмечены в заказе как добавленные без изменения оплаты.</p>
           <p v-if="editError" class="edit-error" role="alert">{{ editError }}</p>
         </form>
@@ -2657,6 +2657,8 @@ watch(manualCityQuery, query => {
   font-size: 1.3rem;
 }
 
+.edit-remove-text { display: none; }
+
 .edit-summary {
   padding: .8rem 1rem;
   border: 1px solid var(--border);
@@ -3471,9 +3473,7 @@ watch(manualCityQuery, query => {
 
   .edit-grid { grid-template-columns: 1fr; }
   .edit-wide { grid-column: auto; }
-  .edit-item { grid-template-columns: repeat(2, minmax(0, 1fr)) 30px; }
-  .edit-item label:first-child { grid-column: 1 / -1; }
-  .manual-item {
+  .edit-item {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: .7rem;
     padding: .85rem;
@@ -3481,12 +3481,32 @@ watch(manualCityQuery, query => {
     border-radius: 12px;
     background: var(--bg-secondary);
   }
-  .manual-item label:nth-child(2) { grid-column: 1 / -1; }
-  .manual-item .edit-remove {
-    grid-column: 2;
+  .edit-item label:nth-child(-n + 2) { grid-column: 1 / -1; }
+  .edit-item .input { min-height: 44px; font-size: 1rem; }
+  .order-edit-form > .btn { width: 100%; min-height: 44px; }
+  .edit-item .edit-remove {
+    grid-column: 1 / -1;
     justify-self: end;
-    width: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    min-width: 136px;
+    min-height: 44px;
+    padding: 0 .75rem;
+    font-size: .85rem;
+    font-weight: 600;
   }
+  .edit-remove-text { display: inline; }
+  .edit-summary {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .35rem 1rem;
+    text-align: left;
+  }
+  .edit-summary strong { margin-left: auto; white-space: nowrap; }
 
   .order-item-card {
     grid-template-columns: 44px 1fr;

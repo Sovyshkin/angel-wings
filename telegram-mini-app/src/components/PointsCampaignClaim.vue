@@ -3,16 +3,17 @@
     <section class="campaign-card" role="dialog" aria-modal="true" aria-labelledby="campaign-title">
       <button class="campaign-close" type="button" aria-label="Закрыть" @click="dismissed = true">×</button>
       <span class="campaign-eyebrow">Подарок Angel Wings</span>
-      <div class="campaign-orbit" aria-hidden="true"><span>4 000</span></div>
-      <h2 id="campaign-title">{{ offer ? 'Ваши баллы ждут вас' : 'Получить 4 000 баллов' }}</h2>
-      <p v-if="offer">Получите <strong>4 000 баллов</strong> для следующего заказа. Они появятся на балансе только после нажатия кнопки.</p>
+      <img v-if="offer?.imageUrl" class="campaign-image" :src="offer.imageUrl" alt="" />
+      <div v-else class="campaign-orbit" aria-hidden="true"><span>{{ amountLabel }}</span></div>
+      <h2 id="campaign-title">{{ offer?.title || 'Получить подарок' }}</h2>
+      <p v-if="offer">{{ offer.body }}</p>
       <p v-else-if="loading">Проверяем ваше предложение…</p>
       <p v-else-if="status === 'claimed'">Вы уже получили эти баллы. Проверьте баланс в профиле.</p>
       <p v-else-if="status === 'error'">Не удалось проверить предложение. Попробуйте ещё раз.</p>
       <p v-else>Для этого Telegram-аккаунта предложение не найдено.</p>
-      <div v-if="offer" class="campaign-terms"><span>1 балл = 1 ₽</span><span>Действуют 1 месяц после получения</span></div>
+      <div v-if="offer" class="campaign-terms"><span>1 балл = 1 ₽</span><span>{{ offer.validityDays ? `Действуют ${offer.validityDays} дней после получения` : 'Действуют 1 месяц после получения' }}</span></div>
       <p v-if="error" class="campaign-error" role="alert">{{ error }}</p>
-      <button v-if="offer" class="campaign-claim" type="button" :disabled="claiming" @click="claim">{{ claiming ? 'Начисляем…' : 'Получить 4 000 баллов' }}</button>
+      <button v-if="offer" class="campaign-claim" type="button" :disabled="claiming" @click="claim">{{ claiming ? 'Начисляем…' : buttonLabel }}</button>
       <button v-else-if="status === 'error'" class="campaign-claim" type="button" @click="loadOffer">Повторить</button>
       <button class="campaign-later" type="button" @click="dismissed = true">Позже</button>
     </section>
@@ -28,7 +29,7 @@ const props = defineProps({ enabled: { type: Boolean, default: false } })
 const emit = defineEmits(['claimed'])
 const route = useRoute()
 const router = useRouter()
-const campaignKey = 'points-4000-2026-10-30'
+const legacyKey = 'points-4000-2026-10-30'
 const offer = ref(null)
 const dismissed = ref(false)
 const claiming = ref(false)
@@ -37,7 +38,9 @@ const status = ref('')
 const error = ref('')
 let lastCheckedAt = 0
 let retryTimer = null
-const invited = computed(() => route.query.claim === campaignKey)
+const invited = computed(() => typeof route.query.claim === 'string' && /^(?:points-4000-2026-10-30|gift-[0-9-]{10}-[a-f\d]{8})$/.test(route.query.claim))
+const amountLabel = computed(() => Number(offer.value?.amount || 4000).toLocaleString('ru-RU'))
+const buttonLabel = computed(() => String(offer.value?.buttonText || 'Получить {{points}} баллов').replace(/\{\{\s*points\s*\}\}/gi, amountLabel.value))
 const visible = computed(() => !dismissed.value && props.enabled && status.value !== 'claimed' && (Boolean(offer.value) || invited.value))
 
 async function loadOffer(retryOnFailure = true) {
@@ -48,7 +51,7 @@ async function loadOffer(retryOnFailure = true) {
   loading.value = true
   status.value = ''
   try {
-    const { data } = await axios.get('/api/points/campaign/offer')
+    const { data } = await axios.get('/api/points/campaign/offer', { params: invited.value ? { claim: route.query.claim } : {} })
     offer.value = data?.offer || null
     status.value = data?.claimed ? 'claimed' : 'unavailable'
   } catch {
@@ -63,7 +66,7 @@ async function loadOffer(retryOnFailure = true) {
 }
 
 watch([() => props.enabled, () => route.query.claim], ([enabled, claim], [, previousClaim] = []) => {
-  if (claim === campaignKey && previousClaim !== claim) dismissed.value = false
+  if (invited.value && previousClaim !== claim) dismissed.value = false
   if (!enabled) { offer.value = null; return }
   loadOffer()
 }, { immediate: true })
@@ -104,15 +107,18 @@ async function claim() {
   if (claiming.value) return
   claiming.value = true
   error.value = ''
+  let nextOffer = false
   try {
-    const { data } = await axios.post('/api/points/campaign/claim')
+    const { data } = await axios.post('/api/points/campaign/claim', { campaignKey: offer.value?.campaignKey || legacyKey })
     offer.value = null
     status.value = 'claimed'
     if (invited.value) router.replace({ path: route.path, query: { ...route.query, claim: undefined } })
     emit('claimed', data)
+    nextOffer = !invited.value
   } catch (cause) {
     error.value = cause?.response?.data?.error || 'Не удалось начислить баллы. Попробуйте ещё раз.'
   } finally { claiming.value = false }
+  if (nextOffer) loadOffer()
 }
 </script>
 
@@ -123,6 +129,7 @@ async function claim() {
 .campaign-close{position:absolute;top:12px;right:17px;border:0;background:transparent;color:#aeb7d4;font-size:31px;line-height:1;cursor:pointer}
 .campaign-eyebrow{color:#a8bdff;font-size:11px;font-weight:700;letter-spacing:.19em;text-transform:uppercase}
 .campaign-orbit{width:142px;height:142px;margin:19px auto 18px;display:grid;place-items:center;border:1px solid rgba(171,197,255,.58);border-radius:50%;background:radial-gradient(circle at 34% 28%,#74a7ff 0,#214fae 37%,#101f52 72%,#09112f 100%);box-shadow:inset 0 0 28px #9bc6ff60,0 0 45px #4f86ff65;transform:rotate(-9deg)}
+.campaign-image{display:block;width:min(100%,300px);max-height:200px;object-fit:contain;margin:18px auto}
 .campaign-orbit span{font-size:39px;font-weight:800;letter-spacing:-.06em;color:#fff;text-shadow:0 2px 18px #b8d6ff}
 h2{margin:0 0 12px;font-size:26px;line-height:1.12;letter-spacing:-.035em}
 p{margin:0;color:#c3c8d7;font-size:14px;line-height:1.55}p strong{color:#fff}

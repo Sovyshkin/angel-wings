@@ -13,17 +13,22 @@ export function oneCalendarMonthAfter(date) {
   return result
 }
 
-export async function claimPointsCampaignOffer(db, userId, now = new Date()) {
+export async function claimPointsCampaignOffer(db, userId, now = new Date(), campaignKey = POINTS_CAMPAIGN_KEY) {
   return db.$transaction(async (tx) => {
     const offer = await tx.pointCampaignOffer.findUnique({
-      where: { campaignKey_userId: { campaignKey: POINTS_CAMPAIGN_KEY, userId } }
+      where: { campaignKey_userId: { campaignKey, userId } }
     })
     if (!offer) throw Object.assign(new Error('Предложение не найдено'), { status: 404 })
+    const campaign = campaignKey === POINTS_CAMPAIGN_KEY ? null : await tx.pointsCampaign.findUnique({ where: { key: campaignKey } })
+    if (campaignKey !== POINTS_CAMPAIGN_KEY && !campaign) throw Object.assign(new Error('Кампания не найдена'), { status: 404 })
+    if (campaign && !['SENDING', 'PAUSED', 'FINISHED'].includes(campaign.status)) throw Object.assign(new Error('Кампания ещё не запущена'), { status: 409 })
+    const settings = campaign ? JSON.parse(campaign.settingsJson) : null
+    if (settings?.claimUntil && now > new Date(settings.claimUntil)) throw Object.assign(new Error('Срок получения подарка истёк'), { status: 410 })
     if (offer.claimedAt) {
       return { alreadyClaimed: true, amount: offer.amount, expiresAt: offer.expiresAt }
     }
 
-    const expiresAt = oneCalendarMonthAfter(now)
+    const expiresAt = settings ? new Date(now.getTime() + settings.validityDays * 86400000) : oneCalendarMonthAfter(now)
     const reserved = await tx.pointCampaignOffer.updateMany({
       where: { id: offer.id, claimedAt: null },
       data: { claimedAt: now, expiresAt, remainingPoints: offer.amount }
@@ -35,7 +40,7 @@ export async function claimPointsCampaignOffer(db, userId, now = new Date()) {
     const user = await creditUserPoints(tx, {
       userId,
       amount: offer.amount,
-      batchId: POINTS_CAMPAIGN_KEY,
+      batchId: campaignKey,
       message: `Подарок Angel Wings: ${offer.amount.toLocaleString('ru-RU')} баллов. Действуют до ${expiresAt.toLocaleDateString('ru-RU', { timeZone: 'UTC' })}`
     })
     return { alreadyClaimed: false, amount: offer.amount, expiresAt, balance: user.pointsBalance }

@@ -125,6 +125,7 @@ class EmailService {
         inlineImage: {
           filename: message.inlineImage.filename,
           cid: message.inlineImage.cid,
+          contentType: message.inlineImage.contentType || 'image/png',
           contentBase64: message.inlineImage.content.toString('base64')
         }
       } : {})
@@ -212,7 +213,7 @@ class EmailService {
       html: html || textToHtml(text || ''),
       ...(inlineImage ? {
         inlineImage,
-        attachments: [{ filename: inlineImage.filename, content: inlineImage.content, cid: inlineImage.cid, contentType: 'image/png' }]
+        attachments: [{ filename: inlineImage.filename, content: inlineImage.content, cid: inlineImage.cid, contentType: inlineImage.contentType || 'image/png' }]
       } : {})
     }
 

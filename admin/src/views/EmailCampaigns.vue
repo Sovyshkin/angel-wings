@@ -3,9 +3,11 @@
     <div class="page-header">
       <div>
         <h1>Рассылки</h1>
-        <p>Отправка писем клиентам и партнёрам через корпоративную почту Angel Wings</p>
+        <p>Подарочные баллы, письма клиентам и партнёрам, Telegram и автоматические напоминания</p>
       </div>
     </div>
+
+    <PointsCampaigns />
 
     <section class="recovery-console">
       <div class="recovery-console__heading">
@@ -175,6 +177,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import axios from 'axios'
+import PointsCampaigns from '../components/PointsCampaigns.vue'
 
 const campaigns = ref([])
 const loading = ref(false)

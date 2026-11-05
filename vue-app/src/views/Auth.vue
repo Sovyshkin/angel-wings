@@ -93,10 +93,10 @@ import { useAuthStore } from '../store/auth'
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
-const campaignKey = 'points-4000-2026-10-30'
+const campaignKeyPattern = /^(?:points-4000-2026-10-30|gift-[0-9-]{10}-[a-f\d]{8})$/
 
 function goAfterAuth() {
-  if (route.query.claim === campaignKey) return router.push({ path: '/', query: { claim: campaignKey } })
+  if (typeof route.query.claim === 'string' && campaignKeyPattern.test(route.query.claim)) return router.push({ path: '/', query: { claim: route.query.claim } })
   if (route.query.redirect === '/cart') return router.push('/cart')
   return router.push('/profile')
 }

@@ -19,6 +19,8 @@ import dealerRoutes from './routes/dealers.js'
 import adminDealerRoutes from './routes/adminDealers.js'
 import pointsRoutes from './routes/points.js'
 import pointsCampaignRoutes from './routes/pointsCampaign.js'
+import adminPointsCampaignsRoutes from './routes/adminPointsCampaigns.js'
+import { startCustomCampaignWorker } from './services/customPointsCampaign.js'
 import adminPointsRoutes from './routes/adminPoints.js'
 import contactRequestsRoutes from './routes/contactRequests.js'
 import adminContactRequestsRoutes from './routes/adminContactRequests.js'
@@ -65,6 +67,7 @@ app.use('/api/admin/analytics', analyticsRoutes)
 app.use('/api/admin/partners', partnerRoutes)
 app.use('/api/admin/dealers', adminDealerRoutes)
 app.use('/api/admin/points', adminPointsRoutes)
+app.use('/api/admin/points-campaigns', adminPointsCampaignsRoutes)
 app.use('/api/admin/contact-requests', adminContactRequestsRoutes)
 app.use('/api/admin/roles', adminRolesRoutes)
 app.use('/api/admin', adminRoutes)
@@ -89,4 +92,5 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
   startRecoveryWorker()
   startCdekRegistrationWorker(prisma)
+  startCustomCampaignWorker(prisma)
 })

@@ -26,6 +26,7 @@
     "db:favorite-pickups": "node scripts/apply-favorite-pickup-points-schema.mjs",
     "db:personal-promos": "node scripts/apply-personal-promos-schema.mjs",
     "db:points-campaign": "node scripts/apply-points-campaign-schema.mjs",
+    "db:custom-points-campaign": "node scripts/apply-custom-points-campaign-schema.mjs",
     "db:blog": "node scripts/apply-blog-schema.mjs",
     "db:roles": "node scripts/apply-admin-roles-schema.mjs",
     "db:blog-drafts": "node scripts/seed-blog-drafts.mjs",

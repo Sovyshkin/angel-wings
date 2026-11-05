@@ -470,6 +470,18 @@ model PointCampaignOffer {
   @@map("point_campaign_offers")
 }
 
+model PointsCampaign {
+  id           Int      @id @default(autoincrement())
+  key          String   @unique
+  settingsJson String
+  status       String   @default("DRAFT")
+  createdById  Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("points_campaigns")
+}
+
 model PointCampaignSpend {
   id        Int                @id @default(autoincrement())
   offerId   Int

@@ -15,6 +15,10 @@ app.use('/email/send', express.json({
   limit: '4mb',
   verify: (req, res, buffer) => { req.rawBody = buffer.toString('utf8') }
 }))
+app.use('/telegram/campaign', express.json({
+  limit: '8mb',
+  verify: (req, res, buffer) => { req.rawBody = buffer.toString('utf8') }
+}))
 app.use(express.json({
   limit: '300kb',
   verify: (req, res, buffer) => {
@@ -238,7 +242,7 @@ app.post('/email/send', requireRelayAuth, async (req, res) => {
         filename: inlineImage.filename,
         cid: inlineImage.cid,
         content: Buffer.from(inlineImage.contentBase64, 'base64'),
-        contentType: 'image/png'
+        contentType: inlineImage.contentType || 'image/png'
       }] } : {})
     }
 
@@ -314,26 +318,29 @@ app.post('/email/send', requireRelayAuth, async (req, res) => {
 
 app.post('/telegram/campaign', requireRelayAuth, async (req, res) => {
   const chatId = String(req.body?.chatId || '').trim()
-  if (req.body?.campaignKey !== 'points-4000-2026-10-30' || !/^[1-9]\d*$/.test(chatId)) {
+  const key = String(req.body?.campaignKey || '').trim()
+  const legacy = key === 'points-4000-2026-10-30' && !req.body?.text
+  if (!/^(?:points-4000-2026-10-30|gift-[0-9-]{10}-[a-f\d]{8})$/.test(key) || !/^[1-9]\d*$/.test(chatId)) {
     return res.status(400).json({ ok: false, error: 'Invalid campaign request' })
   }
+  const text = legacy ? '🎁 Вам доступны 4 000 баллов Angel Wings!\n\nНажмите «Получить» в мини-приложении — только после этого баллы появятся на балансе. 1 балл = 1 ₽. Неиспользованные баллы сгорят через 1 месяц после получения.' : String(req.body?.text || '').trim()
+  const buttonText = legacy ? 'Получить 4 000 баллов' : String(req.body?.buttonText || '').trim()
+  if (!text || text.length > 1024 || !buttonText || buttonText.length > 80) return res.status(400).json({ ok: false, error: 'Invalid campaign text' })
 
   const token = String(process.env.TELEGRAM_MINI_APP_BOT_TOKEN || '').trim()
   if (!token) return res.status(503).json({ ok: false, error: 'Mini App bot is not configured' })
 
   try {
-    const image = await readFile(campaignImagePath)
+    const markup = { inline_keyboard: [[{ text: buttonText, web_app: { url: `https://app.angel-wings.ru/catalog?claim=${encodeURIComponent(key)}` } }]] }
+    const image = legacy ? await readFile(campaignImagePath) : req.body?.imageBase64 ? Buffer.from(req.body.imageBase64, 'base64') : null
+    if (image && image.length > 5 * 1024 * 1024) return res.status(400).json({ ok: false, error: 'Campaign image too large' })
+    const imageType = legacy ? 'image/png' : ['image/png', 'image/jpeg', 'image/webp'].includes(req.body?.imageType) ? req.body.imageType : 'image/png'
     const form = new FormData()
     form.append('chat_id', chatId)
-    form.append('photo', new Blob([image], { type: 'image/png' }), 'points-campaign-offer.png')
-    form.append('caption', '🎁 Вам доступны 4 000 баллов Angel Wings!\n\nНажмите «Получить» в мини-приложении — только после этого баллы появятся на балансе. 1 балл = 1 ₽. Неиспользованные баллы сгорят через 1 месяц после получения.')
-    form.append('reply_markup', JSON.stringify({ inline_keyboard: [[{
-        text: 'Получить 4 000 баллов',
-        web_app: { url: 'https://app.angel-wings.ru/catalog?claim=points-4000-2026-10-30' }
-      }]] }))
-    // Upload bytes from this server: Telegram rejected the public image URL
-    // with "failed to get HTTP URL content" for campaign recipients.
-    const response = await axios.post(`https://api.telegram.org/bot${token}/sendPhoto`, form, {
+    if (image) form.append('photo', new Blob([image], { type: imageType }), `campaign.${imageType.split('/')[1]}`)
+    form.append(image ? 'caption' : 'text', text)
+    form.append('reply_markup', JSON.stringify(markup))
+    const response = await axios.post(`https://api.telegram.org/bot${token}/${image ? 'sendPhoto' : 'sendMessage'}`, form, {
       timeout: Number(process.env.TELEGRAM_SEND_TIMEOUT_MS || 30000),
       httpsAgent: telegramAgent,
       maxBodyLength: 10 * 1024 * 1024,

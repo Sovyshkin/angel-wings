@@ -281,14 +281,14 @@ async function postRelayWithRetry({ relayUrl, relaySecret, relayPayload, orderId
   throw lastError || new Error('[TELEGRAM] relay failed without response')
 }
 
-export async function sendPointsCampaignTelegram(chatId) {
+export async function sendPointsCampaignTelegram(chatId, campaign = null) {
   const relayUrl = String(process.env.TELEGRAM_RELAY_URL || '').trim().replace(/\/+$/, '')
   const relaySecret = String(process.env.TELEGRAM_RELAY_SECRET || '').trim()
   if (!relayUrl || !relaySecret) throw new Error('Telegram relay для кампании не настроен')
   const response = await postRelayWithRetry({
     relayUrl,
     relaySecret,
-    relayPayload: { campaignKey: 'points-4000-2026-10-30', chatId: String(chatId) },
+    relayPayload: { campaignKey: campaign?.campaignKey || 'points-4000-2026-10-30', chatId: String(chatId), ...(campaign || {}) },
     orderId: null,
     endpoint: '/telegram/campaign'
   })
