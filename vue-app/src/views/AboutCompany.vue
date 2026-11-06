@@ -141,7 +141,7 @@
       </div>
     </section>
 
-    <section id="about-production" class="about-section about-section--production" aria-labelledby="production-title">
+    <section v-if="showProductionSection" id="about-production" class="about-section about-section--production" aria-labelledby="production-title">
       <div class="container">
         <div class="production-layout reveal-block">
           <header class="production-layout__heading">
@@ -192,7 +192,7 @@
       <div class="container">
         <div class="goal-panel reveal-block">
           <div class="goal-panel__copy">
-            <span class="section-number">04 / Наша цель</span>
+            <span class="section-number">{{ showProductionSection ? '04' : '03' }} / Наша цель</span>
             <h2>Вывести индустрию<br><em>из «серой зоны».</em></h2>
             <p>
               Наша цель — вывести эту индустрию из «серой зоны» и привнести в неё стандарты качества
@@ -212,7 +212,7 @@
       <div class="container">
         <div class="standard-panel reveal-block">
           <div class="standard-panel__copy">
-            <span class="section-number">05 / Наша миссия</span>
+            <span class="section-number">{{ showProductionSection ? '05' : '04' }} / Наша миссия</span>
             <h2>Новые стандарты<br><em>прозрачности и качества</em></h2>
             <p>
               Мы стремимся вывести индустрию ввоза и дистрибуции из «серой зоны», задав новые стандарты
@@ -250,7 +250,7 @@
       </div>
     </section>
 
-    <nav class="about-dock" :style="{ '--dock-active-index': activeAboutIndex }" aria-label="Навигация по странице «О нас»">
+    <nav class="about-dock" :style="{ '--dock-active-index': activeAboutIndex, '--dock-item-count': aboutNavigation.length }" aria-label="Навигация по странице «О нас»">
       <span class="about-dock__active-pill" aria-hidden="true"></span>
       <button
         v-for="item in aboutNavigation"
@@ -292,6 +292,8 @@ const aboutRoot = ref(null)
 const heroSection = ref(null)
 const productionVideo = ref(null)
 const hasProductionStarted = ref(false)
+// Keep the production section ready for a later release.
+const showProductionSection = false
 const activeAboutSection = ref('about-hero')
 const expandedJourneyDetails = ref(new Set())
 const activeAboutIndex = computed(() => Math.max(0, aboutNavigation.findIndex(item => item.target === activeAboutSection.value)))
@@ -299,7 +301,7 @@ const activeAboutIndex = computed(() => Math.max(0, aboutNavigation.findIndex(it
 const aboutNavigation = [
   { target: 'about-hero', label: 'Экосистема', shortLabel: 'Система', icon: 'home' },
   { target: 'journey', label: 'Направления', shortLabel: 'Звенья', icon: 'nodes' },
-  { target: 'about-production', label: 'Производство', shortLabel: 'Лаборатория', icon: 'flask' },
+  ...(showProductionSection ? [{ target: 'about-production', label: 'Производство', shortLabel: 'Лаборатория', icon: 'flask' }] : []),
   { target: 'about-goal', label: 'Цель', shortLabel: 'Цель', icon: 'target' },
   { target: 'about-standard', label: 'Миссия', shortLabel: 'Миссия', icon: 'shield' }
 ]
@@ -1770,7 +1772,7 @@ onBeforeUnmount(() => {
   bottom: max(1rem, env(safe-area-inset-bottom));
   z-index: 96;
   display: grid;
-  grid-template-columns: repeat(5, minmax(50px, 1fr));
+  grid-template-columns: repeat(var(--dock-item-count), minmax(50px, 1fr));
   align-items: stretch;
   width: min(400px, calc(100vw - 2rem));
   padding: 0;
@@ -1809,7 +1811,7 @@ onBeforeUnmount(() => {
   top: 0;
   bottom: 0;
   left: 0;
-  width: 20%;
+  width: calc(100% / var(--dock-item-count));
   overflow: hidden;
   border: 1px solid rgba(218, 228, 255, 0.27);
   border-radius: inherit;
@@ -2051,7 +2053,7 @@ onBeforeUnmount(() => {
     top: 0;
     bottom: 0;
     left: 0;
-    width: 20%;
+    width: calc(100% / var(--dock-item-count));
     background: linear-gradient(145deg, rgba(166, 186, 243, 0.22), rgba(88, 112, 177, 0.14) 52%, rgba(45, 57, 103, 0.28));
   }
   .about-dock__active-pill::before { display: none; }
