@@ -81,13 +81,13 @@
           >
         </router-link>
         <nav class="header__nav">
-          <router-link to="/" class="nav-link">Главная</router-link>
-          <router-link to="/about" class="nav-link" @click.prevent="beginAboutTransition">О нас</router-link>
-          <router-link to="/catalog" class="nav-link">Каталог</router-link>
-          <router-link to="/blog" class="nav-link" :class="{ 'nav-link--current': route.path.startsWith('/blog/') }">Блог</router-link>
-          <router-link to="/dealers" class="nav-link">Дилеры</router-link>
-          <router-link to="/#faq" class="nav-link">FAQ</router-link>
-          <router-link to="/partnership" class="nav-link">Партнерам</router-link>
+          <router-link to="/" class="nav-link" :class="{ 'nav-link--current': isHeaderNavActive('/') }" :aria-current="isHeaderNavActive('/') ? 'page' : 'false'">Главная</router-link>
+          <router-link to="/about" class="nav-link" :class="{ 'nav-link--current': isHeaderNavActive('/about') }" :aria-current="isHeaderNavActive('/about') ? 'page' : 'false'" @click.prevent="beginAboutTransition">О нас</router-link>
+          <router-link to="/catalog" class="nav-link" :class="{ 'nav-link--current': isHeaderNavActive('/catalog') }" :aria-current="isHeaderNavActive('/catalog') ? 'page' : 'false'">Каталог</router-link>
+          <router-link to="/blog" class="nav-link" :class="{ 'nav-link--current': isHeaderNavActive('/blog') }" :aria-current="isHeaderNavActive('/blog') ? 'page' : 'false'">Блог</router-link>
+          <router-link to="/dealers" class="nav-link" :class="{ 'nav-link--current': isHeaderNavActive('/dealers') }" :aria-current="isHeaderNavActive('/dealers') ? 'page' : 'false'">Дилеры</router-link>
+          <router-link to="/#faq" class="nav-link" :class="{ 'nav-link--current': isHeaderNavActive('/faq') }" :aria-current="isHeaderNavActive('/faq') ? 'page' : 'false'">FAQ</router-link>
+          <router-link to="/partnership" class="nav-link" :class="{ 'nav-link--current': isHeaderNavActive('/partnership') }" :aria-current="isHeaderNavActive('/partnership') ? 'page' : 'false'">Партнерам</router-link>
         </nav>
         <div class="header__actions">
           <button class="theme-toggle" @click="themeStore.toggle()" :title="themeStore.isDark ? 'Светлая тема' : 'Тёмная тема'">
@@ -527,6 +527,13 @@ const themeStore = useThemeStore()
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+
+function isHeaderNavActive(path) {
+  if (path === '/faq') return route.path === '/faq' || (route.path === '/' && route.hash === '#faq')
+  if (path === '/') return route.path === '/' && route.hash !== '#faq'
+  if (path === '/catalog') return route.path === '/catalog' || route.path.startsWith('/product/')
+  return route.path === path || route.path.startsWith(`${path}/`)
+}
 
 const globalDockItems = computed(() => [
   { to: '/', label: 'Главная', icon: 'home' },
@@ -1848,7 +1855,7 @@ html.is-page-inactive *::after {
   background: var(--bg-card);
   border-top: 1px solid var(--border);
   padding: 4rem 0 2rem;
-  margin-top: 4rem;
+  margin-top: 0;
   transition: background 0.4s ease, border-color 0.4s ease;
 }
 
@@ -2605,7 +2612,7 @@ html.is-page-inactive *::after {
 
   .footer {
     padding: 2rem 0 1rem;
-    margin-top: 2rem;
+    margin-top: 0;
   }
 
   .footer__grid {
@@ -2785,20 +2792,27 @@ html.is-page-inactive *::after {
   }
 }
 
-/* Home hero's navigation treatment is local to the landing page. */
-.app[data-route="/"] .header {
+/* Shared header treatment; dock styling below remains specific to Home. */
+.app .header {
   background: rgba(2, 11, 34, 0.94);
   border-bottom-color: rgba(28, 110, 221, 0.35);
   box-shadow: 0 4px 28px rgba(0, 48, 145, 0.2);
 }
 
-.app[data-route="/"] .header__nav .nav-link:first-child.router-link-exact-active {
+.app .header__nav .nav-link {
+  color: var(--text-secondary);
+  text-shadow: none;
+}
+
+.app .header__nav .nav-link:hover { color: #5fc3ff; }
+
+.app .header__nav .nav-link--current {
   position: relative;
   color: #5fc3ff;
   text-shadow: 0 0 10px rgba(32, 159, 255, 0.95), 0 0 20px rgba(0, 92, 255, 0.9);
 }
 
-.app[data-route="/"] .header__nav .nav-link:first-child.router-link-exact-active::after {
+.app .header__nav .nav-link--current::after {
   content: '';
   position: absolute;
   left: -8px;
@@ -2816,38 +2830,36 @@ html.is-page-inactive *::after {
   box-shadow: inset 0 1px 0 rgba(194, 232, 255, 0.34), 0 0 22px rgba(0, 104, 255, 0.5);
 }
 
-[data-theme="light"] .app[data-route="/"] .header {
+[data-theme="light"] .app .header {
   background: rgba(248, 250, 255, .96);
   border-bottom-color: rgba(30, 80, 160, .1);
   box-shadow: 0 3px 22px rgba(43, 98, 181, .08);
 }
 
-[data-theme="light"] .app[data-route="/"] .header__nav .nav-link {
+[data-theme="light"] .app .header__nav .nav-link {
   color: #34405b;
   text-shadow: none;
 }
 
-[data-theme="light"] .app[data-route="/"] .header__nav .nav-link:hover,
-[data-theme="light"] .app[data-route="/"] .header__nav .nav-link.router-link-active,
-[data-theme="light"] .app[data-route="/"] .header__nav .nav-link--current,
-[data-theme="light"] .app[data-route="/"] .header__nav .nav-link:first-child.router-link-exact-active {
+[data-theme="light"] .app .header__nav .nav-link:hover,
+[data-theme="light"] .app .header__nav .nav-link--current {
   color: #1769e8;
   text-shadow: none;
 }
 
-[data-theme="light"] .app[data-route="/"] .header__nav .nav-link:first-child.router-link-exact-active::after {
+[data-theme="light"] .app .header__nav .nav-link--current::after {
   background: linear-gradient(90deg, #1769e8, #39b2fb);
   box-shadow: 0 0 9px rgba(29, 126, 232, .42);
 }
 
-[data-theme="light"] .app[data-route="/"] :is(.theme-toggle, .auth-btn, .cart-btn, .mobile-cart-btn, .mobile-menu-btn) {
+[data-theme="light"] .app :is(.theme-toggle, .auth-btn, .cart-btn, .mobile-cart-btn, .mobile-menu-btn) {
   border-color: rgba(75, 126, 210, .2);
   background: rgba(255, 255, 255, .83);
   box-shadow: 0 3px 12px rgba(47, 101, 187, .12);
   color: #0d2246;
 }
 
-[data-theme="light"] .app[data-route="/"] .cart-icon { color: #0d2246; }
+[data-theme="light"] .app .cart-icon { color: #0d2246; }
 
 [data-theme="light"] .app[data-route="/"] .global-dock {
   border-color: rgba(67, 125, 221, .31);
