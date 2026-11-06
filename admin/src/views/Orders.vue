@@ -354,7 +354,7 @@
                 <input v-else class="input" value="Без дозировки" disabled>
               </label>
               <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" required></label>
-              <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" required></label>
+              <label>Цена за штуку, ₽<input v-model="item.price" class="input" type="text" inputmode="decimal" autocomplete="off" required @focus="$event.target.select()" @blur="normalizeItemPrice(item)"></label>
               <button type="button" class="edit-remove" :disabled="manualDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="manualDraft.items.splice(index, 1)"><span aria-hidden="true">×</span><span class="edit-remove-text" aria-hidden="true">Удалить товар</span></button>
             </div>
             <button type="button" class="btn btn-secondary manual-add-item" :disabled="!manualProducts.length" @click="addManualItem">+ Добавить товар</button>
@@ -507,7 +507,7 @@
               <input v-else class="input" value="Без дозировки" disabled>
             </label>
             <label>Кол-во<input v-model.number="item.quantity" class="input" type="number" min="1" step="1" required></label>
-            <label>Цена, ₽<input v-model.number="item.price" class="input" type="number" min="0" step="0.01" required></label>
+            <label>Цена за штуку, ₽<input v-model="item.price" class="input" type="text" inputmode="decimal" autocomplete="off" required @focus="$event.target.select()" @blur="normalizeItemPrice(item)"></label>
             <button type="button" class="edit-remove" :disabled="orderDraft.items.length === 1" :aria-label="`Удалить товар ${index + 1}`" @click="orderDraft.items.splice(index, 1)"><span aria-hidden="true">×</span><span class="edit-remove-text" aria-hidden="true">Удалить товар</span></button>
           </div>
           <button type="button" class="btn btn-secondary" @click="addOrderItem">+ Добавить товар</button>
@@ -836,7 +836,17 @@ const manualMatchedPoints = computed(() => {
 })
 const manualPointMatchCount = computed(() => manualMatchedPoints.value.length)
 const manualFilteredPoints = computed(() => manualMatchedPoints.value.slice(0, manualPointQuery.value ? 60 : 12))
-const manualDraftSubtotal = computed(() => manualDraft.value.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0))
+function parseItemPrice(value) {
+  const normalized = String(value ?? '').trim().replace(',', '.')
+  return /^\d+(?:\.\d{1,2})?$/.test(normalized) ? Number(normalized) : NaN
+}
+
+function normalizeItemPrice(item) {
+  const price = parseItemPrice(item.price)
+  if (Number.isFinite(price)) item.price = price
+}
+
+const manualDraftSubtotal = computed(() => manualDraft.value.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (parseItemPrice(item.price) || 0), 0))
 const manualPromoKey = computed(() => JSON.stringify([String(manualDraft.value.promoCode || '').trim().toUpperCase(), manualDraft.value.userId, manualDraft.value.partnerId || null, Math.round(manualDraftSubtotal.value * 100)]))
 const manualAppliedPromo = computed(() => manualPromoPreview.value?.key === manualPromoKey.value ? manualPromoPreview.value : null)
 const manualDraftTotal = computed(() => {
@@ -857,7 +867,7 @@ const canEditOrderAmount = computed(() => {
   const order = selectedOrder.value
   return Boolean(order && !hasFixedPayment.value && !order.cdekOrderUuid && !['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(order.status))
 })
-const draftCompositionTotal = computed(() => orderDraft.value?.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0) || 0)
+const draftCompositionTotal = computed(() => orderDraft.value?.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (parseItemPrice(item.price) || 0), 0) || 0)
 const draftTotal = computed(() => {
   if (!orderDraft.value) return 0
   const subtotal = draftCompositionTotal.value
@@ -1058,7 +1068,7 @@ async function calculateManualCdekPrice() {
     const product = manualProducts.value.find(product => product.id === item.productId)
     return sum + Math.max(1, Number(item.quantity) || 0) * Math.max(0, Number.parseInt(product?.weight, 10) || 0)
   }, 0)
-  const subtotal = manualDraft.value.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0)
+  const subtotal = manualDraftSubtotal.value
   manualCdekCalculating.value = true
   manualCdekError.value = ''
   try {
@@ -1174,6 +1184,10 @@ async function validateManualPromo() {
 async function createManualOrder() {
   if (manualSaving.value) return
   manualError.value = ''
+  if (manualDraft.value.items.some(item => !Number.isFinite(parseItemPrice(item.price)))) {
+    manualError.value = 'Проверьте цену товара: укажите сумму в рублях, не более двух знаков после запятой'
+    return
+  }
   if (manualDeliveryMode.value === 'cdek') {
     if (!manualSelectedCity.value || !manualSelectedPoint.value) {
       manualError.value = 'Выберите город и пункт выдачи СДЭК'
@@ -1196,7 +1210,7 @@ async function createManualOrder() {
   }
   manualSaving.value = true
   try {
-    const payload = { ...manualDraft.value, items: manualDraft.value.items.map(({ productId, dosage, quantity, price }) => ({ productId, dosage, quantity, price })) }
+    const payload = { ...manualDraft.value, items: manualDraft.value.items.map(({ productId, dosage, quantity, price }) => ({ productId, dosage, quantity, price: parseItemPrice(price) })) }
     delete payload.partnerId
     if (manualDraft.value.partnerId) payload.partnerId = Number(manualDraft.value.partnerId)
     await axios.post(`${API_URL}/orders`, payload)
@@ -1534,7 +1548,7 @@ function setDraftDosagePrice(item) {
 }
 
 function orderItemsChanged() {
-  const normalize = item => [item.id ?? null, Number(item.productId), String(item.dosage || '').trim(), Number(item.quantity), Number(item.price)]
+  const normalize = item => [item.id ?? null, Number(item.productId), String(item.dosage || '').trim(), Number(item.quantity), parseItemPrice(item.price)]
   return JSON.stringify(orderDraft.value.items.map(normalize)) !== JSON.stringify((selectedOrder.value?.items || []).map(normalize))
 }
 
@@ -1542,6 +1556,10 @@ async function saveOrder() {
   if (!orderDraft.value || savingOrder.value) return
   editError.value = ''
   const draft = orderDraft.value
+  if (draft.items.some(item => !Number.isFinite(parseItemPrice(item.price)))) {
+    editError.value = 'Проверьте цену товара: укажите сумму в рублях, не более двух знаков после запятой'
+    return
+  }
   const payload = {
     customerName: draft.customerName, customerEmail: draft.customerEmail, customerPhone: draft.customerPhone,
     shippingAddress: draft.shippingAddress, notes: draft.notes, deliveryTariffName: draft.deliveryTariffName,
@@ -1554,7 +1572,7 @@ async function saveOrder() {
   if (orderItemsChanged()) {
     payload.expectedUpdatedAt = selectedOrder.value.updatedAt
     payload.expectedEditVersion = selectedOrder.value.editVersion
-    payload.items = draft.items.map(({ id, productId, dosage, quantity, price }) => ({ id, productId, dosage, quantity, price }))
+    payload.items = draft.items.map(({ id, productId, dosage, quantity, price }) => ({ id, productId, dosage, quantity, price: parseItemPrice(price) }))
   }
   savingOrder.value = true
   try {

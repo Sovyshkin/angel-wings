@@ -1,22 +1,5 @@
 <template>
-  <div ref="homeRoot" class="home">
-    <div class="home-global-decor" aria-hidden="true">
-      <img class="home-global-decor__item home-global-decor__item--molecule-1" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--molecule-2" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--molecule-3" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--molecule-4" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--molecule-5" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--molecule-6" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--molecule-7" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--molecule-8" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-1" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-2" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-3" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-4" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-5" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-      <img class="home-global-decor__item home-global-decor__item--drop-6" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
-    </div>
-
+  <div class="home">
     <section ref="heroRoot" class="hero hero--neon" :class="{ 'is-assembly-pending': !heroMotionReady, 'is-background-paused': heroFxPaused }">
       <div class="hero-neon__background hero-neon__background--dark" aria-hidden="true"></div>
       <div class="hero-neon__background hero-neon__background--light" aria-hidden="true"></div>
@@ -84,13 +67,11 @@
       </div>
     </section>
 
+    <main ref="homeSectionsRoot" class="home-sections">
+      <div class="home-sections__blend" aria-hidden="true"></div>
+      <BackgroundScene :height="sceneHeight" />
+
     <section class="features" id="features" data-aos="fade-up" data-aos-offset="100">
-      <div class="section-decor section-decor--features" aria-hidden="true">
-        <img class="section-decor__molecule section-decor__molecule--features-main" src="/hero-assets/молекула-1-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__molecule section-decor__molecule--features-soft" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--features-top" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--features-low" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
-      </div>
       <div class="container">
         <div class="features-panel" data-aos="fade-up" data-aos-delay="100">
           <article class="features-lead">
@@ -173,13 +154,6 @@
     </section>
 
     <section ref="catalogPreview" class="categories-preview" data-aos="fade-left" data-aos-offset="100">
-      <div class="section-decor section-decor--categories" aria-hidden="true">
-        <img class="section-decor__molecule section-decor__molecule--categories-main" src="/hero-assets/молекула-2-640.webp" alt="" width="640" height="427" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__molecule section-decor__molecule--categories-soft" src="/hero-assets/молекула-3-520.webp" alt="" width="520" height="780" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--categories-top" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--categories-mid" src="/hero-assets/капелька-2-420.webp" alt="" width="420" height="385" loading="lazy" decoding="async" fetchpriority="low">
-        <img class="section-decor__drop section-decor__drop--categories-low" src="/hero-assets/капелька-1-420.webp" alt="" width="420" height="384" loading="lazy" decoding="async" fetchpriority="low">
-      </div>
       <div class="container">
         <div class="section-header" data-aos="fade-up">
           <h2 class="section-title">Категории</h2>
@@ -634,15 +608,7 @@
         </div>
       </div>
     </section>
-
-    <section class="floating-elements" aria-hidden="true">
-      <div class="float-shape float-shape-1"></div>
-      <div class="float-shape float-shape-2"></div>
-      <div class="float-shape float-shape-3"></div>
-      <div class="float-shape float-shape-4"></div>
-      <div class="float-shape float-shape-5"></div>
-      <div class="float-shape float-shape-6"></div>
-    </section>
+    </main>
   </div>
 </template>
 
@@ -653,12 +619,13 @@ import { useProductStore } from '../store/products'
 import { useCartStore } from '../store/cart'
 import { trackProductEvent } from '../api/analytics'
 import ConsultationSection from '../components/ConsultationSection.vue'
+import BackgroundScene from '../components/BackgroundScene.vue'
 
 const productStore = useProductStore()
 const cartStore = useCartStore()
 const router = useRouter()
 const DISPLAY_CATEGORY_SLUGS = ['longevitiya', 'immunomodulyatory', 'neiropeptide', 'growth']
-const homeRoot = ref(null)
+const homeSectionsRoot = ref(null)
 const catalogPreview = ref(null)
 const heroRoot = ref(null)
 const heroScene = ref(null)
@@ -684,13 +651,38 @@ const heroStars = [
   { id: 's8', style: { '--fx-top': '6%', '--fx-right': '26%', '--fx-distance-x': '-73px', '--fx-distance-y': '39px', '--fx-angle': '-29deg', '--fx-cycle': '29s', '--fx-delay': '19.3s' } }
 ]
 let catalogObserver = null
-let moleculeObserver = null
 let catalogFallbackTimer = null
 let catalogLoaded = false
-let heroScrollFrame = null
-let heroScrollIdleTimer = null
-let heroScrollActive = false
-let lastMoleculeScrollY = -1
+let sceneResizeObserver = null
+let sceneAnchorFrame = null
+
+const sceneSections = ['features', 'categories-preview', 'featured-products', 'consultation-section', 'cta', 'benefits', 'partnership-teaser', 'home-faq', 'newsletter']
+const sceneHeight = ref(0)
+
+function updateSceneAnchors() {
+  sceneAnchorFrame = null
+  if (homeSectionsRoot.value) sceneHeight.value = homeSectionsRoot.value.offsetHeight
+}
+
+function scheduleSceneAnchors() {
+  if (sceneAnchorFrame) return
+  sceneAnchorFrame = window.requestAnimationFrame(updateSceneAnchors)
+}
+
+function setupSceneAnchors() {
+  const root = homeSectionsRoot.value
+  if (!root) return
+  scheduleSceneAnchors()
+  if ('ResizeObserver' in window) {
+    sceneResizeObserver = new ResizeObserver(scheduleSceneAnchors)
+    sceneResizeObserver.observe(root)
+    sceneSections.forEach(className => {
+      const section = root.querySelector(`.${className}`)
+      if (section) sceneResizeObserver.observe(section)
+    })
+  }
+  window.addEventListener('resize', scheduleSceneAnchors, { passive: true })
+}
 
 const featuredProducts = computed(() => {
   return productStore.products.slice(0, 4)
@@ -729,13 +721,10 @@ async function loadCatalogPreview() {
 }
 
 onMounted(() => {
+  setupSceneAnchors()
   document.addEventListener('visibilitychange', syncHeroAnimationVisibility)
   syncHeroAnimationVisibility()
   startHeroAssembly()
-  updateHeroScrollProgress()
-  window.addEventListener('scroll', queueHeroScrollProgress, { passive: true })
-  window.addEventListener('resize', queueHeroScrollProgress, { passive: true })
-  setupAmbientMoleculeObserver()
 
   if ('IntersectionObserver' in window && catalogPreview.value) {
     catalogObserver = new IntersectionObserver((entries) => {
@@ -754,13 +743,10 @@ onBeforeUnmount(() => {
   heroAnimations.forEach(animation => animation.cancel())
   heroAnimations.clear()
   catalogObserver?.disconnect()
-  moleculeObserver?.disconnect()
+  sceneResizeObserver?.disconnect()
+  window.removeEventListener('resize', scheduleSceneAnchors)
+  if (sceneAnchorFrame) window.cancelAnimationFrame(sceneAnchorFrame)
   if (catalogFallbackTimer) window.clearTimeout(catalogFallbackTimer)
-  if (heroScrollFrame) window.cancelAnimationFrame(heroScrollFrame)
-  if (heroScrollIdleTimer) window.clearTimeout(heroScrollIdleTimer)
-  heroScrollActive = false
-  window.removeEventListener('scroll', queueHeroScrollProgress)
-  window.removeEventListener('resize', queueHeroScrollProgress)
 })
 
 // One master schedule, implemented with the browser's composited animations.
@@ -985,73 +971,6 @@ function getProductWord(count) {
   return 'товаров'
 }
 
-function updateHeroScrollProgress() {
-  heroScrollFrame = null
-  if (document.hidden) return
-
-  updateBackgroundMoleculeParallax()
-}
-
-function updateBackgroundMoleculeParallax() {
-  if (!homeRoot.value) return
-
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    homeRoot.value.style.setProperty('--molecule-parallax-up', '0px')
-    homeRoot.value.style.setProperty('--molecule-parallax-up-soft', '0px')
-    homeRoot.value.style.setProperty('--molecule-parallax-down', '0px')
-    return
-  }
-
-  const scrollY = Math.max(0, window.scrollY || window.pageYOffset || 0)
-  if (Math.abs(scrollY - lastMoleculeScrollY) < 1) return
-  lastMoleculeScrollY = scrollY
-
-  const maxShift = Math.min(760, Math.max(420, window.innerHeight * 0.78))
-  const up = Math.max(-maxShift, scrollY * -0.24)
-  const upSoft = Math.max(-maxShift * 0.74, scrollY * -0.145)
-  const down = Math.min(maxShift * 0.64, scrollY * 0.12)
-
-  homeRoot.value.style.setProperty('--molecule-parallax-up', `${up.toFixed(1)}px`)
-  homeRoot.value.style.setProperty('--molecule-parallax-up-soft', `${upSoft.toFixed(1)}px`)
-  homeRoot.value.style.setProperty('--molecule-parallax-down', `${down.toFixed(1)}px`)
-}
-
-function setupAmbientMoleculeObserver() {
-  const decorItems = homeRoot.value?.querySelectorAll(
-    '.home-global-decor__item[class*="--molecule-"], .home-global-decor__item[class*="--drop-"], .section-decor__molecule, .section-decor__drop'
-  )
-  if (!decorItems?.length) return
-
-  if (!('IntersectionObserver' in window)) {
-    decorItems.forEach((item) => item.classList.add('is-ambient-active'))
-    return
-  }
-
-  moleculeObserver = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      entry.target.classList.toggle('is-ambient-active', entry.isIntersecting)
-    }
-  }, { rootMargin: '180px 0px' })
-
-  decorItems.forEach((item) => moleculeObserver.observe(item))
-}
-
-function queueHeroScrollProgress() {
-  if (!heroScrollActive) {
-    heroScrollActive = true
-    homeRoot.value?.classList.add('is-scroll-active')
-  }
-
-  if (heroScrollIdleTimer) window.clearTimeout(heroScrollIdleTimer)
-  heroScrollIdleTimer = window.setTimeout(() => {
-    heroScrollActive = false
-    homeRoot.value?.classList.remove('is-scroll-active')
-  }, 320)
-
-  if (heroScrollFrame) return
-  heroScrollFrame = window.requestAnimationFrame(updateHeroScrollProgress)
-}
-
 </script>
 
 <style scoped>
@@ -1128,6 +1047,39 @@ function queueHeroScrollProgress() {
 .home > section {
   position: relative;
   z-index: 1;
+}
+
+.home-sections {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  overflow: clip;
+  background: linear-gradient(180deg, #020817 0%, #041127 42%, #031023 70%, #020817 100%);
+}
+
+
+.home-sections__blend {
+  position: absolute;
+  z-index: 1;
+  inset: 0 0 auto;
+  height: 230px;
+  background: linear-gradient(180deg, #020817 0%, rgba(2, 8, 23, 0) 100%);
+  pointer-events: none;
+}
+
+.home-sections > section {
+  position: relative;
+  z-index: 2;
+}
+
+.home-sections :deep(.consultation-section) {
+  background: transparent;
+}
+
+.home-sections :deep(.consultation-section::before),
+.home-sections :deep(.consultation-section__glow),
+.home-sections :deep(.consultation-section__orb) {
+  display: none;
 }
 
 .home-global-decor {
@@ -1386,6 +1338,41 @@ function queueHeroScrollProgress() {
     radial-gradient(circle at 80% 80%, rgba(66, 149, 255, 0.13), transparent 28%),
     linear-gradient(180deg, #f8f9ff 0%, #eef3ff 30%, #f7f9ff 62%, #ffffff 100%);
 }
+
+[data-theme="light"] .home-sections {
+  background: linear-gradient(180deg, #e3efff, #f9fcff 24%, #edf6ff 54%, #f7fbff 78%, #e3efff);
+}
+
+
+[data-theme="light"] .home-sections__blend {
+  background: linear-gradient(180deg, #e3efff 0%, rgba(227, 239, 255, 0) 100%);
+}
+
+[data-theme="light"] .hero--neon::after {
+  background: linear-gradient(180deg, transparent, #e3efff);
+}
+
+[data-theme="light"] .home-sections :deep(.consultation-section) { color: #102650; }
+[data-theme="light"] .home-sections :deep(.consultation-section__lead),
+[data-theme="light"] .home-sections :deep(.consultation-section__note),
+[data-theme="light"] .home-sections :deep(.consultation-details li),
+[data-theme="light"] .home-sections :deep(.consultation-details p) { color: #385578; }
+[data-theme="light"] .home-sections :deep(.consultation-section__eyebrow),
+[data-theme="light"] .home-sections :deep(.consultation-section h2 em),
+[data-theme="light"] .home-sections :deep(.consultation-details h3 em),
+[data-theme="light"] .home-sections :deep(.consultation-details__link) { color: #255fc1; }
+[data-theme="light"] .home-sections :deep(.consultation-section__metrics),
+[data-theme="light"] .home-sections :deep(.consultation-section__reward),
+[data-theme="light"] .home-sections :deep(.consultation-details) {
+  background: rgba(245, 250, 255, .72);
+  border-color: rgba(65, 122, 210, .3);
+}
+[data-theme="light"] .home-sections :deep(.consultation-section__metrics strong),
+[data-theme="light"] .home-sections :deep(.consultation-section__reward strong) { color: #102650; }
+[data-theme="light"] .home-sections :deep(.consultation-section__metrics span),
+[data-theme="light"] .home-sections :deep(.consultation-section__reward p) { color: #4b6689; }
+[data-theme="light"] .home-sections :deep(.consultation-section__reward-kicker) { color: #315fa6; }
+[data-theme="light"] .home-sections :deep(.consultation-section__reward-icon) { color: #255fc1; }
 
 [data-theme="light"] .home-global-decor::before {
   background-image:
@@ -5999,6 +5986,16 @@ function queueHeroScrollProgress() {
   background: #020b23;
   color: #fff;
   transition: background-color .45s ease, color .45s ease;
+}
+
+.hero--neon::after {
+  content: '';
+  position: absolute;
+  z-index: 11;
+  inset: auto 0 0;
+  height: 150px;
+  background: linear-gradient(180deg, transparent, #020a1b);
+  pointer-events: none;
 }
 
 .hero-neon__background,

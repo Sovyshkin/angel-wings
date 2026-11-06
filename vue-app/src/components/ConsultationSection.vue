@@ -26,19 +26,21 @@
       </div>
     </div>
 
-    <div class="container consultation-details">
-      <div class="consultation-details__copy">
-        <span class="consultation-section__eyebrow">ЧТО ВЫ ПОЛУЧИТЕ</span>
-        <h3>Ответ по вашему<br><em>конкретному запросу.</em></h3>
-        <ul>
-          <li>Применение выбранного пептида</li>
-          <li>Дозировки, схемы и правила хранения</li>
-          <li>Противопоказания и важные ограничения</li>
-          <li>Оценку: достаточно ли экспресс-формата или нужен подробный разбор</li>
-        </ul>
-        <p class="consultation-details__important"><strong>Важно:</strong> это разовая экспресс-консультация. Она не предполагает постоянную переписку с врачом и ответы на любые вопросы каждый день.</p>
-        <p>Если вам нужен более глубокий разбор, можно оформить полноценную консультацию — с анализом лабораторных показателей, подбором питания и дополнительных БАДов или лекарственных препаратов по показаниям.</p>
-        <router-link class="consultation-details__link" to="/contact?consultation=express">Оставить заявку <b>→</b></router-link>
+    <div class="container">
+      <div class="consultation-details">
+        <div class="consultation-details__copy">
+          <span class="consultation-section__eyebrow">ЧТО ВЫ ПОЛУЧИТЕ</span>
+          <h3>Ответ по вашему<br><em>конкретному запросу.</em></h3>
+          <ul>
+            <li>Применение выбранного пептида</li>
+            <li>Дозировки, схемы и правила хранения</li>
+            <li>Противопоказания и важные ограничения</li>
+            <li>Оценку: достаточно ли экспресс-формата или нужен подробный разбор</li>
+          </ul>
+          <p class="consultation-details__important"><strong>Важно:</strong> это разовая экспресс-консультация. Она не предполагает постоянную переписку с врачом и ответы на любые вопросы каждый день.</p>
+          <p>Если вам нужен более глубокий разбор, можно оформить полноценную консультацию — с анализом лабораторных показателей, подбором питания и дополнительных БАДов или лекарственных препаратов по показаниям.</p>
+          <router-link class="consultation-details__link" to="/contact?consultation=express">Оставить заявку <b>→</b></router-link>
+        </div>
       </div>
     </div>
   </section>
@@ -91,6 +93,8 @@
 
 .consultation-details {
   margin-top: 3.5rem;
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
 }
 
 .consultation-details__important {

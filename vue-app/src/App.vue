@@ -237,7 +237,10 @@
       </nav>
     </div>
     <main class="main">
-      <router-view />
+      <RouteSceneLayout v-if="route.name !== 'Home'" :key="route.path">
+        <router-view />
+      </RouteSceneLayout>
+      <router-view v-else />
     </main>
 
     <nav
@@ -509,6 +512,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PointsCampaignClaim from './components/PointsCampaignClaim.vue'
+import RouteSceneLayout from './components/RouteSceneLayout.vue'
 import axios from 'axios'
 import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from './store/cart'
