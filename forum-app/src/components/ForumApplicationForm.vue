@@ -2,8 +2,8 @@
   <section v-if="content.visible" id="application" class="form-section section">
     <div class="wrap forum-checkout-wrap">
       <form class="forum-checkout" @submit.prevent="submit">
-        <img class="forum-checkout__molecule forum-checkout__molecule--top" src="/checkout-assets/molecule-top-right.png" alt="" aria-hidden="true" loading="lazy">
-        <img class="forum-checkout__molecule forum-checkout__molecule--bottom" src="/checkout-assets/molecule-bottom-left.png" alt="" aria-hidden="true" loading="lazy">
+        <img v-if="content.topMolecule" class="forum-checkout__molecule forum-checkout__molecule--top" :src="content.topMolecule" alt="" aria-hidden="true" loading="lazy">
+        <img v-if="content.bottomMolecule" class="forum-checkout__molecule forum-checkout__molecule--bottom" :src="content.bottomMolecule" alt="" aria-hidden="true" loading="lazy">
         <div class="forum-checkout__content">
           <header class="forum-checkout__heading">
             <span v-if="content.eyebrow" class="eyebrow"><i></i>{{ content.eyebrow }}</span>
@@ -15,9 +15,9 @@
             <div v-for="field in visibleFields" :key="field.key" class="forum-checkout__field" :class="`forum-checkout__field--${field.key}`">
               <label :for="`forum-field-${field.key}`">{{ field.label }} <em v-if="field.required">*</em></label>
               <div class="forum-checkout__glass" :class="{ 'forum-checkout__glass--error': errors[field.key] }">
-                <img :src="icons[field.key]" alt="" aria-hidden="true">
+                <img :src="icons[field.key] || icons.name" alt="" aria-hidden="true">
                 <input :id="`forum-field-${field.key}`" v-model.trim="form[field.key]" :type="field.key === 'email' ? 'email' : field.key === 'phone' ? 'tel' : 'text'"
-                  :autocomplete="autocomplete[field.key]" :placeholder="field.placeholder" :required="field.required"
+                  :autocomplete="autocomplete[field.key] || 'off'" :placeholder="field.placeholder" :required="field.required"
                   :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key] ? `error-${field.key}` : undefined"
                   @focus="start" @input="errors[field.key] = ''">
               </div>
@@ -29,7 +29,7 @@
           <div class="forum-checkout__actions">
             <label class="forum-checkout__consent">
               <input v-model="form.consent" type="checkbox" required>
-              <span>Согласен(на) на обработку персональных данных в соответствии с <a :href="content.policyLink" target="_blank" rel="noopener">{{ content.policyLabel }}</a>.</span>
+              <span>{{ content.policyText }} <a :href="content.policyLink" target="_blank" rel="noopener">{{ content.policyLabel }}</a>.</span>
             </label>
             <button class="btn btn-primary forum-checkout__submit" type="submit" :disabled="sending || success">
               <span>{{ sending ? 'Отправляем…' : content.button }} <b>→</b></span>
@@ -52,7 +52,10 @@ const error=ref(''),success=ref(false),sending=ref(false),started=ref(false)
 const autocomplete={name:'name',company:'organization',position:'organization-title',email:'email',phone:'tel'}
 const icons={name:'/checkout-assets/icon-user.svg',phone:'/checkout-assets/icon-phone.svg',email:'/checkout-assets/icon-email.svg',company:'/checkout-assets/icon-company.svg',position:'/checkout-assets/icon-position.svg'}
 const fieldOrder=['name','phone','email','company','position']
-const visibleFields=computed(()=>props.content.fields.filter(field=>field.visible).sort((a,b)=>fieldOrder.indexOf(a.key)-fieldOrder.indexOf(b.key)))
+const visibleFields=computed(()=>props.content.fields.filter(field=>field.visible).sort((a,b)=>{
+ const left=fieldOrder.indexOf(a.key),right=fieldOrder.indexOf(b.key)
+ return (left<0?fieldOrder.length:left)-(right<0?fieldOrder.length:right)
+}))
 function start(){if(!started.value){started.value=true;props.track('forum_form_start')}}
 async function submit(){
  if(sending.value||success.value)return
@@ -60,10 +63,11 @@ async function submit(){
  if(form.name.length<3)errors.name='Укажите ФИО'
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))errors.email='Укажите корректный email'
  if(form.phone.replace(/\D/g,'').length<10)errors.phone='Укажите корректный телефон'
+ for(const field of visibleFields.value){if(field.required&&field.key!=='name'&&field.key!=='email'&&field.key!=='phone'&&!String(form[field.key]||'').trim())errors[field.key]='Заполните поле'}
  if(Object.keys(errors).length)return
  if(!form.consent){error.value='Подтвердите согласие на обработку данных';return}
  sending.value=true
- try{const response=await fetch('/api/forum/applications',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'Не удалось отправить заявку');success.value=true;props.track('forum_application_success')}
+ try{const extraFields=Object.fromEntries(visibleFields.value.filter(field=>field.key.startsWith('custom_')).map(field=>[field.key,form[field.key]||'']));const response=await fetch('/api/forum/applications',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,extraFields})});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'Не удалось отправить заявку');success.value=true;props.track('forum_application_success')}
  catch(e){error.value=e.message||'Не удалось отправить заявку. Попробуйте ещё раз.'}
  finally{sending.value=false}
 }

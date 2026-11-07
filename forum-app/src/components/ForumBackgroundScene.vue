@@ -2,8 +2,8 @@
   <div class="home-sections__decor" aria-hidden="true">
     <template v-for="zone in zones" :key="zone.id">
       <span class="home-scene-glow" :class="`home-scene-glow--${zone.side}`" :style="{ top: `${zone.top}px` }"></span>
-      <img v-for="item in zone.items" :key="item.id" class="home-scene" :class="item.classes" :style="item.style"
-        :src="`/home-scene/${item.asset}.webp`" alt="" loading="lazy" decoding="async">
+      <img v-for="item in zone.items.filter(item => item.visible && item.image)" :key="item.id" class="home-scene" :class="item.classes" :style="item.style"
+        :src="item.image" alt="" loading="lazy" decoding="async">
     </template>
   </div>
 </template>
@@ -11,7 +11,7 @@
 <script setup>
 import { computed } from 'vue'
 import { backgroundAssetWidth } from '../config/backgroundAssetSizes'
-const props = defineProps({ height: { type: Number, default: 0 } })
+const props = defineProps({ height: { type: Number, default: 0 }, assets: { type: Array, default: () => [] } })
 const sceneArrangements = [
   ['wave-01-horizontal', 'wave-03-flow-up', 'molecule-01-diagonal', 'molecule-05-cluster', 'molecule-03-chain', 'molecule-06-ring'],
   ['wave-04-flow-down', 'wave-06-curved', 'molecule-06-ring', 'molecule-02-mirrored', 'molecule-04-chain-reversed', 'molecule-05-cluster'],
@@ -46,6 +46,8 @@ const zones = computed(() => {
     ]
     return { id: index, top, side, items: objects.map((item, slot) => ({
       id: slot, asset: item.asset,
+      image: props.assets.find(asset => asset.name === item.asset)?.image ?? `/home-scene/${item.asset}.webp`,
+      visible: props.assets.find(asset => asset.name === item.asset)?.visible !== false,
       classes: [`home-scene--${item.kind}`, `home-scene--${item.side}`, { 'home-scene--floating': slot === 2 || slot === 4 }],
       style: {
         top: `${top + zoneHeight * item.y + (index === 0 && item.kind === 'wave' ? 90 : 0)}px`, '--scene-size': `${backgroundAssetWidth('home-scene', item.asset, item.size, item.kind.startsWith('wave') ? 240 : 250)}px`,

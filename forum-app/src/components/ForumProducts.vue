@@ -7,7 +7,7 @@
           <ForumTitle :title="content.title" accent-last />
           <p data-reveal-soft>{{ content.description }}</p>
         </div>
-        <a class="btn btn-primary" href="https://angel-wings.ru/catalog"><span>{{ content.catalogButton }} <b>→</b></span></a>
+        <a v-if="content.catalogLink" class="btn btn-primary" :href="content.catalogLink"><span>{{ content.catalogButton }} <b>→</b></span></a>
       </header>
       <div class="product-carousel">
         <button class="carousel-arrow carousel-arrow--prev" type="button" aria-label="Предыдущие товары" :disabled="!canScrollBack" @click="scroll(-1)"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7M8 12h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>

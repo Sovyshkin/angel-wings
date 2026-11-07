@@ -60,13 +60,22 @@ router.post('/applications', async (req, res, next) => {
     const email = clean(req.body?.email, 180).toLowerCase()
     const company = clean(req.body?.company, 180)
     const position = clean(req.body?.position, 180)
+    const page = await prisma.forumPage.findUnique({ where: { id: 1 }, select: { content: true } })
+    const settings = page ? sanitizeForumContent(JSON.parse(page.content)) : FORUM_DEFAULTS
+    const customFields = settings.form.fields.filter(field => field.key.startsWith('custom_') && field.visible)
+    const extraInput = req.body?.extraFields && typeof req.body.extraFields === 'object' && !Array.isArray(req.body.extraFields) ? req.body.extraFields : {}
+    const extraFields = customFields.map(field => ({ label: field.label, value: clean(extraInput[field.key], 250).replace(/[\r\n]+/g, ' ') }))
     if (name.length < 3) return res.status(400).json({ error: 'Укажите ФИО' })
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Укажите корректный email' })
     if (phone.replace(/\D/g, '').length < 10) return res.status(400).json({ error: 'Укажите корректный телефон' })
     if (req.body?.consent !== true) return res.status(400).json({ error: 'Подтвердите согласие на обработку данных' })
+    if (settings.form.fields.some(field => field.visible && field.required && field.key === 'company') && !company) return res.status(400).json({ error: 'Укажите компанию' })
+    if (settings.form.fields.some(field => field.visible && field.required && field.key === 'position') && !position) return res.status(400).json({ error: 'Укажите должность' })
+    if (customFields.some((field, index) => field.required && !extraFields[index].value)) return res.status(400).json({ error: 'Заполните обязательные поля заявки' })
     const duplicate = await prisma.forumApplication.findFirst({ where: { createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) }, OR: [{ email }, { phone }] }, select: { id: true } })
     if (duplicate) return res.status(409).json({ error: 'Заявка с этими контактами уже получена. Мы скоро свяжемся с вами.' })
-    const application = await prisma.forumApplication.create({ data: { name, phone, email, company, position, consentAt: new Date() }, select: { id: true } })
+    const message = extraFields.filter(field => field.value).map(field => `${field.label}: ${field.value}`).join('\n').slice(0, 3000)
+    const application = await prisma.forumApplication.create({ data: { name, phone, email, company, position, message, consentAt: new Date() }, select: { id: true } })
     res.status(201).json({ ok: true, id: application.id })
   } catch (error) { next(error) }
 })

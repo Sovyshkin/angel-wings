@@ -7,6 +7,7 @@
       <img v-if="content.leftMolecule" class="cta-panel__molecule cta-panel__molecule--left" :src="content.leftMolecule" alt="" loading="lazy" decoding="async">
       <img v-if="content.rightMolecule" class="cta-panel__molecule cta-panel__molecule--right" :src="content.rightMolecule" alt="" loading="lazy" decoding="async">
       <div class="cta-panel__copy">
+        <span v-if="content.eyebrow" class="eyebrow"><i></i>{{ content.eyebrow }}</span>
         <ForumTitle :title="content.title" />
         <p data-reveal-soft>{{ content.description }}</p>
       </div>

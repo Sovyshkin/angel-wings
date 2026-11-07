@@ -26,6 +26,12 @@ export default defineConfig({
       '/uploads': {
         target: 'http://localhost:3000',
         changeOrigin: true
+      },
+      '/catalog-api': {
+        target: 'https://angel-wings.ru',
+        changeOrigin: true,
+        secure: true,
+        rewrite: path => path.replace(/^\/catalog-api/, '/api')
       }
     }
   }

@@ -4,12 +4,13 @@
       <div class="section-heading">
         <span class="eyebrow"><i></i>{{ content.eyebrow }}</span>
         <ForumTitle :title="content.title" />
+        <p v-if="content.description" class="forum-events__description">{{ content.description }}</p>
       </div>
 
       <div class="forum-events__grid" data-reveal-events>
         <component
           :is="event.link ? 'a' : 'article'"
-          v-for="(event, index) in content.items"
+          v-for="(event, index) in visibleItems"
           :key="`${event.title}-${index}`"
           :href="event.link || undefined"
           class="forum-event-card"
@@ -20,9 +21,9 @@
             <img v-else-if="event.image" :src="event.image" alt="" loading="lazy" decoding="async" width="721" height="724">
           </div>
           <div class="forum-event-card__content">
-            <span v-if="event.date" class="forum-event-card__date"><Icon name="calendar" /><span>{{ event.date }}</span></span>
+            <span class="forum-event-card__date" :class="{ 'is-pending': !event.date }"><Icon name="calendar" /><span>{{ event.date || content.datePendingLabel }}</span></span>
             <h3>{{ event.title }}</h3>
-            <span v-if="event.place" class="forum-event-card__place"><Icon name="pin" /><span>{{ event.place }}</span></span>
+            <span class="forum-event-card__place" :class="{ 'is-pending': !event.place }"><Icon name="pin" /><span>{{ event.place || content.placePendingLabel }}</span></span>
           </div>
         </component>
       </div>
@@ -34,7 +35,9 @@
 import Icon from './Icon.vue'
 import ForumTitle from './ForumTitle.vue'
 
-defineProps({ content: { type: Object, required: true } })
+import { computed } from 'vue'
+const props = defineProps({ content: { type: Object, required: true } })
+const visibleItems = computed(() => props.content.items.filter(item => item.visible !== false))
 </script>
 
 <style scoped src="./forumEvents.css"></style>

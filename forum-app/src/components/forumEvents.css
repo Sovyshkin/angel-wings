@@ -6,6 +6,8 @@
   margin-inline: auto;
 }
 
+.forum-events__description { max-width: 680px; margin: -10px 0 24px; color: #bdd0e9; font-size: 15px; line-height: 1.6; }
+
 .forum-event-card {
   position: relative;
   display: block;
@@ -58,11 +60,11 @@
   position: absolute;
   z-index: 2;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  justify-items: start;
   min-width: 0;
-  padding: 20px 22px;
+  padding: 20px 22px 19px;
 }
 
 .forum-event-card__date,
@@ -72,34 +74,40 @@
   gap: 8px;
   max-width: 100%;
   color: #e8f3ff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.35;
   text-shadow: 0 1px 8px rgba(0, 6, 24, .45);
 }
 
 .forum-event-card__date svg,
 .forum-event-card__place svg {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 15px;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
   color: #b9dcff;
 }
 
+.forum-event-card__date.is-pending,
+.forum-event-card__place.is-pending { color: #c2d4eb; }
+
+.forum-event-card__date { grid-row: 1; }
+
 .forum-event-card__content h3 {
-  max-width: 85%;
-  margin: auto 0 8px;
+  grid-row: 2;
+  align-self: center;
+  max-width: 94%;
+  margin: 0;
   color: #fff;
-  font-size: clamp(16px, 1.45vw, 19px);
-  font-weight: 750;
-  line-height: 1.18;
-  letter-spacing: -.025em;
+  font-size: clamp(22px, 2.05vw, 28px);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -.035em;
   text-wrap: balance;
   text-shadow: 0 2px 12px rgba(0, 5, 20, .4);
 }
 
-.forum-event-card__place { margin-top: 3px; }
-.forum-event-card__content h3:last-child { margin-bottom: 0; }
+.forum-event-card__place { grid-row: 3; }
 
 @media (hover: hover) and (pointer: fine) {
   .forum-event-card:hover {
@@ -114,14 +122,16 @@
 
 @media (max-width: 980px) {
   .forum-events__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .forum-event-card__content h3 { font-size: 18px; }
+  .forum-event-card__content h3 { font-size: clamp(22px, 2.7vw, 27px); }
 }
 
 @media (max-width: 640px) {
   .forum-events__grid { grid-template-columns: 1fr; gap: 14px; }
   .forum-event-card { aspect-ratio: 2.1 / 1; }
-  .forum-event-card__content { padding: 17px 18px; }
-  .forum-event-card__content h3 { max-width: 88%; font-size: clamp(16px, 4.6vw, 19px); }
+  .forum-event-card__content { padding: 16px 18px; }
+  .forum-event-card__content h3 { max-width: 94%; font-size: clamp(21px, 5.8vw, 25px); }
+  .forum-event-card__date,
+  .forum-event-card__place { font-size: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

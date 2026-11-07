@@ -9,6 +9,8 @@
 .benefits-section { padding: 42px 0; }
 .benefits-layout { grid-template-columns: minmax(200px, .85fr) minmax(0, 3.15fr); gap: 32px; align-items: center; }
 .benefits-layout h2 { margin: 0; font-size: clamp(28px, 2.6vw, 40px); }
+.benefits-intro .eyebrow { margin-bottom: 15px; }
+.benefits-intro p { max-width: 300px; margin: 14px 0 0; color: #b8cbe5; font-size: 13px; line-height: 1.6; }
 .benefits-grid { align-items: stretch; gap: 16px; }
 .benefit-card { min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; }
 .benefit-card h3 { font-size: 15px; line-height: 1.4; }
