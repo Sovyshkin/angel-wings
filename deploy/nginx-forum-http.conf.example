@@ -1,0 +1,15 @@
+# Этап 1: добавьте этот server в /etc/nginx/sites-available/default ДО выпуска сертификата.
+# Сначала соберите forum-app, чтобы существовал /var/www/angel-wings/forum-app/dist.
+server {
+    listen 80;
+    server_name forum.angel-wings.ru;
+    root /var/www/angel-wings/forum-app/dist;
+
+    location ^~ /.well-known/acme-challenge/ {
+        try_files $uri =404;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}

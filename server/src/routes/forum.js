@@ -1,14 +1,18 @@
-import { Router } from 'express'
+import express, { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import multer from 'multer'
 import path from 'node:path'
 import { v4 as uuidv4 } from 'uuid'
+import { fileURLToPath } from 'node:url'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { uploadDir } from '../utils/fileUpload.js'
 import { FORUM_DEFAULTS, sanitizeForumContent } from '../utils/forumContent.js'
 
 const router = Router()
 const prisma = new PrismaClient()
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
+router.use('/preview-assets', express.static(path.join(repositoryRoot, 'forum-app/dist'), { fallthrough: true, maxAge: '1h' }))
+router.use('/preview-assets', express.static(path.join(repositoryRoot, 'forum-app/public'), { fallthrough: true, maxAge: '1h' }))
 const statuses = new Set(['NEW', 'IN_PROGRESS', 'DONE', 'ARCHIVED'])
 const clean = (value, limit) => String(value ?? '').trim().slice(0, limit)
 

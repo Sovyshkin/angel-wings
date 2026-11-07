@@ -96,7 +96,7 @@ const itemFields = { advantages: [title, { key: 'icon', label: 'Иконка' },
 const formFieldNames = { name: 'ФИО', phone: 'Телефон', email: 'Email', company: 'Компания', position: 'Должность' }
 const statusNames = { NEW: 'Новая', IN_PROGRESS: 'В работе', DONE: 'Завершена', ARCHIVED: 'Архив' }
 const forumPreviewUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname) ? `${window.location.protocol}//${window.location.hostname}:5185/` : (import.meta.env.VITE_FORUM_URL || 'https://forum.angel-wings.ru/')
-const previewMedia = url => url?.startsWith('/uploads/') ? url : url?.startsWith('/') ? `${forumPreviewUrl.replace(/\/$/, '')}${url}` : url
+const previewMedia = url => url?.startsWith('/uploads/') ? url : url?.startsWith('/') ? `/api/forum/preview-assets${url}` : url
 const formatDate = value => new Date(value).toLocaleString('ru-RU')
 async function loadContent() { try { const { data } = await axios.get('/api/forum'); Object.assign(content, data.content) } catch { contentError.value = 'Не удалось загрузить содержимое лендинга.' } }
 async function saveContent() { saving.value = true; saveMessage.value = ''; try { const { data } = await axios.put('/api/forum/admin/content', { content }); Object.assign(content, data.content); saveMessage.value = 'Изменения сохранены и видны на лендинге.'; saveError.value = false } catch (error) { saveMessage.value = error.response?.data?.error || 'Не удалось сохранить изменения.'; saveError.value = true } finally { saving.value = false } }
