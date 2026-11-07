@@ -66,16 +66,29 @@ router.post('/applications', async (req, res, next) => {
     const position = clean(req.body?.position, 180)
     const page = await prisma.forumPage.findUnique({ where: { id: 1 }, select: { content: true } })
     const settings = page ? sanitizeForumContent(JSON.parse(page.content)) : FORUM_DEFAULTS
-    const customFields = settings.form.fields.filter(field => field.key.startsWith('custom_') && field.visible)
     const extraInput = req.body?.extraFields && typeof req.body.extraFields === 'object' && !Array.isArray(req.body.extraFields) ? req.body.extraFields : {}
-    const extraFields = customFields.map(field => ({ label: field.label, value: clean(extraInput[field.key], 250).replace(/[\r\n]+/g, ' ') }))
+    const extraFields = []
+    for (const field of settings.form.fields.filter(field => field.visible && !['name', 'phone', 'email', 'company', 'position'].includes(field.key))) {
+      const input = extraInput[field.key]
+      let value = ''
+      if (field.type === 'multiselect') {
+        if (input !== undefined && (!Array.isArray(input) || input.length > field.options.length)) return res.status(400).json({ error: `Проверьте поле «${field.label}»` })
+        const selected = [...new Set(input || [])]
+        if (selected.some(option => !field.options.includes(option))) return res.status(400).json({ error: `Проверьте поле «${field.label}»` })
+        value = selected.join(', ')
+      } else {
+        value = clean(input, 250).replace(/[\r\n]+/g, ' ')
+        if (field.type === 'select' && value && !field.options.includes(value)) return res.status(400).json({ error: `Проверьте поле «${field.label}»` })
+      }
+      if (field.required && !value) return res.status(400).json({ error: `Заполните поле «${field.label}»` })
+      extraFields.push({ label: field.label, value })
+    }
     if (name.length < 3) return res.status(400).json({ error: 'Укажите ФИО' })
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Укажите корректный email' })
     if (phone.replace(/\D/g, '').length < 10) return res.status(400).json({ error: 'Укажите корректный телефон' })
     if (req.body?.consent !== true) return res.status(400).json({ error: 'Подтвердите согласие на обработку данных' })
     if (settings.form.fields.some(field => field.visible && field.required && field.key === 'company') && !company) return res.status(400).json({ error: 'Укажите компанию' })
     if (settings.form.fields.some(field => field.visible && field.required && field.key === 'position') && !position) return res.status(400).json({ error: 'Укажите должность' })
-    if (customFields.some((field, index) => field.required && !extraFields[index].value)) return res.status(400).json({ error: 'Заполните обязательные поля заявки' })
     const duplicate = await prisma.forumApplication.findFirst({ where: { createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) }, OR: [{ email }, { phone }] }, select: { id: true } })
     if (duplicate) return res.status(409).json({ error: 'Заявка с этими контактами уже получена. Мы скоро свяжемся с вами.' })
     const message = extraFields.filter(field => field.value).map(field => `${field.label}: ${field.value}`).join('\n').slice(0, 3000)

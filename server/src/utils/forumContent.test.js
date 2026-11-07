@@ -44,3 +44,21 @@ test('required contact fields cannot be hidden and unknown form keys are rejecte
   assert.equal(result.form.fields.find(field => field.key === 'email').visible, true)
   assert.equal(result.form.fields.some(field => field.key === 'admin'), false)
 })
+
+test('new audience fields are restored for older pages and answer options remain editable', () => {
+  const old = structuredClone(FORUM_DEFAULTS)
+  old.form.fields = old.form.fields.filter(field => !['city', 'role', 'topics'].includes(field.key))
+  Object.assign(old.form.fields.find(field => field.key === 'position'), { label: 'Должность', placeholder: 'Ваша должность', required: false })
+  Object.assign(old.form.fields.find(field => field.key === 'company'), { label: 'Компания / Организация', placeholder: 'Название организации' })
+  const restored = sanitizeForumContent(old)
+  assert.deepEqual(restored.form.fields.filter(field => ['city', 'role', 'topics'].includes(field.key)).map(field => field.key), ['city', 'role', 'topics'])
+  assert.equal(restored.form.fields.find(field => field.key === 'position').label, 'Специальность / должность')
+  assert.equal(restored.form.fields.find(field => field.key === 'position').required, true)
+  assert.equal(restored.form.fields.find(field => field.key === 'company').label, 'Организация / место работы')
+
+  restored.form.fields.find(field => field.key === 'role').options[0] = 'Другой специалист'
+  restored.form.fields.find(field => field.key === 'topics').visible = false
+  const saved = sanitizeForumContent(restored)
+  assert.equal(saved.form.fields.find(field => field.key === 'role').options[0], 'Другой специалист')
+  assert.equal(saved.form.fields.find(field => field.key === 'topics').visible, false)
+})

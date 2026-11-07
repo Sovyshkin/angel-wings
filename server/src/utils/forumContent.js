@@ -31,12 +31,15 @@ export const FORUM_DEFAULTS = {
     { visible: true, title: 'Презентация новой линейки', date: '', place: '', image: '/event-assets/forum_launch.png', video: '', link: '' }
   ] },
   cta: { visible: true, eyebrow: '', title: 'Станьте частью сообщества Angel Wings', description: 'Участвуйте в форуме, узнавайте о новинках первыми и расширяйте профессиональные связи.', button: 'Подать заявку на участие', image: '/cta-assets/blue-wave-banner.png', video: '', leftMolecule: '/home-scene/molecule-01-diagonal.webp', rightMolecule: '/home-scene/molecule-05-cluster.webp' },
-  form: { visible: true, navLabel: 'Контакты', navButton: 'Подать заявку', eyebrow: 'ЗАЯВКА НА УЧАСТИЕ', title: 'Оставьте заявку на форум', description: 'Заполните форму, и мы свяжемся с вами для подтверждения участия.', button: 'Отправить заявку', success: 'Заявка сохранена. Мы свяжемся с вами для подтверждения участия.', policyText: 'Согласен(на) на обработку персональных данных в соответствии с', policyLabel: 'политикой конфиденциальности', policyLink: '/policy.pdf', topMolecule: '/checkout-assets/molecule-top-right.png', bottomMolecule: '/checkout-assets/molecule-bottom-left.png', fields: [
+  form: { visible: true, navLabel: 'Контакты', navButton: 'Подать заявку', eyebrow: 'ЗАЯВКА НА УЧАСТИЕ', title: 'Оставьте заявку на форум', description: 'Заполните форму, и мы свяжемся с вами для подтверждения участия.', stepContactTitle: 'Контакты', stepProfileTitle: 'О вас', stepInterestsTitle: 'Интересы', nextButton: 'Продолжить', backButton: 'Назад', button: 'Отправить заявку', success: 'Заявка сохранена. Мы свяжемся с вами для подтверждения участия.', policyText: 'Согласен(на) на обработку персональных данных в соответствии с', policyLabel: 'политикой конфиденциальности', policyLink: '/policy.pdf', topMolecule: '/checkout-assets/molecule-top-right.png', bottomMolecule: '/checkout-assets/molecule-bottom-left.png', fields: [
     { key: 'name', label: 'ФИО', placeholder: 'Ваше имя и фамилия', required: true, visible: true },
-    { key: 'company', label: 'Компания / Организация', placeholder: 'Название организации', required: false, visible: true },
-    { key: 'position', label: 'Должность', placeholder: 'Ваша должность', required: false, visible: true },
     { key: 'email', label: 'E-mail', placeholder: 'name@company.ru', required: true, visible: true },
-    { key: 'phone', label: 'Телефон', placeholder: '+7 (999) 000-00-00', required: true, visible: true }
+    { key: 'phone', label: 'Телефон', placeholder: '+7 (999) 000-00-00', required: true, visible: true },
+    { key: 'city', label: 'Город / регион', placeholder: 'Ваш город или регион', required: true, visible: true },
+    { key: 'role', type: 'select', label: 'Кто вы?', placeholder: 'Выберите вариант', required: true, visible: true, options: ['Врач / медицинский специалист', 'Нутрициолог / health-коуч', 'Представитель клиники / бизнеса', 'Учёный / исследователь', 'Пациент / интересующийся ЗОЖ', 'Другое'] },
+    { key: 'position', label: 'Специальность / должность', placeholder: 'Укажите специальность или должность', required: true, visible: true },
+    { key: 'company', label: 'Организация / место работы', placeholder: 'Если есть', required: false, visible: true },
+    { key: 'topics', type: 'multiselect', label: 'Интересующие темы', placeholder: '', required: true, visible: true, options: ['Нутрициология и питание', 'Антивозрастная / longevity-медицина', 'Ранняя диагностика и скрининг', 'Регенеративная медицина', 'Ментальное здоровье и стресс', 'Цифровые технологии и ИИ в превенции', 'ЗОЖ и образ жизни', 'Другое'] }
   ] },
   footer: { visible: true, logo: '/angel-wings-wordmark-light.svg', navHeading: 'Навигация', infoHeading: 'Информация', contactsHeading: 'Контакты', mainSiteLabel: 'Основной сайт', privacyLabel: 'Политика конфиденциальности', telegramLabel: 'Telegram', description: 'Инновационные пептидные решения для здоровья и долголетия.', email: 'info@angel-wings.ru', phone: '+7 966 179-00-13', copyright: '© 2026 Angel Wings. Все права защищены.', mainSite: 'https://angel-wings.ru', telegram: 'https://t.me/+UwZu11Bt55FhNTIy', privacyLink: '/policy.pdf' }
 }
@@ -48,11 +51,24 @@ function sanitizeValue(raw, fallback, key) {
   if (typeof fallback === 'string') return ['image', 'lightImage', 'video', 'background', 'lightBackground', 'logo', 'topMolecule', 'bottomMolecule', 'leftMolecule', 'rightMolecule', 'link', 'secondaryLink', 'catalogLink', 'programLink', 'policyLink', 'privacyLink', 'mainSite', 'telegram'].includes(key) ? safeUrl(raw ?? fallback) : clean(raw ?? fallback, key === 'description' || key === 'text' ? 1600 : 700)
   if (Array.isArray(fallback)) {
     const source = Array.isArray(raw) ? raw : fallback
+    if (key === 'options') {
+      const options = [...new Set(source.slice(0, 12).map(option => clean(option, 100)).filter(Boolean))]
+      return options.length ? options : fallback
+    }
     if (key === 'objects' || key === 'sceneAssets' || key === 'fields') {
       const fixed = fallback.map(template => {
       const item = source.find(candidate => candidate?.[key === 'fields' ? 'key' : 'name'] === template[key === 'fields' ? 'key' : 'name']) || template
       const next = sanitizeValue(item, template)
       if (key === 'fields' && ['name', 'email', 'phone'].includes(template.key)) { next.required = true; next.visible = true }
+      if (key === 'fields' && template.key === 'position' && item.label === 'Должность') {
+        next.label = template.label
+        if (item.placeholder === 'Ваша должность') next.placeholder = template.placeholder
+        next.required = true
+      }
+      if (key === 'fields' && template.key === 'company' && item.label === 'Компания / Организация') {
+        next.label = template.label
+        if (item.placeholder === 'Название организации') next.placeholder = template.placeholder
+      }
       return next
       })
       if (key === 'objects' || key === 'sceneAssets') return fixed
