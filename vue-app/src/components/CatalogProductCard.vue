@@ -145,9 +145,8 @@ function handleImageError(event) {
 <style scoped>
 .product-card { display: flex; min-width: 0; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; color: var(--text-primary); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 .product-card:hover { border-color: rgba(166, 185, 248, 0.3); transform: translateY(-8px); box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35); }
-.product-image { position: relative; aspect-ratio: 4/3; background: var(--bg-secondary); overflow: hidden; }
-.product-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
-.product-card:hover .product-image img { transform: scale(1.08); }
+.product-image { position: relative; aspect-ratio: 1; background: var(--bg-secondary); overflow: hidden; }
+.product-image img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; background: #fff; }
 .product-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .product-overlay { position: absolute; inset: 0; background: rgba(10, 10, 16, 0.7); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.4s ease; }
 .product-card:hover .product-overlay { opacity: 1; }

@@ -1,11 +1,12 @@
 import { isActivePartner, isOwnPartnerPromoCode } from './promoEligibility.js'
 import { personalPromoError } from './personalPromo.js'
+import { calculatePromoDiscount } from './checkoutDiscounts.js'
 
 function clientError(message, status = 400) {
   return Object.assign(new Error(message), { status })
 }
 
-export async function resolveManualOrderPromo(tx, { code, userId, subtotal, boundPartnerId = null, requestedPartnerId = null, excludeOrderId = null }) {
+export async function resolveManualOrderPromo(tx, { code, userId, subtotal, userPointsUsed = 0, boundPartnerId = null, requestedPartnerId = null, excludeOrderId = null }) {
   const normalizedCode = String(code || '').trim().toUpperCase()
   if (!normalizedCode) return { promoCode: null, discountAmount: 0, partnerId: boundPartnerId || requestedPartnerId || null }
   if (normalizedCode.length > 100) throw clientError('Промокод слишком длинный')
@@ -48,13 +49,9 @@ export async function resolveManualOrderPromo(tx, { code, userId, subtotal, boun
   }
   if (partnerId && !await isActivePartner(tx, partnerId)) throw clientError('Партнёр не найден или неактивен')
 
-  const subtotalCents = Math.max(0, Math.round(Number(subtotal) * 100))
-  const discountCents = promoCode.discountType === 'percentage'
-    ? Math.round(subtotalCents * Number(promoCode.discountValue) / 100)
-    : Math.round(Number(promoCode.discountValue) * 100)
   return {
     promoCode,
-    discountAmount: Math.min(subtotalCents, Math.max(0, discountCents)) / 100,
+    discountAmount: calculatePromoDiscount(subtotal, promoCode, userPointsUsed),
     partnerId
   }
 }

@@ -13,6 +13,7 @@ import { normalizePointAmount, spendUserPoints } from '../utils/userPoints.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
 import { isActivePartner, isOwnPartnerPromoCode } from '../utils/promoEligibility.js'
 import { personalPromoError } from '../utils/personalPromo.js'
+import { calculatePromoDiscount } from '../utils/checkoutDiscounts.js'
 import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
 import { applyOrderStockChanges, assertOrderStockAvailable } from '../utils/orderStock.js'
 
@@ -191,16 +192,6 @@ async function applyPromoCode(code, userId) {
   }
 
   return { promoCode }
-}
-
-function calculatePromoDiscount(amount, promoCode) {
-  const normalizedAmount = Math.max(0, Number(amount) || 0)
-  if (!promoCode || normalizedAmount <= 0) return 0
-
-  if (promoCode.discountType === 'percentage') {
-    return normalizedAmount * (promoCode.discountValue / 100)
-  }
-  return Math.min(promoCode.discountValue, normalizedAmount)
 }
 
 function isCdekDeliveryType(deliveryType) {
@@ -533,14 +524,22 @@ router.post('/promo/validate', authenticate, async (req, res, next) => {
       })
     }
 
-    const discountAmount = calculatePromoDiscount(amount, appliedPromoCode)
+    const requestedPoints = Math.max(0, normalizePointAmount(req.body?.userPointsAmount))
+    if (requestedPoints > 0) {
+      const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { pointsBalance: true } })
+      if (requestedPoints > Math.max(0, Number(user?.pointsBalance || 0))) {
+        return res.status(400).json({ error: 'Недостаточно баллов для списания' })
+      }
+    }
+    const pointsOnProducts = Math.min(amount, requestedPoints)
+    const discountAmount = calculatePromoDiscount(amount, appliedPromoCode, pointsOnProducts)
     return res.json({
       valid: true,
       code: appliedPromoCode.code,
       discountType: appliedPromoCode.discountType,
       discountValue: appliedPromoCode.discountValue,
       discountAmount,
-      finalAmount: Math.max(0, amount - discountAmount)
+      finalAmount: Math.round(Math.max(0, amount - pointsOnProducts - discountAmount) * 100) / 100
     })
   } catch (error) {
     next(error)
@@ -743,7 +742,6 @@ router.post('/', authenticate, async (req, res, next) => {
       ? Math.round((Math.max(0, submittedCdekBasePrice) + cdekInsurancePrice) * 100) / 100
       : submittedDeliveryPrice
 
-    let discountAmount = 0
     const requestedPartnerBonusAmount = Math.max(0, Number(partnerBonusAmount) || 0)
     const requestedUserPointsAmount = normalizePointAmount(userPointsAmount)
     let partnerBonusUsed = 0
@@ -817,8 +815,6 @@ router.post('/', authenticate, async (req, res, next) => {
       if (appliedPromoCode) {
         promoCodeId = appliedPromoCode.id
 
-        discountAmount = calculatePromoDiscount(itemsSubtotal, appliedPromoCode)
-
         if (appliedPromoCode.partnerId) {
           const existingPartnerId = existingBinding?.partnerId || historicalPartnerId
           const promoPartnerId = appliedPromoCode.partnerId
@@ -876,14 +872,20 @@ router.post('/', authenticate, async (req, res, next) => {
         if (claimed.count !== 1) throw createClientError('Промокод больше недоступен')
       }
 
-      const promoDiscountAmount = Math.min(itemsSubtotal, Math.max(0, Number(discountAmount || 0)))
+      const sitePaidDeliveryPrice = isCdekDelivery ? 0 : deliveryPrice
+      // Points are whole units. Apply them to goods first, then to any site-paid
+      // delivery; the promo can only discount the remaining merchandise.
+      userPointsUsed = Math.min(Math.max(0, requestedUserPointsAmount), Math.floor(itemsSubtotal + sitePaidDeliveryPrice))
+      if (requestedUserPointsAmount > 0 && userPointsUsed <= 0) {
+        throw createClientError('Баллы нельзя списать на этот заказ')
+      }
+      const promoDiscountAmount = calculatePromoDiscount(itemsSubtotal, appliedPromoCode, userPointsUsed)
       if (isCdekDelivery && Number.isFinite(submittedCdekBasePrice)) {
-        const declaredValueAfterPromo = Math.max(0, itemsSubtotal - promoDiscountAmount)
+        const declaredValueAfterPromo = Math.max(0, itemsSubtotal - userPointsUsed - promoDiscountAmount)
         cdekInsurancePrice = Math.round(declaredValueAfterPromo * 0.0075 * 100) / 100
         deliveryPrice = Math.round((Math.max(0, submittedCdekBasePrice) + cdekInsurancePrice) * 100) / 100
       }
-      const sitePaidDeliveryPrice = isCdekDelivery ? 0 : deliveryPrice
-      const subtotalAfterPromo = Math.max(0, itemsSubtotal - promoDiscountAmount) + sitePaidDeliveryPrice
+      const subtotalAfterPromo = Math.round(Math.max(0, itemsSubtotal + sitePaidDeliveryPrice - userPointsUsed - promoDiscountAmount) * 100) / 100
 
       if (requestedPartnerBonusAmount > 0) {
         if (!actualUserId) {
@@ -921,16 +923,8 @@ router.post('/', authenticate, async (req, res, next) => {
         })
       }
 
-      const subtotalAfterPartnerBonus = Math.max(0, subtotalAfterPromo - partnerBonusUsed)
-      if (requestedUserPointsAmount > 0) {
-        userPointsUsed = Math.min(requestedUserPointsAmount, subtotalAfterPartnerBonus)
-        if (userPointsUsed <= 0) {
-          throw createClientError('Баллы нельзя списать на этот заказ')
-        }
-      }
-
       const totalDiscountAmount = promoDiscountAmount + partnerBonusUsed + userPointsUsed
-      const finalOrderTotal = Math.max(0, itemsSubtotal + sitePaidDeliveryPrice - totalDiscountAmount)
+      const finalOrderTotal = Math.round(Math.max(0, itemsSubtotal + sitePaidDeliveryPrice - totalDiscountAmount) * 100) / 100
       const orderCreateData = {
         customerName,
         customerEmail,

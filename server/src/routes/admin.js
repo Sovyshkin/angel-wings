@@ -1575,6 +1575,7 @@ router.post('/orders/:id/promo', authenticate, requireAdmin, async (req, res, ne
       const existingDiscountCents = Math.round(Number(previous.discountAmount || 0) * 100)
       const promo = await resolveManualOrderPromo(tx, {
         code, userId: user.id, subtotal: subtotalCents / 100, boundPartnerId,
+        userPointsUsed: previous.userPointsUsed,
         requestedPartnerId: previous.partnerId, excludeOrderId: orderId
       })
       const promoDiscountCents = Math.min(Math.max(0, subtotalCents - existingDiscountCents), Math.round(promo.discountAmount * 100))

@@ -1,0 +1,132 @@
+.forum-events__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  width: min(100%, 1240px);
+  margin-inline: auto;
+}
+
+.forum-event-card {
+  position: relative;
+  display: block;
+  min-width: 0;
+  aspect-ratio: 2.1 / 1;
+  overflow: hidden;
+  border: 1px solid rgba(106, 177, 246, .6);
+  border-radius: 19px;
+  background: #061a38;
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(220, 241, 255, .14), 0 10px 24px rgba(0, 8, 28, .16);
+  transition: transform .45s cubic-bezier(.22, 1, .36, 1), border-color .45s cubic-bezier(.22, 1, .36, 1), box-shadow .45s cubic-bezier(.22, 1, .36, 1);
+}
+
+.forum-event-card::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 28px rgba(50, 146, 255, .18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .45s cubic-bezier(.22, 1, .36, 1);
+  content: '';
+}
+
+.forum-event-card__media,
+.forum-event-card__media::after,
+.forum-event-card__media img,
+.forum-event-card__media video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.forum-event-card__media img,
+.forum-event-card__media video {
+  object-fit: cover;
+  object-position: center;
+  transition: transform .45s cubic-bezier(.22, 1, .36, 1);
+}
+
+.forum-event-card__media::after {
+  background: linear-gradient(90deg, rgba(2, 11, 32, .94) 0%, rgba(3, 17, 45, .84) 40%, rgba(3, 19, 48, .37) 75%, rgba(4, 20, 50, .12) 100%);
+  content: '';
+}
+
+.forum-event-card__content {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 20px 22px;
+}
+
+.forum-event-card__date,
+.forum-event-card__place {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 100%;
+  color: #e8f3ff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-shadow: 0 1px 8px rgba(0, 6, 24, .45);
+}
+
+.forum-event-card__date svg,
+.forum-event-card__place svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  color: #b9dcff;
+}
+
+.forum-event-card__content h3 {
+  max-width: 85%;
+  margin: auto 0 8px;
+  color: #fff;
+  font-size: clamp(16px, 1.45vw, 19px);
+  font-weight: 750;
+  line-height: 1.18;
+  letter-spacing: -.025em;
+  text-wrap: balance;
+  text-shadow: 0 2px 12px rgba(0, 5, 20, .4);
+}
+
+.forum-event-card__place { margin-top: 3px; }
+.forum-event-card__content h3:last-child { margin-bottom: 0; }
+
+@media (hover: hover) and (pointer: fine) {
+  .forum-event-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(135, 206, 255, .9);
+    box-shadow: inset 0 1px 0 rgba(220, 241, 255, .25), 0 15px 30px rgba(0, 9, 32, .25);
+  }
+  .forum-event-card:hover::after { opacity: 1; }
+  .forum-event-card:hover .forum-event-card__media img,
+  .forum-event-card:hover .forum-event-card__media video { transform: scale(1.05); }
+}
+
+@media (max-width: 980px) {
+  .forum-events__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .forum-event-card__content h3 { font-size: 18px; }
+}
+
+@media (max-width: 640px) {
+  .forum-events__grid { grid-template-columns: 1fr; gap: 14px; }
+  .forum-event-card { aspect-ratio: 2.1 / 1; }
+  .forum-event-card__content { padding: 17px 18px; }
+  .forum-event-card__content h3 { max-width: 88%; font-size: clamp(16px, 4.6vw, 19px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forum-event-card,
+  .forum-event-card::after,
+  .forum-event-card__media img,
+  .forum-event-card__media video { transition-duration: .01ms; }
+}

@@ -593,6 +593,32 @@ model ContactRequest {
   @@map("contact_requests")
 }
 
+model ForumPage {
+  id        Int      @id
+  content   String
+  updatedAt DateTime @updatedAt
+
+  @@map("forum_pages")
+}
+
+model ForumApplication {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String   @default("")
+  email     String   @default("")
+  company   String   @default("")
+  position  String   @default("")
+  message   String   @default("")
+  consentAt DateTime?
+  status    String   @default("NEW")
+  adminNote String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@map("forum_applications")
+}
+
 model ConsultationRequest {
   id             Int       @id @default(autoincrement())
   userId         Int?

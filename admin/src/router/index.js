@@ -26,6 +26,7 @@ const routes = [
       { path: 'blog', name: 'AdminBlog', component: () => import('../views/BlogAdmin.vue'), meta: { blogAccess: true } },
       { path: 'blog/new', name: 'AdminBlogNew', component: () => import('../views/BlogEditor.vue'), meta: { blogAccess: true } },
       { path: 'blog/:id/edit', name: 'AdminBlogEdit', component: () => import('../views/BlogEditor.vue'), meta: { blogAccess: true } },
+      { path: 'forum', name: 'AdminForum', component: () => import('../views/Forum.vue') },
       { path: 'orders', name: 'AdminOrders', component: () => import('../views/Orders.vue') },
       { path: 'consultations', name: 'AdminConsultations', component: () => import('../views/Consultations.vue') },
       { path: 'users', name: 'AdminUsers', component: () => import('../views/Users.vue') },
@@ -55,6 +56,7 @@ const sectionForPath = path => {
   if (path.startsWith('/analytics')) return 'ANALYTICS'
   if (path.startsWith('/categories')) return 'CATEGORIES'
   if (path.startsWith('/blog')) return 'BLOG'
+  if (path.startsWith('/forum')) return 'FORUM'
   if (path.startsWith('/orders')) return 'ORDERS'
   if (path.startsWith('/consultations')) return 'CONSULTATIONS'
   if (path.startsWith('/user-points')) return 'POINTS'

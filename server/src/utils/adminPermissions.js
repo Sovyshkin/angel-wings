@@ -3,7 +3,7 @@ export const ADMIN_SECTIONS = Object.freeze([
   ['CATEGORIES', 'Категории'], ['BLOG', 'Блог'], ['ORDERS', 'Заказы'],
   ['CONSULTATIONS', 'Консультации'], ['POINTS', 'Баллы'], ['PARTNERS', 'Партнёры'],
   ['APPLICATIONS', 'Заявки'], ['PAYOUTS', 'Выплаты'], ['DEALERS', 'Дилеры'],
-  ['PROMO', 'Промокоды'], ['EMAIL', 'Рассылки'], ['CDEK', 'СДЭК']
+  ['PROMO', 'Промокоды'], ['EMAIL', 'Рассылки'], ['CDEK', 'СДЭК'], ['FORUM', 'Форум']
 ])
 
 export const ADMIN_SECTION_CODES = new Set(ADMIN_SECTIONS.map(([code]) => code))
@@ -27,6 +27,7 @@ export function sectionsForAdminRequest(url, method = 'GET') {
   if (path === '/api/admin/products') return method === 'GET' ? ['PRODUCTS', 'POINTS', 'ORDERS'] : ['PRODUCTS']
   if (path === '/api/admin/partners') return method === 'GET' ? ['PARTNERS', 'POINTS', 'PROMO'] : ['PARTNERS']
   if (path.startsWith('/api/admin/contact-requests')) return ['APPLICATIONS']
+  if (path.startsWith('/api/forum/admin/')) return ['FORUM']
   if (path.startsWith('/api/admin/acquiring-settings') || path.startsWith('/api/admin/analytics/') || path.startsWith('/api/analytics/')) return ['ANALYTICS']
   if (path === '/api/admin/stats') return ['DASHBOARD']
   if (path.startsWith('/api/admin/partner-applications')) return ['APPLICATIONS']

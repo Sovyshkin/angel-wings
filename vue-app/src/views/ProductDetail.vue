@@ -571,7 +571,10 @@ onMounted(async () => {
 .gallery-main img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  background: #fff;
+  display: block;
 }
 
 .gallery-nav {
@@ -622,7 +625,10 @@ onMounted(async () => {
 .thumb-item img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  background: #fff;
+  display: block;
 }
 
 .gallery-placeholder {

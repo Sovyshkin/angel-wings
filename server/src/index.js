@@ -24,6 +24,7 @@ import { startCustomCampaignWorker } from './services/customPointsCampaign.js'
 import adminPointsRoutes from './routes/adminPoints.js'
 import contactRequestsRoutes from './routes/contactRequests.js'
 import adminContactRequestsRoutes from './routes/adminContactRequests.js'
+import forumRoutes from './routes/forum.js'
 import consultationRoutes from './routes/consultations.js'
 import adminConsultationRoutes from './routes/adminConsultations.js'
 import blogRoutes from './routes/blog.js'
@@ -73,6 +74,7 @@ app.use('/api/admin/roles', adminRolesRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/partner-applications', partnerApplicationsRoutes)
 app.use('/api/contact-requests', contactRequestsRoutes)
+app.use('/api/forum', forumRoutes)
 app.use('/api/partner', partnerCabinetRoutes)
 app.use('/api/consultations', consultationRoutes)
 app.use('/api/blog', blogRoutes)

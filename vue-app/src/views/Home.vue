@@ -3390,19 +3390,17 @@ function getProductWord(count) {
 }
 
 .featured-image {
-  aspect-ratio: 4/3;
+  aspect-ratio: 1;
   overflow: hidden;
 }
 
 .featured-image img {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  transition: transform 0.6s ease;
-}
-
-.featured-card:hover .featured-image img {
-  transform: scale(1.08);
+  object-fit: contain;
+  object-position: center;
+  background: #fff;
 }
 
 .featured-content {

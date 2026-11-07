@@ -106,6 +106,10 @@
   color: rgba(223, 232, 255, .88) !important;
 }
 
+[data-theme="light"] .consultation-details__important {
+  color: #385578 !important;
+}
+
 @media (max-width: 760px) {
   .consultation-details {
     margin-top: 2.5rem;

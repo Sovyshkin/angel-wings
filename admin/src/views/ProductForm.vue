@@ -245,6 +245,7 @@
         
         <div class="form-group">
           <label class="form-label">Фото товара</label>
+          <p class="product-photo-hint">Единый формат на сайте — 1:1. Рекомендуем квадратное фото от 1200 × 1200 px на белом или прозрачном фоне, без лишних полей. Фото других пропорций отображается целиком.</p>
           <div class="file-input-wrapper">
             <input type="file" @change="handleFileChange" accept="image/*" class="file-input">
             <div class="file-input-trigger">
@@ -869,12 +870,25 @@ onMounted(() => {
 .image-preview {
   position: relative;
   margin-top: 1rem;
-  display: inline-block;
+  display: block;
+  width: min(100%, 200px);
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.product-photo-hint {
+  margin-bottom: .75rem;
+  color: var(--text-secondary);
+  font-size: .8rem;
+  line-height: 1.5;
 }
 
 .image-preview img {
-  max-width: 100%;
-  max-height: 200px;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
   border-radius: var(--radius-sm);
   display: block;
 }
@@ -896,9 +910,12 @@ onMounted(() => {
 }
 
 .gallery-preview-item img {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  background: #fff;
 }
 
 .remove-image {

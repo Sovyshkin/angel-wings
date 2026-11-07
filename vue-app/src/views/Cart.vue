@@ -398,6 +398,10 @@
                 <span v-if="additionPreviewLoading" class="delivery-period">пересчитываем...</span>
               </div>
             </div>
+            <div v-if="userPointsToUse > 0 && !isOrderAdditionMode" class="summary-row summary-row-discount summary-row-discount--points">
+              <span>Списано баллов</span>
+              <span>-{{ userPointsToUse.toLocaleString('ru-RU') }} ₽</span>
+            </div>
             <div v-if="promoDiscountPreview > 0 && !isOrderAdditionMode" class="summary-row summary-row-discount">
               <span>Скидка по промокоду на товары</span>
               <span>-{{ promoDiscountPreview.toLocaleString() }} ₽</span>
@@ -406,10 +410,7 @@
               <span>Оплата из прибыли партнёра</span>
               <span>-{{ partnerBonusToUse.toLocaleString() }} ₽</span>
             </div>
-            <div v-if="userPointsToUse > 0 && !isOrderAdditionMode" class="summary-row summary-row-discount summary-row-discount--points">
-              <span>Списано баллов</span>
-              <span>-{{ userPointsToUse.toLocaleString('ru-RU') }} ₽</span>
-            </div>
+
           </div>
 
           <!-- Delivery Details Card -->
@@ -999,7 +1000,7 @@
                     <button type="button" class="checkout-apply-button" :disabled="validatingPromo" @click="applyPromoCode">{{ validatingPromo ? 'Проверяем…' : 'Применить' }}</button>
                   </div>
                   <button v-if="promoCodeNormalized" type="button" class="promo-code-clear" @click="clearPromoCode">Отменить промокод</button>
-                  <p v-if="promoFeedbackMessage" :class="['promo-code-status', `promo-code-status--${promoFeedbackType}`]">{{ promoFeedbackMessage }}</p>
+                  <p v-if="promoFeedbackMessage" :class="['promo-code-status', `promo-code-status--${promoFeedbackType}`]">{{ promoFeedbackType === 'success' ? `Промокод применён после баллов. Скидка: ${promoDiscountPreview.toLocaleString('ru-RU')} ₽` : promoFeedbackMessage }}</p>
                 </div>
                 <div class="promo-code-card user-points-card checkout-offer-card">
                   <div class="checkout-offer-card__head">
@@ -1187,6 +1188,7 @@ import { mergeRecent, normalizeRecentCity, normalizeRecentPickup, readRecentDeli
 import { MAX_FAVORITE_PICKUPS, normalizeFavoritePickup, readFavoritePickups, writeFavoritePickups } from '../utils/favoritePickups'
 import { distanceKm, pickupCoordinates, pickupMatchesHours } from '../utils/pickupMap'
 import { requestBrowserLocation } from '../utils/browserGeolocation'
+import { calculatePromoDiscount } from '../utils/checkoutDiscounts.js'
 import axios from 'axios'
 import deliveryApi from '../api/delivery'
 import {
@@ -1301,7 +1303,8 @@ const consents = ref({
 })
 const promoCode = ref('')
 const promoInput = ref('')
-const promoDiscountPreview = ref(0)
+const validatedPromo = ref(null)
+const promoDiscountPreview = computed(() => calculatePromoDiscount(cartStore.total, validatedPromo.value, userPointsToUse.value))
 const promoFeedbackType = ref('idle')
 const promoFeedbackMessage = ref('')
 const hasPartnerBalanceAccess = ref(false)
@@ -1658,7 +1661,7 @@ function normalizePromoCodeInput() {
     .replace(/\s+/g, '')
   if (promoInput.value !== promoCode.value) {
     promoCode.value = ''
-    promoDiscountPreview.value = 0
+    validatedPromo.value = null
     promoFeedbackMessage.value = ''
     promoValidateSeq++
     validatingPromo.value = false
@@ -1695,7 +1698,7 @@ function normalizeUserPointsInput() {
   const numeric = Math.max(0, Math.floor(Number(raw.replace(/[^\d]/g, '')) || 0))
   const maxAllowed = Math.min(
     Math.max(0, Number(userPointsBalance.value || 0)),
-    Math.max(0, Number(totalAfterPartnerBonus.value || 0))
+    Math.max(0, Number(userPointsMaxSpendable.value || 0))
   )
   userPointsAmount.value = String(Math.min(numeric, maxAllowed))
 }
@@ -1703,7 +1706,7 @@ function normalizeUserPointsInput() {
 function clearPromoCode() {
   promoInput.value = ''
   promoCode.value = ''
-  promoDiscountPreview.value = 0
+  validatedPromo.value = null
   promoFeedbackType.value = 'idle'
   promoFeedbackMessage.value = ''
   promoValidateSeq++
@@ -1721,7 +1724,7 @@ async function applyPromoCode() {
   const result = await validatePromoCode()
   if (!result.valid && result.reason !== 'stale') {
     promoCode.value = ''
-    promoDiscountPreview.value = 0
+    validatedPromo.value = null
   }
 }
 
@@ -1749,7 +1752,7 @@ async function applyUserPoints() {
   try {
     const { data } = await axios.post('/api/points/spend/preview', {
       amount,
-      maxSpendable: totalAfterPartnerBonus.value
+      maxSpendable: userPointsMaxSpendable.value
     })
     if (seq !== userPointsPreviewSeq) return
     userPointsBalance.value = Math.max(0, Number(data.balance || 0))
@@ -1782,7 +1785,7 @@ async function validatePromoCode(options = {}) {
   const currentAmount = Number(cartStore.total || 0)
 
   if (!code) {
-    promoDiscountPreview.value = 0
+    validatedPromo.value = null
     if (!silent) {
       setPromoFeedback('idle', '')
     }
@@ -1790,7 +1793,7 @@ async function validatePromoCode(options = {}) {
   }
 
   if (!authStore.isAuthenticated) {
-    promoDiscountPreview.value = 0
+    validatedPromo.value = null
     setPromoFeedback('info', 'Войдите в аккаунт, чтобы применить промокод')
     return { valid: false, reason: 'auth_required', message: 'Войдите в аккаунт, чтобы применить промокод' }
   }
@@ -1804,16 +1807,16 @@ async function validatePromoCode(options = {}) {
   try {
     const { data } = await axios.post('/api/orders/promo/validate', {
       code,
-      amount: currentAmount
+      amount: currentAmount,
+      userPointsAmount: userPointsToUse.value
     })
 
     if (seq !== promoValidateSeq) {
       return { valid: false, reason: 'stale' }
     }
 
-    const discount = Math.max(0, Number(data?.discountAmount || 0))
-    promoDiscountPreview.value = discount
-    setPromoFeedback('success', `Промокод применён к товарам. Скидка: ${discount.toLocaleString('ru-RU')} ₽`)
+    validatedPromo.value = { discountType: data.discountType, discountValue: data.discountValue }
+    setPromoFeedback('success', 'Промокод применяется к стоимости товаров после списания баллов.')
     return { valid: true, data }
   } catch (e) {
     if (seq !== promoValidateSeq) {
@@ -1821,7 +1824,7 @@ async function validatePromoCode(options = {}) {
     }
 
     const message = e.response?.data?.error || 'Промокод не применён'
-    promoDiscountPreview.value = 0
+    validatedPromo.value = null
     setPromoFeedback('error', message)
     return { valid: false, reason: 'invalid', message }
   } finally {
@@ -2504,7 +2507,7 @@ async function onPickupSelect() {
         country_code: foundCityCountryCode.value
       },
       weight: safeWeight,
-      declared_value: Math.max(0, cartStore.total - promoDiscountPreview.value)
+      declared_value: Math.max(0, cartStore.total - userPointsToUse.value - promoDiscountPreview.value)
     })
     
     if (!selectionStillCurrent()) return false
@@ -2787,9 +2790,17 @@ const totalWithDelivery = computed(() => {
   return cartStore.total + sitePaidDeliveryPrice.value
 })
 
+// Customer points are applied independently of the coupon, so changing one
+// cannot feed back into the other's maximum and silently alter the input.
+const userPointsMaxSpendable = computed(() => Math.max(0, Math.floor(totalWithDelivery.value)))
+const userPointsToUse = computed(() => Math.min(
+  Math.max(0, Math.floor(Number(appliedUserPointsAmount.value) || 0)),
+  Math.max(0, Math.floor(Number(userPointsBalance.value) || 0)),
+  userPointsMaxSpendable.value
+))
+
 const totalWithPromo = computed(() => {
-  const productsAfterPromo = Math.max(0, cartStore.total - promoDiscountPreview.value)
-  return productsAfterPromo + sitePaidDeliveryPrice.value
+  return Math.round(Math.max(0, totalWithDelivery.value - userPointsToUse.value - promoDiscountPreview.value) * 100) / 100
 })
 
 const partnerBonusToUse = computed(() => {
@@ -2797,27 +2808,16 @@ const partnerBonusToUse = computed(() => {
   const requested = Math.max(0, Number(partnerBonusAmount.value) || 0)
   const maxAllowed = Math.min(
     Math.max(0, Number(partnerBalanceAvailable.value || 0)),
-    Math.max(0, Number(totalWithPromo.value || 0))
+    totalWithPromo.value
   )
-  return Math.min(requested, maxAllowed)
+  return Math.round(Math.min(requested, maxAllowed) * 100) / 100
 })
 
 const totalAfterPartnerBonus = computed(() => {
-  return Math.max(0, totalWithPromo.value - partnerBonusToUse.value)
+  return Math.round(Math.max(0, totalWithPromo.value - partnerBonusToUse.value) * 100) / 100
 })
 
-const userPointsToUse = computed(() => {
-  const requested = Math.max(0, Math.floor(Number(appliedUserPointsAmount.value) || 0))
-  const maxAllowed = Math.min(
-    Math.max(0, Number(userPointsBalance.value || 0)),
-    Math.max(0, Number(totalAfterPartnerBonus.value || 0))
-  )
-  return Math.min(requested, maxAllowed)
-})
-
-const totalAfterUserPoints = computed(() => {
-  return Math.max(0, totalAfterPartnerBonus.value - userPointsToUse.value)
-})
+const totalAfterUserPoints = computed(() => totalAfterPartnerBonus.value)
 
 const isFormValid = computed(() => {
   if (isOrderAdditionMode.value) {
@@ -3544,12 +3544,13 @@ watch(
 )
 
 watch(
-  [() => cartStore.total, () => cartStore.totalWeight, () => promoDiscountPreview.value],
-  ([nextTotal, nextWeight, nextDiscount], [previousTotal, previousWeight, previousDiscount]) => {
+  [() => cartStore.total, () => cartStore.totalWeight, () => promoDiscountPreview.value, () => userPointsToUse.value],
+  ([nextTotal, nextWeight, nextDiscount, nextPoints], [previousTotal, previousWeight, previousDiscount, previousPoints]) => {
     if (
       nextTotal === previousTotal &&
       nextWeight === previousWeight &&
-      nextDiscount === previousDiscount
+      nextDiscount === previousDiscount &&
+      nextPoints === previousPoints
     ) return
     if (deliveryType.value !== 'pvz' || !selectedPickupPoint.value || !foundCityCode.value) return
 
@@ -3570,8 +3571,9 @@ watch(
   }
 )
 
-watch(totalWithDelivery, () => {
+watch([totalWithDelivery, userPointsToUse], () => {
   if (!promoCodeNormalized.value || !authStore.isAuthenticated) return
+  promoValidateSeq++
   schedulePromoValidation(250)
 })
 
@@ -3588,16 +3590,16 @@ watch(totalWithPromo, () => {
   }
 })
 
-watch(totalAfterPartnerBonus, () => {
-  if (appliedUserPointsAmount.value > totalAfterPartnerBonus.value) {
-    appliedUserPointsAmount.value = Math.max(0, Math.floor(totalAfterPartnerBonus.value))
+watch(userPointsMaxSpendable, () => {
+  if (appliedUserPointsAmount.value > userPointsMaxSpendable.value) {
+    appliedUserPointsAmount.value = userPointsMaxSpendable.value
     userPointsAmount.value = String(appliedUserPointsAmount.value)
   }
 })
 
 watch(() => authStore.isAuthenticated, (isAuthenticated) => {
   if (!isAuthenticated) {
-    promoDiscountPreview.value = 0
+    validatedPromo.value = null
     if (promoCodeNormalized.value) {
       setPromoFeedback('info', 'Войдите в аккаунт, чтобы применить промокод')
     }
@@ -3983,9 +3985,12 @@ onUnmounted(() => {
 }
 
 .item-image img {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  background: #fff;
 }
 
 .item-placeholder {

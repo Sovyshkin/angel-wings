@@ -21,7 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
       ['CONSULTATIONS', '/consultations'], ['POINTS', '/user-points'],
       ['PARTNERS', '/partners'], ['APPLICATIONS', '/partner-applications'],
       ['PAYOUTS', '/partner-payouts'], ['DEALERS', '/dealers'], ['PROMO', '/promo-codes'],
-      ['EMAIL', '/email-campaigns'], ['CDEK', '/cdek']
+      ['EMAIL', '/email-campaigns'], ['CDEK', '/cdek'], ['FORUM', '/forum']
     ]
     return destinations.find(([section]) => can(section))?.[1] || '/login'
   })

@@ -32,6 +32,28 @@ test('fixed promo is used once, including when the original subtotal capped it',
   }), 100)
 })
 
+test('admin edits preserve points-first discount without consuming points or promo twice', () => {
+  const input = {
+    previousItems: [{ price: 10000, quantity: 1 }],
+    nextItems: [{ price: 10000, quantity: 1 }, { price: 5000, quantity: 1 }],
+    userPointsUsed: 4000, partnerBonusAmount: 1000,
+    previousDiscountAmount: 6200,
+    promoCode: { discountType: 'percentage', discountValue: 20 }
+  }
+  assert.equal(calculateEditedOrderDiscount(input), 7200)
+  assert.equal(calculateEditedOrderDiscount({ ...input, previousItems: input.nextItems, previousDiscountAmount: 7200 }), 7200)
+  assert.equal(calculateEditedOrderDiscount({ ...input, previousItems: input.nextItems, nextItems: input.previousItems, previousDiscountAmount: 7200 }), 6200)
+})
+
+test('a fixed coupon capped after customer points can cover newly added merchandise once', () => {
+  assert.equal(calculateEditedOrderDiscount({
+    previousItems: [{ price: 10000, quantity: 1 }],
+    nextItems: [{ price: 15000, quantity: 1 }],
+    userPointsUsed: 4000, previousDiscountAmount: 10000,
+    promoCode: { discountType: 'fixed', discountValue: 8000 }
+  }), 12000)
+})
+
 test('paid order composition changes its total without changing the existing payment', () => {
   assert.deepEqual(calculateOrderEditAmounts({
     items: [{ price: 1000, quantity: 2 }, { price: 500, quantity: 1 }],
