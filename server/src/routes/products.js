@@ -147,6 +147,45 @@ router.get('/', async (req, res, next) => {
   }
 })
 
+router.post('/cart-prices', async (req, res, next) => {
+  try {
+    const items = req.body?.items
+    if (!Array.isArray(items) || items.length > 100 || items.some(item => !Number.isSafeInteger(Number(item?.productId)) || Number(item.productId) <= 0)) {
+      return res.status(400).json({ error: 'Некорректный состав корзины' })
+    }
+    const ids = [...new Set(items.map(item => Number(item.productId)))]
+    const products = await prisma.product.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, title: true, price: true, stock: true, active: true, specs: true }
+    })
+    const byId = new Map(products.map(product => [product.id, product]))
+    const prices = items.map(item => {
+      const productId = Number(item.productId)
+      const dosage = String(item.selectedDosage || '').trim()
+      const product = byId.get(productId)
+      if (!product || !product.active) return { productId, selectedDosage: dosage || null, status: 'unavailable' }
+      const specs = publicProductSpecs(product.specs)
+      const dosages = Array.isArray(specs.dosages) ? specs.dosages : []
+      const variants = dosages.filter(variant => String(variant?.dosage || '').trim() === dosage)
+      if ((dosages.length && variants.length !== 1) || (!dosages.length && dosage)) {
+        return { productId, selectedDosage: dosage || null, title: product.title, status: 'select_dosage' }
+      }
+      const variant = variants[0]
+      const variantPrice = variant?.price === '' || variant?.price == null ? null : Math.max(0, parseFloat(variant.price) || 0)
+      const price = variantPrice !== null ? variantPrice : Number(product.price)
+      return {
+        productId, selectedDosage: dosage || null, title: product.title,
+        status: 'ok', price,
+        stock: Math.min(Number(product.stock || 0), variant ? Number(variant.quantity || 0) : Number(product.stock || 0))
+      }
+    })
+    res.set('Cache-Control', 'no-store')
+    res.json({ prices })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/:id/recommendations', async (req, res, next) => {
   try {
     const sourceProductId = Number(req.params.id)

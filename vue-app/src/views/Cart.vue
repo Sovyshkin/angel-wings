@@ -176,6 +176,7 @@
       
       <div v-else class="cart__layout">
         <div class="cart__items" data-aos="fade-right" data-aos-delay="100">
+          <div v-if="priceUpdateNotice" class="price-update-notice" role="status">{{ priceUpdateNotice }}</div>
           <div v-if="isOrderAdditionMode" class="addition-mode-card">
             <div class="addition-mode-card__head">
               <span class="addition-mode-card__badge">Дозаказ</span>
@@ -275,6 +276,7 @@
                 >
                   Удалить позицию и выбрать дозировку
                 </button>
+                <button v-else-if="item.priceStatus === 'unavailable'" type="button" class="item-dosage-warning" @click="cartStore.removeItem(item.id, item.selectedDosage)">Удалить недоступный товар</button>
                 <span class="item-category">{{ getCategoryName(item.categories?.[0]?.slug) }}</span>
               </div>
             </div>
@@ -1326,6 +1328,7 @@ const validationErrors = ref([])
 const serverFieldError = ref(null)
 const orderComplete = ref(false)
 const orderError = ref(null)
+const priceUpdateNotice = ref('')
 const lastOrderId = ref(null)
 const completedOrderAddition = ref(false)
 const pendingUnpaidOrder = ref(null)
@@ -1911,6 +1914,7 @@ function getCategoryName(slug) {
 }
 
 function requiresDosageSelection(item) {
+  if (item?.priceStatus === 'select_dosage') return true
   const dosages = item?.specs?.dosages
   if (!Array.isArray(dosages) || dosages.length === 0) return false
   return dosages.filter(variant => String(variant?.dosage || '').trim() === String(item.selectedDosage || '').trim()).length !== 1
@@ -3096,6 +3100,18 @@ async function placeOrder() {
     return
   }
 
+  try {
+    const { changes, problems } = await cartStore.refreshPrices()
+    if (changes.length || problems.length) {
+      priceUpdateNotice.value = [...changes, ...problems].join('. ')
+      orderError.value = `Корзина обновлена. ${priceUpdateNotice.value}. Проверьте товары и повторите оформление.`
+      return
+    }
+  } catch {
+    orderError.value = 'Не удалось проверить актуальные цены товаров. Попробуйте ещё раз.'
+    return
+  }
+
   const itemWithoutDosage = cartStore.items.find(requiresDosageSelection)
   if (itemWithoutDosage) {
     orderError.value = `Выберите существующую дозировку товара «${itemWithoutDosage.title}» в корзине`
@@ -3253,7 +3269,8 @@ async function placeOrder() {
       items: cartStore.items.map(item => ({
         productId: item.id,
         quantity: item.quantity,
-        selectedDosage: item.selectedDosage || null
+        selectedDosage: item.selectedDosage || null,
+        expectedPrice: Number(item.price)
       })),
       customerName: customer.value.name,
       customerEmail: customer.value.email,
@@ -3438,6 +3455,12 @@ async function placeOrder() {
 
 onMounted(async () => {
   await cartStore.syncRecovery()
+  try {
+    const { changes, problems } = await cartStore.refreshPrices()
+    if (changes.length || problems.length) priceUpdateNotice.value = `Корзина обновлена: ${[...changes, ...problems].join('. ')}`
+  } catch {
+    priceUpdateNotice.value = 'Не удалось проверить актуальные цены товаров. Повторите попытку перед оформлением.'
+  }
   refreshPendingUnpaidOrder()
   captureAttributionFromUrl()
   await productStore.fetchCategories()
@@ -3691,6 +3714,20 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   overflow: hidden;
+}
+
+.price-update-notice {
+  padding: 1rem 1.25rem;
+  color: #ffe8ad;
+  background: rgba(176, 119, 27, 0.18);
+  border-bottom: 1px solid rgba(255, 205, 112, 0.35);
+  line-height: 1.5;
+}
+
+:global([data-theme="light"] .price-update-notice) {
+  color: #68430d;
+  background: #fff2d3;
+  border-bottom-color: #e7c886;
 }
 
 .cart__recommendations {

@@ -22,12 +22,13 @@ test('checkout spends customer points before promo and partner profit after prom
   })
   const schema = spawnSync('sqlite3', ['-batch', databasePath], { input: sql, encoding: 'utf8' })
   assert.equal(schema.status, 0, schema.stderr)
-  const [{ default: orders }, { default: adminRoutes }] = await Promise.all([import('./orders.js'), import('./admin.js')])
+  const [{ default: orders }, { default: adminRoutes }, { default: productRoutes }] = await Promise.all([import('./orders.js'), import('./admin.js'), import('./products.js')])
   const db = new PrismaClient()
   const app = express()
   app.use(express.json())
   app.use('/api/orders', orders)
   app.use('/api/admin', adminRoutes)
+  app.use('/api/products', productRoutes)
   app.use((error, _req, res, _next) => res.status(error.status || 500).json({ error: error.message }))
   const server = await new Promise(resolve => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)) })
   const request = async (user, path, body, method = 'POST') => {
@@ -44,7 +45,28 @@ test('checkout spends customer points before promo and partner profit after prom
     const referral = await db.partner.create({ data: { userId: owner.id, referralCode: 'DISCOUNT-REF', percentage: 10 } })
     const promo = await db.promoCode.create({ data: { code: 'TWENTY', discountType: 'percentage', discountValue: 20, usageType: 'multi', maxActivations: 0, partnerId: referral.id } })
     const product = await db.product.create({ data: { title: 'Test product', slug: 'checkout-discounts', description: '', price: 10000, stock: 30 } })
+    const pricedDosage = await db.product.create({ data: {
+      title: 'Dose priced', slug: 'dose-priced', description: '', price: 15000, stock: 4,
+      specs: JSON.stringify({ dosages: [{ dosage: '30мг/3мл', quantity: 4, price: 16000 }] })
+    } })
     const buyer = await createUser('buyer', { pointsBalance: 4000 })
+    const priceCheck = await request(buyer, '/api/products/cart-prices', { items: [
+      { productId: pricedDosage.id, selectedDosage: '30мг/3мл' },
+      { productId: pricedDosage.id, selectedDosage: null },
+      { productId: product.id, selectedDosage: null }
+    ] })
+    assert.equal(priceCheck.status, 200)
+    assert.deepEqual(priceCheck.body.prices.map(item => [item.status, item.price ?? null]), [
+      ['ok', 16000], ['select_dosage', null], ['ok', 10000]
+    ])
+    const stalePriceOrder = await request(buyer, '/api/orders', {
+      customerName: buyer.name, customerEmail: buyer.email, customerPhone: '+79990000000',
+      delivery: { type: 'self_pickup', price: 0 },
+      items: [{ productId: pricedDosage.id, selectedDosage: '30мг/3мл', quantity: 1, expectedPrice: 15000 }]
+    })
+    assert.equal(stalePriceOrder.status, 409)
+    assert.equal(stalePriceOrder.body.code, 'PRICE_CHANGED')
+    assert.equal(await db.order.count({ where: { userId: buyer.id } }), 0)
     const payload = (user, extra = {}) => ({
       customerName: user.name, customerEmail: user.email, customerPhone: '+79990000000',
       items: [{ productId: product.id, quantity: 1 }], delivery: { type: 'self_pickup', price: 0 },

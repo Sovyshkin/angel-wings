@@ -722,6 +722,13 @@ router.post('/', authenticate, async (req, res, next) => {
 
       const dosagePrice = getDosagePriceFromSpecs(product, item.selectedDosage)
       const price = dosagePrice !== null ? dosagePrice : parseFloat(product.price)
+      if (item.expectedPrice !== undefined && Math.round(Number(item.expectedPrice) * 100) !== Math.round(price * 100)) {
+        return res.status(409).json({
+          error: `Цена товара «${product.title}» изменилась. Проверьте корзину и повторите оформление.`,
+          code: 'PRICE_CHANGED',
+          productId: product.id
+        })
+      }
       total += price * item.quantity
       orderItems.push({
         productId: item.productId,

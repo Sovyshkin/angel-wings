@@ -109,6 +109,40 @@ export const useCartStore = defineStore('cart', () => {
     scheduleRecoverySync()
   }
 
+  async function refreshPrices() {
+    if (!items.value.length) return { changes: [], problems: [] }
+    const { data } = await axios.post('/api/products/cart-prices', {
+      items: items.value.map(item => ({ productId: item.id, selectedDosage: item.selectedDosage || null }))
+    })
+    if (!Array.isArray(data.prices) || data.prices.length !== items.value.length) throw new Error('Не удалось проверить цены товаров')
+    const changes = []
+    const problems = []
+    let updated = false
+    for (const line of data.prices) {
+      const item = items.value.find(value => value.id === line.productId && (value.selectedDosage || null) === line.selectedDosage)
+      if (!item) continue
+      if (item.priceStatus !== line.status) {
+        item.priceStatus = line.status
+        updated = true
+      }
+      if (line.status !== 'ok') {
+        problems.push(line.status === 'select_dosage'
+          ? `Выберите актуальную дозировку товара «${line.title || item.title}» в каталоге`
+          : `Товар «${item.title}» больше недоступен`)
+        continue
+      }
+      const currentPrice = Number(line.price)
+      if (!Number.isFinite(currentPrice) || currentPrice < 0) continue
+      if (Math.round(Number(item.price) * 100) !== Math.round(currentPrice * 100)) {
+        changes.push(`${item.title}: ${Number(item.price).toLocaleString('ru-RU')} → ${currentPrice.toLocaleString('ru-RU')} ₽`)
+        item.price = currentPrice
+        updated = true
+      }
+    }
+    if (updated) save()
+    return { changes, problems }
+  }
+
   function getMarketingConsent() {
     return localStorage.getItem('peptidi_marketing_consent') === 'true'
   }
@@ -144,6 +178,6 @@ export const useCartStore = defineStore('cart', () => {
     lastAddedId, delivery, deliveryPrice, deliveryMethods,
     addItem, removeItem, updateQuantity, clear, 
     setDelivery, setDeliveryPrice, setDeliveryMethods, saveDelivery,
-    syncRecovery, setMarketingConsent
+    syncRecovery, setMarketingConsent, refreshPrices
   }
 })
