@@ -1463,11 +1463,18 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
     const order = await prisma.$transaction(async (tx) => {
       const previousOrder = await tx.order.findUnique({
         where: { id: orderId },
-        select: { id: true, userId: true, status: true, userPointsUsed: true }
+        select: {
+          id: true, userId: true, status: true, createdAt: true,
+          userPointsUsed: true, partnerBonusAmount: true, promoCodeId: true,
+          items: { select: { productId: true, dosage: true, quantity: true, dosageStockDeducted: true } }
+        }
       })
 
       if (!previousOrder) {
         throw Object.assign(new Error('Заказ не найден'), { status: 404 })
+      }
+      if (previousOrder.status === 'CANCELLED' && normalizedStatus !== 'CANCELLED') {
+        throw Object.assign(new Error('Отменённый заказ нельзя возобновить. Создайте новый заказ.'), { status: 409 })
       }
 
       const updatedOrder = await tx.order.update({
@@ -1487,6 +1494,64 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
           order: previousOrder,
           createdById: req.user.id
         })
+      }
+
+      if (normalizedStatus === 'CANCELLED' && previousOrder.status !== 'CANCELLED') {
+        await applyOrderStockChanges(tx, previousOrder.items.map(item => ({
+          productId: item.productId,
+          dosage: item.dosage,
+          quantity: item.quantity,
+          variantQuantity: item.dosageStockDeducted
+        })))
+
+        if (previousOrder.promoCodeId) {
+          await tx.promoCode.updateMany({
+            where: { id: previousOrder.promoCodeId, activationCount: { gt: 0 } },
+            data: { activationCount: { decrement: 1 } }
+          })
+        }
+
+        if (Number(previousOrder.partnerBonusAmount || 0) > 0) {
+          let spend = await tx.partnerPayment.findUnique({ where: { orderId } })
+          if (!spend) {
+            const partner = await tx.partner.findUnique({ where: { userId: previousOrder.userId }, select: { id: true } })
+            const candidates = partner ? await tx.partnerPayment.findMany({
+              where: {
+                partnerId: partner.id,
+                orderId: null,
+                type: 'ORDER_SPEND',
+                status: 'SPENT_ON_ORDER',
+                amount: previousOrder.partnerBonusAmount,
+                createdAt: {
+                  gte: new Date(previousOrder.createdAt.getTime() - 60_000),
+                  lte: new Date(previousOrder.createdAt.getTime() + 60_000)
+                }
+              },
+              take: 2
+            }) : []
+            const similarOrders = candidates.length === 1 ? await tx.order.count({
+              where: {
+                id: { not: orderId },
+                userId: previousOrder.userId,
+                partnerBonusAmount: previousOrder.partnerBonusAmount,
+                createdAt: {
+                  gte: new Date(previousOrder.createdAt.getTime() - 60_000),
+                  lte: new Date(previousOrder.createdAt.getTime() + 60_000)
+                }
+              }
+            }) : 0
+            if (candidates.length === 1 && similarOrders === 0) {
+              spend = await tx.partnerPayment.update({ where: { id: candidates[0].id }, data: { orderId } })
+            }
+          }
+          if (!spend || spend.type !== 'ORDER_SPEND' || spend.status !== 'SPENT_ON_ORDER' || Number(spend.amount) !== Number(previousOrder.partnerBonusAmount)) {
+            throw Object.assign(new Error('Не удалось однозначно найти списание партнёрского баланса для возврата'), { status: 409 })
+          }
+          await tx.partnerPayment.update({
+            where: { id: spend.id },
+            data: { status: 'ORDER_SPEND_REFUNDED', comment: `Возврат по отменённому заказу #${orderId}` }
+          })
+        }
       }
 
       await syncPartnerCommissionForOrder(tx, orderId)

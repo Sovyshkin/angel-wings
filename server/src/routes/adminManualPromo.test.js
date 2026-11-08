@@ -250,9 +250,9 @@ test('manual order promo discounts once and credits the partner, but never grant
     assert.equal(payCancelled.status, 200)
     assert.equal(await db.partnerCommission.count({ where: { orderId: order.id } }), 0)
     assert.equal((await calculatePartnerBalance(db, partner.id)).totalCommissions, 174.9)
-    assert.equal((await changeStatus(order.id, 'PROCESSING')).status, 200)
-    assert.equal((await db.partnerCommission.findUnique({ where: { orderId: order.id } })).amount, 90)
-    assert.equal((await calculatePartnerBalance(db, partner.id)).totalCommissions, 264.9)
+    assert.equal((await changeStatus(order.id, 'PROCESSING')).status, 409)
+    assert.equal(await db.partnerCommission.count({ where: { orderId: order.id } }), 0)
+    assert.equal((await calculatePartnerBalance(db, partner.id)).totalCommissions, 174.9)
   } finally {
     await db.$disconnect()
     await new Promise(resolve => server.close(resolve))

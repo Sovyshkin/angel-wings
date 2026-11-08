@@ -712,6 +712,7 @@ model PartnerPayment {
   id          Int       @id @default(autoincrement())
   partnerId   Int
   partner     Partner   @relation(fields: [partnerId], references: [id])
+  orderId     Int?      @unique
   amount      Float
   status      String    @default("PENDING")
   type        String    @default("PAYOUT")

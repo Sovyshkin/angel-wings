@@ -491,18 +491,20 @@ router.get('/cabinet/transactions', authenticate, requirePartner, async (req, re
         type: payment.type || 'PAYOUT',
         direction: payment.type === 'ADMIN_CREDIT'
           ? 'INCOME'
-          : payment.status === 'PAYOUT_REJECTED'
+          : ['PAYOUT_REJECTED', 'ORDER_SPEND_REFUNDED'].includes(payment.status)
             ? 'NEUTRAL'
             : 'OUTCOME',
         status: payment.status,
         amount: payment.amount,
-        title: payment.type === 'ADMIN_CREDIT'
-          ? 'Начисление баллов'
-          : payment.type === 'ADMIN_DEBIT'
-            ? 'Ручное списание'
-            : payment.type === 'ORDER_SPEND' || payment.status === 'SPENT_ON_ORDER'
-              ? 'Списание на покупку'
-              : 'Заявка на вывод',
+        title: payment.status === 'ORDER_SPEND_REFUNDED'
+          ? 'Списание возвращено после отмены заказа'
+          : payment.type === 'ADMIN_CREDIT'
+            ? 'Начисление баллов'
+            : payment.type === 'ADMIN_DEBIT'
+              ? 'Ручное списание'
+              : payment.type === 'ORDER_SPEND' || payment.status === 'SPENT_ON_ORDER'
+                ? 'Списание на покупку'
+                : 'Заявка на вывод',
         description: payment.comment || null,
         comment: payment.comment || parsePaymentDetails(payment.details)?.comment || null,
         details: parsePaymentDetails(payment.details),

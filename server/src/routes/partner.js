@@ -750,20 +750,23 @@ router.get('/:id/transactions', authenticate, requireAdmin, async (req, res, nex
       ...payments.map(payment => {
         const details = parsePaymentDetails(payment.details)
         const isRejected = payment.status === 'PAYOUT_REJECTED'
+        const isRefundedSpend = payment.status === 'ORDER_SPEND_REFUNDED'
         const paymentDirection = payment.type === 'ADMIN_CREDIT'
           ? 'INCOME'
-          : isRejected ? 'NEUTRAL' : 'OUTCOME'
-        const title = payment.type === 'ADMIN_CREDIT'
-          ? 'Начисление баллов администратором'
-          : payment.type === 'ADMIN_DEBIT'
-            ? 'Списание баллов администратором'
-            : payment.type === 'ORDER_SPEND' || payment.status === 'SPENT_ON_ORDER'
-              ? 'Оплата заказа баллами'
-              : isRejected
-                ? 'Заявка на вывод отклонена'
-                : payment.status === 'PAYOUT_REQUESTED' || payment.status === 'PENDING'
-                  ? 'Баллы зарезервированы для вывода'
-                  : 'Вывод партнёрских баллов'
+          : isRejected || isRefundedSpend ? 'NEUTRAL' : 'OUTCOME'
+        const title = isRefundedSpend
+          ? 'Списание возвращено после отмены заказа'
+          : payment.type === 'ADMIN_CREDIT'
+            ? 'Начисление баллов администратором'
+            : payment.type === 'ADMIN_DEBIT'
+              ? 'Списание баллов администратором'
+              : payment.type === 'ORDER_SPEND' || payment.status === 'SPENT_ON_ORDER'
+                ? 'Оплата заказа баллами'
+                : isRejected
+                  ? 'Заявка на вывод отклонена'
+                  : payment.status === 'PAYOUT_REQUESTED' || payment.status === 'PENDING'
+                    ? 'Баллы зарезервированы для вывода'
+                    : 'Вывод партнёрских баллов'
 
         return {
           id: `payment-${payment.id}`,

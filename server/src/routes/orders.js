@@ -745,6 +745,7 @@ router.post('/', authenticate, async (req, res, next) => {
     const requestedPartnerBonusAmount = Math.max(0, Number(partnerBonusAmount) || 0)
     const requestedUserPointsAmount = normalizePointAmount(userPointsAmount)
     let partnerBonusUsed = 0
+      let spendingPartnerId = null
     let userPointsUsed = 0
     let appliedPromoCode = null
     let promoCodeId = null
@@ -900,6 +901,7 @@ router.post('/', authenticate, async (req, res, next) => {
         if (!userPartner || !userPartner.isActive) {
           throw createClientError('Партнёрский баланс недоступен для этого аккаунта')
         }
+        spendingPartnerId = userPartner.id
 
         const partnerBalance = await calculatePartnerBalance(tx, userPartner.id)
         partnerBonusUsed = Math.min(
@@ -911,16 +913,6 @@ router.post('/', authenticate, async (req, res, next) => {
         if (partnerBonusUsed <= 0) {
           throw createClientError('Недостаточно партнёрского баланса для списания')
         }
-
-        await tx.partnerPayment.create({
-          data: {
-            partnerId: userPartner.id,
-            amount: partnerBonusUsed,
-            type: 'ORDER_SPEND',
-            status: 'SPENT_ON_ORDER',
-            paidAt: new Date()
-          }
-        })
       }
 
       const totalDiscountAmount = promoDiscountAmount + partnerBonusUsed + userPointsUsed
@@ -974,6 +966,19 @@ router.post('/', authenticate, async (req, res, next) => {
         createdOrder = await tx.order.create({
           data: orderCreateData,
           include: ORDER_INCLUDE
+        })
+      }
+
+      if (partnerBonusUsed > 0) {
+        await tx.partnerPayment.create({
+          data: {
+            partnerId: spendingPartnerId,
+            orderId: createdOrder.id,
+            amount: partnerBonusUsed,
+            type: 'ORDER_SPEND',
+            status: 'SPENT_ON_ORDER',
+            paidAt: new Date()
+          }
         })
       }
 

@@ -9,6 +9,7 @@ import express from 'express'
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
+import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 
 test('checkout spends customer points before promo and partner profit after promo, atomically and once', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'angel-checkout-discounts-'))
@@ -142,6 +143,55 @@ test('checkout spends customer points before promo and partner profit after prom
     const appliedLater = await request(admin, `/api/admin/orders/${laterOrder.id}/promo`, { promoCode: promo.code, expectedEditVersion: laterOrder.editVersion, expectedUpdatedAt: laterOrder.updatedAt.toISOString() })
     assert.equal(appliedLater.status, 200, JSON.stringify(appliedLater.body))
     assert.equal((await db.order.findUnique({ where: { id: laterOrder.id } })).total, 4800)
+
+    const stockBeforeCancel = (await db.product.findUnique({ where: { id: product.id } })).stock
+    const activationsBeforeCancel = (await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount
+    const balanceBeforeCancel = (await calculatePartnerBalance(db, partner.id)).availableBalance
+    const cancel = () => request(admin, `/api/admin/orders/${edited.id}/status`, { status: 'CANCELLED' }, 'PUT')
+    assert.equal((await cancel()).status, 200)
+    assert.equal((await db.product.findUnique({ where: { id: product.id } })).stock, stockBeforeCancel + 2)
+    assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, activationsBeforeCancel - 1)
+    assert.equal((await calculatePartnerBalance(db, partner.id)).availableBalance, balanceBeforeCancel + 1000)
+    assert.equal((await db.partnerPayment.findUnique({ where: { orderId: edited.id } })).status, 'ORDER_SPEND_REFUNDED')
+    assert.equal((await db.user.findUnique({ where: { id: partnerUser.id } })).pointsBalance, 4000)
+    assert.equal((await cancel()).status, 200)
+    assert.equal((await db.product.findUnique({ where: { id: product.id } })).stock, stockBeforeCancel + 2)
+    assert.equal((await calculatePartnerBalance(db, partner.id)).availableBalance, balanceBeforeCancel + 1000)
+
+    await db.partnerPayment.update({ where: { orderId: profitOnly.body.order.id }, data: { orderId: null } })
+    const legacySpendCancel = await request(admin, `/api/admin/orders/${profitOnly.body.order.id}/status`, { status: 'CANCELLED' }, 'PUT')
+    assert.equal(legacySpendCancel.status, 200, JSON.stringify(legacySpendCancel.body))
+    assert.equal((await db.partnerPayment.findUnique({ where: { orderId: profitOnly.body.order.id } })).status, 'ORDER_SPEND_REFUNDED')
+    assert.equal((await calculatePartnerBalance(db, partner.id)).availableBalance, balanceBeforeCancel + 5000)
+
+    const singlePromo = await db.promoCode.create({ data: {
+      code: 'SINGLE-CANCEL', discountType: 'fixed', discountValue: 500,
+      usageType: 'single', partnerId: referral.id
+    } })
+    const singleBuyer = await createUser('single-buyer')
+    const singleOrder = await request(singleBuyer, '/api/orders', payload(singleBuyer, { promoCode: singlePromo.code }))
+    assert.equal(singleOrder.status, 201, JSON.stringify(singleOrder.body))
+    assert.equal((await db.promoCode.findUnique({ where: { id: singlePromo.id } })).activationCount, 1)
+    assert.equal((await request(admin, `/api/admin/orders/${singleOrder.body.order.id}/status`, { status: 'CANCELLED' }, 'PUT')).status, 200)
+    assert.equal((await db.promoCode.findUnique({ where: { id: singlePromo.id } })).activationCount, 0)
+    const reusedSinglePromo = await request(singleBuyer, '/api/orders', payload(singleBuyer, { promoCode: singlePromo.code }))
+    assert.equal(reusedSinglePromo.status, 201, JSON.stringify(reusedSinglePromo.body))
+    assert.equal((await db.promoCode.findUnique({ where: { id: singlePromo.id } })).activationCount, 1)
+
+    const dosageProduct = await db.product.create({ data: {
+      title: 'Dosage', slug: 'cancel-dosage', description: '', price: 1000, stock: 3,
+      specs: JSON.stringify({ dosages: [{ dosage: '20 мг', quantity: 3 }] })
+    } })
+    const dosageBuyer = await createUser('dosage-buyer')
+    const dosageOrder = await request(dosageBuyer, '/api/orders', payload(dosageBuyer, {
+      promoCode: '', items: [{ productId: dosageProduct.id, selectedDosage: '20 мг', quantity: 2 }]
+    }))
+    assert.equal(dosageOrder.status, 201, JSON.stringify(dosageOrder.body))
+    assert.equal((await db.product.findUnique({ where: { id: dosageProduct.id } })).stock, 1)
+    assert.equal((await request(admin, `/api/admin/orders/${dosageOrder.body.order.id}/status`, { status: 'CANCELLED' }, 'PUT')).status, 200)
+    const restoredDosage = await db.product.findUnique({ where: { id: dosageProduct.id } })
+    assert.equal(restoredDosage.stock, 3)
+    assert.equal(JSON.parse(restoredDosage.specs).dosages[0].quantity, 3)
   } finally {
     await new Promise(resolve => server.close(resolve))
     await db.$disconnect()
