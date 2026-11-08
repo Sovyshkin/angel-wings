@@ -50,6 +50,10 @@ test('checkout spends customer points before promo and partner profit after prom
       items: [{ productId: product.id, quantity: 1 }], delivery: { type: 'self_pickup', price: 0 },
       promoCode: promo.code, ...extra
     })
+    const invalidEmail = await request(buyer, '/api/orders', payload(buyer, { customerEmail: 'invalid' }))
+    assert.equal(invalidEmail.status, 400)
+    assert.deepEqual(invalidEmail.body, { error: 'Укажите корректный email для чека', field: 'customerEmail' })
+    assert.equal(await db.order.count({ where: { userId: buyer.id } }), 0)
     const preview = await request(buyer, '/api/orders/promo/validate', { code: promo.code, amount: 10000, userPointsAmount: 4000 })
     assert.equal(preview.status, 200, JSON.stringify(preview.body))
     assert.equal(preview.body.discountAmount, 1200)

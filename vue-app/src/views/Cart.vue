@@ -867,7 +867,7 @@
                   ref="courierAddressInputRef"
                   v-model="addressInput" 
                   class="input"
-                  :class="{ 'input--error': (showValidationErrors && isCourierAddressMissing) || Boolean(courierAddressError) }"
+                  :class="{ 'input--error': (showValidationErrors && (isCourierAddressMissing || serverFieldError === 'shippingAddress')) || Boolean(courierAddressError) }"
                   rows="3" 
                   placeholder="Например: Москва, Тверская улица, дом 7, корпус 1"
                 ></textarea>
@@ -961,14 +961,14 @@
               <div class="checkout-form__contacts">
                 <div class="form-group">
                   <label for="checkout-name">Имя <span class="required-mark">*</span></label>
-                  <div class="checkout-glass-field" :class="{ 'checkout-glass-field--error': showValidationErrors && isNameMissing }">
+                  <div class="checkout-glass-field" :class="{ 'checkout-glass-field--error': showValidationErrors && (isNameMissing || serverFieldError === 'customerName') }">
                     <img src="/checkout-assets/icon-user.svg" alt="" aria-hidden="true">
-                    <input id="checkout-name" ref="nameInputRef" v-model="customer.name" type="text" placeholder="Иван Иванов" :readonly="authStore.isAuthenticated" autocomplete="name" required>
+                    <input id="checkout-name" ref="nameInputRef" v-model="customer.name" type="text" placeholder="Иван Иванов" autocomplete="name" required>
                   </div>
                 </div>
                 <div class="form-group">
                   <label for="checkout-phone">Телефон <span class="required-mark">*</span></label>
-                  <div class="checkout-glass-field" :class="{ 'checkout-glass-field--error': showValidationErrors && (isPhoneMissing || isPhoneInvalid) }">
+                  <div class="checkout-glass-field" :class="{ 'checkout-glass-field--error': showValidationErrors && (isPhoneMissing || isPhoneInvalid || serverFieldError === 'customerPhone') }">
                     <img src="/checkout-assets/icon-phone.svg" alt="" aria-hidden="true">
                     <input id="checkout-phone" ref="phoneInputRef" v-model="customer.phone" type="tel" placeholder="+7 966 179-00-13" autocomplete="tel" required>
                   </div>
@@ -976,10 +976,11 @@
                 </div>
                 <div class="form-group">
                   <label for="checkout-email">Email для чека <span class="required-mark">*</span></label>
-                  <div class="checkout-glass-field" :class="{ 'checkout-glass-field--error': showValidationErrors && isEmailMissing }">
+                  <div class="checkout-glass-field" :class="{ 'checkout-glass-field--error': showValidationErrors && (isEmailMissing || isEmailInvalid || serverFieldError === 'customerEmail') }">
                     <img src="/checkout-assets/icon-email.svg" alt="" aria-hidden="true">
                     <input id="checkout-email" ref="emailInputRef" v-model="customer.email" type="email" placeholder="example@mail.ru" autocomplete="email" required>
                   </div>
+                  <p v-if="showValidationErrors && isEmailInvalid" class="field-error">Укажите корректный email для чека</p>
                 </div>
               </div>
               <div class="form-group checkout-form__comment">
@@ -1322,6 +1323,7 @@ const validatingPromo = ref(false)
 const ordering = ref(false)
 const paymentRedirecting = ref(false)
 const validationErrors = ref([])
+const serverFieldError = ref(null)
 const orderComplete = ref(false)
 const orderError = ref(null)
 const lastOrderId = ref(null)
@@ -1407,6 +1409,7 @@ const isPhoneInvalid = computed(() => {
   return !isPhoneMissing.value && !normalizedCustomerPhone.value
 })
 const isEmailMissing = computed(() => !String(customer.value.email || '').trim())
+const isEmailInvalid = computed(() => !isEmailMissing.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(customer.value.email || '').trim()))
 const isCourierAddressMissing = computed(() => {
   return deliveryType.value === 'courier' && !String(courierAddress.value || '').trim()
 })
@@ -2824,7 +2827,7 @@ const isFormValid = computed(() => {
     return Boolean(additionOrder.value?.id) && cartStore.items.length > 0
   }
 
-  const hasContact = customer.value.name && normalizedCustomerPhone.value && customer.value.email
+  const hasContact = customer.value.name && normalizedCustomerPhone.value && customer.value.email && !isEmailInvalid.value
   const hasDelivery = ENABLE_CDEK
     ? (deliveryType.value === 'pvz' ? selectedPickupPoint.value : (deliveryType.value === 'courier' ? courierAddress.value : true))
     : true
@@ -2858,6 +2861,8 @@ function getValidationErrors() {
   }
   if (!String(customer.value.email || '').trim()) {
     errors.push('Укажите email')
+  } else if (isEmailInvalid.value) {
+    errors.push('Укажите корректный email для чека')
   }
 
   if (ENABLE_CDEK) {
@@ -2902,6 +2907,13 @@ function focusAndScrollToField(elementRef) {
 }
 
 function scrollToFirstInvalidField() {
+  if (serverFieldError.value) {
+    const refs = { customerName: nameInputRef, customerPhone: phoneInputRef, customerEmail: emailInputRef, shippingAddress: courierAddressInputRef }
+    if (refs[serverFieldError.value]) {
+      focusAndScrollToField(refs[serverFieldError.value])
+      return
+    }
+  }
   if (courierDetailsError.value && courierApartmentInputRef.value) {
     focusAndScrollToField(courierApartmentInputRef)
     return
@@ -3077,6 +3089,7 @@ async function copyCheckoutSupportText() {
 
 async function placeOrder() {
   showCheckoutSupportNotice.value = false
+  serverFieldError.value = null
 
   if (!isOrderAdditionMode.value && pendingUnpaidOrder.value?.orderId) {
     await continuePendingOrderPayment()
@@ -3404,7 +3417,16 @@ async function placeOrder() {
       orderComplete.value = false
     }, 10000)
   } catch (e) {
-    orderError.value = e.response?.data?.error || e.response?.data?.message || e.message || 'Ошибка оформления заказа'
+    const responseError = e.response?.data
+    if (['customerName', 'customerPhone', 'customerEmail', 'shippingAddress'].includes(responseError?.field)) {
+      serverFieldError.value = responseError.field
+      if (responseError.field === 'shippingAddress') courierAddressError.value = responseError.error
+      validationErrors.value = [responseError.error || 'Проверьте выделенное поле']
+      scrollToFirstInvalidField()
+    } else {
+      orderError.value = responseError?.error || responseError?.message || e.message || 'Ошибка оформления заказа'
+      if (responseError?.errorId) orderError.value += ` Код: ${responseError.errorId}`
+    }
     showCheckoutSupport()
     paymentRedirecting.value = false
   } finally {

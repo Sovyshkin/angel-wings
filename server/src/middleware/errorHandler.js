@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 function getFieldLabel(field) {
   const labels = {
     slug: 'URL-адрес',
@@ -32,15 +34,20 @@ function getPrismaErrorMessage(err) {
     return 'Запись не найдена или уже была удалена.'
   }
 
-  if (err.name === 'PrismaClientValidationError') {
-    return 'Некорректные данные. Проверьте заполненные поля и попробуйте снова.'
-  }
-
   return null
 }
 
 export const errorHandler = (err, req, res, next) => {
-  console.error(err.stack || err)
+  const errorId = randomUUID()
+  console.error('[API_ERROR]', JSON.stringify({ errorId, method: req.method, path: req.originalUrl, userId: req.user?.id || null }), err.stack || err)
+
+  if (err.name === 'PrismaClientValidationError' || err.code === 'P2022') {
+    return res.status(500).json({
+      error: 'Ошибка сервера при обработке запроса. Сообщите поддержке код ошибки.',
+      code: 'SERVER_DATA_ERROR',
+      errorId
+    })
+  }
 
   if (err.code === 'EMAIL_DELIVERY_FAILED' || err.name === 'EmailDeliveryError') {
     return res.status(503).json({

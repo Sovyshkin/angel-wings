@@ -633,13 +633,21 @@ router.post('/', authenticate, async (req, res, next) => {
       }
     }
 
-    if (!items || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Корзина пуста' })
+    }
+
+    if (!String(customerName || '').trim()) {
+      return res.status(400).json({ error: 'Укажите имя получателя', field: 'customerName' })
+    }
+    const normalizedCustomerEmail = String(customerEmail || '').trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedCustomerEmail) || normalizedCustomerEmail.length > 254) {
+      return res.status(400).json({ error: 'Укажите корректный email для чека', field: 'customerEmail' })
     }
 
     const normalizedCustomerPhone = normalizeRussianPhone(customerPhone)
     if (!normalizedCustomerPhone) {
-      return res.status(400).json({ error: 'Укажите корректный номер телефона в формате +7 999 999-99-99' })
+      return res.status(400).json({ error: 'Укажите корректный номер телефона в формате +7 999 999-99-99', field: 'customerPhone' })
     }
 
     const normalizedDeliveryType = String(delivery?.type || '').trim()
@@ -674,21 +682,21 @@ router.post('/', authenticate, async (req, res, next) => {
 
     if (isCashOnDelivery && !isInternalMoscowCourier) {
       return res.status(400).json({
-        error: 'Оплата наличными доступна только для курьерской доставки по Москве'
+        error: 'Оплата наличными доступна только для курьерской доставки по Москве', field: 'paymentMethod'
       })
     }
 
     if (isInternalMoscowCourier) {
       const courierAddress = String(delivery?.address || shippingAddress || '').trim()
       if (!courierAddress) {
-        return res.status(400).json({ error: 'Для курьерской доставки по Москве укажите адрес' })
+        return res.status(400).json({ error: 'Для курьерской доставки по Москве укажите адрес', field: 'shippingAddress' })
       }
 
       const addressValidation = await yandexGeocoder.validateMoscowCourierAddress(courierAddress)
       if (!addressValidation.valid) {
         return res.status(400).json({
           error: addressValidation.message || 'Адрес курьерской доставки не прошёл проверку',
-          code: addressValidation.code || 'INVALID_COURIER_ADDRESS'
+          code: addressValidation.code || 'INVALID_COURIER_ADDRESS', field: 'shippingAddress'
         })
       }
 
@@ -919,7 +927,7 @@ router.post('/', authenticate, async (req, res, next) => {
       const finalOrderTotal = Math.round(Math.max(0, itemsSubtotal + sitePaidDeliveryPrice - totalDiscountAmount) * 100) / 100
       const orderCreateData = {
         customerName,
-        customerEmail,
+        customerEmail: normalizedCustomerEmail,
         customerPhone: normalizedCustomerPhone,
         shippingAddress: validatedCourierAddress || shippingAddress || delivery?.address || null,
         notes,
