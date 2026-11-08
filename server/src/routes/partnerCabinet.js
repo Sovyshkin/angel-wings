@@ -71,7 +71,7 @@ router.get('/cabinet/stats', authenticate, requirePartner, async (req, res, next
       prisma.partnerCommission.aggregate({
         where: {
           partnerId: partner.id,
-          order: { paymentStatus: 'PAID' }
+          order: { paymentStatus: 'PAID', status: { notIn: ['CANCELLED', 'RETURNED'] } }
         },
         _sum: { amount: true },
         _count: true
@@ -456,7 +456,7 @@ router.get('/cabinet/transactions', authenticate, requirePartner, async (req, re
       prisma.partnerCommission.findMany({
         where: {
           partnerId: partner.id,
-          order: { paymentStatus: 'PAID' }
+          order: { paymentStatus: 'PAID', status: { notIn: ['CANCELLED', 'RETURNED'] } }
         },
         include: {
           order: { select: { id: true, customerName: true, total: true, deliveryPrice: true } }
@@ -564,7 +564,7 @@ router.get('/cabinet/daily-stats', authenticate, requirePartner, async (req, res
       where: {
         partnerId: partner.id,
         createdAt: { gte: startDate },
-        order: { paymentStatus: 'PAID' }
+        order: { paymentStatus: 'PAID', status: { notIn: ['CANCELLED', 'RETURNED'] } }
       },
       select: {
         createdAt: true,

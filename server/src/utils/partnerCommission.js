@@ -14,6 +14,7 @@ export async function ensurePartnerCommissionForPaidOrder(prismaLike, orderId) {
       id: true,
       userId: true,
       partnerId: true,
+      status: true,
       paymentStatus: true,
       total: true,
       unbilledAdjustment: true,
@@ -26,7 +27,7 @@ export async function ensurePartnerCommissionForPaidOrder(prismaLike, orderId) {
   })
 
   if (!order || !order.partnerId || !order.userId) return null
-  if (normalizePaymentStatus(order.paymentStatus) !== PAID_PAYMENT_STATUS) return null
+  if (normalizePaymentStatus(order.paymentStatus) !== PAID_PAYMENT_STATUS || ['CANCELLED', 'RETURNED'].includes(order.status)) return null
 
   const partner = await prismaLike.partner.findUnique({
     where: { id: order.partnerId },
@@ -70,12 +71,12 @@ export async function syncPartnerCommissionForOrder(prismaLike, orderId) {
 
   const order = await prismaLike.order.findUnique({
     where: { id: safeOrderId },
-    select: { id: true, paymentStatus: true }
+    select: { id: true, status: true, paymentStatus: true }
   })
 
   if (!order) return null
 
-  if (normalizePaymentStatus(order.paymentStatus) === PAID_PAYMENT_STATUS) {
+  if (normalizePaymentStatus(order.paymentStatus) === PAID_PAYMENT_STATUS && !['CANCELLED', 'RETURNED'].includes(order.status)) {
     return ensurePartnerCommissionForPaidOrder(prismaLike, order.id)
   }
 

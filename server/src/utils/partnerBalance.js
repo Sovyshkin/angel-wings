@@ -21,7 +21,7 @@ export async function calculatePartnerBalance(prismaLike, partnerId) {
     prismaLike.partnerCommission.aggregate({
       where: {
         partnerId: safePartnerId,
-        order: { paymentStatus: 'PAID' }
+        order: { paymentStatus: 'PAID', status: { notIn: ['CANCELLED', 'RETURNED'] } }
       },
       _sum: { amount: true }
     }),

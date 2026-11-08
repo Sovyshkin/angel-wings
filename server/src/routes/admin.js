@@ -1489,6 +1489,8 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
         })
       }
 
+      await syncPartnerCommissionForOrder(tx, orderId)
+
       return updatedOrder
     })
 

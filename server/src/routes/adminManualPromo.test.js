@@ -230,6 +230,29 @@ test('manual order promo discounts once and credits the partner, but never grant
     assert.equal(lockedResponse.status, 409)
     assert.equal((await db.order.findUnique({ where: { id: paidWithoutPromo.id } })).total, 1000)
     assert.equal((await db.promoCode.findUnique({ where: { id: reusablePromo.id } })).activationCount, 2)
+
+    const changeStatus = (orderId, status) => fetch(`${baseUrl}/${orderId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` },
+      body: JSON.stringify({ status })
+    })
+    assert.equal((await calculatePartnerBalance(db, partner.id)).totalCommissions, 264.9)
+    assert.equal((await changeStatus(order.id, 'CANCELLED')).status, 200)
+    assert.equal(await db.partnerCommission.count({ where: { orderId: order.id } }), 0)
+    assert.equal((await calculatePartnerBalance(db, partner.id)).totalCommissions, 174.9)
+    assert.equal((await changeStatus(order.id, 'CANCELLED')).status, 200)
+    assert.equal(await db.partnerCommission.count({ where: { orderId: order.id } }), 0)
+    const payCancelled = await fetch(`${baseUrl}/${order.id}/payment-status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` },
+      body: JSON.stringify({ paymentStatus: 'PAID' })
+    })
+    assert.equal(payCancelled.status, 200)
+    assert.equal(await db.partnerCommission.count({ where: { orderId: order.id } }), 0)
+    assert.equal((await calculatePartnerBalance(db, partner.id)).totalCommissions, 174.9)
+    assert.equal((await changeStatus(order.id, 'PROCESSING')).status, 200)
+    assert.equal((await db.partnerCommission.findUnique({ where: { orderId: order.id } })).amount, 90)
+    assert.equal((await calculatePartnerBalance(db, partner.id)).totalCommissions, 264.9)
   } finally {
     await db.$disconnect()
     await new Promise(resolve => server.close(resolve))

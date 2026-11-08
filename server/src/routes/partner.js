@@ -350,7 +350,7 @@ router.get('/commissions', authenticate, requireAdmin, async (req, res, next) =>
   try {
     const { limit = 50, offset = 0, partnerId, startDate, endDate } = req.query
 
-    const where = { order: { paymentStatus: 'PAID' } }
+    const where = { order: { paymentStatus: 'PAID', status: { notIn: ['CANCELLED', 'RETURNED'] } } }
     if (partnerId) where.partnerId = parseInt(partnerId)
     if (startDate || endDate) {
       where.createdAt = {}
@@ -705,14 +705,14 @@ router.get('/:id/transactions', authenticate, requireAdmin, async (req, res, nex
     const [commissions, commissionCount, payments, paymentCount, balance] = await Promise.all([
       includeCommissions
         ? prisma.partnerCommission.findMany({
-            where: { partnerId, order: { paymentStatus: 'PAID' } },
+            where: { partnerId, order: { paymentStatus: 'PAID', status: { notIn: ['CANCELLED', 'RETURNED'] } } },
             include: { order: { select: { id: true, customerName: true, total: true } } },
             orderBy: { createdAt: 'desc' },
             take: fetchLimit
           })
         : [],
       includeCommissions
-        ? prisma.partnerCommission.count({ where: { partnerId, order: { paymentStatus: 'PAID' } } })
+        ? prisma.partnerCommission.count({ where: { partnerId, order: { paymentStatus: 'PAID', status: { notIn: ['CANCELLED', 'RETURNED'] } } } })
         : 0,
       prisma.partnerPayment.findMany({
         where: paymentWhere,
@@ -803,7 +803,7 @@ router.get('/stats/partner', authenticate, requireAdmin, async (req, res, next) 
       prisma.promoCode.count(),
       prisma.partnerUser.count(),
       prisma.partnerCommission.aggregate({
-        where: { order: { paymentStatus: 'PAID' } },
+        where: { order: { paymentStatus: 'PAID', status: { notIn: ['CANCELLED', 'RETURNED'] } } },
         _sum: { amount: true }
       })
     ])
@@ -832,7 +832,7 @@ router.get('/', authenticate, requireAdmin, async (req, res, next) => {
           user: { select: { id: true, email: true, name: true, createdAt: true } },
           _count: { select: { partnerUsers: true, commissions: true } },
           commissions: {
-            where: { order: { paymentStatus: 'PAID' } },
+            where: { order: { paymentStatus: 'PAID', status: { notIn: ['CANCELLED', 'RETURNED'] } } },
             select: { amount: true }
           }
         },
@@ -1304,7 +1304,7 @@ router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
           orderBy: { boundAt: 'desc' }
         },
         commissions: {
-          where: { order: { paymentStatus: 'PAID' } },
+          where: { order: { paymentStatus: 'PAID', status: { notIn: ['CANCELLED', 'RETURNED'] } } },
           orderBy: { createdAt: 'desc' },
           take: 50
         },
@@ -1322,7 +1322,8 @@ router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
     const recentOrders = await prisma.order.findMany({
       where: {
         commission: { partnerId: parseInt(req.params.id) },
-        paymentStatus: 'PAID'
+        paymentStatus: 'PAID',
+        status: { notIn: ['CANCELLED', 'RETURNED'] }
       },
       include: {
         items: { include: { product: { select: { title: true } } } },
