@@ -3,7 +3,7 @@ export const ADMIN_SECTIONS = Object.freeze([
   ['CATEGORIES', 'Категории'], ['BLOG', 'Блог'], ['ORDERS', 'Заказы'],
   ['CONSULTATIONS', 'Консультации'], ['POINTS', 'Баллы'], ['PARTNERS', 'Партнёры'],
   ['APPLICATIONS', 'Заявки'], ['PAYOUTS', 'Выплаты'], ['DEALERS', 'Дилеры'],
-  ['PROMO', 'Промокоды'], ['EMAIL', 'Рассылки'], ['CDEK', 'СДЭК'], ['FORUM', 'Форум']
+  ['PROMO', 'Промокоды'], ['EMAIL', 'Рассылки'], ['CDEK', 'СДЭК'], ['FORUM', 'Розыгрыш']
 ])
 
 export const ADMIN_SECTION_CODES = new Set(ADMIN_SECTIONS.map(([code]) => code))

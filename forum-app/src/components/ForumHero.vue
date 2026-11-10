@@ -1,5 +1,5 @@
 <template>
-    <section v-if="content.visible" id="top" ref="heroRoot" class="hero hero--neon" :class="{ 'is-assembly-pending': !heroMotionReady, 'is-background-paused': heroFxPaused }">
+    <section v-if="content.visible" id="top" ref="heroRoot" class="hero hero--neon hero--giveaway" :class="{ 'is-assembly-pending': !heroMotionReady, 'is-background-paused': heroFxPaused }">
       <div :style="backgroundStyle" class="hero-neon__background hero-neon__background--dark" aria-hidden="true"></div>
       <div :style="lightBackgroundStyle" class="hero-neon__background hero-neon__background--light" aria-hidden="true"></div>
       <div class="hero-neon__background-fx" aria-hidden="true">
@@ -31,6 +31,7 @@
         <div class="hero-neon__assembly hero-neon__assembly--podium" data-assembly="podium" v-show="objectVisible('podium')"><img class="hero-neon__object hero-neon__object--podium hero-neon__object--theme-dark" :src="objectImage('podium', '/hero-assets/neon-lab-podium.webp')" alt="" width="1254" height="1254" loading="eager" decoding="async"><img class="hero-neon__object hero-neon__object--podium hero-neon__object--theme-light" :src="objectLightImage('podium', '/hero-assets/neon-lab-light-podium.webp')" alt="" width="1254" height="1254" loading="eager" decoding="async"></div>
         <div class="hero-neon__energy" aria-hidden="true"></div>
         <div v-show="content.penVisible !== false" class="hero-neon__assembly hero-neon__assembly--pen" data-assembly="pen"><video v-if="content.video" class="hero-neon__object hero-neon__object--pen" :src="content.video" autoplay muted loop playsinline></video><img v-else class="hero-neon__object hero-neon__object--pen" :src="content.image || '/hero-assets/ручка-720.webp'" alt="" width="720" height="1080" loading="eager" decoding="async" fetchpriority="high"></div>
+        <div class="hero-neon__prize-plaque"><span>ГЛАВНЫЙ ПРИЗ</span><strong>50 000 <small>₽</small></strong><i aria-hidden="true"></i></div>
       </div>
       <div class="hero-neon__content">
           <div class="hero-neon__badge"><span class="hero-neon__dot"></span>{{ content.eyebrow }}</div>
@@ -49,7 +50,7 @@
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
             </a>
-            <a v-if="content.secondaryLink" :href="content.secondaryLink" class="hero-neon__button hero-neon__button--secondary">{{ content.secondaryButton || 'О форуме' }}</a>
+            <a v-if="content.secondaryLink" :href="content.secondaryLink" class="hero-neon__button hero-neon__button--secondary">{{ content.secondaryButton || 'Как участвовать' }}</a>
             <a v-if="content.programLink" :href="content.programLink" class="hero-neon__button hero-neon__button--license" target="_blank" rel="noopener">
               {{ content.programLabel }}
               <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -69,7 +70,6 @@ const backgroundStyle = computed(() => ({ backgroundImage: props.content.backgro
 const lightBackgroundStyle = computed(() => ({ backgroundImage: props.content.lightBackground ? `url("${encodeURI(props.content.lightBackground)}")` : 'none' }))
 const titleLines = computed(() => {
   const title = props.content.title.trim()
-  if (title === 'Форум современных пептидных решений') return ['Форум современных', 'пептидных решений']
   return title.includes('\n') ? title.split('\n') : [title]
 })
 const objectVisible = name => props.content.objects?.find(object => object.name === name)?.visible !== false

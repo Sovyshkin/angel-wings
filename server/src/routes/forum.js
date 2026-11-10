@@ -91,7 +91,7 @@ router.post('/applications', async (req, res, next) => {
     if (settings.form.fields.some(field => field.visible && field.required && field.key === 'position') && !position) return res.status(400).json({ error: 'Укажите должность' })
     const duplicate = await prisma.forumApplication.findFirst({ where: { createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) }, OR: [{ email }, { phone }] }, select: { id: true } })
     if (duplicate) return res.status(409).json({ error: 'Заявка с этими контактами уже получена. Мы скоро свяжемся с вами.' })
-    const message = extraFields.filter(field => field.value).map(field => `${field.label}: ${field.value}`).join('\n').slice(0, 3000)
+    const message = ['Кампания: Розыгрыш 50 000 ₽', ...extraFields.filter(field => field.value).map(field => `${field.label}: ${field.value}`)].join('\n').slice(0, 3000)
     const application = await prisma.forumApplication.create({ data: { name, phone, email, company, position, message, consentAt: new Date() }, select: { id: true } })
     res.status(201).json({ ok: true, id: application.id })
   } catch (error) { next(error) }

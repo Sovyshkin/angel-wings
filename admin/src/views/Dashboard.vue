@@ -54,7 +54,7 @@
           </router-link>
           <router-link v-if="authStore.can('FORUM')" to="/forum" class="nav-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h7M7 16h5"/></svg>
-            <span class="nav-text">Форум</span>
+            <span class="nav-text">Розыгрыш</span>
             <span v-if="forumApplicationsCount" class="nav-badge">{{ forumApplicationsCount }}</span>
           </router-link>
           <template v-if="authStore.isAdmin || authStore.isStaff">
@@ -203,7 +203,7 @@
             </router-link>
             </template>
             <router-link v-if="authStore.can('BLOG')" to="/blog" class="nav-link" @click="mobileMenuOpen = false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h12a4 4 0 0 1 4 4v14H8a4 4 0 0 0-4-4z"/><path d="M4 3v14a4 4 0 0 1 4 4"/></svg>Блог</router-link>
-            <router-link v-if="authStore.can('FORUM')" to="/forum" class="nav-link" @click="mobileMenuOpen = false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h7M7 16h5"/></svg>Форум<span v-if="forumApplicationsCount" class="nav-badge nav-badge--mobile">{{ forumApplicationsCount }}</span></router-link>
+            <router-link v-if="authStore.can('FORUM')" to="/forum" class="nav-link" @click="mobileMenuOpen = false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h7M7 16h5"/></svg>Розыгрыш<span v-if="forumApplicationsCount" class="nav-badge nav-badge--mobile">{{ forumApplicationsCount }}</span></router-link>
             <template v-if="authStore.isAdmin || authStore.isStaff">
             <router-link v-if="authStore.can('ORDERS')" to="/orders" class="nav-link" @click="mobileMenuOpen = false">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

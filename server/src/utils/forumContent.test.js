@@ -2,6 +2,36 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { FORUM_DEFAULTS, sanitizeForumContent } from './forumContent.js'
 
+test('saved forum copy and profile fields migrate to the giveaway without changing custom text', () => {
+  const saved = structuredClone(FORUM_DEFAULTS)
+  saved.hero.eyebrow = 'ФОРУМ ANGEL WINGS'
+  saved.hero.title = 'Форум современных пептидных решений'
+  saved.hero.description = 'Научные доклады • Новые разработки • Обмен опытом'
+  saved.hero.penVisible = true
+  saved.hero.secondaryButton = 'О форуме'
+  saved.advantages.title = 'Почему стоит участвовать?'
+  saved.advantages.description = 'Свой текст администратора'
+  saved.products.visible = true
+  saved.events.visible = true
+  saved.cta.description = 'Участвуйте в форуме, узнавайте о новинках первыми и расширяйте профессиональные связи.'
+  saved.form.title = 'Оставьте заявку на форум'
+  saved.form.fields.find(field => field.key === 'position').visible = true
+  saved.form.fields.find(field => field.key === 'topics').required = true
+  saved.form.fields.find(field => field.key === 'topics').visible = true
+
+  const restored = sanitizeForumContent(saved)
+  assert.equal(restored.hero.title, 'Разыгрываем\n50 000 ₽')
+  assert.equal(restored.hero.penVisible, false)
+  assert.equal(restored.hero.secondaryButton, 'Как участвовать')
+  assert.equal(restored.advantages.description, 'Свой текст администратора')
+  assert.equal(restored.products.visible, false)
+  assert.equal(restored.events.visible, false)
+  assert.equal(restored.form.title, 'Оставьте заявку на розыгрыш')
+  assert.equal(restored.form.fields.find(field => field.key === 'position').visible, false)
+  assert.equal(restored.form.fields.find(field => field.key === 'topics').visible, false)
+  assert.deepEqual(sanitizeForumContent(restored), restored)
+})
+
 test('forum editor settings survive sanitizing and older content gets visible defaults', () => {
   const old = structuredClone(FORUM_DEFAULTS)
   delete old.events.items[0].visible
@@ -53,7 +83,8 @@ test('new audience fields are restored for older pages and answer options remain
   const restored = sanitizeForumContent(old)
   assert.deepEqual(restored.form.fields.filter(field => ['city', 'role', 'topics'].includes(field.key)).map(field => field.key), ['city', 'role', 'topics'])
   assert.equal(restored.form.fields.find(field => field.key === 'position').label, 'Специальность / должность')
-  assert.equal(restored.form.fields.find(field => field.key === 'position').required, true)
+  assert.equal(restored.form.fields.find(field => field.key === 'position').required, false)
+  assert.equal(restored.form.fields.find(field => field.key === 'position').visible, false)
   assert.equal(restored.form.fields.find(field => field.key === 'company').label, 'Организация / место работы')
 
   restored.form.fields.find(field => field.key === 'role').options[0] = 'Другой специалист'

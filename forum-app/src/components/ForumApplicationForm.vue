@@ -11,7 +11,7 @@
             <p data-reveal-soft>{{ content.description }}</p>
           </header>
 
-          <div class="forum-checkout__progress" aria-label="Этапы заявки">
+          <div v-if="steps.length > 1" class="forum-checkout__progress" aria-label="Этапы заявки">
             <div class="forum-checkout__steps">
               <div v-for="(stage, index) in steps" :key="stage.key" class="forum-checkout__step-marker" :class="{ 'is-active': index === stepIndex, 'is-complete': index < stepIndex }" :aria-current="index === stepIndex ? 'step' : undefined">
                 <span class="forum-checkout__step-number"><span :key="index < stepIndex ? 'done' : 'number'">{{ index < stepIndex ? '✓' : String(index + 1).padStart(2, '0') }}</span></span>
@@ -100,7 +100,7 @@ const steps=computed(()=>[
  {key:'contacts',title:props.content.stepContactTitle,fields:visibleFields.value.filter(field=>['name','phone','email'].includes(field.key))},
  {key:'profile',title:props.content.stepProfileTitle,fields:visibleFields.value.filter(field=>['city','role','position','company'].includes(field.key)||field.key.startsWith('custom_'))},
  {key:'interests',title:props.content.stepInterestsTitle,fields:visibleFields.value.filter(field=>field.key==='topics')}
-])
+].filter(step=>step.fields.length))
 const currentStep=computed(()=>steps.value[stepIndex.value])
 const isLastStep=computed(()=>stepIndex.value===steps.value.length-1)
 function start(){if(!started.value){started.value=true;props.track('forum_form_start')}}

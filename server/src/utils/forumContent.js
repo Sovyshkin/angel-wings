@@ -6,7 +6,7 @@ const sceneAssets = [
   ['molecule-03-chain', 'Молекула 3'], ['molecule-04-chain-reversed', 'Молекула 4'],
   ['molecule-05-cluster', 'Молекула 5'], ['molecule-06-ring', 'Молекула 6']
 ]
-export const FORUM_DEFAULTS = {
+const LEGACY_FORUM_DEFAULTS = {
   hero: { visible: true, navLabel: 'Главная', logo: '/angel-wings-wordmark-light.svg', eyebrow: 'ФОРУМ ANGEL WINGS', title: 'Форум современных пептидных решений', description: 'Научные доклады • Новые разработки • Обмен опытом', date: '', place: '', button: 'Подать заявку', secondaryButton: 'О форуме', secondaryLink: '#advantages', programLabel: 'Программа форума', programLink: '', background: `${assets}neon-lab-background.webp`, lightBackground: `${assets}neon-lab-background-light.webp`, image: `${assets}ручка-720.webp`, video: '', penVisible: true, objects: [
     ['podium', 'Подиум', 'neon-lab-podium.webp'], ['molecule-top', 'Верхняя молекула', 'neon-lab-molecule-top.webp'], ['molecule-mid', 'Средняя молекула', 'neon-lab-molecule-mid.webp'], ['molecule-right', 'Правая молекула', 'neon-lab-molecule-right.webp'], ['sphere-top', 'Верхняя сфера', 'neon-lab-sphere-top.webp'], ['sphere-right', 'Правая сфера', 'neon-lab-sphere-right.webp'], ['sphere-small', 'Малая сфера', 'neon-lab-sphere-small.webp'], ['bubbles-left', 'Левые пузыри', 'neon-lab-bubbles-left.webp'], ['bubbles-right', 'Правые пузыри', 'neon-lab-bubbles-right.webp']
   ].map(([name, label, file]) => ({ name, label, image: `${assets}${file}`, lightImage: `${assets}neon-lab-light-${name.startsWith('bubbles-') ? 'bubbles' : name}.webp`, visible: true })),
@@ -43,6 +43,68 @@ export const FORUM_DEFAULTS = {
   ] },
   footer: { visible: true, logo: '/angel-wings-wordmark-light.svg', navHeading: 'Навигация', infoHeading: 'Информация', contactsHeading: 'Контакты', mainSiteLabel: 'Основной сайт', privacyLabel: 'Политика конфиденциальности', telegramLabel: 'Telegram', description: 'Инновационные пептидные решения для здоровья и долголетия.', email: 'info@angel-wings.ru', phone: '+7 966 179-00-13', copyright: '© 2026 Angel Wings. Все права защищены.', mainSite: 'https://angel-wings.ru', telegram: 'https://t.me/+UwZu11Bt55FhNTIy', privacyLink: '/policy.pdf' }
 }
+// Keep the editor's existing section schema, while replacing the old event copy
+// and default form fields for the giveaway landing page.
+export const FORUM_DEFAULTS = structuredClone(LEGACY_FORUM_DEFAULTS)
+Object.assign(FORUM_DEFAULTS.hero, {
+  eyebrow: 'РОЗЫГРЫШ ANGEL WINGS',
+  title: 'Разыгрываем\n50 000 ₽',
+  description: 'Оставьте заявку на участие в розыгрыше денежного приза.',
+  button: 'Участвовать в розыгрыше',
+  secondaryButton: 'Как участвовать',
+  penVisible: false,
+  programLabel: 'Условия розыгрыша'
+})
+Object.assign(FORUM_DEFAULTS.advantages, {
+  navLabel: 'Как участвовать',
+  eyebrow: 'ВСЁ ПРОСТО',
+  title: 'Как принять участие?',
+  description: 'Три шага, чтобы оставить заявку на розыгрыш.',
+  items: [
+    { visible: true, icon: 'people', title: 'Заполните форму', text: 'Укажите имя и контакты в заявке ниже.', image: '' },
+    { visible: true, icon: 'layers', title: 'Отправьте заявку', text: 'После отправки вы увидите подтверждение на странице.', image: '' },
+    { visible: true, icon: 'network', title: 'Оставайтесь на связи', text: 'Контакты понадобятся, чтобы связаться с вами по итогам розыгрыша.', image: '' },
+    { visible: false, icon: 'flask', title: '', text: '', image: '' }
+  ]
+})
+FORUM_DEFAULTS.products.visible = false
+FORUM_DEFAULTS.events.visible = false
+Object.assign(FORUM_DEFAULTS.cta, {
+  eyebrow: 'ВАШ ШАНС',
+  title: '50 000 ₽ ждут победителя',
+  description: 'Заполните короткую форму и отправьте заявку на участие.',
+  button: 'Принять участие'
+})
+Object.assign(FORUM_DEFAULTS.form, {
+  navLabel: 'Участие',
+  navButton: 'Участвовать',
+  eyebrow: 'УЧАСТИЕ В РОЗЫГРЫШЕ',
+  title: 'Оставьте заявку на розыгрыш',
+  description: 'Укажите имя, телефон и почту, чтобы мы могли с вами связаться.',
+  button: 'Отправить заявку',
+  success: 'Заявка на участие принята.'
+})
+FORUM_DEFAULTS.form.fields = FORUM_DEFAULTS.form.fields.map(field => {
+  if (field.key === 'name') return { ...field, label: 'Имя и фамилия', placeholder: 'Как к вам обращаться' }
+  if (field.key === 'email') return { ...field, placeholder: 'name@example.ru' }
+  if (['city', 'role', 'position', 'company', 'topics'].includes(field.key)) return { ...field, visible: false, required: false }
+  return field
+})
+
+function migrateLegacyDefaults(value, oldValue, newValue) {
+  if (Array.isArray(value) && Array.isArray(oldValue) && Array.isArray(newValue)) {
+    return value.map((item, index) => {
+      const key = item?.key || item?.name
+      const oldIndex = key ? oldValue.findIndex(candidate => (candidate?.key || candidate?.name) === key) : index
+      return oldIndex < 0 ? item : migrateLegacyDefaults(item, oldValue[oldIndex], newValue[oldIndex] ?? oldValue[oldIndex])
+    })
+  }
+  if (value && typeof value === 'object' && oldValue && typeof oldValue === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, key in oldValue && key in newValue
+      ? migrateLegacyDefaults(entry, oldValue[key], newValue[key]) : entry]))
+  }
+  return value === oldValue ? newValue : value
+}
 export const FORUM_SECTION_KEYS = Object.keys(FORUM_DEFAULTS)
 const clean = (value, limit = 700) => String(value ?? '').trim().slice(0, limit)
 const safeUrl = value => { const url = clean(value, 1000); return /^(https:\/\/|\/(?!\/)|#[a-z0-9_-]+$)/i.test(url) ? url : '' }
@@ -63,7 +125,8 @@ function sanitizeValue(raw, fallback, key) {
       if (key === 'fields' && template.key === 'position' && item.label === 'Должность') {
         next.label = template.label
         if (item.placeholder === 'Ваша должность') next.placeholder = template.placeholder
-        next.required = true
+        next.required = false
+        next.visible = false
       }
       if (key === 'fields' && template.key === 'company' && item.label === 'Компания / Организация') {
         next.label = template.label
@@ -92,5 +155,5 @@ function sanitizeValue(raw, fallback, key) {
 }
 export function sanitizeForumContent(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Некорректное содержимое страницы')
-  return sanitizeValue(input, FORUM_DEFAULTS)
+  return sanitizeValue(migrateLegacyDefaults(input, LEGACY_FORUM_DEFAULTS, FORUM_DEFAULTS), FORUM_DEFAULTS)
 }
