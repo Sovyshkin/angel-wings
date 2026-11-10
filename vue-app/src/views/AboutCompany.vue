@@ -101,37 +101,6 @@
                 {{ isJourneyDetailExpanded(step.id) ? 'Свернуть' : 'Развернуть' }}
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
               </button>
-              <a
-                v-if="step.logo"
-                class="journey-detail__partner-mark"
-                :href="step.logo.href"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <span class="journey-detail__partner-copy">
-                  <small>Научный партнёр</small>
-                  <strong>{{ step.logo.label }}</strong>
-                </span>
-                <span class="journey-detail__partner-logo">
-                  <img :src="step.logo.src" :alt="step.logo.alt">
-                </span>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
-              </a>
-              <a
-                v-if="step.person"
-                class="journey-detail__person"
-                :href="step.person.href"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <img :src="step.person.image" :alt="step.person.name">
-                <span>
-                  <small>{{ step.person.role }}</small>
-                  <strong>{{ step.person.name }}</strong>
-                  <em>{{ step.person.description }}</em>
-                </span>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
-              </a>
               <div v-if="step.links" class="journey-detail__links">
                 <a v-for="link in step.links" :key="link.href" :href="link.href" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>
               </div>
@@ -400,30 +369,6 @@ const queueHeroParallax = () => {
   heroParallaxFrame = window.requestAnimationFrame(applyHeroParallax)
 }
 
-const principles = [
-  {
-    title: 'Производство',
-    text: 'ООО «КОЛОРИТ‑ФАРМА» — компания с 20+ лет на рынке с действующей фармацевтической лицензией от Роспотребнадзора.',
-    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 7 3v5c0 4.4-2.8 8.4-7 10-4.2-1.6-7-5.6-7-10V6l7-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>'
-  },
-  {
-    title: 'Разработка',
-    textParts: [
-      { text: 'Осуществляется лабораторией ' },
-      { text: '«АТГ‑Сервис»', href: 'https://service-gene.ru/' },
-      { text: ' под предводительством ' },
-      { text: 'Ильи Владимировича Духовлинова', href: 'https://dukhovlinov.com/' },
-      { text: '.' }
-    ],
-    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5.5 9.2A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.8L14 9V3"/><path d="M8 15h8M10 12h4"/></svg>'
-  },
-  {
-    title: 'Сбыт',
-    text: 'Осуществляется под брендом Angel Wings. Пептиды — способ построить генное ателье наших уникальных разработок.',
-    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 7.5 5.7-2.9 9L12 21l-4.6-3.3-2.9-9L12 3Z"/><path d="m9.5 11.2 1.8 1.8 3.5-4"/></svg>'
-  }
-]
-
 const journey = [
   {
     id: 'production-details',
@@ -444,21 +389,8 @@ const journey = [
     orbWebp: '/about-assets/journey-development-sphere.webp',
     orbDelay: '-3.2s',
     role: 'Экспертиза',
-    detailTitle: 'Научная экспертиза и собственные решения',
-    text: 'Научную часть наших продуктов делает петербургская биотех-лаборатория АТГ Сервис Ген. Это не перепродажа чужого сырья: сначала проектируется молекула, затем собирается конструкция, нарабатывается пептид или плазмида и проверяется в лаборатории. Так устроены наши собственные разработки: плазмидный фоллистатин, фактор роста гепатоцитов, флагеллин и другие генно-инженерные формулы. За науку отвечает Илья Духовлинов — кандидат биологических наук, специалист по биохимии и генетической инженерии. Он руководит разработками в генной инженерии, рекомбинантных технологиях, пептидах, вакцинах и иммунотерапии. Именно его конструкции стоят за нашими формулами, которые нельзя просто купить как готовое сырьё и перефасовать. Среди профессиональных признаний: медаль Правительства России «Труд во имя жизни», медаль ВОИР «За заслуги в изобретательстве и рационализации» I степени, золотая медаль Международного салона изобретений в Женеве и международная медаль «За самоотверженную борьбу с коронавирусом».',
-    logo: {
-      label: 'АТГ Сервис Ген',
-      alt: 'Логотип АТГ Сервис Ген',
-      href: 'https://service-gene.ru/',
-      src: 'https://static.tildacdn.com/tild3764-6661-4366-a438-643165633936/Logo.svg'
-    },
-    person: {
-      name: 'Илья Духовлинов',
-      role: 'Научный руководитель',
-      description: 'Кандидат биологических наук',
-      href: 'https://dukhovlinov.com/',
-      image: '/about-assets/ilya-dukhovlinov.jpg'
-    }
+    detailTitle: 'Развитие ассортимента',
+    text: 'Мы работаем над ассортиментом Angel Wings, уделяя внимание составу, характеристикам и качеству продуктов. Актуальную информацию о каждом товаре публикуем в каталоге.'
   },
   {
     id: 'sales-details',
