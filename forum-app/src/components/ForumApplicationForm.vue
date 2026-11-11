@@ -17,7 +17,7 @@
             </div>
             <p v-if="ticketCheckError" class="forum-ticket__warning">Не удалось проверить билет на сервере. Номер сохранён в этом браузере.</p>
             <div class="forum-ticket__actions">
-              <button type="button" class="btn btn-primary" @click="copyTicket">{{ copied ? 'Номер скопирован' : 'Скопировать номер' }} <span aria-hidden="true">↗</span></button>
+              <button type="button" class="btn btn-primary" @click="copyTicket">{{ copied ? 'Номер скопирован' : 'Скопировать номер' }}</button>
             </div>
           </div>
           <div class="forum-ticket__side">

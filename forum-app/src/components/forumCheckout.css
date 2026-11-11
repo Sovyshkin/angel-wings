@@ -140,7 +140,6 @@
 .forum-ticket .forum-ticket__warning { margin-top: 16px; color: #ffdba7; font-size: 13px; }
 .forum-ticket__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .forum-ticket__actions .btn { display: inline-flex; align-items: center; justify-content: center; gap: 18px; min-height: 54px; padding-inline: 24px; }
-.forum-ticket__actions .btn span { font-size: 19px; font-weight: 400; }
 .forum-ticket__side { display: grid; min-width: 0; gap: 18px; align-content: end; padding-left: clamp(28px, 3.5vw, 54px); border-left: 1px dashed rgba(147, 184, 245, .35); }
 .forum-ticket__prize { padding: clamp(24px, 2.8vw, 38px); border: 1px solid rgba(154, 198, 255, .42); border-radius: 22px; background: radial-gradient(circle at 100% 0%, rgba(78, 166, 255, .3), transparent 52%), linear-gradient(135deg, #173763, #102346 75%); box-shadow: inset 0 1px rgba(255, 255, 255, .13); }
 .forum-ticket__prize > span { color: #a9c9fa; font: 700 11px var(--font-mono); letter-spacing: .14em; }
