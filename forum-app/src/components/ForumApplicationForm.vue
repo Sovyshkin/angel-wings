@@ -2,21 +2,38 @@
   <section v-if="content.visible" id="application" class="form-section section">
     <div class="wrap forum-checkout-wrap">
       <div v-if="ticketId" class="forum-checkout forum-ticket" role="status">
-        <span class="eyebrow"><i></i>ВАШ БИЛЕТ</span>
-        <h2>Билет на розыгрыш оформлен</h2>
-        <p>{{ content.success }}</p>
-        <span class="forum-ticket__label">Уникальный номер билета</span>
-        <strong class="forum-ticket__number">{{ ticketId }}</strong>
-        <p class="forum-ticket__note">{{ ticketSaveError ? 'Браузер не разрешил сохранить номер. Скопируйте его сейчас.' : 'Сохраните номер. Он также останется в этом браузере.' }}</p>
-        <div class="forum-ticket__email" aria-live="polite">
-          <strong>{{ emailStatus === 'sent' ? 'Билет отправлен на почту' : emailStatus === 'failed' ? 'Письмо пока не отправлено' : emailStatus === 'cooldown' ? 'Письмо недавно отправлялось' : ticketCheckError ? 'Статус письма недоступен' : 'Проверяем отправку письма' }}</strong>
-          <p v-if="emailStatus === 'sent'">Проверьте входящие письма и папку «Спам».</p>
-          <p v-else>Билет уже оформлен и сохранён здесь. Вы сможете повторить отправку письма.</p>
-          <button type="button" :disabled="emailSending || emailRetryLeft > 0" @click="resendTicketEmail">{{ emailSending ? 'Отправляем…' : emailRetryLeft > 0 ? `Повторить через ${emailRetryLeft} с` : 'Отправить письмо ещё раз' }}</button>
+        <div class="forum-ticket__topline">
+          <span class="eyebrow"><i></i>ВАШ БИЛЕТ</span>
+          <span class="forum-ticket__status"><span aria-hidden="true">✓</span> Заявка принята</span>
         </div>
-        <p v-if="ticketCheckError" class="forum-ticket__warning">Не удалось проверить билет на сервере. Номер сохранён в этом браузере.</p>
-        <div class="forum-ticket__actions">
-          <button type="button" class="btn btn-primary" @click="copyTicket">{{ copied ? 'Номер скопирован' : 'Скопировать номер' }}</button>
+        <div class="forum-ticket__layout">
+          <div class="forum-ticket__main">
+            <h2>Вы участвуете<br>в розыгрыше</h2>
+            <p class="forum-ticket__intro">{{ content.success }}</p>
+            <div class="forum-ticket__number-card">
+              <span class="forum-ticket__label">Уникальный номер билета</span>
+              <strong class="forum-ticket__number">{{ ticketId }}</strong>
+              <p class="forum-ticket__note">{{ ticketSaveError ? 'Браузер не разрешил сохранить номер. Скопируйте его сейчас.' : 'Номер сохранён в этом браузере. Он понадобится для проверки результата.' }}</p>
+            </div>
+            <p v-if="ticketCheckError" class="forum-ticket__warning">Не удалось проверить билет на сервере. Номер сохранён в этом браузере.</p>
+            <div class="forum-ticket__actions">
+              <button type="button" class="btn btn-primary" @click="copyTicket">{{ copied ? 'Номер скопирован' : 'Скопировать номер' }} <span aria-hidden="true">↗</span></button>
+            </div>
+          </div>
+          <div class="forum-ticket__side">
+            <div class="forum-ticket__prize">
+              <span>РОЗЫГРЫШ ANGEL WINGS</span>
+              <strong>50 000 ₽</strong>
+              <p>Ваш билет участвует в розыгрыше.</p>
+            </div>
+            <div class="forum-ticket__email" aria-live="polite">
+              <span class="forum-ticket__email-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="m4 7 8 6 8-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <strong>{{ emailStatus === 'sent' ? 'Билет отправлен на почту' : emailStatus === 'failed' ? 'Письмо пока не отправлено' : emailStatus === 'cooldown' ? 'Письмо недавно отправлялось' : ticketCheckError ? 'Статус письма недоступен' : 'Проверяем отправку письма' }}</strong>
+              <p v-if="emailStatus === 'sent'">Проверьте входящие письма и папку «Спам».</p>
+              <p v-else>Билет уже оформлен. Отправку письма можно повторить.</p>
+              <button type="button" :disabled="emailSending || emailRetryLeft > 0" @click="resendTicketEmail">{{ emailSending ? 'Отправляем…' : emailRetryLeft > 0 ? `Повторить через ${emailRetryLeft} с` : 'Отправить письмо ещё раз' }} <span aria-hidden="true">→</span></button>
+            </div>
+          </div>
         </div>
       </div>
       <form v-else class="forum-checkout" @submit.prevent="submit">
