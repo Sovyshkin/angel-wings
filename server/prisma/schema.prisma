@@ -602,21 +602,39 @@ model ForumPage {
 }
 
 model ForumApplication {
-  id        Int      @id @default(autoincrement())
-  name      String
-  phone     String   @default("")
-  email     String   @default("")
-  company   String   @default("")
-  position  String   @default("")
-  message   String   @default("")
-  consentAt DateTime?
-  status    String   @default("NEW")
-  adminNote String   @default("")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  ticketId      String?  @unique
+  giveawayEmail String?  @unique
+  giveawayPhone String?  @unique
+  ticketEmailSentAt DateTime?
+  ticketEmailLastAttemptAt DateTime?
+  ticketEmailAttempts Int @default(0)
+  ticketEmailError String?
+  name          String
+  phone         String   @default("")
+  email         String   @default("")
+  company       String   @default("")
+  position      String   @default("")
+  message       String   @default("")
+  consentAt     DateTime?
+  status        String   @default("NEW")
+  adminNote     String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  browserTickets ForumBrowserTicket[]
 
   @@index([status, createdAt])
   @@map("forum_applications")
+}
+
+model ForumBrowserTicket {
+  browserId     String           @id
+  applicationId Int
+  application   ForumApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  createdAt     DateTime         @default(now())
+
+  @@index([applicationId])
+  @@map("forum_browser_tickets")
 }
 
 model ConsultationRequest {

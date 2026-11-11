@@ -9,6 +9,7 @@ import express from 'express'
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
+import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 
 test('manual order promo discounts once and credits the partner, but never grants consultation points', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'angel-manual-promo-'))
@@ -121,7 +122,7 @@ test('manual order promo discounts once and credits the partner, but never grant
     assert.equal((await db.consultationRequest.findUnique({ where: { id: consultation.id } })).rewardOrderId, null)
     assert.equal(await db.userPointTransaction.count({ where: { userId: buyer.id, orderId: order.id, type: 'CONSULTATION_REWARD' } }), 0)
 
-    const repeated = await request(admin, '', { ...payload, userId: otherBuyer.id, customerEmail: otherBuyer.email })
+    const repeated = await request(admin, '', payload)
     assert.equal(repeated.status, 400, await repeated.text())
     assert.equal(await db.order.count(), 2)
     assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 1)
@@ -219,18 +220,6 @@ test('manual order promo discounts once and credits the partner, but never grant
     const paidPromoAttempt = await request(admin, `/${order.id}/promo`, { promoCode: 'PENDING125', expectedUpdatedAt: paidBefore.updatedAt.toISOString(), expectedEditVersion: paidBefore.editVersion })
     assert.equal(paidPromoAttempt.status, 409)
     assert.equal(await db.partnerCommission.count({ where: { orderId: order.id } }), 1)
-    const paidWithoutPromo = await db.order.create({ data: {
-      userId: laterBuyer.id, customerName: 'Later', customerEmail: laterBuyer.email, customerPhone: '+79990000004',
-      status: 'PROCESSING', paymentStatus: 'PAID', paymentId: 'paid-test-1', total: 1000, paymentAmount: 1000,
-      items: { create: [{ productId: product.id, quantity: 1, price: 1000 }] }
-    } })
-    const lockedResponse = await request(admin, `/${paidWithoutPromo.id}/promo`, {
-      promoCode: reusablePromo.code, expectedUpdatedAt: paidWithoutPromo.updatedAt.toISOString(), expectedEditVersion: paidWithoutPromo.editVersion
-    })
-    assert.equal(lockedResponse.status, 409)
-    assert.equal((await db.order.findUnique({ where: { id: paidWithoutPromo.id } })).total, 1000)
-    assert.equal((await db.promoCode.findUnique({ where: { id: reusablePromo.id } })).activationCount, 2)
-
     const changeStatus = (orderId, status) => fetch(`${baseUrl}/${orderId}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` },
@@ -253,6 +242,55 @@ test('manual order promo discounts once and credits the partner, but never grant
     assert.equal((await changeStatus(order.id, 'PROCESSING')).status, 409)
     assert.equal(await db.partnerCommission.count({ where: { orderId: order.id } }), 0)
     assert.equal((await calculatePartnerBalance(db, partner.id)).totalCommissions, 174.9)
+    const otherPreview = await request(admin, '/promo/validate', { userId: otherBuyer.id, subtotal: 1000, promoCode: promo.code })
+    assert.equal(otherPreview.status, 200, await otherPreview.text())
+    const otherOrderResponse = await request(admin, '', { ...payload, userId: otherBuyer.id, customerName: otherBuyer.name, customerEmail: otherBuyer.email })
+    assert.equal(otherOrderResponse.status, 201, await otherOrderResponse.text())
+    assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 1)
+    const reusedByBuyer = await request(admin, '', payload)
+    assert.equal(reusedByBuyer.status, 201, await reusedByBuyer.text())
+    assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 2)
+
+    const applyBuyer = await db.user.create({ data: { email: 'apply-buyer@example.test', password: 'unused', name: 'Apply Buyer' } })
+    const applyOrder = await db.order.create({ data: {
+      userId: applyBuyer.id, total: 1000, customerName: applyBuyer.name,
+      customerEmail: applyBuyer.email, customerPhone: '+79990000006',
+      items: { create: [{ productId: product.id, quantity: 1, price: 1000 }] }
+    } })
+    const appliedSingle = await request(admin, `/${applyOrder.id}/promo`, {
+      promoCode: promo.code, expectedEditVersion: applyOrder.editVersion, expectedUpdatedAt: applyOrder.updatedAt.toISOString()
+    })
+    assert.equal(appliedSingle.status, 200, await appliedSingle.text())
+    assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 3)
+    const repeatedApplyOrder = await db.order.create({ data: {
+      userId: applyBuyer.id, total: 1000, customerName: applyBuyer.name,
+      customerEmail: applyBuyer.email, customerPhone: '+79990000006',
+      items: { create: [{ productId: product.id, quantity: 1, price: 1000 }] }
+    } })
+    const repeatedSingleApply = await request(admin, `/${repeatedApplyOrder.id}/promo`, {
+      promoCode: promo.code, expectedEditVersion: repeatedApplyOrder.editVersion,
+      expectedUpdatedAt: repeatedApplyOrder.updatedAt.toISOString()
+    })
+    assert.equal(repeatedSingleApply.status, 400, await repeatedSingleApply.text())
+
+    const paidWithoutPromo = await db.order.create({ data: {
+      userId: laterBuyer.id, partnerId: partner.id, customerName: 'Later', customerEmail: laterBuyer.email, customerPhone: '+79990000004',
+      status: 'PROCESSING', paymentStatus: 'PAID', paymentId: 'paid-test-1', total: 1000, paymentAmount: 1000,
+      items: { create: [{ productId: product.id, quantity: 1, price: 1000 }] }
+    } })
+    await syncPartnerCommissionForOrder(db, paidWithoutPromo.id)
+    assert.equal((await db.partnerCommission.findUnique({ where: { orderId: paidWithoutPromo.id } })).amount, 100)
+    const paidPromoResponse = await request(admin, `/${paidWithoutPromo.id}/promo`, {
+      promoCode: reusablePromo.code, expectedUpdatedAt: paidWithoutPromo.updatedAt.toISOString(), expectedEditVersion: paidWithoutPromo.editVersion
+    })
+    assert.equal(paidPromoResponse.status, 200, await paidPromoResponse.text())
+    const repricedPaidOrder = await db.order.findUnique({ where: { id: paidWithoutPromo.id } })
+    assert.equal(repricedPaidOrder.total, 874.5)
+    assert.equal(repricedPaidOrder.discountAmount, 125.5)
+    assert.equal(repricedPaidOrder.paymentAmount, 1000)
+    assert.equal(repricedPaidOrder.unbilledAdjustment, -125.5)
+    assert.equal((await db.partnerCommission.findUnique({ where: { orderId: paidWithoutPromo.id } })).amount, 87.45)
+    assert.equal((await db.promoCode.findUnique({ where: { id: reusablePromo.id } })).activationCount, 3)
   } finally {
     await db.$disconnect()
     await new Promise(resolve => server.close(resolve))

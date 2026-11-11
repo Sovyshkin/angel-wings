@@ -4,13 +4,13 @@ import { createPartnerOrdersDocx, createPartnerOrdersPdf, formatCommissionPercen
 
 const report = {
   title: 'Отчёт по заказам партнёра Тест',
-  totals: { revenue: 10000, tax: 1141.2, acquiring: 270, paidCount: 1, estimatedCount: 1 },
+  totals: { revenue: 10000, tax: 1141.2, acquiring: 270, productCost: 3600, paidCount: 1, estimatedCount: 1 },
   orders: [{
     id: 1, partnerName: 'Тест', createdAt: new Date('2026-10-18T12:00:00Z'),
     status: 'В обработке', paymentStatus: 'Оплачен', promoCode: 'ТЕСТ',
-    total: 10000, revenue: 10000, tax: 1141.2, acquiring: 270,
+    total: 10000, revenue: 10000, tax: 1141.2, acquiring: 270, productCost: 3600,
     acquiringSource: 'Оценка: 2.7%', balance: 8588.8, commission: 500, commissionPercentage: 5,
-    items: [{ title: 'Эпиталон 10 мг', quantity: 2, price: 5000, gross: 10000, discount: 0, net: 10000 }]
+    items: [{ title: 'Эпиталон 10 мг', quantity: 2, price: 5000, gross: 10000, discount: 0, net: 10000, unitCost: 1800, cost: 3600 }]
   }]
 }
 

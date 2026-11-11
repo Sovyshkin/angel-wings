@@ -1124,7 +1124,7 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
       if (effectivePartnerId && !user?.partnerUser && !historical) {
         await tx.partnerUser.create({ data: { userId, partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null, referralSource: promo.promoCode?.partnerId ? 'promo_code' : 'admin' } })
       }
-      await claimManualOrderPromo(tx, promo.promoCode)
+      await claimManualOrderPromo(tx, promo.promoCode, userId)
       const created = await tx.order.create({
         data: {
           origin: 'ADMIN_MANUAL', userId, partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null,
@@ -1627,11 +1627,10 @@ router.post('/orders/:id/promo', authenticate, requireAdmin, async (req, res, ne
       }
       if (previous.promoCodeId) throw Object.assign(new Error('К заказу уже применён промокод'), { status: 409 })
       if (!previous.userId) throw Object.assign(new Error('Промокод можно добавить только к заказу зарегистрированного клиента'), { status: 400 })
-      const locked = previous.paymentId || previous.paymentLinkId || previous.paymentUrl || previous.paymentCreationToken || previous.paymentCreationStartedAt ||
-        ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].includes(String(previous.paymentStatus || '').toUpperCase()) ||
-        (previous.paymentStatus === 'CASH_ON_DELIVERY' && ['SHIPPED', 'DELIVERED', 'RETURNED'].includes(previous.status))
-      if (locked || previous.cdekOrderUuid || ['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(previous.status)) {
-        throw Object.assign(new Error('Промокод нельзя применить после выставления счёта, оплаты, передачи в СДЭК или завершения заказа'), { status: 409 })
+      const paid = String(previous.paymentStatus || '').toUpperCase() === 'PAID'
+      const billingStarted = Boolean(previous.paymentId || previous.paymentLinkId || previous.paymentUrl || previous.paymentCreationToken || previous.paymentCreationStartedAt)
+      if ((billingStarted && !paid) || previous.cdekOrderUuid || ['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(previous.status)) {
+        throw Object.assign(new Error('Промокод нельзя применить к выставленному, отправленному или завершённому заказу. Оплаченный заказ можно скорректировать до отправки.'), { status: 409 })
       }
       const user = await tx.user.findUnique({ where: { id: previous.userId }, select: { id: true, role: true, partnerUser: { select: { partnerId: true } } } })
       if (!user || user.role === 'DELETED') throw Object.assign(new Error('Клиент не найден'), { status: 404 })
@@ -1651,7 +1650,10 @@ router.post('/orders/:id/promo', authenticate, requireAdmin, async (req, res, ne
       const nextTotalCents = subtotalCents + deliveryCents - existingDiscountCents - promoDiscountCents
       if (nextTotalCents < 0) throw Object.assign(new Error('Скидка превышает стоимость заказа'), { status: 400 })
       const nextPartnerId = promo.partnerId || previous.partnerId || null
-      await claimManualOrderPromo(tx, promo.promoCode)
+      const nextUnbilledAdjustment = paid
+        ? (Math.round(Number(previous.unbilledAdjustment || 0) * 100) - promoDiscountCents) / 100
+        : previous.unbilledAdjustment
+      await claimManualOrderPromo(tx, promo.promoCode, user.id)
       if (promo.promoCode.partnerId === nextPartnerId && nextPartnerId && !previous.partnerId && !user.partnerUser && !historical) {
         await tx.partnerUser.create({ data: { userId: user.id, partnerId: nextPartnerId, promoCodeId: promo.promoCode.id, referralSource: 'promo_code' } })
       }
@@ -1660,14 +1662,17 @@ router.post('/orders/:id/promo', authenticate, requireAdmin, async (req, res, ne
         data: {
           promoCodeId: promo.promoCode.id, partnerId: nextPartnerId,
           discountAmount: (existingDiscountCents + promoDiscountCents) / 100,
-          total: nextTotalCents / 100, paymentAmount: previous.paymentStatus === 'CASH_ON_DELIVERY' ? null : nextTotalCents / 100,
+          total: nextTotalCents / 100,
+          unbilledAdjustment: nextUnbilledAdjustment,
+          ...(!paid ? { paymentAmount: previous.paymentStatus === 'CASH_ON_DELIVERY' ? null : nextTotalCents / 100 } : {}),
           editVersion: { increment: 1 }
         }
       })
+      await syncPartnerCommissionForOrder(tx, updated.id)
       await tx.orderEditLog.create({ data: {
         orderId, adminId: req.user.id,
-        beforeJson: JSON.stringify({ promoCodeId: null, discountAmount: previous.discountAmount, total: previous.total, partnerId: previous.partnerId }),
-        afterJson: JSON.stringify({ promoCodeId: promo.promoCode.id, promoCode: promo.promoCode.code, promoDiscountAmount: promoDiscountCents / 100, discountAmount: updated.discountAmount, total: updated.total, partnerId: updated.partnerId })
+        beforeJson: JSON.stringify({ promoCodeId: null, discountAmount: previous.discountAmount, total: previous.total, paymentAmount: previous.paymentAmount, unbilledAdjustment: previous.unbilledAdjustment, partnerId: previous.partnerId }),
+        afterJson: JSON.stringify({ promoCodeId: promo.promoCode.id, promoCode: promo.promoCode.code, promoDiscountAmount: promoDiscountCents / 100, discountAmount: updated.discountAmount, total: updated.total, paymentAmount: updated.paymentAmount, unbilledAdjustment: updated.unbilledAdjustment, partnerId: updated.partnerId })
       } })
       return updated
     })

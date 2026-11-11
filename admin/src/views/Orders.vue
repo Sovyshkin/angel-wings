@@ -573,8 +573,8 @@
                 >
                   {{ selectedOrder.promoCode.partner.user?.name || `Партнёр #${selectedOrder.promoCode.partner.id}` }}
                 </router-link>
-                <button v-if="!selectedOrder.promoCodeId && !showOrderPromo" type="button" class="order-promo-toggle" :disabled="!canEditOrderAmount || !selectedOrder.userId" @click="showOrderPromo = true">+ Добавить промокод</button>
-                <small v-if="!selectedOrder.promoCodeId && (!canEditOrderAmount || !selectedOrder.userId)" class="order-promo-hint">{{ !selectedOrder.userId ? 'Нужен зарегистрированный клиент' : 'Сумму этого заказа уже нельзя менять' }}</small>
+                <button v-if="!selectedOrder.promoCodeId && !showOrderPromo" type="button" class="order-promo-toggle" :disabled="!canAddOrderPromo" @click="showOrderPromo = true">+ Добавить промокод</button>
+                <small v-if="!selectedOrder.promoCodeId && !canAddOrderPromo" class="order-promo-hint">{{ !selectedOrder.userId ? 'Нужен зарегистрированный клиент' : 'Промокод доступен до отправки заказа; выставленный, но неоплаченный счёт нужно отменить' }}</small>
               </div>
             </div>
             <form v-if="showOrderPromo && !selectedOrder.promoCodeId" class="order-promo-form" @submit.prevent="applyOrderPromo">
@@ -583,7 +583,7 @@
                 <button type="submit" class="btn btn-primary" :disabled="applyingOrderPromo || !orderPromoCode">{{ applyingOrderPromo ? 'Применяем…' : 'Применить' }}</button>
                 <button type="button" class="btn btn-secondary" :disabled="applyingOrderPromo" @click="showOrderPromo = false; orderPromoError = ''">Отмена</button>
               </div>
-              <p class="edit-notice">Скидка изменит сумму неоплаченного заказа. Баллы за консультацию не начисляются.</p>
+              <p class="edit-notice">{{ isOrderPaid(selectedOrder.paymentStatus) ? 'Скидка уменьшит итог заказа и партнёрскую комиссию. Уже полученная оплата не возвращается автоматически: разницу нужно вернуть клиенту отдельно.' : 'Скидка изменит сумму к оплате и партнёрскую комиссию после оплаты.' }}</p>
               <p v-if="orderPromoError" class="edit-error" role="alert">{{ orderPromoError }}</p>
             </form>
             <div v-if="getPartnerBonusAmount(selectedOrder) > 0" class="partner-bonus-card">
@@ -746,6 +746,10 @@
               <span>Ранее выставлено к оплате</span>
               <span>{{ formatPrice(getFixedPaymentAmount(selectedOrder)) }}</span>
             </div>
+            <div v-if="isOrderPaid(selectedOrder.paymentStatus) && getFixedPaymentAmount(selectedOrder) > Number(selectedOrder.total || 0)" class="total-row">
+              <span>К возврату клиенту</span>
+              <span class="discount">{{ formatPrice(getFixedPaymentAmount(selectedOrder) - Number(selectedOrder.total || 0)) }}</span>
+            </div>
           </div>
 
           <div v-if="selectedOrder.notes" class="order-notes">
@@ -866,6 +870,12 @@ const hasFixedPayment = computed(() => Boolean(selectedOrder.value && (selectedO
 const canEditOrderAmount = computed(() => {
   const order = selectedOrder.value
   return Boolean(order && !hasFixedPayment.value && !order.cdekOrderUuid && !['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(order.status))
+})
+const canAddOrderPromo = computed(() => {
+  const order = selectedOrder.value
+  return Boolean(order && order.userId && !order.promoCodeId && !order.cdekOrderUuid &&
+    !['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(order.status) &&
+    (!hasFixedPayment.value || String(order.paymentStatus || '').toUpperCase() === 'PAID'))
 })
 const draftCompositionTotal = computed(() => orderDraft.value?.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (parseItemPrice(item.price) || 0), 0) || 0)
 const draftTotal = computed(() => {

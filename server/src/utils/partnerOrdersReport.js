@@ -1,5 +1,6 @@
 import { getAcquiringEstimate } from './paymentAcquiring.js'
 import { getBilledOrderTotal } from './orderEditAmounts.js'
+import { getOrderItemUnitCost } from './productCost.js'
 
 export const PARTNER_REPORT_TAX_RATE = 0.11412
 
@@ -38,13 +39,21 @@ export function allocateOrderItems(order) {
 
   return items.map((item, index) => {
     const itemDiscount = discounts[index]
+    const unitCost = toCents(getOrderItemUnitCost(item))
+    const cost = unitCost * Math.max(0, Number(item.quantity) || 0)
     return {
       item,
       gross: fromCents(grossCents[index]),
       discount: fromCents(itemDiscount),
-      net: fromCents(grossCents[index] - itemDiscount)
+      net: fromCents(grossCents[index] - itemDiscount),
+      unitCost: fromCents(unitCost),
+      cost: fromCents(cost)
     }
   })
+}
+
+export function getOrderProductCost(order) {
+  return fromCents(allocateOrderItems(order).reduce((sum, line) => sum + toCents(line.cost), 0))
 }
 
 export function getOrderReportAmounts(order, acquiringSettings) {

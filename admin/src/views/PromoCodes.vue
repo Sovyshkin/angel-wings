@@ -68,10 +68,10 @@
               </td>
               <td>
                 <span :class="['badge', pc.usageType === 'single' ? 'badge-danger' : 'badge-success']">
-                  {{ pc.usageType === 'single' ? 'Однократный' : 'Многоразовый' }}
+                  {{ pc.usageType === 'single' ? '1 раз на клиента' : 'Многоразовый' }}
                 </span>
               </td>
-              <td class="cell-num">{{ pc.activationCount }} / {{ pc.maxActivations === 0 ? '∞' : pc.maxActivations }}</td>
+              <td class="cell-num">{{ pc.usageType === 'single' ? `${pc.activationCount} всего` : `${pc.activationCount} / ${pc.maxActivations === 0 ? '∞' : pc.maxActivations}` }}</td>
               <td>
                 <span v-if="pc.partner">
                   {{ pc.partner.user.name }}
@@ -122,8 +122,8 @@
           </div>
           <div class="promo-mobile-card__rows">
             <div><span>Скидка</span><strong>{{ pc.discountType === 'percentage' ? pc.discountValue + '%' : formatCurrency(pc.discountValue) }}</strong></div>
-            <div><span>Тип</span><strong>{{ pc.usageType === 'single' ? 'Однократный' : 'Многоразовый' }}</strong></div>
-            <div><span>Активации</span><strong>{{ pc.activationCount }} / {{ pc.maxActivations === 0 ? '∞' : pc.maxActivations }}</strong></div>
+            <div><span>Тип</span><strong>{{ pc.usageType === 'single' ? '1 раз на клиента' : 'Многоразовый' }}</strong></div>
+            <div><span>Активации</span><strong>{{ pc.usageType === 'single' ? `${pc.activationCount} всего` : `${pc.activationCount} / ${pc.maxActivations === 0 ? '∞' : pc.maxActivations}` }}</strong></div>
             <div><span>Партнёр</span><strong>{{ pc.partner ? pc.partner.user.name : 'Общий' }}</strong></div>
             <div><span>Мин. сумма</span><strong>{{ pc.minOrderAmount ? formatCurrency(pc.minOrderAmount) : '—' }}</strong></div>
           </div>
@@ -171,7 +171,7 @@
             <div class="form-group">
               <label class="form-label">Тип использования</label>
               <select v-model="form.usageType" class="input">
-                <option value="single">Однократный</option>
+                <option value="single">Один раз для каждого клиента</option>
                 <option value="multi">Многоразовый</option>
               </select>
             </div>
@@ -179,6 +179,7 @@
               <label class="form-label">Макс. активаций</label>
               <input type="number" v-model="form.maxActivations" class="input" min="0" :disabled="form.usageType === 'single'">
               <small v-if="form.usageType === 'multi'" class="input-hint">0 = без лимита</small>
+              <small v-else class="input-hint">Общего лимита нет: каждый клиент может использовать один раз.</small>
             </div>
           </div>
 

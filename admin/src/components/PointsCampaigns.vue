@@ -19,7 +19,7 @@
             <label>Период покупок, дней<input v-model.number="form.lookbackDays" class="input" type="number" min="1" max="365"></label>
             <label>Не менее оплаченных заказов<input v-model.number="form.minPaidOrders" class="input" type="number" min="0" max="100"></label>
             <label>Не более оплаченных заказов<input v-model.number="form.maxPaidOrders" class="input" type="number" min="0" max="100"></label>
-            <label class="gift-wide">Только ID пользователей (необязательно)<input v-model.trim="form.targetUserIds" class="input" placeholder="Например: 14, 474, 686"><small>Если заполнено, остальные аккаунты не попадут в аудиторию.</small></label>
+            <div class="gift-wide gift-recipients"><label for="gift-target-ids">Только выбранные пользователи (необязательно)</label><div class="gift-recipient-control"><input id="gift-target-ids" v-model.trim="form.targetUserIds" class="input" placeholder="Например: 14, 474, 686" inputmode="numeric"><button class="btn btn-secondary" type="button" @click="openUserPicker">Выбрать из списка</button></div><small>Можно указать ID вручную или найти пользователей по имени, email, телефону и ID. Если список заполнен, остальные аккаунты не попадут в аудиторию.</small></div>
             <label class="gift-wide">Получить до (необязательно)<input v-model="form.claimUntil" class="input" type="datetime-local"><small>После этой даты кнопка получения перестанет начислять баллы.</small></label>
           </div>
           <div class="gift-checks"><span>Кому показать предложение</span><label><input v-model="form.roles" type="checkbox" value="USER"> Обычные пользователи</label><label><input v-model="form.roles" type="checkbox" value="PARTNER"> Партнёры</label><label><input v-model="form.excludeClaimedAnyCampaign" type="checkbox"> Исключить тех, кто уже получал баллы по другим акциям</label></div>
@@ -62,10 +62,24 @@
       <aside class="gift-history"><div class="gift-sample"><span class="gift-kicker">Так увидит получатель</span><h3>{{ sample(form.claimTitle) }}</h3><p>{{ sample(form.claimBody) }}</p><strong class="gift-sample-button">{{ sample(form.buttonText) }}</strong><details><summary>Письмо и Telegram</summary><div v-if="form.emailEnabled"><b>{{ sample(form.emailSubject) }}</b><p>{{ sample(form.emailBody) }}</p></div><div v-if="form.telegramEnabled"><b>Telegram</b><p>{{ sample(form.telegramBody) }}</p></div></details></div><h3>Кампании</h3><p>Черновики можно менять. Подготовленная аудитория и сумма фиксируются.</p><div v-if="!campaigns.length" class="gift-empty">Кампаний пока нет</div><button v-for="campaign in campaigns" :key="campaign.id" type="button" :class="['gift-history-item', { selected: current?.id === campaign.id }]" @click="selectCampaign(campaign)"><span><strong>{{ campaign.settings.title }}</strong><small>{{ formatDate(campaign.createdAt) }} · {{ formatNumber(campaign.settings.amount) }} баллов</small></span><em>{{ statusLabel(campaign.status) }}</em><span class="gift-history-count">{{ campaign.counts?.offers || 0 }} предложений · {{ campaign.counts?.claimed || 0 }} получено</span></button></aside>
     </div>
   </section>
+  <div v-if="pickerOpen" class="gift-picker-backdrop" @click.self="closeUserPicker">
+    <div class="gift-picker" role="dialog" aria-modal="true" aria-labelledby="gift-picker-title" @keydown.esc="closeUserPicker">
+      <div class="gift-picker-head"><div><span class="gift-kicker">Адресная рассылка</span><h3 id="gift-picker-title">Выбрать пользователей</h3><p>Поиск по имени, email, телефону и ID. Роли, покупки и доступные каналы проверяются при подсчёте аудитории.</p></div><button class="gift-picker-close" type="button" aria-label="Закрыть" @click="closeUserPicker">×</button></div>
+      <div class="gift-picker-search"><input v-model="pickerQuery" class="input" type="search" placeholder="Поиск пользователей" aria-label="Поиск пользователей" autofocus><span>{{ pickerSelected.length }} выбрано</span></div>
+      <div v-if="pickerSelected.length" class="gift-picker-selected"><button v-for="id in pickerSelected" :key="id" type="button" :title="`Убрать пользователя #${id}`" @click="togglePickerUser(id)">{{ pickerKnown[id]?.name || pickerKnown[id]?.email || `#${id}` }} <span>×</span></button></div>
+      <div class="gift-picker-list" aria-live="polite">
+        <p v-if="pickerLoading" class="gift-picker-state">Загрузка пользователей…</p>
+        <p v-else-if="pickerError" class="gift-picker-state gift-picker-error">{{ pickerError }}</p>
+        <p v-else-if="!pickerUsers.length" class="gift-picker-state">Пользователи не найдены</p>
+        <label v-for="user in pickerUsers" :key="user.id" class="gift-picker-user"><input type="checkbox" :checked="pickerSelected.includes(user.id)" @change="togglePickerUser(user.id)"><span class="gift-picker-person"><strong>{{ user.name || `Пользователь #${user.id}` }}</strong><small>{{ user.email || user.phone || 'Контакт не указан' }}<template v-if="user.email && user.phone"> · {{ user.phone }}</template></small></span><span class="gift-picker-meta">#{{ user.id }} · {{ user.role === 'PARTNER' ? 'Партнёр' : user.role === 'USER' ? 'Пользователь' : user.role }}</span></label>
+      </div>
+      <div class="gift-picker-bottom"><div class="gift-picker-pages"><button class="btn btn-secondary" type="button" :disabled="pickerLoading || pickerOffset === 0" @click="pickerOffset = Math.max(0, pickerOffset - pickerLimit)">Назад</button><span>{{ pickerTotal ? `${pickerOffset + 1}–${Math.min(pickerOffset + pickerLimit, pickerTotal)} из ${pickerTotal}` : '0 пользователей' }}</span><button class="btn btn-secondary" type="button" :disabled="pickerLoading || pickerOffset + pickerLimit >= pickerTotal" @click="pickerOffset += pickerLimit">Далее</button></div><div class="gift-picker-actions"><button class="btn btn-secondary" type="button" @click="closeUserPicker">Отмена</button><button class="btn btn-primary" type="button" @click="applyUserPicker">Применить выбор</button></div></div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 
 const defaults = () => ({ title: 'Подарок Angel Wings', amount: 4000, lookbackDays: 45, minPaidOrders: 0, maxPaidOrders: 1, targetUserIds: '', excludeClaimedAnyCampaign: false, roles: ['USER', 'PARTNER'], emailEnabled: true, telegramEnabled: true, siteEnabled: true, requireEmailConsent: false, respectTelegramUnsubscribe: true, validityDays: 30, claimUntil: '', imageUrl: '', emailSubject: 'Вам доступны {{points}} баллов Angel Wings', emailBody: 'Здравствуйте, {{name}}!\n\nВам доступны {{points}} баллов. Войдите в аккаунт и нажмите «Получить».\n\n{{claim_url}}', telegramBody: '🎁 Вам доступны {{points}} баллов Angel Wings! Нажмите «Получить» в мини-приложении.', claimTitle: 'Ваши баллы ждут вас', claimBody: 'Нажмите «Получить», чтобы баллы появились на балансе.', buttonText: 'Получить {{points}} баллов' })
@@ -79,6 +93,18 @@ const saved = ref('')
 const busy = ref(false)
 const message = ref('')
 const messageType = ref('success')
+const pickerOpen = ref(false)
+const pickerQuery = ref('')
+const pickerUsers = ref([])
+const pickerKnown = ref({})
+const pickerSelected = ref([])
+const pickerLoading = ref(false)
+const pickerError = ref('')
+const pickerTotal = ref(0)
+const pickerOffset = ref(0)
+const pickerLimit = 20
+let pickerTimer
+let pickerRequest = 0
 const locked = computed(() => current.value && current.value.status !== 'DRAFT')
 const dirty = computed(() => current.value && saved.value !== JSON.stringify(form.value))
 const failedCount = computed(() => (counts.value.email?.FAILED || 0) + (counts.value.telegram?.FAILED || 0))
@@ -97,6 +123,73 @@ const payload = () => ({ ...form.value, claimUntil: form.value.claimUntil ? new 
 const fromSettings = settings => ({ ...settings, claimUntil: settings.claimUntil ? new Date(new Date(settings.claimUntil).getTime() - new Date(settings.claimUntil).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '' })
 
 watch(form, () => { preview.value = null }, { deep: true })
+watch(pickerQuery, () => {
+  if (!pickerOpen.value) return
+  pickerOffset.value = 0
+  schedulePickerLoad()
+})
+watch(pickerOffset, () => { if (pickerOpen.value) schedulePickerLoad(0) })
+
+function schedulePickerLoad(delay = 250) {
+  clearTimeout(pickerTimer)
+  const request = ++pickerRequest
+  pickerLoading.value = true
+  pickerError.value = ''
+  pickerUsers.value = []
+  pickerTimer = setTimeout(async () => {
+    try {
+      const { data } = await axios.get('/api/admin/users', { params: { q: pickerQuery.value.trim(), limit: pickerLimit, offset: pickerOffset.value } })
+      if (request !== pickerRequest || !pickerOpen.value) return
+      pickerUsers.value = data.users || []
+      pickerTotal.value = data.total || 0
+      for (const user of pickerUsers.value) pickerKnown.value[user.id] = user
+    } catch (error) {
+      if (request !== pickerRequest || !pickerOpen.value) return
+      pickerError.value = error.response?.data?.error || 'Не удалось загрузить пользователей'
+    } finally {
+      if (request === pickerRequest) pickerLoading.value = false
+    }
+  }, delay)
+}
+async function openUserPicker() {
+  const raw = form.value.targetUserIds.trim()
+  if (raw && (!/^[\d,\s]+$/.test(raw) || raw.length > 3000)) {
+    say('Сначала исправьте список ID: нужны положительные числа через запятую, не более 3000 символов.', 'error')
+    return
+  }
+  const ids = raw ? raw.split(/[\s,]+/).filter(Boolean).map(Number) : []
+  if (ids.some(id => !Number.isSafeInteger(id) || id < 1)) {
+    say('Сначала исправьте список ID: нужны положительные числа через запятую.', 'error')
+    return
+  }
+  pickerSelected.value = [...new Set(ids)]
+  pickerQuery.value = ''
+  pickerOffset.value = 0
+  pickerOpen.value = true
+  schedulePickerLoad(0)
+  await nextTick()
+  document.querySelector('.gift-picker-search input')?.focus()
+}
+function closeUserPicker() {
+  pickerOpen.value = false
+  clearTimeout(pickerTimer)
+  pickerRequest++
+}
+function togglePickerUser(id) {
+  pickerSelected.value = pickerSelected.value.includes(id)
+    ? pickerSelected.value.filter(selected => selected !== id)
+    : [...pickerSelected.value, id]
+}
+function applyUserPicker() {
+  const ids = pickerSelected.value.join(', ')
+  if (ids.length > 3000) {
+    pickerError.value = 'Слишком много пользователей: список ID должен быть короче 3000 символов.'
+    return
+  }
+  form.value.targetUserIds = ids
+  closeUserPicker()
+  say(ids ? `Выбрано ${pickerSelected.value.length} пользователей. Сохраните черновик и пересчитайте аудиторию.` : 'Выбор очищен. Кампания снова охватит всех подходящих пользователей.')
+}
 
 async function loadList() {
   const { data } = await axios.get('/api/admin/points-campaigns')
@@ -171,7 +264,7 @@ async function resolveStuck() {
   catch (error) { fail(error) } finally { busy.value = false }
 }
 onMounted(async () => { try { await loadList() } catch (error) { fail(error) }; timer = setInterval(() => { if (current.value?.status === 'SENDING' && !busy.value) loadCurrent() }, 10000) })
-onBeforeUnmount(() => clearInterval(timer))
+onBeforeUnmount(() => { clearInterval(timer); clearTimeout(pickerTimer); pickerRequest++ })
 </script>
 
 <style scoped>
@@ -186,6 +279,9 @@ onBeforeUnmount(() => clearInterval(timer))
 .gift-history-item{display:grid;gap:.5rem;width:100%;margin:.55rem 0;padding:.85rem;text-align:left;border:1px solid var(--border);border-radius:13px;background:var(--bg-secondary);color:var(--text-primary);cursor:pointer}.gift-history-item.selected{border-color:var(--accent)}.gift-history-item>span:first-child{display:grid;gap:.2rem;min-width:0}.gift-history-item strong{overflow-wrap:anywhere}.gift-history-item small,.gift-history-count{color:var(--text-secondary);font-size:.76rem}.gift-history-item em{font-size:.76rem;color:var(--accent);font-style:normal}.gift-empty{padding:1rem;color:var(--text-secondary);border:1px dashed var(--border);border-radius:12px}
 .gift-sample{padding:1.2rem;margin-bottom:1.5rem;border:1px solid var(--border);border-radius:18px;background:radial-gradient(circle at top right,rgba(118,154,255,.2),transparent 55%),var(--bg-secondary)}.gift-sample h3{margin:.8rem 0 .5rem}.gift-sample p{color:var(--text-secondary);line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.gift-sample-button{display:block;margin:1rem 0;text-align:center;padding:.8rem;border-radius:12px;background:var(--accent);color:#111629}.gift-sample details{font-size:.82rem}.gift-sample summary{cursor:pointer;color:var(--accent)}.gift-sample details>div{padding:.75rem 0;border-top:1px solid var(--border);margin-top:.75rem}
 .gift-notice.warning{background:rgba(255,193,7,.14);color:#ffd166}
+.gift-recipients{display:grid;gap:.35rem;min-width:0;color:var(--text-secondary);font-size:.84rem;font-weight:700}.gift-recipients small{font-weight:400;line-height:1.45}.gift-recipient-control{display:flex;gap:.6rem}.gift-recipient-control .input{flex:1}.gift-recipient-control .btn{flex:none;min-height:43px}
+.gift-picker-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:1rem;background:rgba(3,5,16,.8);backdrop-filter:blur(8px)}.gift-picker{width:min(680px,100%);max-height:min(760px,calc(100vh - 2rem));display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);border-radius:22px;background:var(--bg-card);box-shadow:0 28px 80px rgba(0,0,0,.45)}.gift-picker-head{display:flex;justify-content:space-between;gap:1rem;padding:1.4rem 1.5rem 1rem}.gift-picker-head h3{font-size:1.4rem;margin:.25rem 0}.gift-picker-head p{margin:0;color:var(--text-secondary);font-size:.85rem;line-height:1.45}.gift-picker-close{align-self:start;width:36px;height:36px;border:1px solid var(--border);border-radius:10px;background:var(--bg-secondary);color:var(--text-primary);font-size:1.5rem;cursor:pointer}.gift-picker-search{display:flex;align-items:center;gap:.8rem;padding:0 1.5rem 1rem}.gift-picker-search .input{flex:1;min-width:0;min-height:44px}.gift-picker-search span{flex:none;color:var(--accent);font-size:.8rem;font-weight:800}.gift-picker-selected{display:flex;gap:.4rem;overflow-x:auto;padding:0 1.5rem .8rem}.gift-picker-selected button{flex:none;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:.35rem .6rem;border:1px solid var(--accent);border-radius:999px;background:rgba(165,184,255,.12);color:var(--text-primary);cursor:pointer}.gift-picker-selected span{color:var(--accent);font-weight:800}
+.gift-picker-list{min-height:190px;overflow:auto;padding:.2rem 1.5rem;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}.gift-picker-user{display:flex;align-items:center;gap:.8rem;padding:.75rem .35rem;border-bottom:1px solid var(--border);cursor:pointer}.gift-picker-user:last-child{border-bottom:0}.gift-picker-user:hover{background:rgba(165,184,255,.06)}.gift-picker-user input{width:18px;height:18px;flex:none;accent-color:var(--accent)}.gift-picker-person{display:grid;gap:.2rem;min-width:0;flex:1}.gift-picker-person strong,.gift-picker-person small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gift-picker-person small,.gift-picker-meta{color:var(--text-secondary);font-size:.77rem}.gift-picker-meta{flex:none}.gift-picker-state{padding:1.5rem 0;text-align:center;color:var(--text-secondary)}.gift-picker-error{color:#ff8e8e}.gift-picker-bottom{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;padding:1rem 1.5rem}.gift-picker-pages,.gift-picker-actions{display:flex;align-items:center;gap:.5rem}.gift-picker-pages span{min-width:105px;text-align:center;color:var(--text-secondary);font-size:.78rem}.gift-picker-bottom .btn{min-height:39px}
 @media(max-width:1100px){.gift-layout{grid-template-columns:1fr}.gift-history{border-left:0;border-top:1px solid var(--border)}}
-@media(max-width:600px){.gift-header{padding:1.15rem;flex-direction:column}.gift-main,.gift-history{padding:1rem}.gift-panel{padding:.9rem}.gift-grid{grid-template-columns:1fr}.gift-wide{grid-column:auto}.gift-metrics{grid-template-columns:repeat(2,1fr)}.gift-action-row .btn{width:100%}.gift-header .btn{width:100%}}
+@media(max-width:600px){.gift-header{padding:1.15rem;flex-direction:column}.gift-main,.gift-history{padding:1rem}.gift-panel{padding:.9rem}.gift-grid{grid-template-columns:1fr}.gift-wide{grid-column:auto}.gift-metrics{grid-template-columns:repeat(2,1fr)}.gift-action-row .btn{width:100%}.gift-header .btn{width:100%}.gift-recipient-control{flex-direction:column}.gift-picker-head,.gift-picker-search,.gift-picker-bottom{padding-left:1rem;padding-right:1rem}.gift-picker-list{padding-left:1rem;padding-right:1rem}.gift-picker-selected{padding-left:1rem;padding-right:1rem}.gift-picker-bottom{align-items:stretch}.gift-picker-pages,.gift-picker-actions{justify-content:space-between}.gift-picker-actions .btn{flex:1}.gift-picker-meta{font-size:.69rem}}
 </style>

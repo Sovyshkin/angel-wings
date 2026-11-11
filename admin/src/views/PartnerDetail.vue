@@ -727,7 +727,6 @@ function getPromoCodeStatus(code) {
   if (!code?.isActive) return { active: false, label: 'Отключён' }
   if (startsAt && startsAt > now) return { active: false, label: 'Ещё не действует' }
   if (endsAt && endsAt < now) return { active: false, label: 'Истёк' }
-  if (code?.usageType === 'single' && activationCount >= 1) return { active: false, label: 'Использован' }
   if (code?.usageType === 'multi' && maxActivations > 0 && activationCount >= maxActivations) {
     return { active: false, label: 'Лимит исчерпан' }
   }

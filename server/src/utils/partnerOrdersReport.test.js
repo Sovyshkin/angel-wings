@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { allocateOrderItems, formatOrderComposition, getOrderReportAmounts, getReportOrderWhere, getReportPartnerName } from './partnerOrdersReport.js'
+import { allocateOrderItems, formatOrderComposition, getOrderProductCost, getOrderReportAmounts, getReportOrderWhere, getReportPartnerName } from './partnerOrdersReport.js'
 
 test('all-orders report has no partner filter, while partner report retains it', () => {
   assert.deepEqual(getReportOrderWhere(true, [7]), {})
@@ -35,6 +35,17 @@ test('discount allocation never makes a tiny line negative', () => {
   const lines = allocateOrderItems(order)
   assert.equal(lines.reduce((sum, line) => sum + Math.round(line.discount * 100), 0), 60)
   assert.ok(lines.every(line => line.net >= 0))
+})
+
+test('report cost uses selected dosage and reconciles item, order and report totals', () => {
+  const order = { items: [
+    { productId: 1, dosage: '10 мг', quantity: 2, price: 5000, product: { costPrice: 1200, specs: JSON.stringify({ dosages: [{ dosage: '10 мг', costPrice: 1800 }] }) } },
+    { productId: 2, quantity: 3, price: 1000, product: { costPrice: 450, specs: '{}' } }
+  ] }
+  const lines = allocateOrderItems(order)
+  assert.deepEqual(lines.map(line => [line.unitCost, line.cost]), [[1800, 3600], [450, 1350]])
+  assert.equal(getOrderProductCost(order), 4950)
+  assert.equal(lines.reduce((sum, line) => sum + line.cost, 0), getOrderProductCost(order))
 })
 
 test('financial columns include only paid orders and label estimated acquiring', () => {

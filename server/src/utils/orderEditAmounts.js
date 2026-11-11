@@ -2,6 +2,15 @@ export function getBilledOrderTotal(order) {
   return (Math.round(Number(order?.total || 0) * 100) - Math.round(Number(order?.unbilledAdjustment || 0) * 100)) / 100
 }
 
+export function getOrderRefundDue(order) {
+  if (String(order?.paymentStatus || '').toUpperCase() !== 'PAID') return 0
+  return Math.max(0, Math.round(getBilledOrderTotal(order) * 100) - Math.round(Number(order?.total || 0) * 100)) / 100
+}
+
+export function getRecognizedOrderRevenue(order) {
+  return Math.max(0, getBilledOrderTotal(order) - getOrderRefundDue(order))
+}
+
 export function calculateEditedOrderDiscount({ previousItems, nextItems, previousDiscountAmount, partnerBonusAmount = 0, userPointsUsed = 0, promoCode }) {
   if (!promoCode) return Number(previousDiscountAmount || 0)
 

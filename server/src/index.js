@@ -21,6 +21,7 @@ import pointsRoutes from './routes/points.js'
 import pointsCampaignRoutes from './routes/pointsCampaign.js'
 import adminPointsCampaignsRoutes from './routes/adminPointsCampaigns.js'
 import { startCustomCampaignWorker } from './services/customPointsCampaign.js'
+import { startGiveawayTicketEmailWorker } from './services/giveawayTicketEmail.js'
 import adminPointsRoutes from './routes/adminPoints.js'
 import contactRequestsRoutes from './routes/contactRequests.js'
 import adminContactRequestsRoutes from './routes/adminContactRequests.js'
@@ -95,4 +96,5 @@ app.listen(PORT, () => {
   startRecoveryWorker()
   startCdekRegistrationWorker(prisma)
   startCustomCampaignWorker(prisma)
+  startGiveawayTicketEmailWorker(prisma)
 })

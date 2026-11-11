@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { calculateEditedOrderDiscount, calculateOrderEditAmounts, getBilledOrderTotal } from './orderEditAmounts.js'
+import { calculateEditedOrderDiscount, calculateOrderEditAmounts, getBilledOrderTotal, getOrderRefundDue, getRecognizedOrderRevenue } from './orderEditAmounts.js'
 
 test('percentage promo applies to the changed merchandise once and preserves other deductions', () => {
   const input = {
@@ -101,6 +101,10 @@ test('billed order total keeps earlier installments and excludes admin-only chan
   assert.equal(getBilledOrderTotal({ total: 15000, paymentAmount: 2000, unbilledAdjustment: 5000 }), 10000)
   assert.equal(getBilledOrderTotal({ total: 17000, paymentAmount: 2000, unbilledAdjustment: 5000 }), 12000)
   assert.equal(getBilledOrderTotal({ total: 900, unbilledAdjustment: -100 }), 1000)
+  assert.equal(getOrderRefundDue({ total: 900, unbilledAdjustment: -100, paymentStatus: 'PAID' }), 100)
+  assert.equal(getRecognizedOrderRevenue({ total: 900, unbilledAdjustment: -100, paymentStatus: 'PAID' }), 900)
+  assert.equal(getOrderRefundDue({ total: 1200, unbilledAdjustment: 200, paymentStatus: 'PAID' }), 0)
+  assert.equal(getRecognizedOrderRevenue({ total: 1200, unbilledAdjustment: 200, paymentStatus: 'PAID' }), 1000)
 })
 
 test('repeated admin edits keep the original billed total', () => {

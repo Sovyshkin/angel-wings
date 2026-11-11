@@ -63,3 +63,5 @@
 .forum-admin__repeaters-head--sub{margin-top:24px}
 .forum-admin__text-button{color:#ff9999;cursor:pointer}
 @media(max-width:650px){.forum-admin__catalog-row{flex-wrap:wrap}.forum-admin__catalog-title{flex-basis:calc(100% - 60px)}.forum-admin__catalog-row button{flex:1}.forum-admin__card summary{flex-wrap:wrap}.forum-admin__card-actions{width:100%;justify-content:flex-end}}
+.forum-admin__application-ticket{display:inline-block;margin-top:8px;padding:6px 10px;border:1px solid rgba(124,178,255,.45);border-radius:8px;background:rgba(69,122,207,.14);color:var(--accent);font:700 12px var(--font-mono);letter-spacing:.02em}
+.forum-admin__application-email{display:block;margin-top:7px;color:#a9e3c1;font-size:12px}.forum-admin__application-email.is-failed{color:#ffb1bf}

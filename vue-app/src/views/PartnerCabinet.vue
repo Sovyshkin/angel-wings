@@ -195,7 +195,7 @@
                     </span>
                   </div>
                   <div class="pc-stats">
-                    <span>{{ pc.activationCount }} / {{ pc.maxActivations }} активаций</span>
+                    <span>{{ pc.usageType === 'single' ? `${pc.activationCount} активаций · 1 раз на клиента` : `${pc.activationCount} / ${pc.maxActivations === 0 ? '∞' : pc.maxActivations} активаций` }}</span>
                   </div>
                 </div>
               </div>

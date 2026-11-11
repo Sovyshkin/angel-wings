@@ -12,6 +12,7 @@ import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { normalizePointAmount, spendUserPoints } from '../utils/userPoints.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
 import { isActivePartner, isOwnPartnerPromoCode } from '../utils/promoEligibility.js'
+import { hasUserUsedSinglePromo } from '../utils/promoUsage.js'
 import { personalPromoError } from '../utils/personalPromo.js'
 import { calculatePromoDiscount } from '../utils/checkoutDiscounts.js'
 import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
@@ -152,9 +153,9 @@ async function applyPromoCode(code, userId) {
     return { error: 'Срок действия промокода истёк' }
   }
 
-  if (promoCode.usageType === 'single' && promoCode.activationCount >= 1) {
-    logPromoCheck('single_limit_reached', { requestedCode: normalizedCode, promoCodeId: promoCode.id, activationCount: promoCode.activationCount })
-    return { error: 'Промокод достиг лимита использований' }
+  if (promoCode.usageType === 'single' && await hasUserUsedSinglePromo(prisma, promoCode.id, userId)) {
+    logPromoCheck('single_user_limit_reached', { requestedCode: normalizedCode, promoCodeId: promoCode.id, userId })
+    return { error: 'Вы уже использовали этот промокод' }
   }
 
   // maxActivations = 0 means unlimited activations for multi-use coupons
@@ -875,7 +876,10 @@ router.post('/', authenticate, async (req, res, next) => {
       })))
 
       if (appliedPromoCode) {
-        const limit = appliedPromoCode.usageType === 'single' ? 1 : Number(appliedPromoCode.maxActivations || 0)
+        if (appliedPromoCode.usageType === 'single' && await hasUserUsedSinglePromo(tx, appliedPromoCode.id, req.user.id)) {
+          throw createClientError('Вы уже использовали этот промокод')
+        }
+        const limit = appliedPromoCode.usageType === 'multi' ? Number(appliedPromoCode.maxActivations || 0) : 0
         const claimed = await tx.promoCode.updateMany({
           where: {
             id: appliedPromoCode.id,

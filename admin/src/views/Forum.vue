@@ -94,7 +94,7 @@
 
     <div v-else class="forum-admin__applications">
       <div class="forum-admin__application-head">
-        <div><h2>Заявки с форума</h2><p>Всего: {{ total }} · Новых: {{ newCount }}</p></div>
+        <div><h2>Заявки на розыгрыш</h2><p>Всего: {{ total }} · Новых: {{ newCount }}</p></div>
         <select v-model="statusFilter" aria-label="Фильтр заявок по статусу" @change="offset = 0; loadApplications()">
           <option value="">Все статусы</option>
           <option value="NEW">Новые</option>
@@ -113,6 +113,8 @@
               <span class="forum-admin__application-meta">ЗАЯВКА #{{ item.id }} · {{ formatDate(item.createdAt) }}</span>
               <span class="forum-admin__application-name-label">ФИО</span>
               <h3>{{ item.name }}</h3>
+              <span v-if="item.ticketId" class="forum-admin__application-ticket">Билет {{ item.ticketId }}</span>
+              <span v-if="item.ticketId" class="forum-admin__application-email" :class="{ 'is-failed': item.ticketEmailError }">{{ item.ticketEmailSentAt ? 'Письмо отправлено' : item.ticketEmailError ? 'Ошибка отправки письма' : 'Письмо ожидает отправки' }}</span>
             </div>
             <span class="forum-admin__status" :class="item.status.toLowerCase()">{{ statusNames[item.status] }}</span>
           </header>

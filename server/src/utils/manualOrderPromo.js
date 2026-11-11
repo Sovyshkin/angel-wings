@@ -1,6 +1,7 @@
 import { isActivePartner, isOwnPartnerPromoCode } from './promoEligibility.js'
 import { personalPromoError } from './personalPromo.js'
 import { calculatePromoDiscount } from './checkoutDiscounts.js'
+import { hasUserUsedSinglePromo } from './promoUsage.js'
 
 function clientError(message, status = 400) {
   return Object.assign(new Error(message), { status })
@@ -27,7 +28,10 @@ export async function resolveManualOrderPromo(tx, { code, userId, subtotal, user
   const now = new Date()
   if (promoCode.startDate && now < promoCode.startDate) throw clientError('Промокод ещё не активен')
   if (promoCode.endDate && now > promoCode.endDate) throw clientError('Срок действия промокода истёк')
-  const activationLimit = promoCode.usageType === 'single' ? 1 : Number(promoCode.maxActivations || 0)
+  if (promoCode.usageType === 'single' && await hasUserUsedSinglePromo(tx, promoCode.id, userId, excludeOrderId)) {
+    throw clientError('Клиент уже использовал этот промокод')
+  }
+  const activationLimit = promoCode.usageType === 'multi' ? Number(promoCode.maxActivations || 0) : 0
   if (activationLimit > 0 && promoCode.activationCount >= activationLimit) throw clientError('Промокод достиг лимита использований')
   if (promoCode.isFirstPurchase && await tx.order.count({ where: { userId, ...(excludeOrderId ? { id: { not: excludeOrderId } } : {}) } }) > 0) throw clientError('Этот промокод только для первого заказа')
   if (Number(subtotal) < Number(promoCode.minOrderAmount || 0)) {
@@ -56,9 +60,12 @@ export async function resolveManualOrderPromo(tx, { code, userId, subtotal, user
   }
 }
 
-export async function claimManualOrderPromo(tx, promoCode) {
+export async function claimManualOrderPromo(tx, promoCode, userId) {
   if (!promoCode) return
-  const activationLimit = promoCode.usageType === 'single' ? 1 : Number(promoCode.maxActivations || 0)
+  if (promoCode.usageType === 'single' && await hasUserUsedSinglePromo(tx, promoCode.id, userId)) {
+    throw clientError('Клиент уже использовал этот промокод', 409)
+  }
+  const activationLimit = promoCode.usageType === 'multi' ? Number(promoCode.maxActivations || 0) : 0
   const claimed = await tx.promoCode.updateMany({
     where: {
       id: promoCode.id,

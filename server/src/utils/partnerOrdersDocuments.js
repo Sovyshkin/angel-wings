@@ -27,9 +27,9 @@ export async function createPartnerOrdersDocx(report) {
   const children = [
     new Paragraph({ text: title, heading: HeadingLevel.TITLE }),
     new Paragraph({ text: `Сформирован ${date(new Date())}. Налог рассчитан по ставке 11,412% от оплаченной суммы.`, spacing: { after: 180 } }),
-    new Paragraph({ text: `Оплачено: ${money(report.totals.revenue)}    Налог: ${money(report.totals.tax)}    Эквайринг: ${money(report.totals.acquiring)}`, spacing: { after: 80 } }),
+    new Paragraph({ text: `Оплачено: ${money(report.totals.revenue)}    Налог: ${money(report.totals.tax)}    Эквайринг: ${money(report.totals.acquiring)}    Себестоимость товаров: ${money(report.totals.productCost)}`, spacing: { after: 80 } }),
     new Paragraph({ text: `Оплаченных заказов: ${report.totals.paidCount}. Оценок эквайринга: ${report.totals.estimatedCount}.`, spacing: { after: 220 } }),
-    new Paragraph({ text: 'Эквайринг помечен как фактический либо расчётный. Остаток не учитывает себестоимость и комиссию партнёра.', spacing: { after: 220 } })
+    new Paragraph({ text: 'Себестоимость рассчитана по текущей карточке товара и дозировке. Остаток не учитывает себестоимость и комиссию партнёра.', spacing: { after: 220 } })
   ]
 
   for (const order of report.orders) {
@@ -49,13 +49,14 @@ export async function createPartnerOrdersDocx(report) {
       ]
     }))
     children.push(new Paragraph({ text: `Источник эквайринга: ${order.acquiringSource}. Комиссия партнёра: ${money(order.commission)} (ставка ${formatCommissionPercent(order.commissionPercentage)}).`, spacing: { before: 80, after: 110 } }))
+    children.push(new Paragraph({ text: `Себестоимость товаров заказа: ${money(order.productCost)}`, spacing: { after: 110 } }))
     children.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
-        tableRow(['Товар', 'Кол-во', 'Цена', 'Сумма', 'Скидка', 'После скидки'], { bold: true, fill: 'E8EDF7' }),
+        tableRow(['Товар', 'Кол-во', 'Цена', 'Сумма', 'Скидка', 'После скидки', 'Себест. за шт.', 'Себест. позиции'], { bold: true, fill: 'E8EDF7' }),
         ...(order.items.length ? order.items.map(item => tableRow([
-          item.title, item.quantity, money(item.price), money(item.gross), money(item.discount), money(item.net)
-        ])) : [tableRow(['Нет позиций', '', '', '', '', ''])])
+          item.title, item.quantity, money(item.price), money(item.gross), money(item.discount), money(item.net), money(item.unitCost), money(item.cost)
+        ])) : [tableRow(['Нет позиций', '', '', '', '', '', '', ''])])
       ]
     }))
   }
@@ -100,9 +101,10 @@ export async function createPartnerOrdersPdf(report) {
   textWithFont(doc, `Сформирован ${date(new Date())}. Налог 11,412% от оплаченной суммы.`, { width: pageWidth })
   doc.moveDown(0.6).fontSize(10.5).fillColor('#17223C')
   textWithFont(doc, `Оплачено: ${money(report.totals.revenue)}    Налог: ${money(report.totals.tax)}    Эквайринг: ${money(report.totals.acquiring)}`, { width: pageWidth })
+  textWithFont(doc, `Себестоимость товаров: ${money(report.totals.productCost)}`, { width: pageWidth })
   textWithFont(doc, `Оплаченных заказов: ${report.totals.paidCount}. Оценок эквайринга: ${report.totals.estimatedCount}.`, { width: pageWidth })
   doc.moveDown(0.4).fontSize(8.8).fillColor('#697386')
-  textWithFont(doc, 'Остаток не учитывает себестоимость и комиссию партнёра. Эквайринг: фактический либо оценка.', { width: pageWidth })
+  textWithFont(doc, 'Себестоимость по текущей карточке товара и дозировке. Остаток не учитывает себестоимость и комиссию.', { width: pageWidth })
   doc.moveDown(0.8)
 
   for (const order of report.orders) {
@@ -119,10 +121,11 @@ export async function createPartnerOrdersPdf(report) {
     textWithFont(doc, `Сумма: ${money(order.total)}    Оплачено: ${money(order.revenue)}    Налог: ${money(order.tax)}`, { x: 50, y: doc.y, width: pageWidth - 16 })
     textWithFont(doc, `Эквайринг: ${money(order.acquiring)} (${order.acquiringSource})    Остаток: ${money(order.balance)}`, { x: 50, y: doc.y, width: pageWidth - 16 })
     textWithFont(doc, `Комиссия партнёра: ${money(order.commission)} (ставка ${formatCommissionPercent(order.commissionPercentage)})`, { x: 50, y: doc.y, width: pageWidth - 16 })
+    textWithFont(doc, `Себестоимость товаров заказа: ${money(order.productCost)}`, { x: 50, y: doc.y, width: pageWidth - 16 })
     doc.moveDown(0.35).fillColor('#4B556A').fontSize(8.5)
     for (const item of order.items) {
-      ensureSpace(35)
-      textWithFont(doc, `${item.title} × ${item.quantity}  ·  ${money(item.gross)}  ·  скидка ${money(item.discount)}  ·  после скидки ${money(item.net)}`, {
+      ensureSpace(45)
+      textWithFont(doc, `${item.title} × ${item.quantity}  ·  ${money(item.gross)}  ·  скидка ${money(item.discount)}  ·  после скидки ${money(item.net)}  ·  себест. за шт. ${money(item.unitCost)}  ·  себест. позиции ${money(item.cost)}`, {
         x: 58, y: doc.y, width: pageWidth - 30, lineGap: 1
       })
     }

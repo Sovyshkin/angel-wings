@@ -4,7 +4,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { encryptMarketingPayload } from '../utils/marketingToken.js'
 import { getOrderItemUnitCost } from '../utils/productCost.js'
 import { getAcquiringEstimate } from '../utils/paymentAcquiring.js'
-import { getBilledOrderTotal } from '../utils/orderEditAmounts.js'
+import { getRecognizedOrderRevenue } from '../utils/orderEditAmounts.js'
 import { getAcquiringSettings, UNKNOWN_PAYMENT_PERCENT } from '../utils/acquiringSettings.js'
 import emailService from '../services/email.js'
 
@@ -217,7 +217,7 @@ function calculateOrderMargin(order, acquiringSettings) {
   const partnerBonus = Math.max(0, Number(order.partnerBonusAmount || 0))
   const partnerCommission = Math.max(0, Number(order.commission?.amount || 0))
   const bonuses = partnerBonus + partnerCommission
-  const revenue = Math.max(0, getBilledOrderTotal(order))
+  const revenue = getRecognizedOrderRevenue(order)
   const netProfit = revenue - productCost - acquiringFee - deliveryCost - bonuses
 
   return {
@@ -436,7 +436,7 @@ router.get('/products', authenticate, requireAdmin, async (req, res, next) => {
         metric.revenue += revenue
         metric.successfulUnits += quantity
         metric.successfulOrders += 1
-        metric.successfulOrderTotals.push(getBilledOrderTotal(item.order))
+        metric.successfulOrderTotals.push(getRecognizedOrderRevenue(item.order))
       }
 
       const createdAt = new Date(item.order?.createdAt || 0)
@@ -825,12 +825,12 @@ router.get('/trends', authenticate, requireAdmin, async (req, res, next) => {
       const monthKey = getMonthKey(order.createdAt)
       const dayKey = getDayKey(order.createdAt)
       const monthly = monthlyMap.get(monthKey) || emptyMoneyMetric(monthKey)
-      monthly.revenue += getBilledOrderTotal(order)
+      monthly.revenue += getRecognizedOrderRevenue(order)
       monthly.orders += 1
       monthlyMap.set(monthKey, monthly)
 
       const day = dayMap.get(dayKey) || emptyMoneyMetric(dayKey)
-      day.revenue += getBilledOrderTotal(order)
+      day.revenue += getRecognizedOrderRevenue(order)
       day.orders += 1
       dayMap.set(dayKey, day)
 
@@ -957,7 +957,7 @@ router.get('/trends', authenticate, requireAdmin, async (req, res, next) => {
             String(order.utmCampaign || '').trim().toLowerCase() === String(event.utmCampaign || '').trim().toLowerCase()
           )
         : []
-      const attributedRevenue = attributedOrders.reduce((sum, order) => sum + getBilledOrderTotal(order), 0)
+      const attributedRevenue = attributedOrders.reduce((sum, order) => sum + getRecognizedOrderRevenue(order), 0)
       const attributedUnits = attributedOrders.reduce((sum, order) => {
         return sum + (order.items || []).reduce((itemSum, item) => itemSum + Number(item.quantity || 0), 0)
       }, 0)
@@ -1343,7 +1343,7 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
         return createdAt >= from && createdAt < to
       })
       return {
-        revenue: toMoney(dayOrders.reduce((sum, order) => sum + getBilledOrderTotal(order), 0)),
+        revenue: toMoney(dayOrders.reduce((sum, order) => sum + getRecognizedOrderRevenue(order), 0)),
         orders: dayOrders.length
       }
     }
@@ -1392,7 +1392,7 @@ router.get('/actions', authenticate, requireAdmin, async (req, res, next) => {
 
       const customer = customerMap.get(customerKey)
       customer.orders.push(order)
-      customer.totalRevenue += getBilledOrderTotal(order)
+      customer.totalRevenue += getRecognizedOrderRevenue(order)
       if (new Date(order.createdAt) > new Date(customer.lastOrderAt)) {
         customer.lastOrderAt = order.createdAt
       }
@@ -1737,7 +1737,7 @@ router.get('/customers', authenticate, requireAdmin, async (req, res, next) => {
       }
 
       const customer = customers.get(key)
-      customer.totalRevenue += getBilledOrderTotal(order)
+      customer.totalRevenue += getRecognizedOrderRevenue(order)
       customer.ordersCount += 1
       customer.lastOrderAt = order.createdAt
       customer.orderDates.push(new Date(order.createdAt))
