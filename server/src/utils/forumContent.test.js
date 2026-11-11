@@ -15,9 +15,12 @@ test('saved forum copy and profile fields migrate to the giveaway without changi
   saved.events.visible = true
   saved.cta.description = 'Участвуйте в форуме, узнавайте о новинках первыми и расширяйте профессиональные связи.'
   saved.form.title = 'Оставьте заявку на форум'
-  saved.form.fields.find(field => field.key === 'position').visible = true
-  saved.form.fields.find(field => field.key === 'topics').required = true
-  saved.form.fields.find(field => field.key === 'topics').visible = true
+  saved.form.description = 'Укажите имя, телефон и почту, чтобы мы могли с вами связаться.'
+  delete saved.form.formatVersion
+  saved.form.fields.find(field => field.key === 'position').visible = false
+  saved.form.fields.find(field => field.key === 'position').required = false
+  saved.form.fields.find(field => field.key === 'topics').required = false
+  saved.form.fields.find(field => field.key === 'topics').visible = false
 
   const restored = sanitizeForumContent(saved)
   assert.equal(restored.hero.title, 'Разыгрываем\n50 000 ₽')
@@ -27,8 +30,12 @@ test('saved forum copy and profile fields migrate to the giveaway without changi
   assert.equal(restored.products.visible, false)
   assert.equal(restored.events.visible, false)
   assert.equal(restored.form.title, 'Оставьте заявку на розыгрыш')
-  assert.equal(restored.form.fields.find(field => field.key === 'position').visible, false)
-  assert.equal(restored.form.fields.find(field => field.key === 'topics').visible, false)
+  assert.equal(restored.form.description, FORUM_DEFAULTS.form.description)
+  assert.equal(restored.form.fields.find(field => field.key === 'position').visible, true)
+  assert.equal(restored.form.fields.find(field => field.key === 'position').required, true)
+  assert.equal(restored.form.fields.find(field => field.key === 'topics').visible, true)
+  assert.equal(restored.form.fields.find(field => field.key === 'topics').required, true)
+  assert.equal(restored.form.formatVersion, 'giveaway-3-step')
   assert.deepEqual(sanitizeForumContent(restored), restored)
 })
 
@@ -77,14 +84,15 @@ test('required contact fields cannot be hidden and unknown form keys are rejecte
 
 test('new audience fields are restored for older pages and answer options remain editable', () => {
   const old = structuredClone(FORUM_DEFAULTS)
+  delete old.form.formatVersion
   old.form.fields = old.form.fields.filter(field => !['city', 'role', 'topics'].includes(field.key))
   Object.assign(old.form.fields.find(field => field.key === 'position'), { label: 'Должность', placeholder: 'Ваша должность', required: false })
   Object.assign(old.form.fields.find(field => field.key === 'company'), { label: 'Компания / Организация', placeholder: 'Название организации' })
   const restored = sanitizeForumContent(old)
   assert.deepEqual(restored.form.fields.filter(field => ['city', 'role', 'topics'].includes(field.key)).map(field => field.key), ['city', 'role', 'topics'])
   assert.equal(restored.form.fields.find(field => field.key === 'position').label, 'Специальность / должность')
-  assert.equal(restored.form.fields.find(field => field.key === 'position').required, false)
-  assert.equal(restored.form.fields.find(field => field.key === 'position').visible, false)
+  assert.equal(restored.form.fields.find(field => field.key === 'position').required, true)
+  assert.equal(restored.form.fields.find(field => field.key === 'position').visible, true)
   assert.equal(restored.form.fields.find(field => field.key === 'company').label, 'Организация / место работы')
 
   restored.form.fields.find(field => field.key === 'role').options[0] = 'Другой специалист'

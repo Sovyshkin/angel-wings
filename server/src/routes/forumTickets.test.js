@@ -49,7 +49,11 @@ test('giveaway tickets are stable and duplicate submissions create one applicati
   const submit = async (overrides = {}) => {
     const response = await fetch(`${base}/api/forum/applications`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Иван Иванов', email: 'test@example.ru', phone: '+7 (999) 111-22-33', browserId: browser(1), consent: true, ...overrides })
+      body: JSON.stringify({
+        name: 'Иван Иванов', email: 'test@example.ru', phone: '+7 (999) 111-22-33', browserId: browser(1), consent: true,
+        position: 'Врач', extraFields: { city: 'Москва', role: 'Врач / медицинский специалист', topics: ['Нутрициология и питание'] },
+        ...overrides
+      })
     })
     return { status: response.status, body: await response.json() }
   }
@@ -57,6 +61,8 @@ test('giveaway tickets are stable and duplicate submissions create one applicati
   const first = await submit()
   assert.equal(first.status, 201)
   assert.match(first.body.ticketId, TICKET_STORAGE_FORMAT)
+  assert.equal((await submit({ browserId: browser(11), extraFields: { city: 'Москва', role: 'Врач / медицинский специалист' } })).status, 400)
+  assert.equal((await submit({ browserId: browser(12), position: '' })).status, 400)
   assert.equal(first.body.emailStatus, 'failed')
   const firstApplication = await prisma.forumApplication.findUnique({ where: { ticketId: first.body.ticketId } })
   assert.equal(firstApplication.ticketEmailAttempts, 1)
@@ -133,6 +139,26 @@ test('giveaway tickets are stable and duplicate submissions create one applicati
   assert.ok(oneBrowserManyContacts.every(result => [200, 201].includes(result.status)))
   assert.equal(new Set(oneBrowserManyContacts.map(result => result.body.ticketId)).size, 1)
   assert.equal(await prisma.forumApplication.count(), 5)
+
+  const sameEmailRace = await Promise.all(Array.from({ length: 4 }, (_, index) => submit({
+    browserId: browser(20 + index), email: 'one-email@example.ru', phone: `+7 999 440 00 ${String(index).padStart(2, '0')}`
+  })))
+  assert.deepEqual(sameEmailRace.map(result => result.status).sort(), [201, 409, 409, 409].sort())
+  assert.equal(await prisma.forumApplication.count({ where: { giveawayEmail: 'one-email@example.ru' } }), 1)
+
+  const samePhoneRace = await Promise.all([
+    ['+7 (999) 550-00-00', 30], ['8 999 550 00 00', 31], ['9995500000', 32], ['79995500000', 33]
+  ].map(([phone, browserNumber], index) => submit({
+    browserId: browser(browserNumber), email: `one-phone-${index}@example.ru`, phone
+  })))
+  assert.deepEqual(samePhoneRace.map(result => result.status).sort(), [201, 409, 409, 409].sort())
+  assert.equal(await prisma.forumApplication.count({ where: { giveawayPhone: '79995500000' } }), 1)
+
+  await prisma.forumApplication.update({ where: { id: firstApplication.id }, data: { createdAt: new Date('2020-01-01') } })
+  const muchLater = await submit({ browserId: browser(40), email: 'TEST@example.ru', phone: '8 (999) 111-22-33' })
+  assert.equal(muchLater.status, 200)
+  assert.equal(muchLater.body.ticketId, first.body.ticketId)
+  assert.equal(await prisma.forumApplication.count(), 7)
 
   const lookup = await fetch(`${base}/api/forum/applications/ticket/${first.body.ticketId}`)
   assert.equal(lookup.status, 200)

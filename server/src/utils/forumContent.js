@@ -80,16 +80,20 @@ Object.assign(FORUM_DEFAULTS.form, {
   navButton: 'Участвовать',
   eyebrow: 'УЧАСТИЕ В РОЗЫГРЫШЕ',
   title: 'Оставьте заявку на розыгрыш',
-  description: 'Укажите имя, телефон и почту, чтобы мы могли с вами связаться.',
+  description: 'Заполните форму в три шага. После отправки вы получите номер билета на экране и по почте.',
+  formatVersion: 'giveaway-3-step',
   button: 'Отправить заявку',
   success: 'Заявка на участие принята.'
 })
 FORUM_DEFAULTS.form.fields = FORUM_DEFAULTS.form.fields.map(field => {
   if (field.key === 'name') return { ...field, label: 'Имя и фамилия', placeholder: 'Как к вам обращаться' }
   if (field.key === 'email') return { ...field, placeholder: 'name@example.ru' }
-  if (['city', 'role', 'position', 'company', 'topics'].includes(field.key)) return { ...field, visible: false, required: false }
   return field
 })
+
+const restoredThreeStepFields = new Map([
+  ['city', true], ['role', true], ['position', true], ['company', false], ['topics', true]
+])
 
 function migrateLegacyDefaults(value, oldValue, newValue) {
   if (Array.isArray(value) && Array.isArray(oldValue) && Array.isArray(newValue)) {
@@ -125,8 +129,6 @@ function sanitizeValue(raw, fallback, key) {
       if (key === 'fields' && template.key === 'position' && item.label === 'Должность') {
         next.label = template.label
         if (item.placeholder === 'Ваша должность') next.placeholder = template.placeholder
-        next.required = false
-        next.visible = false
       }
       if (key === 'fields' && template.key === 'company' && item.label === 'Компания / Организация') {
         next.label = template.label
@@ -155,5 +157,15 @@ function sanitizeValue(raw, fallback, key) {
 }
 export function sanitizeForumContent(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Некорректное содержимое страницы')
-  return sanitizeValue(migrateLegacyDefaults(input, LEGACY_FORUM_DEFAULTS, FORUM_DEFAULTS), FORUM_DEFAULTS)
+  const migrated = migrateLegacyDefaults(input, LEGACY_FORUM_DEFAULTS, FORUM_DEFAULTS)
+  if (input.form?.formatVersion !== FORUM_DEFAULTS.form.formatVersion && migrated.form) {
+    if (migrated.form.description === 'Укажите имя, телефон и почту, чтобы мы могли с вами связаться.') migrated.form.description = FORUM_DEFAULTS.form.description
+    migrated.form.fields = Array.isArray(migrated.form.fields) ? migrated.form.fields.map(field =>
+      restoredThreeStepFields.has(field.key)
+        ? { ...field, visible: true, required: restoredThreeStepFields.get(field.key) }
+        : field
+    ) : migrated.form.fields
+    migrated.form.formatVersion = FORUM_DEFAULTS.form.formatVersion
+  }
+  return sanitizeValue(migrated, FORUM_DEFAULTS)
 }
