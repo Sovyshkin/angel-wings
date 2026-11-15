@@ -5,6 +5,7 @@ const aliases = [
   ['Москва', 'RU', 'мск', 'moscow', 'moskva'],
   ['Екатеринбург', 'RU', 'екб', 'екат', 'свердловск', 'ekaterinburg', 'yekaterinburg'],
   ['Новосибирск', 'RU', 'нск', 'новосиб', 'novosibirsk'],
+  ['Оренбург', 'RU', 'orenburg'],
   ['Нижний Новгород', 'RU', 'нн', 'горький', 'nizhny novgorod'],
   ['Ростов-на-Дону', 'RU', 'ростов на дону', 'rostov on don'],
   ['Набережные Челны', 'RU', 'челны', 'naberezhnye chelny'],
@@ -38,6 +39,8 @@ export const normalizeCitySearch = value => String(value || '')
 
 const transliteration = { а:'a', б:'b', в:'v', г:'g', д:'d', е:'e', ж:'zh', з:'z', и:'i', й:'y', к:'k', л:'l', м:'m', н:'n', о:'o', п:'p', р:'r', с:'s', т:'t', у:'u', ф:'f', х:'kh', ц:'ts', ч:'ch', ш:'sh', щ:'shch', ы:'y', э:'e', ю:'yu', я:'ya', ь:'', ъ:'' }
 const toLatin = value => String(value).toLowerCase().replace(/[а-яё]/g, char => transliteration[char] ?? char)
+const preferredCountryCodes = ['RU', 'KZ', 'BY', 'KG', 'UZ', 'AM', 'AZ', 'TJ', 'MD', 'TM']
+const countryPriority = new Map(preferredCountryCodes.map((code, index) => [code, index]))
 
 export function cityLookupPlans(query, countryCode = '') {
   const normalized = normalizeCitySearch(query)
@@ -69,5 +72,8 @@ export async function searchCdekCities(query, lookup, { countryCode = '', limit 
     if (!city?.code || seen.has(String(city.code))) return false
     seen.add(String(city.code))
     return true
-  }).slice(0, limit)
+  }).sort((left, right) =>
+    (countryPriority.get(String(left.country_code || '').toUpperCase()) ?? 100) -
+    (countryPriority.get(String(right.country_code || '').toUpperCase()) ?? 100)
+  ).slice(0, limit)
 }

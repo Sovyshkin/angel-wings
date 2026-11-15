@@ -11,6 +11,8 @@ test('pickup city API resolves colloquial names and suggests foreign cities with
     calls.push([name, options?.country_code])
     if (name === 'Санкт-Петербург') return [{ code: 137, city: 'Санкт-Петербург', country_code: 'RU', country: 'Россия' }]
     if (name === 'Тбилиси') return [{ code: 210, city: 'Тбилиси', country_code: 'GE', country: 'Грузия' }]
+    if (name === 'Оренбург') return [{ code: 1, city: 'Оренбург', country_code: 'RU', country: 'Россия' }]
+    if (name === 'орен') return Array.from({ length: 12 }, (_, index) => ({ code: 100 + index, city: 'Орен', country_code: 'TR', country: 'Турция' }))
     if (name === 'Oslo') return [{ code: 310, city: 'Oslo', country_code: 'NO', country: 'Norway' }]
     return []
   }
@@ -28,6 +30,14 @@ test('pickup city API resolves colloquial names and suggests foreign cities with
     assert.equal((await foreign.json())[0].country_code, 'GE')
     const unknownAlias = await fetch(`${base}/city-suggestions?q=Oslo`)
     assert.equal((await unknownAlias.json())[0].code, 310)
+    const preferred = await fetch(`${base}/city-suggestions?q=орен`)
+    const preferredCities = await preferred.json()
+    assert.equal(preferredCities[0].city, 'Оренбург')
+    assert.equal(preferredCities.length, 8)
+    const partialSuggestion = await fetch(`${base}/city-suggestions?q=оренбу`)
+    assert.deepEqual((await partialSuggestion.json()).map(city => city.code), [1])
+    const partialSearch = await fetch(`${base}/find-city`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'оренбу' }) })
+    assert.deepEqual((await partialSearch.json()).map(city => city.code), [1])
   } finally {
     cdek.findCity = original
     await new Promise(resolve => server.close(resolve))

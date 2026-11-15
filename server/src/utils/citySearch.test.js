@@ -7,6 +7,7 @@ test('colloquial city names resolve with a country and preserve other-country re
   assert.deepEqual(cityLookupPlans('питер')[0], { name: 'Санкт-Петербург', countryCode: 'RU' })
   assert.deepEqual(cityLookupPlans('алма-ата')[0], { name: 'Алматы', countryCode: 'KZ' })
   assert.deepEqual(cityLookupPlans('st petersburg')[0], { name: 'Санкт-Петербург', countryCode: 'RU' })
+  assert.deepEqual(cityLookupPlans('оренбу')[0], { name: 'Оренбург', countryCode: 'RU' })
   const calls = []
   const lookup = async (name, options) => {
     calls.push([name, options.country_code])
@@ -33,4 +34,14 @@ test('duplicate CDEK results are removed and unknown cities use live search', as
   assert.deepEqual(result.map(item => item.code), [1, 2])
   assert.ok(calls.includes('Нижний'))
   assert.deepEqual(cityLookupPlans('Reykjavik'), [{ name: 'Reykjavik', countryCode: '' }])
+})
+
+test('CIS cities appear before other countries, including when CDEK returns many exact foreign matches', async () => {
+  const foreign = Array.from({ length: 12 }, (_, index) => ({ code: index + 100, city: 'Орен', country_code: 'TR' }))
+  const results = await searchCdekCities('орен', async name => name === 'Оренбург'
+    ? [{ code: 1, city: 'Оренбург', country_code: 'RU' }]
+    : [...foreign, { code: 2, city: 'Орен', country_code: 'KZ' }, { code: 3, city: 'Орен', country_code: 'DE' }], { limit: 8 })
+  assert.deepEqual(results.map(city => city.country_code).slice(0, 2), ['RU', 'KZ'])
+  assert.equal(results.length, 8)
+  assert.ok(results.some(city => city.country_code === 'TR'))
 })
