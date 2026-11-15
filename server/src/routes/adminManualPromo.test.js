@@ -42,6 +42,12 @@ test('manual order promo discounts once and credits the partner, but never grant
     const buyer = await db.user.create({ data: { email: 'buyer@example.test', password: 'unused', name: 'Buyer', role: 'USER' } })
     const otherBuyer = await db.user.create({ data: { email: 'other@example.test', password: 'unused', name: 'Other', role: 'USER' } })
     const partner = await db.partner.create({ data: { userId: partnerUser.id, referralCode: 'MANUAL-PROMO', percentage: 10 } })
+    const customerDetails = userId => fetch(`http://127.0.0.1:${server.address().port}/api/admin/orders/customer/${userId}`, {
+      headers: { Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` }
+    })
+    const partnerDetails = await customerDetails(partnerUser.id)
+    assert.equal(partnerDetails.status, 200)
+    assert.equal((await partnerDetails.json()).user.partner.id, partner.id)
     const promo = await db.promoCode.create({ data: { code: 'PARTNER10', discountType: 'percentage', discountValue: 10, usageType: 'single', partnerId: partner.id, minOrderAmount: 500 } })
     const product = await db.product.create({ data: { title: 'Товар', slug: 'manual-promo-product', description: '', price: 1000, stock: 10 } })
     const consultation = await db.consultationRequest.create({ data: { userId: buyer.id, customerName: 'Buyer', customerEmail: buyer.email, customerPhone: '+79990000001', specialist: 'Doctor', contactFormat: 'online', question: 'Question', status: 'DONE', completedAt: new Date(Date.now() - 60_000) } })
@@ -80,6 +86,11 @@ test('manual order promo discounts once and credits the partner, but never grant
     const inactiveBoundPartner = await db.partner.create({ data: { userId: inactiveBoundUser.id, referralCode: 'INACTIVE-BOUND', isActive: false } })
     const boundBuyer = await db.user.create({ data: { email: 'bound-buyer@manual.test', password: 'unused', name: 'Bound Buyer', role: 'USER' } })
     await db.partnerUser.create({ data: { userId: boundBuyer.id, partnerId: inactiveBoundPartner.id, referralSource: 'test' } })
+    const boundBuyerDetails = await customerDetails(boundBuyer.id)
+    assert.equal(boundBuyerDetails.status, 200)
+    const boundBuyerData = (await boundBuyerDetails.json()).user
+    assert.equal(boundBuyerData.partner, null)
+    assert.equal(boundBuyerData.partnerUser.partner.id, inactiveBoundPartner.id)
     const boundAdminPreview = await request(admin, '/promo/validate', { userId: boundBuyer.id, subtotal: 1000, promoCode: 'PARTNER10' })
     assert.equal(boundAdminPreview.status, 400)
     assert.match((await boundAdminPreview.json()).error, /Партнёр не найден или неактивен/)

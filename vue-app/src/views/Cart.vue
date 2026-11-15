@@ -696,19 +696,38 @@
               </div>
 
               <div class="pickup-search">
-                <input 
-                  v-model="pickupCombinedSearch" 
-                  type="text" 
-                  class="input" 
-                  placeholder="Город, улица и дом, например: Казань, Большая Красная 64"
-                  @keyup.enter="searchCityAndPickup"
-                >
+                <div class="pickup-city-input">
+                  <input
+                    v-model="pickupCombinedSearch"
+                    type="text"
+                    class="input"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    :aria-expanded="citySuggestionsOpen && citySuggestions.length > 0"
+                    aria-controls="pickup-city-options"
+                    :aria-activedescendant="citySuggestionsOpen && citySuggestionIndex >= 0 ? `pickup-city-option-${citySuggestionIndex}` : undefined"
+                    autocomplete="off"
+                    placeholder="Город, улица и дом, например: Казань, Большая Красная 64"
+                    @focus="openCitySuggestions"
+                    @blur="closeCitySuggestionsSoon"
+                    @keydown.down.prevent="moveCitySuggestion(1)"
+                    @keydown.up.prevent="moveCitySuggestion(-1)"
+                    @keydown.esc="citySuggestionsOpen = false"
+                    @keydown.enter.prevent="chooseCitySuggestionOrSearch"
+                  >
+                  <div v-if="citySuggestionsOpen && (citySuggestions.length || citySuggestionsLoading)" id="pickup-city-options" class="pickup-city-suggestions" role="listbox" aria-label="Подходящие города">
+                    <span v-if="citySuggestionsLoading && !citySuggestions.length" class="pickup-city-suggestions__loading">Ищем города…</span>
+                    <button v-for="(city, index) in citySuggestions" :id="`pickup-city-option-${index}`" :key="`${city.code}-${city.country_code}`" type="button" role="option" :aria-selected="citySuggestionIndex === index" :class="{ 'is-active': citySuggestionIndex === index }" @mousedown.prevent @click="selectCitySuggestion(city)">
+                      <strong>{{ city.city }}</strong><small>{{ [city.region, city.country || city.country_name].filter(Boolean).join(' · ') }}</small>
+                    </button>
+                  </div>
+                </div>
                 <button type="button" class="btn btn-secondary" @click="searchCityAndPickup" :disabled="loadingPickup || Boolean(recentPickupLoadingCode)">
                   {{ loadingPickup ? 'Ищем…' : 'Найти' }}
                 </button>
               </div>
               <p class="pickup-search-hint">
-                Можно указать город, улицу и дом. Если ПВЗ на этой улице несколько, ближайшие к дому будут выше.
+                Начните вводить город и выберите его из подсказок. Подойдут также «СПБ», «Питер» и названия городов других стран. Улицу и дом можно добавить через запятую.
               </p>
               <p v-if="pickupSearchError" class="field-error" role="alert">{{ pickupSearchError }}</p>
               
@@ -1342,6 +1361,14 @@ const supportCartCopyStatus = ref('idle')
 const deliveryType = ref(ENABLE_PVZ ? 'pvz' : 'courier') // 'pvz', 'courier' or 'self_pickup'
 const citySearch = ref('')
 const pickupCombinedSearch = ref('')
+const citySuggestions = ref([])
+const citySuggestionsOpen = ref(false)
+const citySuggestionsLoading = ref(false)
+const citySuggestionIndex = ref(-1)
+let citySuggestionTimer = null
+let citySuggestionRequest = 0
+let citySuggestionBlurTimer = null
+let skipSuggestionInput = ''
 const foundCityName = ref('')
 const foundCityCode = ref('')
 const foundCityCountry = ref('')
@@ -1627,6 +1654,104 @@ const parsedPickupSearch = computed(() => {
     house: streetQuery.house
   }
 })
+
+function requestCitySuggestions() {
+  clearTimeout(citySuggestionTimer)
+  const request = ++citySuggestionRequest
+  const query = citySuggestionQuery()
+  citySuggestions.value = []
+  citySuggestionIndex.value = -1
+  citySuggestionsLoading.value = false
+  if (query.length < 2 || deliveryType.value !== 'pvz' || selectedPickupPoint.value) {
+    citySuggestionsOpen.value = false
+    return
+  }
+  citySuggestionsOpen.value = true
+  citySuggestionTimer = setTimeout(async () => {
+    citySuggestionsLoading.value = true
+    try {
+      let { data } = await deliveryApi.get('/city-suggestions', { params: { q: query } })
+      const fallback = parsedPickupSearch.value.city.trim()
+      if ((!Array.isArray(data) || !data.length) && fallback !== query && fallback.length >= 2) {
+        ;({ data } = await deliveryApi.get('/city-suggestions', { params: { q: fallback } }))
+      }
+      if (request === citySuggestionRequest && deliveryType.value === 'pvz') citySuggestions.value = Array.isArray(data) ? data : []
+    } catch {
+      if (request === citySuggestionRequest) citySuggestions.value = []
+    } finally {
+      if (request === citySuggestionRequest) citySuggestionsLoading.value = false
+    }
+  }, 250)
+}
+
+watch(pickupCombinedSearch, value => {
+  if (value === skipSuggestionInput) { skipSuggestionInput = ''; return }
+  requestCitySuggestions()
+})
+
+function citySuggestionQuery() {
+  const raw = String(pickupCombinedSearch.value || '').trim()
+  if (!raw.includes(',') && !/\d/.test(raw) && !/(?:^|\s)(?:ул|улица|проспект|переулок|шоссе|дом)(?=\s|\.|$)/i.test(raw)) return raw
+  return parsedPickupSearch.value.city.trim()
+}
+
+function selectedCityFilters(city) {
+  const raw = String(pickupCombinedSearch.value || '').trim()
+  const key = value => String(value || '').toLocaleLowerCase('ru').replace(/ё/g, 'е').replace(/[‐‑–—-]/g, ' ').replace(/\s+/g, ' ').trim()
+  if (raw && !raw.includes(',') && !/\d/.test(raw) && key(city.city).startsWith(key(raw))) return { street: '', house: '' }
+  return { street: parsedPickupSearch.value.street, house: parsedPickupSearch.value.house }
+}
+
+function openCitySuggestions() {
+  clearTimeout(citySuggestionBlurTimer)
+  if (citySuggestions.value.length) citySuggestionsOpen.value = true
+  else if (citySuggestionQuery().length >= 2) requestCitySuggestions()
+}
+
+function closeCitySuggestionsSoon() {
+  citySuggestionBlurTimer = setTimeout(() => { citySuggestionsOpen.value = false }, 150)
+}
+
+function moveCitySuggestion(direction) {
+  if (!citySuggestions.value.length) return
+  citySuggestionsOpen.value = true
+  citySuggestionIndex.value = citySuggestionIndex.value < 0
+    ? direction > 0 ? 0 : citySuggestions.value.length - 1
+    : (citySuggestionIndex.value + direction + citySuggestions.value.length) % citySuggestions.value.length
+}
+
+function chooseCitySuggestionOrSearch() {
+  if (citySuggestionsOpen.value && citySuggestions.value.length) {
+    selectCitySuggestion(citySuggestions.value[Math.max(0, citySuggestionIndex.value)])
+  } else searchCityAndPickup()
+}
+
+function unambiguousCity(query, candidates) {
+  if (candidates.length === 1) return candidates[0]
+  const key = value => String(value || '').toLocaleLowerCase('ru').replace(/ё/g, 'е').replace(/[‐‑–—-]/g, ' ').replace(/\s+/g, ' ').trim()
+  const exact = candidates.filter(candidate => key(candidate.city) === key(query))
+  return exact.length === 1 ? exact[0] : null
+}
+
+async function selectCitySuggestion(suggestion) {
+  if (!suggestion?.code || loadingPickup.value) return
+  clearTimeout(citySuggestionBlurTimer)
+  clearTimeout(citySuggestionTimer)
+  citySuggestionRequest++
+  citySuggestionsOpen.value = false
+  const { street, house } = selectedCityFilters(suggestion)
+  const city = normalizeRecentCity({ name: suggestion.city, code: suggestion.code, country: suggestion.country || suggestion.country_name, countryCode: suggestion.country_code || suggestion.countryCode })
+  if (!city) return
+  skipSuggestionInput = `${city.name}${street || house ? `, ${[street, house].filter(Boolean).join(' ')}` : ''}`
+  pickupCombinedSearch.value = skipSuggestionInput
+  citySearch.value = city.name
+  const request = ++pickupSearchRequest
+  pickupSearchError.value = ''
+  loadingPickup.value = true
+  try { await loadPickupPointsForCity(city, { street, house }, request) }
+  catch { if (request === pickupSearchRequest) pickupSearchError.value = 'Не удалось загрузить ПВЗ. Попробуйте ещё раз.' }
+  finally { if (request === pickupSearchRequest) loadingPickup.value = false }
+}
 
 const isDeliverySelected = computed(() => {
   if (deliveryType.value === 'pvz') return Boolean(selectedPickupPoint.value)
@@ -2320,9 +2445,11 @@ function onDeliveryTypeChange() {
 }
 
 async function searchCityAndPickup() {
-  const { city, street, house } = parsedPickupSearch.value
-  if (!city || city.length < 3) {
-    pickupSearchError.value = 'Введите название города — минимум 3 буквы.'
+  const city = citySuggestionQuery()
+  const { street, house } = parsedPickupSearch.value
+  citySuggestionsOpen.value = false
+  if (!city || city.length < 2) {
+    pickupSearchError.value = 'Введите название города — минимум 2 буквы.'
     return
   }
   citySearch.value = city
@@ -2338,11 +2465,21 @@ async function searchCityAndPickup() {
   foundCityCountryCode.value = ''
   
   try {
-    const res = await deliveryApi.post('/find-city', { name: city })
+    let res = await deliveryApi.post('/find-city', { name: city })
+    const fallback = parsedPickupSearch.value.city.trim()
+    if ((!Array.isArray(res.data) || !res.data.length) && fallback !== city && fallback.length >= 2) res = await deliveryApi.post('/find-city', { name: fallback })
     if (request !== pickupSearchRequest || deliveryType.value !== 'pvz') return
     if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-      const city = res.data[0]
-      const normalized = normalizeRecentCity({ name: city.city, code: city.code, country: city.country || city.country_name, countryCode: city.country_code || city.countryCode })
+      const match = unambiguousCity(city, res.data)
+      if (!match) {
+        citySuggestions.value = res.data.slice(0, 8)
+        citySuggestionIndex.value = -1
+        citySuggestionsOpen.value = true
+        pickupSearchError.value = 'Найдено несколько городов. Выберите нужный из списка.'
+        return
+      }
+      const { street, house } = selectedCityFilters(match)
+      const normalized = normalizeRecentCity({ name: match.city, code: match.code, country: match.country || match.country_name, countryCode: match.country_code || match.countryCode })
       if (!normalized) throw new Error('City code missing')
       await loadPickupPointsForCity(normalized, { street, house }, request)
     } else {
@@ -3660,6 +3797,9 @@ watch(() => authStore.isAuthenticated, (isAuthenticated) => {
 })
 
 onUnmounted(() => {
+  clearTimeout(citySuggestionTimer)
+  clearTimeout(citySuggestionBlurTimer)
+  citySuggestionRequest++
   window.removeEventListener('focus', refreshPromoValidation)
   document.removeEventListener('visibilitychange', refreshPromoValidation)
   if (promoValidateTimer) clearTimeout(promoValidateTimer)
@@ -5447,6 +5587,15 @@ onUnmounted(() => {
   gap: 0.75rem;
   margin-bottom: 0.4rem;
 }
+
+.pickup-city-input { position: relative; flex: 1; min-width: 0; }
+.pickup-city-input .input { width: 100%; }
+.pickup-city-suggestions { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0; max-height: 290px; overflow-y: auto; padding: 6px; border: 1px solid var(--border-hover, var(--border)); border-radius: 13px; background: var(--bg-secondary); box-shadow: 0 18px 40px rgba(0, 0, 0, .3); }
+.pickup-city-suggestions button { display: flex; flex-direction: column; width: 100%; gap: 3px; padding: 10px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--text-primary); text-align: left; cursor: pointer; }
+.pickup-city-suggestions button:hover, .pickup-city-suggestions button.is-active, .pickup-city-suggestions button:focus-visible { background: rgba(128, 164, 255, .17); outline: none; }
+.pickup-city-suggestions button strong { font-size: .88rem; }
+.pickup-city-suggestions button small, .pickup-city-suggestions__loading { color: var(--text-muted); font-size: .75rem; }
+.pickup-city-suggestions__loading { display: block; padding: 12px; }
 
 .pickup-search .input {
   flex: 1;

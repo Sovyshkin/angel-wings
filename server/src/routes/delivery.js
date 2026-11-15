@@ -5,9 +5,22 @@ import yandexGeocoder from '../services/yandexGeocoder.js'
 import { extractCdekMessages, extractLatestCdekStatus, mapCdekStatusToLocal } from '../utils/cdekStatus.js'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { ensureFavoritePickupPointsTable, favoritePickupFromCdek, MAX_FAVORITE_PICKUPS } from '../utils/favoritePickupPoints.js'
+import { normalizeCitySearch, searchCdekCities } from '../utils/citySearch.js'
 
 const router = express.Router()
 const prisma = new PrismaClient()
+const citySearchCache = new Map()
+
+function cachedCitySearch(name, countryCode = '') {
+  const key = `${normalizeCitySearch(name)}:${String(countryCode || '').toUpperCase()}`
+  const cached = citySearchCache.get(key)
+  if (cached?.expires > Date.now()) return cached.promise
+  const promise = searchCdekCities(name, cdek.findCity, { countryCode, limit: 20 })
+  citySearchCache.set(key, { promise, expires: Date.now() + 5 * 60_000 })
+  promise.catch(() => citySearchCache.delete(key))
+  if (citySearchCache.size > 200) citySearchCache.delete(citySearchCache.keys().next().value)
+  return promise
+}
 
 const CDEK_BOXES = [
   { code: 'XS', length: 17, width: 12, height: 9, maxWeight: 500 },
@@ -405,15 +418,28 @@ router.post('/find-city', async (req, res) => {
   try {
     const { name, country_code, countryCode } = req.body
 
-    if (!name) {
+    if (!name || String(name).length > 100) {
       return res.status(400).json({ error: 'Необходимо указать name' })
     }
 
-    const result = await cdek.findCity(name, { country_code: country_code || countryCode })
+    const result = await cachedCitySearch(String(name).trim(), country_code || countryCode)
     res.json(result)
   } catch (error) {
     console.error('[CDEK] Find city error:', error)
     res.status(400).json(error.data || { error: error.message })
+  }
+})
+
+router.get('/city-suggestions', async (req, res) => {
+  try {
+    const query = String(req.query.q || '').trim()
+    if (query.length < 2 || query.length > 100) return res.json([])
+    const result = await cachedCitySearch(query, req.query.country_code)
+    res.set('Cache-Control', 'private, max-age=60')
+    res.json(result.slice(0, 8))
+  } catch (error) {
+    console.error('[CDEK] City suggestions error:', error)
+    res.status(502).json({ error: 'Не удалось загрузить города' })
   }
 })
 

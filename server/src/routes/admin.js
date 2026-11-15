@@ -1063,7 +1063,7 @@ router.get('/orders/customer/:id', authenticate, requireAdmin, async (req, res, 
     if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректный ID клиента' })
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, address: true, partnerUser: { select: { partner: { select: { id: true } } } } }
+      select: { id: true, address: true, partner: { select: { id: true } }, partnerUser: { select: { partner: { select: { id: true } } } } }
     })
     if (!user) return res.status(404).json({ error: 'Клиент не найден' })
     res.json({ user })

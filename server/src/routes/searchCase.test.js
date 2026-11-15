@@ -36,7 +36,8 @@ test('search finds Cyrillic names regardless of case and keeps pagination totals
     const admin = await db.user.create({ data: { email: 'admin@search.test', password: 'unused', name: 'Админ', role: 'ADMIN' } })
     const oleg = await db.user.create({ data: { email: 'oleg@search.test', password: 'unused', name: 'Олег' } })
     const semen = await db.user.create({ data: { email: 'semen@search.test', password: 'unused', name: 'Семён' } })
-    await db.user.create({ data: { email: 'other@search.test', password: 'unused', name: 'Анна' } })
+    const olderAnna = await db.user.create({ data: { email: 'other@search.test', password: 'unused', name: 'Анна' } })
+    await db.user.createMany({ data: Array.from({ length: 21 }, (_, index) => ({ email: `anna-${index}@search.test`, password: 'unused', name: 'Анна' })) })
     const product = await db.product.create({ data: { title: 'Пептид Олег', slug: 'peptid-oleg', description: 'Описание', price: 100 } })
     await db.product.create({ data: { title: 'Другой товар', slug: 'other-product', description: 'Описание', price: 200 } })
     const order = await db.order.create({ data: { customerName: 'Олег', customerEmail: 'oleg@search.test', customerPhone: '+70000000000', total: 100 } })
@@ -76,6 +77,12 @@ test('search finds Cyrillic names regardless of case and keeps pagination totals
     }
     const yoSearch = await get('/api/admin/users?q=семен')
     assert.deepEqual(yoSearch.users.map(user => user.id), [semen.id])
+    const annaFirstPage = await get('/api/admin/users?q=Анна&limit=20&offset=0')
+    const annaSecondPage = await get('/api/admin/users?q=Анна&limit=20&offset=20')
+    assert.equal(annaFirstPage.total, 22)
+    assert.equal(annaFirstPage.users.length, 20)
+    assert.equal(annaSecondPage.users.length, 2)
+    assert.ok(annaSecondPage.users.some(user => user.id === olderAnna.id))
   } finally {
     await db.$disconnect()
     await new Promise(resolve => server.close(resolve))

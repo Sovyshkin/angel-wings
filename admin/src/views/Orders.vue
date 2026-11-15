@@ -327,13 +327,22 @@
             <label class="manual-user-search">Поиск клиента
               <input v-model.trim="manualUserQuery" class="input" type="search" autocomplete="off" placeholder="Имя, телефон или email">
             </label>
-            <div v-if="manualUsers.length && manualUserQuery && !manualDraft.userId" class="manual-user-results">
-              <button v-for="user in manualUsers" :key="user.id" type="button" @click="selectManualUser(user)">
-                {{ user.name || 'Без имени' }} · {{ user.email }} <small>#{{ user.id }}</small>
-              </button>
+            <div v-if="manualUserQuery.length >= 2 && !manualDraft.userId && (manualUsers.length || manualUsersLoading || manualUserSearchError)" class="manual-user-matches">
+              <div v-if="manualUsers.length" class="manual-user-results">
+                <button v-for="user in manualUsers" :key="user.id" type="button" @click="selectManualUser(user)">
+                  <span><strong>{{ user.name || 'Без имени' }}</strong> · {{ user.email }}<br v-if="user.phone"><small v-if="user.phone">{{ user.phone }}</small></span>
+                  <small>#{{ user.id }}</small>
+                </button>
+              </div>
+              <div class="manual-user-results-footer">
+                <span v-if="manualUserSearchError">{{ manualUserSearchError }}</span>
+                <span v-else-if="manualUsers.length">Показано {{ manualUsers.length }} из {{ manualUsersTotal }}</span>
+                <span v-else>Ищем клиентов…</span>
+                <button v-if="manualUsers.length < manualUsersTotal" type="button" :disabled="manualUsersLoading" @click="loadManualUsers(true)">{{ manualUsersLoading ? 'Загрузка…' : 'Показать ещё' }}</button>
+              </div>
             </div>
             <div v-if="manualDraft.userId" class="manual-selected-user">
-              <span>Аккаунт #{{ manualDraft.userId }} выбран{{ manualBoundPartnerId ? ` · партнёр #${manualBoundPartnerId}` : '' }}</span>
+              <span>Аккаунт #{{ manualDraft.userId }} выбран<template v-if="manualOwnPartnerId"> · партнёрский аккаунт #{{ manualOwnPartnerId }}</template><template v-if="manualBoundPartnerId"> · клиент закреплён за партнёром #{{ manualBoundPartnerId }}</template></span>
               <button type="button" @click="clearManualUser">Сбросить</button>
             </div>
             <div class="edit-grid manual-customer-fields">
@@ -813,8 +822,12 @@ const manualError = ref('')
 const manualUserQuery = ref('')
 const manualSelectedUserLabel = ref('')
 const manualUsers = ref([])
+const manualUsersTotal = ref(0)
+const manualUsersLoading = ref(false)
+const manualUserSearchError = ref('')
 const manualProducts = ref([])
 const manualBoundPartnerId = ref(null)
+const manualOwnPartnerId = ref(null)
 const manualDeliveryMode = ref('cdek')
 const manualCityQuery = ref('')
 const manualCityResults = ref([])
@@ -906,6 +919,8 @@ const stats = ref({
 
 let searchTimer = null
 let manualSearchTimer = null
+let manualUserSearchRequestId = 0
+let manualCustomerRequestId = 0
 let manualCitySearchTimer = null
 let manualCityRequestId = 0
 let manualQuoteRequestId = 0
@@ -944,8 +959,12 @@ async function openManualOrder() {
   manualUserQuery.value = ''
   manualSelectedUserLabel.value = ''
   manualUsers.value = []
+  manualUsersTotal.value = 0
+  manualUserSearchError.value = ''
   manualProducts.value = []
   manualBoundPartnerId.value = null
+  manualOwnPartnerId.value = null
+  manualCustomerRequestId++
   manualError.value = ''
   showManualOrder.value = true
   try {
@@ -960,6 +979,10 @@ async function openManualOrder() {
 function closeManualOrder() {
   if (!manualSaving.value) {
     showManualOrder.value = false
+    clearTimeout(manualSearchTimer)
+    manualUserSearchRequestId++
+    manualCustomerRequestId++
+    manualUsersLoading.value = false
     clearTimeout(manualCitySearchTimer)
     manualCityRequestId++
     manualQuoteRequestId++
@@ -1114,7 +1137,11 @@ async function calculateManualCdekPrice() {
 }
 
 async function selectManualUser(user) {
+  const requestId = ++manualCustomerRequestId
   manualDraft.value.userId = user.id
+  manualBoundPartnerId.value = null
+  manualOwnPartnerId.value = null
+  manualDraft.value.partnerId = ''
   manualDraft.value.customerName = user.name || ''
   manualDraft.value.customerEmail = user.email || ''
   manualDraft.value.customerPhone = user.phone || ''
@@ -1123,18 +1150,22 @@ async function selectManualUser(user) {
   manualUsers.value = []
   try {
     const { data } = await axios.get(`${API_URL}/orders/customer/${user.id}`)
+    if (requestId !== manualCustomerRequestId || manualDraft.value.userId !== user.id) return
+    manualOwnPartnerId.value = data.user?.partner?.id || null
     manualBoundPartnerId.value = data.user?.partnerUser?.partner?.id || null
     manualDraft.value.partnerId = manualBoundPartnerId.value || ''
     if (manualDeliveryMode.value === 'address') manualDraft.value.shippingAddress = data.user?.address || ''
   } catch {
-    manualError.value = 'Не удалось проверить закрепление клиента за партнёром'
+    if (requestId === manualCustomerRequestId) manualError.value = 'Не удалось проверить партнёрский статус и закрепление клиента'
   }
 }
 
 function clearManualUser() {
+  manualCustomerRequestId++
   manualDraft.value.userId = null
   manualDraft.value.partnerId = ''
   manualBoundPartnerId.value = null
+  manualOwnPartnerId.value = null
   manualSelectedUserLabel.value = ''
   manualUserQuery.value = ''
   manualUsers.value = []
@@ -1775,21 +1806,42 @@ onMounted(fetchOrders)
 
 watch(currentPage, fetchOrders)
 watch(search, scheduleOrdersSearch)
+async function loadManualUsers(append = false) {
+  const query = manualUserQuery.value.trim()
+  if (!showManualOrder.value || query.length < 2 || manualDraft.value.userId || (append && manualUsersLoading.value)) return
+  const requestId = ++manualUserSearchRequestId
+  const offset = append ? manualUsers.value.length : 0
+  manualUsersLoading.value = true
+  manualUserSearchError.value = ''
+  try {
+    const { data } = await axios.get(`${API_URL}/users`, { params: { q: query, limit: 20, offset } })
+    if (requestId !== manualUserSearchRequestId || manualUserQuery.value.trim() !== query) return
+    manualUsers.value = append ? [...manualUsers.value, ...(data.users || [])] : (data.users || [])
+    manualUsersTotal.value = Number(data.total) || 0
+  } catch {
+    if (requestId === manualUserSearchRequestId) manualUserSearchError.value = 'Не удалось загрузить клиентов. Попробуйте ещё раз.'
+  } finally {
+    if (requestId === manualUserSearchRequestId) manualUsersLoading.value = false
+  }
+}
+
 watch(manualUserQuery, query => {
   clearTimeout(manualSearchTimer)
+  manualUserSearchRequestId++
+  manualUsersLoading.value = false
+  manualUsers.value = []
+  manualUsersTotal.value = 0
+  manualUserSearchError.value = ''
   if (manualDraft.value.userId && query !== manualSelectedUserLabel.value) {
     manualDraft.value.userId = null
     manualDraft.value.partnerId = ''
     manualBoundPartnerId.value = null
+    manualOwnPartnerId.value = null
+    manualCustomerRequestId++
     manualSelectedUserLabel.value = ''
   }
-  if (!showManualOrder.value || query.length < 2 || query.includes(' · ')) { manualUsers.value = []; return }
-  manualSearchTimer = setTimeout(async () => {
-    try {
-      const { data } = await axios.get(`${API_URL}/users`, { params: { q: query, limit: 10 } })
-      if (manualUserQuery.value === query) manualUsers.value = data.users || []
-    } catch { manualUsers.value = [] }
-  }, 250)
+  if (!showManualOrder.value || query.length < 2 || query.includes(' · ')) return
+  manualSearchTimer = setTimeout(() => loadManualUsers(), 250)
 })
 watch(manualCityQuery, query => {
   clearTimeout(manualCitySearchTimer)
@@ -2716,6 +2768,12 @@ watch(manualCityQuery, query => {
   border-radius: 10px;
   background: var(--bg-secondary);
 }
+
+.manual-user-matches { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg-secondary); }
+.manual-user-matches .manual-user-results { border: 0; border-radius: 0; }
+.manual-user-results-footer { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .55rem .85rem; color: var(--text-secondary); font-size: .76rem; border-top: 1px solid var(--border); }
+.manual-user-results-footer button { flex: 0 0 auto; color: var(--accent); background: transparent; border: 0; cursor: pointer; font-weight: 700; }
+.manual-user-results-footer button:disabled { opacity: .5; cursor: default; }
 
 .manual-user-results button {
   display: flex;
