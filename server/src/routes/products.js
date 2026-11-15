@@ -4,7 +4,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
 import { generateUniqueSlug } from '../utils/slug.js'
 import { deleteProductForAdmin } from '../utils/productDeletion.js'
-import { stripInternalProductFields, publicProductSpecs } from '../utils/publicProduct.js'
+import { stripInternalProductFields, publicProductSpecs, getEffectiveDosagePrice } from '../utils/publicProduct.js'
 import { isRecommendationAvailable, parseRecommendationIds, publicRecommendationProduct, RECOMMENDATION_LIMIT, saveProductRecommendations } from '../utils/productRecommendations.js'
 import { normalizeSearchText, matchesAnySearchText, needsUnicodeSearch } from '../utils/searchText.js'
 
@@ -20,20 +20,6 @@ function parseImagesField(images) {
     return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
-  }
-}
-
-function getDosagePriceFromSpecs(specsRaw, dosage) {
-  if (!specsRaw || !dosage) return null
-  try {
-    const specs = typeof specsRaw === 'string' ? JSON.parse(specsRaw) : specsRaw
-    const dosages = Array.isArray(specs?.dosages) ? specs.dosages : []
-    const matched = dosages.find(item => String(item?.dosage || '').trim() === String(dosage).trim())
-    if (!matched) return null
-    if (matched.price === undefined || matched.price === null || matched.price === '') return null
-    return Math.max(0, parseFloat(matched.price) || 0)
-  } catch {
-    return null
   }
 }
 
@@ -136,7 +122,7 @@ router.get('/', async (req, res, next) => {
       const publicProduct = stripInternalProductFields(p)
       return {
         ...publicProduct,
-        specs: publicProductSpecs(p.specs),
+        specs: publicProductSpecs(p.specs, p),
         images: parseImagesField(p.images)
       }
     })
@@ -156,7 +142,7 @@ router.post('/cart-prices', async (req, res, next) => {
     const ids = [...new Set(items.map(item => Number(item.productId)))]
     const products = await prisma.product.findMany({
       where: { id: { in: ids } },
-      select: { id: true, title: true, price: true, stock: true, active: true, specs: true }
+      select: { id: true, title: true, price: true, comparePrice: true, stock: true, active: true, specs: true }
     })
     const byId = new Map(products.map(product => [product.id, product]))
     const prices = items.map(item => {
@@ -164,7 +150,7 @@ router.post('/cart-prices', async (req, res, next) => {
       const dosage = String(item.selectedDosage || '').trim()
       const product = byId.get(productId)
       if (!product || !product.active) return { productId, selectedDosage: dosage || null, status: 'unavailable' }
-      const specs = publicProductSpecs(product.specs)
+      const specs = publicProductSpecs(product.specs, product)
       const dosages = Array.isArray(specs.dosages) ? specs.dosages : []
       const variants = dosages.filter(variant => String(variant?.dosage || '').trim() === dosage)
       if ((dosages.length && variants.length !== 1) || (!dosages.length && dosage)) {
@@ -261,7 +247,7 @@ router.get('/:slug', async (req, res, next) => {
     const publicProduct = stripInternalProductFields(product)
     const parsedProduct = {
       ...publicProduct,
-      specs: publicProductSpecs(product.specs),
+      specs: publicProductSpecs(product.specs, product),
       images: parseImagesField(product.images)
     }
     
@@ -432,11 +418,11 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
 
     if (activeOrderItems.length) {
       const basePrice = Math.max(0, parseFloat(updateData.price) || 0)
-      const specsSource = updateData.specs || '{}'
+      const priceSource = { price: basePrice, comparePrice: updateData.comparePrice, specs: updateData.specs || '{}' }
 
       await prisma.$transaction(async (tx) => {
         for (const item of activeOrderItems) {
-          const dosagePrice = getDosagePriceFromSpecs(specsSource, item.dosage)
+          const dosagePrice = getEffectiveDosagePrice(priceSource, item.dosage)
           const nextPrice = dosagePrice !== null ? dosagePrice : basePrice
           await tx.orderItem.update({
             where: { id: item.id },

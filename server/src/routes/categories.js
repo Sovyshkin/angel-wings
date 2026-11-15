@@ -71,7 +71,7 @@ router.get('/:slug', async (req, res, next) => {
       ...category,
       products: category.products.map(product => ({
         ...stripInternalProductFields(product),
-        specs: publicProductSpecs(product.specs)
+        specs: publicProductSpecs(product.specs, product)
       }))
     } })
   } catch (error) {

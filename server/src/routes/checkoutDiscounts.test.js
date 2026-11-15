@@ -229,6 +229,34 @@ test('checkout spends customer points before promo and partner profit after prom
     const restoredDosage = await db.product.findUnique({ where: { id: dosageProduct.id } })
     assert.equal(restoredDosage.stock, 3)
     assert.equal(JSON.parse(restoredDosage.specs).dosages[0].quantity, 3)
+
+    const saleProduct = await db.product.create({ data: {
+      title: 'Sale with dosages', slug: 'sale-with-dosages', description: '', price: 9000, comparePrice: 10000, stock: 6,
+      specs: JSON.stringify({ dosages: [
+        { dosage: '10 мг', quantity: 2, price: 16000 },
+        { dosage: '20 мг', quantity: 2, price: 13000, comparePrice: 15000 },
+        { dosage: '30 мг', quantity: 2, price: null }
+      ] })
+    } })
+    const salePage = await fetch(`http://127.0.0.1:${server.address().port}/api/products/sale-with-dosages`)
+    assert.equal(salePage.status, 200)
+    const saleDosages = (await salePage.json()).product.specs.dosages
+    assert.deepEqual(saleDosages.map(item => [item.price, item.comparePrice ?? null]), [
+      [14400, 16000], [13000, 15000], [null, 10000]
+    ])
+    const saleCart = await request(buyer, '/api/products/cart-prices', { items: [
+      { productId: saleProduct.id, selectedDosage: '10 мг' },
+      { productId: saleProduct.id, selectedDosage: '20 мг' },
+      { productId: saleProduct.id, selectedDosage: '30 мг' }
+    ] })
+    assert.deepEqual(saleCart.body.prices.map(item => item.price), [14400, 13000, 9000])
+    const saleBuyer = await createUser('sale-buyer')
+    const saleOrder = await request(saleBuyer, '/api/orders', payload(saleBuyer, {
+      promoCode: '', items: [{ productId: saleProduct.id, selectedDosage: '10 мг', quantity: 1, expectedPrice: 14400 }]
+    }))
+    assert.equal(saleOrder.status, 201, JSON.stringify(saleOrder.body))
+    assert.equal(saleOrder.body.order.items[0].price, 14400)
+    assert.equal(saleOrder.body.order.total, 14400)
   } finally {
     await new Promise(resolve => server.close(resolve))
     await db.$disconnect()

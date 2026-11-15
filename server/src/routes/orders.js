@@ -17,6 +17,7 @@ import { personalPromoError } from '../utils/personalPromo.js'
 import { calculatePromoDiscount } from '../utils/checkoutDiscounts.js'
 import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
 import { applyOrderStockChanges, assertOrderStockAvailable } from '../utils/orderStock.js'
+import { getEffectiveDosagePrice } from '../utils/publicProduct.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -31,21 +32,6 @@ const ORDER_INCLUDE = {
         select: { title: true, image: true }
       }
     }
-  }
-}
-
-function getDosagePriceFromSpecs(product, selectedDosage) {
-  if (!selectedDosage || !product?.specs) return null
-
-  try {
-    const specs = typeof product.specs === 'string' ? JSON.parse(product.specs) : product.specs
-    const dosages = Array.isArray(specs?.dosages) ? specs.dosages : []
-    const matched = dosages.find(d => typeof d?.dosage === 'string' && d.dosage.trim() === selectedDosage.trim())
-    if (!matched) return null
-    if (matched.price === undefined || matched.price === null || matched.price === '') return null
-    return Math.max(0, parseFloat(matched.price) || 0)
-  } catch {
-    return null
   }
 }
 
@@ -364,7 +350,7 @@ async function buildOrderAdditionQuote(orderId, user, rawItems) {
       id: { in: productIds },
       active: true
     },
-    select: { id: true, title: true, image: true, price: true, stock: true, weight: true, specs: true }
+    select: { id: true, title: true, image: true, price: true, comparePrice: true, stock: true, weight: true, specs: true }
   })
   const productMap = new Map(products.map(product => [product.id, product]))
 
@@ -379,7 +365,7 @@ async function buildOrderAdditionQuote(orderId, user, rawItems) {
     }
     assertOrderStockAvailable(product, item.selectedDosage, item.quantity)
 
-    const dosagePrice = getDosagePriceFromSpecs(product, item.selectedDosage)
+    const dosagePrice = getEffectiveDosagePrice(product, item.selectedDosage)
     const price = dosagePrice !== null ? dosagePrice : Math.max(0, Number(product.price) || 0)
     const weight = Math.max(0, parseInt(product.weight, 10) || 0)
     const lineTotal = price * item.quantity
@@ -721,7 +707,7 @@ router.post('/', authenticate, async (req, res, next) => {
       }
       assertOrderStockAvailable(product, item.selectedDosage, item.quantity)
 
-      const dosagePrice = getDosagePriceFromSpecs(product, item.selectedDosage)
+      const dosagePrice = getEffectiveDosagePrice(product, item.selectedDosage)
       const price = dosagePrice !== null ? dosagePrice : parseFloat(product.price)
       if (item.expectedPrice !== undefined && Math.round(Number(item.expectedPrice) * 100) !== Math.round(price * 100)) {
         return res.status(409).json({

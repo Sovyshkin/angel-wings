@@ -42,14 +42,14 @@ async function main() {
   if (existingAdmin) {
     await prisma.user.update({
       where: { id: existingAdmin.id },
-      data: { email: adminEmail, emailVerified: true }
+      data: { email: adminEmail, name: 'Вадим', emailVerified: true }
     })
   } else {
     await prisma.user.create({
       data: {
         email: adminEmail,
         password: adminPassword,
-        name: 'Администратор',
+        name: 'Вадим',
         role: 'ADMIN',
         emailVerified: true
       }

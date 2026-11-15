@@ -139,7 +139,7 @@
 
         <div class="form-group">
           <label class="form-label">Дозировки, цены, себестоимость и остатки</label>
-          <p class="dosage-cost-hint">Если себестоимость дозировки не указана, используется себестоимость по умолчанию.</p>
+          <p class="dosage-cost-hint">Если себестоимость дозировки не указана, используется себестоимость по умолчанию. Скидка товара применяется к дозировкам с отдельной ценой; собственная старая цена дозировки задаёт для неё отдельную скидку.</p>
           <div class="specs-editor">
             <div class="specs-list">
               <div class="spec-row dosage-row" v-for="(item, index) in dosageVariants" :key="index">
@@ -163,6 +163,15 @@
                   step="0.01"
                   class="input dosage-price-input"
                   placeholder="Цена"
+                >
+                <input
+                  type="number"
+                  v-model.number="item.comparePrice"
+                  min="0"
+                  step="0.01"
+                  class="input dosage-price-input"
+                  :aria-label="`Старая цена дозировки ${item.dosage || index + 1}`"
+                  placeholder="Старая цена"
                 >
                 <input
                   type="number"
@@ -536,7 +545,7 @@ function removeSpec(index) {
 }
 
 function addDosage() {
-  dosageVariants.value.push({ dosage: '', quantity: 0, price: null, costPrice: null })
+  dosageVariants.value.push({ dosage: '', quantity: 0, price: null, comparePrice: null, costPrice: null })
 }
 
 function removeDosage(index) {
@@ -551,6 +560,7 @@ function parseDosageVariants(specs) {
       dosage: typeof item?.dosage === 'string' ? item.dosage : '',
       quantity: Math.max(0, parseInt(item?.quantity) || 0),
       price: item?.price !== undefined && item?.price !== null ? Math.max(0, parseFloat(item.price) || 0) : null,
+      comparePrice: item?.comparePrice !== undefined && item?.comparePrice !== null && item?.comparePrice !== '' ? Math.max(0, parseFloat(item.comparePrice) || 0) : null,
       costPrice: item?.costPrice !== undefined && item?.costPrice !== null && item?.costPrice !== '' ? Math.max(0, parseFloat(item.costPrice) || 0) : null
     }))
     .filter(item => item.dosage.trim() || item.quantity > 0)
@@ -564,6 +574,9 @@ function normalizeDosageVariants() {
       price: item.price === '' || item.price === null || item.price === undefined
         ? null
         : Math.max(0, parseFloat(item.price) || 0),
+      comparePrice: item.comparePrice === '' || item.comparePrice === null || item.comparePrice === undefined
+        ? null
+        : Math.max(0, parseFloat(item.comparePrice) || 0),
       costPrice: item.costPrice === '' || item.costPrice === null || item.costPrice === undefined
         ? null
         : Math.max(0, parseFloat(item.costPrice) || 0)

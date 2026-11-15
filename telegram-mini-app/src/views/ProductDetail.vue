@@ -341,33 +341,9 @@ const displayedQuantity = computed(() => {
   return isCurrentVariantInCart.value ? currentVariantCartQty.value : quantity.value
 })
 
-const productCardComparePrice = computed(() => {
-  const old = normalizePrice(product.value?.comparePrice)
-  const current = normalizePrice(product.value?.price)
-  return old > current ? old : null
-})
-
-const productCardDiscountPercent = computed(() => {
-  return getDiscountPercentByValues(product.value?.price, productCardComparePrice.value)
-})
-
-const hasMainDiscount = computed(() => {
-  return currentDiscountPercent.value > 0 || productCardDiscountPercent.value > 0
-})
-
-const mainOldPrice = computed(() => {
-  if (currentDiscountPercent.value > 0 && currentComparePrice.value) {
-    return currentComparePrice.value
-  }
-  return productCardComparePrice.value
-})
-
-const mainDiscountPercent = computed(() => {
-  if (currentDiscountPercent.value > 0) {
-    return currentDiscountPercent.value
-  }
-  return productCardDiscountPercent.value
-})
+const hasMainDiscount = computed(() => currentDiscountPercent.value > 0)
+const mainOldPrice = computed(() => currentComparePrice.value)
+const mainDiscountPercent = computed(() => currentDiscountPercent.value)
 
 const hasSpecs = computed(() => {
   return Object.keys(visibleSpecs.value).length > 0
@@ -452,9 +428,6 @@ function getDosageComparePrice(item) {
     const dosageCompare = normalizePrice(item.comparePrice)
     if (dosageCompare > current) return dosageCompare
   }
-
-  const baseCompare = normalizePrice(product.value?.comparePrice)
-  if (baseCompare > current) return baseCompare
 
   return null
 }

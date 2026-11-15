@@ -63,7 +63,7 @@ export function publicRecommendationProduct(product) {
   return {
     ...value,
     images: Array.isArray(images) ? images : [],
-    specs: publicProductSpecs(product.specs)
+    specs: publicProductSpecs(product.specs, product)
   }
 }
 
