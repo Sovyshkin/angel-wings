@@ -160,7 +160,7 @@
                 :key="`existing-${item.id}`"
                 class="existing-order-item"
               >
-                <div class="item-image">
+                <router-link :to="`/product/${item.productId}`" class="item-image item-product-link" :aria-label="`Открыть товар ${item.product?.title || `#${item.productId}`}`">
                   <img
                     :src="item.product?.image || '/angel-wings-logo-light.svg'"
                     :alt="item.product?.title || `Товар #${item.productId}`"
@@ -170,9 +170,9 @@
                     decoding="async"
                     @error="handleImageError"
                   >
-                </div>
+                </router-link>
                 <div class="existing-order-item__body">
-                  <h4>{{ item.product?.title || `Товар #${item.productId}` }}</h4>
+                  <router-link :to="`/product/${item.productId}`" class="item-product-name-link"><h4>{{ item.product?.title || `Товар #${item.productId}` }}</h4></router-link>
                   <span v-if="item.dosage" class="item-category">Дозировка: {{ item.dosage }}</span>
                   <span class="existing-order-item__note">Уже в заказе, не оплачивается повторно</span>
                 </div>
@@ -210,7 +210,7 @@
           
           <div class="cart-item" v-for="item in cartStore.items" :key="item.cartKey || `${item.id}::${item.selectedDosage || ''}`">
             <div class="col-product">
-              <div class="item-image">
+              <router-link :to="`/product/${item.id}`" class="item-image item-product-link" :aria-label="`Открыть товар ${item.title}`">
                 <img
                   v-if="item.image"
                   :src="item.image"
@@ -227,9 +227,9 @@
                     <circle cx="12" cy="7" r="4"/>
                   </svg>
                 </div>
-              </div>
+              </router-link>
               <div class="item-info">
-                <h4>{{ item.title }}</h4>
+                <router-link :to="`/product/${item.id}`" class="item-product-name-link"><h4>{{ item.title }}</h4></router-link>
                 <span v-if="item.selectedDosage" class="item-category">Дозировка: {{ item.selectedDosage }}</span>
                 <button v-if="item.priceStatus === 'select_dosage'" type="button" class="item-dosage-warning" @click="chooseDosageForItem(item)">Удалить позицию и выбрать дозировку</button>
                 <button v-else-if="item.priceStatus === 'unavailable'" type="button" class="item-dosage-warning" @click="cartStore.removeItem(item.id, item.selectedDosage)">Удалить недоступный товар</button>
@@ -3556,6 +3556,13 @@ onUnmounted(() => {
   background: var(--bg-secondary);
   flex-shrink: 0;
 }
+
+.item-product-link,
+.item-product-name-link { color: inherit; text-decoration: none; }
+.item-product-name-link:hover h4,
+.item-product-name-link:focus-visible h4 { color: var(--accent); text-decoration: underline; text-underline-offset: .2em; }
+.item-product-link:focus-visible,
+.item-product-name-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 .item-image img {
   width: 100%;
