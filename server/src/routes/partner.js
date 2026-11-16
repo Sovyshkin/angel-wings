@@ -994,6 +994,7 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
         commission: amounts.revenue ? Number(order.commission?.amount || 0) : 0,
         commissionPercentage: order.commission?.percentage ?? null,
         items: allocateOrderItems(order).map(line => ({
+          productTitle: line.item.product?.title || `Товар #${line.item.productId}`,
           title: `${line.item.product?.title || `Товар #${line.item.productId}`}${line.item.dosage ? `, ${line.item.dosage}` : ''}${line.item.adminUnbilled ? ' (в админке, без изменения оплаты)' : ''}`,
           sku: line.item.product?.sku || '',
           quantity: line.item.quantity,
@@ -1045,13 +1046,13 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
     summary.getCell('B3').numFmt = '0.00%'
     summary.addRow(['Себестоимость рассчитана по текущей карточке товара и выбранной дозировке; исторические изменения цены закупки не сохранялись.'])
     summary.getRow(5).values = ['Итого оплачено', totals.revenue, 'Налог', totals.tax, 'Эквайринг', totals.acquiring, 'Оплаченных заказов', totals.paidCount, 'Оценок эквайринга', totals.estimatedCount, 'Себестоимость товаров', totals.productCost]
-    summary.getRow(7).values = ['Заказ', 'Дата', 'Партнёр', 'Email партнёра', 'Клиент', 'Состав заказа', 'Промокод', 'Статус заказа', 'Статус оплаты', 'Сумма заказа', 'Оплачено', 'Налог 11,412%', 'Эквайринг', 'Источник эквайринга', 'Комиссия партнёра', 'Комиссия партнёру, %', 'Остаток после налога и эквайринга', 'Способ оплаты', 'Себестоимость заказа', 'Себестоимость за шт.', 'Себестоимость позиции']
+    summary.getRow(7).values = ['Заказ', 'Дата', 'Партнёр', 'Email партнёра', 'Клиент', 'Товар', 'Количество, шт.', 'Промокод', 'Статус заказа', 'Статус оплаты', 'Сумма заказа', 'Оплачено', 'Налог 11,412%', 'Эквайринг', 'Источник эквайринга', 'Комиссия партнёра', 'Комиссия партнёру, %', 'Остаток после налога и эквайринга', 'Способ оплаты', 'Себестоимость заказа', 'Себестоимость за шт.', 'Себестоимость позиции', 'Состав позиции']
     detail.columns = [
       { header: 'Заказ', width: 12 }, { header: 'Дата', width: 19 }, { header: 'Партнёр', width: 28 },
-      { header: 'Товар', width: 44 }, { header: 'Артикул', width: 18 }, { header: 'Количество', width: 14 },
-      { header: 'Цена за шт.', width: 16 }, { header: 'Сумма товара', width: 19 },
-      { header: 'Доля скидки', width: 17 }, { header: 'После скидки', width: 19 },
-      { header: 'Себестоимость за шт.', width: 22 }, { header: 'Себестоимость позиции', width: 24 }
+      { header: 'Товар', width: 44 }, { header: 'Артикул', width: 18 }, { header: 'Количество, шт.', width: 13 },
+      { header: 'Цена за шт.', width: 16 }, { header: 'Сумма товара', width: 17 },
+      { header: 'Доля скидки', width: 16 }, { header: 'После скидки', width: 17 },
+      { header: 'Себестоимость за шт.', width: 16 }, { header: 'Себестоимость позиции', width: 17 }
     ]
 
     for (const order of reportOrders) {
@@ -1062,14 +1063,14 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
         const orderValue = value => firstItem ? value : null
         const summaryRow = summary.addRow([
           orderValue(order.id), orderValue(order.createdAt), orderValue(order.partnerName), orderValue(order.partnerEmail),
-          orderValue(order.customerName), composition, orderValue(order.promoCode), order.status, order.paymentStatus,
+          order.customerName, item?.productTitle || 'Нет позиций', item?.quantity ?? null, orderValue(order.promoCode), order.status, order.paymentStatus,
           orderValue(order.total), orderValue(order.revenue),
           orderValue(order.tax), orderValue(order.acquiring),
           orderValue(order.acquiringSource), orderValue(order.commission),
           orderValue(order.commissionPercentage == null ? null : Number(order.commissionPercentage) / 100),
-          orderValue(order.balance), orderValue(order.paymentType), orderValue(order.productCost), item?.unitCost ?? null, item?.cost ?? null
+          orderValue(order.balance), orderValue(order.paymentType), orderValue(order.productCost), item?.unitCost ?? null, item?.cost ?? null, composition
         ])
-        summaryRow.getCell(6).alignment = { vertical: 'top', wrapText: true }
+        summaryRow.getCell(23).alignment = { vertical: 'top', wrapText: true }
         summaryRow.height = Math.max(30, Math.ceil(composition.length / 55) * 17 + 10)
       })
       order.items.forEach((item, index) => {
@@ -1084,23 +1085,25 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
     summary.views = [{ state: 'frozen', ySplit: 7 }]
     summary.columns = [
       { width: 12 }, { width: 19 }, { width: 28 }, { width: 32 }, { width: 25 },
-      { width: 60 }, { width: 18 }, { width: 19 }, { width: 19 }, { width: 18 },
-      { width: 18 }, { width: 18 }, { width: 18 }, { width: 25 }, { width: 22 }, { width: 21 }, { width: 25 }, { width: 18 }, { width: 22 }, { width: 22 }, { width: 24 }
+      { width: 36 }, { width: 13 }, { width: 18 }, { width: 19 }, { width: 19 },
+      { width: 17 }, { width: 17 }, { width: 16 }, { width: 16 }, { width: 25 },
+      { width: 16 }, { width: 14 }, { width: 18 }, { width: 18 },
+      { width: 17 }, { width: 16 }, { width: 17 }, { width: 60 }
     ]
     for (const [sheet, headerRow] of [[summary, 7], [detail, 1]]) {
       const header = sheet.getRow(headerRow)
       header.font = { bold: true, color: { argb: 'FFFFFFFF' } }
       header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF20283F' } }
       header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
-      header.height = 32
-      sheet.autoFilter = { from: `A${headerRow}`, to: `${sheet === summary ? 'U' : 'L'}${headerRow}` }
+      header.height = 46
+      sheet.autoFilter = { from: `A${headerRow}`, to: `${sheet === summary ? 'W' : 'L'}${headerRow}` }
       for (let rowIndex = headerRow + 1; rowIndex <= sheet.rowCount; rowIndex++) {
         const row = sheet.getRow(rowIndex)
         row.getCell(2).numFmt = 'dd.mm.yyyy hh:mm'
-        for (const col of sheet === summary ? [10, 11, 12, 13, 15, 17, 19, 20, 21] : [7, 8, 9, 10, 11, 12]) {
+        for (const col of sheet === summary ? [11, 12, 13, 14, 16, 18, 20, 21, 22] : [7, 8, 9, 10, 11, 12]) {
           row.getCell(col).numFmt = '#,##0.00 [$₽-419]'
         }
-        if (sheet === summary) row.getCell(16).numFmt = '0.0%'
+        if (sheet === summary) row.getCell(17).numFmt = '0.0%'
       }
     }
     for (const col of [2, 4, 6, 12]) summary.getRow(5).getCell(col).numFmt = '#,##0.00 [$₽-419]'
@@ -1230,21 +1233,23 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
       { header: 'Email', key: 'customerEmail', width: 30 },
       { header: 'Телефон', key: 'customerPhone', width: 18 },
       { header: 'Промокод', key: 'promoCode', width: 22 },
-      { header: 'Состав заказа', key: 'items', width: 48 },
-      { header: 'Сумма заказа', key: 'total', width: 16 },
-      { header: 'Скидка', key: 'discountAmount', width: 14 },
-      { header: 'Доставка', key: 'deliveryPrice', width: 14 },
+      { header: 'Товар', key: 'productName', width: 36 },
+      { header: 'Количество, шт.', key: 'quantity', width: 13 },
+      { header: 'Сумма заказа', key: 'total', width: 17 },
+      { header: 'Скидка', key: 'discountAmount', width: 16 },
+      { header: 'Доставка', key: 'deliveryPrice', width: 16 },
       { header: 'Статус заказа', key: 'status', width: 20 },
       { header: 'Статус оплаты', key: 'paymentStatus', width: 20 },
       { header: 'Способ оплаты', key: 'paymentType', width: 18 },
-      { header: 'Налог 11,412%', key: 'tax', width: 18 },
-      { header: 'Эквайринг', key: 'acquiring', width: 18 },
+      { header: 'Налог 11,412%', key: 'tax', width: 16 },
+      { header: 'Эквайринг', key: 'acquiring', width: 16 },
       { header: 'Источник эквайринга', key: 'acquiringSource', width: 42 },
       { header: 'Комиссия', key: 'commissionAmount', width: 16 },
-      { header: 'Процент комиссии', key: 'commissionPercentage', width: 20 },
-      { header: 'Себестоимость за шт.', key: 'unitCost', width: 22 },
-      { header: 'Себестоимость позиции', key: 'itemCost', width: 24 },
-      { header: 'Себестоимость заказа', key: 'productCost', width: 24 }
+      { header: 'Процент комиссии', key: 'commissionPercentage', width: 14 },
+      { header: 'Себестоимость за шт.', key: 'unitCost', width: 16 },
+      { header: 'Себестоимость позиции', key: 'itemCost', width: 17 },
+      { header: 'Себестоимость заказа', key: 'productCost', width: 17 },
+      { header: 'Состав позиции', key: 'composition', width: 48 }
     ]
 
     orders.forEach(order => {
@@ -1257,11 +1262,12 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
         sheet.addRow({
           id: orderValue(order.id),
           createdAt: orderValue(order.createdAt),
-          customerName: orderValue(order.user?.name || order.customerName || '—'),
-          customerEmail: orderValue(order.user?.email || order.customerEmail || '—'),
-          customerPhone: orderValue(order.user?.phone || order.customerPhone || '—'),
+          customerName: order.user?.name || order.customerName || '—',
+          customerEmail: order.user?.email || order.customerEmail || '—',
+          customerPhone: order.user?.phone || order.customerPhone || '—',
           promoCode: orderValue(promoCodeById.get(order.promoCodeId) || '—'),
-          items: item ? `${item.product?.title || `Товар #${item.productId}`}${item.dosage ? `, ${item.dosage}` : ''} × ${item.quantity}${item.adminUnbilled ? ' (в админке, без изменения оплаты)' : ''}` : '—',
+          productName: item?.product?.title || (item ? `Товар #${item.productId}` : '—'),
+          quantity: item?.quantity ?? null,
           total: orderValue(Number(order.total || 0)),
           discountAmount: orderValue(Number(order.discountAmount || 0)),
           deliveryPrice: orderValue(Number(order.deliveryPrice || order.deliveryCost || 0)),
@@ -1275,18 +1281,19 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
           commissionPercentage: firstItem && order.commission?.percentage != null ? Number(order.commission.percentage) / 100 : null,
           unitCost: line?.unitCost ?? null,
           itemCost: line?.cost ?? null,
-          productCost: orderValue(getOrderProductCost(order))
+          productCost: orderValue(getOrderProductCost(order)),
+          composition: item ? `${item.product?.title || `Товар #${item.productId}`}${item.dosage ? `, ${item.dosage}` : ''} × ${item.quantity}${item.adminUnbilled ? ' (в админке, без изменения оплаты)' : ''}` : '—'
         })
       })
     })
-    sheet.addRow({ items: 'Итого по выгрузке', productCost: orders.reduce((sum, order) => Math.round((sum + getOrderProductCost(order)) * 100) / 100, 0) })
+    sheet.addRow({ productName: 'Итого по выгрузке', productCost: orders.reduce((sum, order) => Math.round((sum + getOrderProductCost(order)) * 100) / 100, 0) })
 
     const header = sheet.getRow(1)
     header.font = { bold: true, color: { argb: 'FFFFFFFF' } }
     header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF20283F' } }
     header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
-    header.height = 30
-    sheet.autoFilter = { from: 'A1', to: 'U1' }
+    header.height = 46
+    sheet.autoFilter = { from: 'A1', to: 'W1' }
 
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return
