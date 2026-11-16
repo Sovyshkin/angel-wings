@@ -12,7 +12,7 @@
           </svg>
           <span>Изменить остатки</span>
         </button>
-        <router-link to="/products/new" class="btn btn-primary">
+        <router-link :to="{ path: '/products/new', query: listQuery }" class="btn btn-primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
@@ -74,7 +74,7 @@
               </td>
               <td class="cell-actions">
                 <div class="actions-wrapper">
-                  <router-link :to="`/products/${product.id}/edit`" class="action-btn" title="Редактировать">
+                  <router-link :to="{ path: `/products/${product.id}/edit`, query: listQuery }" class="action-btn" title="Редактировать">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                     </svg>
@@ -117,7 +117,7 @@
             </div>
           </div>
           <div class="product-card__actions">
-            <router-link :to="`/products/${product.id}/edit`" class="btn btn-secondary btn-sm">
+            <router-link :to="{ path: `/products/${product.id}/edit`, query: listQuery }" class="btn btn-secondary btn-sm">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
@@ -143,7 +143,7 @@
           <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
         </svg>
         <span>Нет товаров</span>
-        <router-link to="/products/new" class="btn btn-primary btn-sm">Добавить первый</router-link>
+        <router-link :to="{ path: '/products/new', query: listQuery }" class="btn btn-primary btn-sm">Добавить первый</router-link>
       </div>
     </div>
 
@@ -232,20 +232,32 @@
 
 <script setup>
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 import AdminPagination from '../components/AdminPagination.vue'
 
 const API_URL = '/api/admin/products'
+const route = useRoute()
+const router = useRouter()
+const initialPage = Number(route.query.page)
 
 const products = ref([])
 const total = ref(0)
 const loading = ref(true)
 const error = ref('')
-const search = ref('')
-const currentPage = ref(1)
+const search = ref(String(route.query.q || ''))
+const currentPage = ref(Number.isSafeInteger(initialPage) && initialPage > 0 ? initialPage : 1)
 const PRODUCTS_PER_PAGE = 20
+const listQuery = computed(() => ({
+  ...(currentPage.value > 1 ? { page: String(currentPage.value) } : {}),
+  ...(search.value.trim() ? { q: search.value.trim() } : {})
+}))
 let searchTimer = null
+
+function syncListQuery() {
+  router.replace({ path: '/products', query: listQuery.value })
+}
 
 const stockDialogOpen = ref(false)
 const stockMode = ref('increase')
@@ -470,12 +482,16 @@ watch(stockSearch, () => {
   stockSearchTimer = setTimeout(fetchStockResults, 250)
 })
 
-watch(currentPage, fetchProducts)
+watch(currentPage, () => {
+  syncListQuery()
+  fetchProducts()
+})
 
 watch(search, () => {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
     if (currentPage.value === 1) {
+      syncListQuery()
       fetchProducts()
     } else {
       currentPage.value = 1

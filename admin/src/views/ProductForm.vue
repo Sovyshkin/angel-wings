@@ -343,7 +343,7 @@
         <div v-if="success" class="success-message">{{ success }}</div>
         
         <div class="form-actions">
-          <router-link to="/products" class="btn btn-secondary">Отмена</router-link>
+          <router-link :to="returnToProducts" class="btn btn-secondary">Отмена</router-link>
           <button type="submit" class="btn btn-primary" :disabled="loading">
             {{ loading ? 'Сохранение...' : 'Сохранить' }}
           </button>
@@ -363,6 +363,13 @@ const router = useRouter()
 
 const API_URL = '/api/products'
 const isEdit = computed(() => !!route.params.id)
+const returnToProducts = computed(() => ({
+  path: '/products',
+  query: {
+    ...(Number.isSafeInteger(Number(route.query.page)) && Number(route.query.page) > 1 ? { page: String(route.query.page) } : {}),
+    ...(String(route.query.q || '').trim() ? { q: String(route.query.q).trim() } : {})
+  }
+}))
 
 const form = ref({
   title: '',
@@ -410,11 +417,7 @@ const dosageTotal = computed(() =>
 )
 
 function goBack() {
-  if (window.history.length > 1) {
-    router.back()
-    return
-  }
-  router.push('/products')
+  router.push(returnToProducts.value)
 }
 
 async function fetchCategories() {
@@ -666,7 +669,7 @@ async function handleSubmit() {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       success.value = 'Товар создан!'
-      setTimeout(() => router.push('/products'), 1500)
+      setTimeout(() => router.push(returnToProducts.value), 1500)
     }
   } catch (e) {
     error.value = e.response?.data?.error || 'Ошибка сохранения'
