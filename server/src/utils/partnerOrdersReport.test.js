@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { allocateOrderItems, formatOrderComposition, getOrderProductCost, getOrderReportAmounts, getReportOrderWhere, getReportPartnerName } from './partnerOrdersReport.js'
+import { allocateOrderFinancials, allocateOrderItems, formatOrderComposition, getOrderProductCost, getOrderReportAmounts, getReportOrderWhere, getReportPartnerName } from './partnerOrdersReport.js'
 
 test('all-orders report has no partner filter, while partner report retains it', () => {
   assert.deepEqual(getReportOrderWhere(true, [7]), {})
@@ -46,6 +46,44 @@ test('report cost uses selected dosage and reconciles item, order and report tot
   assert.deepEqual(lines.map(line => [line.unitCost, line.cost]), [[1800, 3600], [450, 1350]])
   assert.equal(getOrderProductCost(order), 4950)
   assert.equal(lines.reduce((sum, line) => sum + line.cost, 0), getOrderProductCost(order))
+})
+
+test('paid order charges are allocated to products to the kopeck, while order total stays separate', () => {
+  const order = {
+    total: 300, paymentStatus: 'PAID', paymentType: 'card', discountAmount: 0,
+    commission: { amount: 45, percentage: 15 },
+    items: [
+      { price: 100, quantity: 1, product: { costPrice: 20 } },
+      { price: 100, quantity: 1, product: { costPrice: 20 } },
+      { price: 100, quantity: 1, product: { costPrice: 20 } }
+    ]
+  }
+  const amounts = getOrderReportAmounts(order)
+  const lines = allocateOrderFinancials(order, amounts)
+  assert.deepEqual(lines.map(line => line.paid), [100, 100, 100])
+  assert.deepEqual(lines.map(line => line.commission), [15, 15, 15])
+  assert.equal(lines.reduce((sum, line) => sum + Math.round(line.tax * 100), 0), Math.round(amounts.tax * 100))
+  assert.equal(lines.reduce((sum, line) => sum + Math.round(line.acquiring * 100), 0), Math.round(amounts.acquiring * 100))
+  assert.equal(lines.reduce((sum, line) => sum + Math.round(line.balance * 100), 0), Math.round((amounts.balance - 45) * 100))
+  assert.equal(lines.reduce((sum, line) => sum + Math.round(line.profit * 100), 0), Math.round((amounts.balance - 45 - 60) * 100))
+})
+
+test('delivery and unpaid admin additions are spread proportionally without changing source order amounts', () => {
+  const order = {
+    total: 350, unbilledAdjustment: 50, paymentStatus: 'PAID', discountAmount: 30,
+    commission: { amount: 32, percentage: 10 },
+    items: [{ price: 100, quantity: 1 }, { price: 200, quantity: 1 }]
+  }
+  const amounts = getOrderReportAmounts(order)
+  const lines = allocateOrderFinancials(order, amounts)
+  assert.deepEqual(lines.map(line => line.net), [90, 180])
+  assert.deepEqual(lines.map(line => line.paid), [100, 200])
+  assert.equal(lines.reduce((sum, line) => sum + Math.round(line.commission * 100), 0), 3200)
+  assert.equal(lines.reduce((sum, line) => sum + Math.round(line.tax * 100), 0), Math.round(amounts.tax * 100))
+  assert.equal(lines.reduce((sum, line) => sum + Math.round(line.acquiring * 100), 0), Math.round(amounts.acquiring * 100))
+  assert.equal(order.total, 350)
+  const unpaid = allocateOrderFinancials({ ...order, paymentStatus: 'PENDING' }, getOrderReportAmounts({ ...order, paymentStatus: 'PENDING' }))
+  assert.ok(unpaid.every(line => line.paid === 0 && line.profit === null))
 })
 
 test('financial columns include only paid orders and label estimated acquiring', () => {

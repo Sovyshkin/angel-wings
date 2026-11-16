@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
 import emailService from '../services/email.js'
-import { allocateOrderItems, formatOrderComposition, getOrderProductCost, getOrderReportAmounts, getReportOrderWhere, getReportPartnerName, PARTNER_REPORT_TAX_RATE } from '../utils/partnerOrdersReport.js'
+import { allocateOrderFinancials, allocateOrderItems, formatOrderComposition, getOrderProductCost, getOrderReportAmounts, getReportOrderWhere, getReportPartnerName, PARTNER_REPORT_TAX_RATE } from '../utils/partnerOrdersReport.js'
 import { getPaymentTypeLabel } from '../utils/paymentAcquiring.js'
 import { getAcquiringSettings, UNKNOWN_PAYMENT_PERCENT } from '../utils/acquiringSettings.js'
 import { createPartnerOrdersDocx, createPartnerOrdersPdf } from '../utils/partnerOrdersDocuments.js'
@@ -993,7 +993,7 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
         ...amounts,
         commission: amounts.revenue ? Number(order.commission?.amount || 0) : 0,
         commissionPercentage: order.commission?.percentage ?? null,
-        items: allocateOrderItems(order).map(line => ({
+        items: allocateOrderFinancials(order, amounts).map(line => ({
           productTitle: line.item.product?.title || `Товар #${line.item.productId}`,
           title: `${line.item.product?.title || `Товар #${line.item.productId}`}${line.item.dosage ? `, ${line.item.dosage}` : ''}${line.item.adminUnbilled ? ' (в админке, без изменения оплаты)' : ''}`,
           sku: line.item.product?.sku || '',
@@ -1002,6 +1002,12 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
           gross: line.gross,
           discount: line.discount,
           net: line.net,
+          paid: line.paid,
+          tax: line.tax,
+          acquiring: line.acquiring,
+          commission: line.commission,
+          balance: line.balance,
+          profit: line.profit,
           unitCost: line.unitCost,
           cost: line.cost
         }))
@@ -1046,7 +1052,12 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
     summary.getCell('B3').numFmt = '0.00%'
     summary.addRow(['Себестоимость рассчитана по текущей карточке товара и выбранной дозировке; исторические изменения цены закупки не сохранялись.'])
     summary.getRow(5).values = ['Итого оплачено', totals.revenue, 'Налог', totals.tax, 'Эквайринг', totals.acquiring, 'Оплаченных заказов', totals.paidCount, 'Оценок эквайринга', totals.estimatedCount, 'Себестоимость товаров', totals.productCost]
-    summary.getRow(7).values = ['Заказ', 'Дата', 'Партнёр', 'Email партнёра', 'Клиент', 'Товар', 'Количество, шт.', 'Промокод', 'Статус заказа', 'Статус оплаты', 'Сумма заказа', 'Оплачено', 'Налог 11,412%', 'Эквайринг', 'Источник эквайринга', 'Комиссия партнёра', 'Комиссия партнёру, %', 'Остаток после налога и эквайринга', 'Способ оплаты', 'Себестоимость заказа', 'Себестоимость за шт.', 'Себестоимость позиции', 'Состав позиции']
+    summary.getRow(6).values = ['Оплата, налог, эквайринг и комиссия распределены между товарами пропорционально цене после скидки. Доставка и корректировки оплаты входят в распределённую оплату. Общая сумма заказа повторяется для справки и не суммируется.']
+    summary.mergeCells('A6:Y6')
+    summary.getCell('A6').alignment = { vertical: 'middle', wrapText: true }
+    summary.getCell('A6').font = { color: { argb: 'FF5F6B80' }, size: 10 }
+    summary.getRow(6).height = 30
+    summary.getRow(7).values = ['Заказ', 'Дата', 'Партнёр', 'Email партнёра', 'Клиент', 'Товар', 'Количество, шт.', 'Промокод', 'Статус заказа', 'Статус оплаты', 'Сумма заказа целиком (справочно)', 'Доля оплаченной суммы', 'Налог позиции', 'Эквайринг позиции', 'Источник эквайринга', 'Комиссия партнёра за позицию', 'Комиссия партнёру, %', 'Остаток позиции после налога, эквайринга и комиссии', 'Способ оплаты', 'Себестоимость заказа', 'Себестоимость за шт.', 'Себестоимость позиции', 'Состав позиции', 'Цена товара после скидки', 'Оценка прибыли позиции после себестоимости']
     detail.columns = [
       { header: 'Заказ', width: 12 }, { header: 'Дата', width: 19 }, { header: 'Партнёр', width: 28 },
       { header: 'Товар', width: 44 }, { header: 'Артикул', width: 18 }, { header: 'Количество, шт.', width: 13 },
@@ -1059,16 +1070,22 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
       const itemRows = order.items.length ? order.items : [null]
       itemRows.forEach((item, index) => {
         const composition = item ? formatOrderComposition([item]) : 'Нет позиций'
+        const positionAmounts = item || {
+          paid: order.revenue, tax: order.tax, acquiring: order.acquiring,
+          commission: order.commission,
+          balance: Math.round((order.balance - order.commission) * 100) / 100
+        }
         const firstItem = index === 0
         const orderValue = value => firstItem ? value : null
         const summaryRow = summary.addRow([
-          orderValue(order.id), orderValue(order.createdAt), orderValue(order.partnerName), orderValue(order.partnerEmail),
-          order.customerName, item?.productTitle || 'Нет позиций', item?.quantity ?? null, orderValue(order.promoCode), order.status, order.paymentStatus,
-          orderValue(order.total), orderValue(order.revenue),
-          orderValue(order.tax), orderValue(order.acquiring),
-          orderValue(order.acquiringSource), orderValue(order.commission),
-          orderValue(order.commissionPercentage == null ? null : Number(order.commissionPercentage) / 100),
-          orderValue(order.balance), orderValue(order.paymentType), orderValue(order.productCost), item?.unitCost ?? null, item?.cost ?? null, composition
+          order.id, order.createdAt, order.partnerName, order.partnerEmail,
+          order.customerName, item?.productTitle || 'Нет позиций', item?.quantity ?? null, order.promoCode, order.status, order.paymentStatus,
+          order.total, positionAmounts.paid,
+          positionAmounts.tax, positionAmounts.acquiring,
+          order.acquiringSource, positionAmounts.commission,
+          order.commissionPercentage == null ? null : Number(order.commissionPercentage) / 100,
+          positionAmounts.balance, order.paymentType, orderValue(order.productCost), item?.unitCost ?? null, item?.cost ?? null, composition,
+          item?.net ?? null, item?.profit ?? null
         ])
         summaryRow.getCell(23).alignment = { vertical: 'top', wrapText: true }
         summaryRow.height = Math.max(30, Math.ceil(composition.length / 55) * 17 + 10)
@@ -1088,19 +1105,19 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
       { width: 36 }, { width: 13 }, { width: 18 }, { width: 19 }, { width: 19 },
       { width: 17 }, { width: 17 }, { width: 16 }, { width: 16 }, { width: 25 },
       { width: 16 }, { width: 14 }, { width: 18 }, { width: 18 },
-      { width: 17 }, { width: 16 }, { width: 17 }, { width: 60 }
+      { width: 17 }, { width: 16 }, { width: 17 }, { width: 60 }, { width: 17 }, { width: 18 }
     ]
     for (const [sheet, headerRow] of [[summary, 7], [detail, 1]]) {
       const header = sheet.getRow(headerRow)
       header.font = { bold: true, color: { argb: 'FFFFFFFF' } }
       header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF20283F' } }
       header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
-      header.height = 46
-      sheet.autoFilter = { from: `A${headerRow}`, to: `${sheet === summary ? 'W' : 'L'}${headerRow}` }
+      header.height = sheet === summary ? 64 : 46
+      sheet.autoFilter = { from: `A${headerRow}`, to: `${sheet === summary ? 'Y' : 'L'}${headerRow}` }
       for (let rowIndex = headerRow + 1; rowIndex <= sheet.rowCount; rowIndex++) {
         const row = sheet.getRow(rowIndex)
         row.getCell(2).numFmt = 'dd.mm.yyyy hh:mm'
-        for (const col of sheet === summary ? [11, 12, 13, 14, 16, 18, 20, 21, 22] : [7, 8, 9, 10, 11, 12]) {
+        for (const col of sheet === summary ? [11, 12, 13, 14, 16, 18, 20, 21, 22, 24, 25] : [7, 8, 9, 10, 11, 12]) {
           row.getCell(col).numFmt = '#,##0.00 [$₽-419]'
         }
         if (sheet === summary) row.getCell(17).numFmt = '0.0%'
@@ -1235,54 +1252,67 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
       { header: 'Промокод', key: 'promoCode', width: 22 },
       { header: 'Товар', key: 'productName', width: 36 },
       { header: 'Количество, шт.', key: 'quantity', width: 13 },
-      { header: 'Сумма заказа', key: 'total', width: 17 },
+      { header: 'Сумма заказа целиком (справочно)', key: 'total', width: 17 },
       { header: 'Скидка', key: 'discountAmount', width: 16 },
       { header: 'Доставка', key: 'deliveryPrice', width: 16 },
       { header: 'Статус заказа', key: 'status', width: 20 },
       { header: 'Статус оплаты', key: 'paymentStatus', width: 20 },
       { header: 'Способ оплаты', key: 'paymentType', width: 18 },
-      { header: 'Налог 11,412%', key: 'tax', width: 16 },
-      { header: 'Эквайринг', key: 'acquiring', width: 16 },
+      { header: 'Налог позиции', key: 'tax', width: 16 },
+      { header: 'Эквайринг позиции', key: 'acquiring', width: 16 },
       { header: 'Источник эквайринга', key: 'acquiringSource', width: 42 },
-      { header: 'Комиссия', key: 'commissionAmount', width: 16 },
+      { header: 'Комиссия партнёра за позицию', key: 'commissionAmount', width: 16 },
       { header: 'Процент комиссии', key: 'commissionPercentage', width: 14 },
       { header: 'Себестоимость за шт.', key: 'unitCost', width: 16 },
       { header: 'Себестоимость позиции', key: 'itemCost', width: 17 },
       { header: 'Себестоимость заказа', key: 'productCost', width: 17 },
-      { header: 'Состав позиции', key: 'composition', width: 48 }
+      { header: 'Состав позиции', key: 'composition', width: 48 },
+      { header: 'Цена товара после скидки', key: 'itemNet', width: 17 },
+      { header: 'Доля оплаченной суммы', key: 'paid', width: 17 },
+      { header: 'Остаток позиции после налога, эквайринга и комиссии', key: 'balance', width: 18 },
+      { header: 'Оценка прибыли позиции после себестоимости', key: 'profit', width: 18 }
     ]
 
     orders.forEach(order => {
       const amounts = getOrderReportAmounts(order, acquiringSettings)
-      const itemRows = allocateOrderItems(order)
+      const itemRows = allocateOrderFinancials(order, amounts)
       ;(itemRows.length ? itemRows : [null]).forEach((line, index) => {
         const item = line?.item
+        const positionAmounts = line || {
+          paid: amounts.revenue, tax: amounts.tax, acquiring: amounts.acquiring,
+          commission: amounts.revenue ? Number(order.commission?.amount || 0) : 0,
+          balance: Math.round((amounts.balance - (amounts.revenue ? Number(order.commission?.amount || 0) : 0)) * 100) / 100
+        }
         const firstItem = index === 0
         const orderValue = value => firstItem ? value : null
         sheet.addRow({
-          id: orderValue(order.id),
-          createdAt: orderValue(order.createdAt),
+          id: order.id,
+          createdAt: order.createdAt,
           customerName: order.user?.name || order.customerName || '—',
           customerEmail: order.user?.email || order.customerEmail || '—',
           customerPhone: order.user?.phone || order.customerPhone || '—',
-          promoCode: orderValue(promoCodeById.get(order.promoCodeId) || '—'),
+          promoCode: promoCodeById.get(order.promoCodeId) || '—',
           productName: item?.product?.title || (item ? `Товар #${item.productId}` : '—'),
           quantity: item?.quantity ?? null,
-          total: orderValue(Number(order.total || 0)),
+          total: Number(order.total || 0),
           discountAmount: orderValue(Number(order.discountAmount || 0)),
           deliveryPrice: orderValue(Number(order.deliveryPrice || order.deliveryCost || 0)),
           status: getOrderStatusLabel(order.status),
           paymentStatus: getPaymentStatusLabel(order.paymentStatus),
-          paymentType: orderValue(getPaymentTypeLabel(order.paymentType)),
-          tax: orderValue(amounts.tax),
-          acquiring: orderValue(amounts.acquiring),
-          acquiringSource: orderValue(amounts.acquiringSource),
-          commissionAmount: orderValue(Number(order.commission?.amount || 0)),
-          commissionPercentage: firstItem && order.commission?.percentage != null ? Number(order.commission.percentage) / 100 : null,
+          paymentType: getPaymentTypeLabel(order.paymentType),
+          tax: positionAmounts.tax,
+          acquiring: positionAmounts.acquiring,
+          acquiringSource: amounts.acquiringSource,
+          commissionAmount: positionAmounts.commission,
+          commissionPercentage: order.commission?.percentage != null ? Number(order.commission.percentage) / 100 : null,
           unitCost: line?.unitCost ?? null,
           itemCost: line?.cost ?? null,
           productCost: orderValue(getOrderProductCost(order)),
-          composition: item ? `${item.product?.title || `Товар #${item.productId}`}${item.dosage ? `, ${item.dosage}` : ''} × ${item.quantity}${item.adminUnbilled ? ' (в админке, без изменения оплаты)' : ''}` : '—'
+          composition: item ? `${item.product?.title || `Товар #${item.productId}`}${item.dosage ? `, ${item.dosage}` : ''} × ${item.quantity}${item.adminUnbilled ? ' (в админке, без изменения оплаты)' : ''}` : '—',
+          itemNet: line?.net ?? null,
+          paid: positionAmounts.paid,
+          balance: positionAmounts.balance,
+          profit: line?.profit ?? null
         })
       })
     })
@@ -1292,14 +1322,14 @@ router.get('/:id/orders-export', authenticate, requireAdmin, async (req, res, ne
     header.font = { bold: true, color: { argb: 'FFFFFFFF' } }
     header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF20283F' } }
     header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
-    header.height = 46
-    sheet.autoFilter = { from: 'A1', to: 'W1' }
+    header.height = 64
+    sheet.autoFilter = { from: 'A1', to: 'AA1' }
 
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return
       row.alignment = { vertical: 'top', wrapText: true }
       row.getCell('createdAt').numFmt = 'dd.mm.yyyy hh:mm'
-      ;['total', 'discountAmount', 'deliveryPrice', 'tax', 'acquiring', 'commissionAmount', 'unitCost', 'itemCost', 'productCost'].forEach(key => {
+      ;['total', 'discountAmount', 'deliveryPrice', 'tax', 'acquiring', 'commissionAmount', 'unitCost', 'itemCost', 'productCost', 'itemNet', 'paid', 'balance', 'profit'].forEach(key => {
         row.getCell(key).numFmt = '#,##0.00 [$₽-419]'
       })
       row.getCell('commissionPercentage').numFmt = '0.0%'
