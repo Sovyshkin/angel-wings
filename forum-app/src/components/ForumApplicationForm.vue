@@ -13,7 +13,7 @@
             <div class="forum-ticket__number-card">
               <span class="forum-ticket__label">Уникальный номер билета</span>
               <strong class="forum-ticket__number">{{ ticketId }}</strong>
-              <p class="forum-ticket__note">{{ ticketSaveError ? 'Браузер не разрешил сохранить номер. Скопируйте его сейчас.' : 'Номер сохранён в этом браузере. Он понадобится для проверки результата.' }}</p>
+              <p class="forum-ticket__note">{{ ticketSaveError ? 'Браузер не разрешил сохранить номер. Скопируйте его сейчас.' : 'Номер сохранён. Он понадобится для проверки результата.' }}</p>
             </div>
             <p v-if="ticketCheckError" class="forum-ticket__warning">Не удалось проверить билет на сервере. Номер сохранён в этом браузере.</p>
             <div class="forum-ticket__actions">
