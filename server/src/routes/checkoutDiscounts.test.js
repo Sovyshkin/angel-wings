@@ -224,7 +224,22 @@ test('checkout spends customer points before promo and partner profit after prom
       promoCode: '', items: [{ productId: dosageProduct.id, selectedDosage: '20 мг', quantity: 2 }]
     }))
     assert.equal(dosageOrder.status, 201, JSON.stringify(dosageOrder.body))
+    assert.equal((await db.product.findUnique({ where: { id: dosageProduct.id } })).stock, 3)
+    assert.equal((await db.orderItem.findFirst({ where: { orderId: dosageOrder.body.order.id } })).stockDeductedQuantity, 0)
+    assert.equal((await request(admin, `/api/admin/orders/${dosageOrder.body.order.id}/payment-status`, { paymentStatus: 'PAID' }, 'PUT')).status, 200)
     assert.equal((await db.product.findUnique({ where: { id: dosageProduct.id } })).stock, 1)
+    assert.equal((await db.orderItem.findFirst({ where: { orderId: dosageOrder.body.order.id } })).stockDeductedQuantity, 2)
+    assert.equal((await request(admin, `/api/admin/orders/${dosageOrder.body.order.id}/payment-status`, { paymentStatus: 'PAID' }, 'PUT')).status, 200)
+    assert.equal((await db.product.findUnique({ where: { id: dosageProduct.id } })).stock, 1)
+    const addedAfterPayment = await request(dosageBuyer, `/api/orders/${dosageOrder.body.order.id}/add-items`, {
+      items: [{ productId: dosageProduct.id, selectedDosage: '20 мг', quantity: 1 }]
+    })
+    assert.equal(addedAfterPayment.status, 200, JSON.stringify(addedAfterPayment.body))
+    assert.equal((await db.product.findUnique({ where: { id: dosageProduct.id } })).stock, 1)
+    assert.equal((await db.orderItem.findFirst({ where: { orderId: dosageOrder.body.order.id } })).stockDeductedQuantity, 2)
+    assert.equal((await request(admin, `/api/admin/orders/${dosageOrder.body.order.id}/payment-status`, { paymentStatus: 'PAID' }, 'PUT')).status, 200)
+    assert.equal((await db.product.findUnique({ where: { id: dosageProduct.id } })).stock, 0)
+    assert.equal((await db.orderItem.findFirst({ where: { orderId: dosageOrder.body.order.id } })).stockDeductedQuantity, 3)
     assert.equal((await request(admin, `/api/admin/orders/${dosageOrder.body.order.id}/status`, { status: 'CANCELLED' }, 'PUT')).status, 200)
     const restoredDosage = await db.product.findUnique({ where: { id: dosageProduct.id } })
     assert.equal(restoredDosage.stock, 3)

@@ -23,7 +23,7 @@
           <div class="forum-ticket__side">
             <div class="forum-ticket__prize">
               <span>РОЗЫГРЫШ ANGEL WINGS</span>
-              <strong>50 000 ₽</strong>
+              <strong>20 000 ₽</strong>
               <p>Ваш билет участвует в розыгрыше.</p>
             </div>
             <div class="forum-ticket__email" aria-live="polite">
@@ -44,8 +44,8 @@
             <span v-if="content.eyebrow" class="eyebrow"><i></i>{{ content.eyebrow }}</span>
             <ForumTitle :title="content.title" />
             <p data-reveal-soft>{{ content.description }}</p>
-            <div class="forum-checkout__prize" aria-label="Розыгрыш 50 тысяч рублей">
-              <div><span>РОЗЫГРЫШ ANGEL WINGS</span><strong>50 000 ₽</strong></div>
+            <div class="forum-checkout__prize" aria-label="Розыгрыш 20 тысяч рублей">
+              <div><span>РОЗЫГРЫШ ANGEL WINGS</span><strong>20 000 ₽</strong></div>
               <p>Заполните заявку — после отправки вы получите уникальный номер билета на экране и по почте.</p>
             </div>
           </header>

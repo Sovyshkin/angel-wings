@@ -12,11 +12,11 @@ export function buildGiveawayTicketEmail({ name, ticketId }) {
   const pageUrl = /^https:\/\/[^\s"<>]+$/i.test(configuredUrl) ? configuredUrl : DEFAULT_PAGE_URL
   const safePageUrl = escapeHtml(pageUrl)
   return {
-    subject: 'Ваш билет на розыгрыш 50 000 ₽ — Angel Wings',
+    subject: 'Ваш билет на розыгрыш 20 000 ₽ — Angel Wings',
     text: [
       `Здравствуйте, ${name}!`,
       '',
-      'Ваша заявка на розыгрыш 50 000 ₽ принята.',
+      'Ваша заявка на розыгрыш 20 000 ₽ принята.',
       `Номер вашего билета: ${ticketId}`,
       '',
       'Сохраните этот номер. Он также доступен на странице розыгрыша в браузере, с которого вы подали заявку.',
@@ -32,7 +32,7 @@ export function buildGiveawayTicketEmail({ name, ticketId }) {
             <tr><td style="padding:28px 32px;border-bottom:1px solid #263d69;font-size:15px;font-weight:800;letter-spacing:3px;color:#e7f0ff">ANGEL WINGS <span style="color:#88b8ff">✦</span></td></tr>
             <tr><td style="padding:36px 32px 12px">
               <div style="font-size:11px;font-weight:700;letter-spacing:2.5px;color:#9abaff">РОЗЫГРЫШ ANGEL WINGS</div>
-              <div style="padding-top:13px;font-size:36px;line-height:1.1;font-weight:800;color:#ffffff">Ваш билет на<br><span style="color:#a9c4ff">50 000 ₽</span></div>
+              <div style="padding-top:13px;font-size:36px;line-height:1.1;font-weight:800;color:#ffffff">Ваш билет на<br><span style="color:#a9c4ff">20 000 ₽</span></div>
               <p style="margin:20px 0 0;font-size:15px;line-height:1.7;color:#c4d3ef">Здравствуйте, ${safeName}! Ваша заявка принята. Сохраните номер билета — он понадобится, чтобы узнать результаты розыгрыша.</p>
             </td></tr>
             <tr><td style="padding:20px 32px">

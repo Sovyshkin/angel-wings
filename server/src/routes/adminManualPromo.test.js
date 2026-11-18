@@ -153,10 +153,13 @@ test('manual order promo discounts once and credits the partner, but never grant
 
     await db.consultationRequest.create({ data: { userId: otherBuyer.id, customerName: 'Other', customerEmail: otherBuyer.email, customerPhone: '+79990000002', specialist: 'Doctor', contactFormat: 'online', question: 'Question', status: 'DONE', completedAt: new Date(Date.now() - 60_000) } })
     const reusablePromo = await db.promoCode.create({ data: { code: 'PENDING125', discountType: 'fixed', discountValue: 125.5, usageType: 'multi', maxActivations: 0, partnerId: partner.id } })
+    const stockBeforePendingPayment = (await db.product.findUnique({ where: { id: product.id } })).stock
     const pendingResponse = await request(admin, '', { ...payload, userId: otherBuyer.id, customerEmail: otherBuyer.email, promoCode: reusablePromo.code, paymentStatus: 'PENDING' })
     const pendingBody = await pendingResponse.json()
     assert.equal(pendingResponse.status, 201, JSON.stringify(pendingBody))
     const pendingOrderId = pendingBody.order.id
+    assert.equal((await db.product.findUnique({ where: { id: product.id } })).stock, stockBeforePendingPayment)
+    assert.equal((await db.orderItem.findFirst({ where: { orderId: pendingOrderId } })).stockDeductedQuantity, 0)
     assert.equal((await db.promoCode.findUnique({ where: { id: reusablePromo.id } })).activationCount, 1)
     assert.equal((await db.order.findUnique({ where: { id: pendingOrderId } })).total, 874.5)
     assert.equal(await db.partnerCommission.count({ where: { orderId: pendingOrderId } }), 0)
@@ -169,6 +172,7 @@ test('manual order promo discounts once and credits the partner, but never grant
     })
     assert.equal((await pay()).status, 200)
     assert.equal((await pay()).status, 200)
+    assert.equal((await db.product.findUnique({ where: { id: product.id } })).stock, stockBeforePendingPayment - 1)
     assert.equal(await db.partnerCommission.count({ where: { orderId: pendingOrderId } }), 1)
     assert.equal((await db.partnerCommission.findUnique({ where: { orderId: pendingOrderId } })).amount, 87.45)
     assert.equal((await db.promoCode.findUnique({ where: { id: reusablePromo.id } })).activationCount, 1)

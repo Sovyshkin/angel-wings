@@ -198,7 +198,7 @@ test('only an admin can edit a paid order; bank amount stays fixed, stock and au
     const variantOrder = await db.order.create({ data: {
       customerName: 'Покупатель', customerEmail: 'buyer@example.test', customerPhone: '+79990000000',
       status: 'PROCESSING', paymentStatus: 'PENDING', total: 1000, userId: buyer.id,
-      items: { create: [{ productId: variants.id, dosage: '20 мг', quantity: 1, dosageStockDeducted: 1, price: 1000 }] }
+      items: { create: [{ productId: variants.id, dosage: '20 мг', quantity: 1, stockDeductedQuantity: 0, dosageStockDeducted: 0, price: 1000 }] }
     }, include: { items: true } })
     const variantUrl = `http://127.0.0.1:${server.address().port}/api/admin/orders/${variantOrder.id}`
     const editVariant = (existing, items) => fetch(variantUrl, {
@@ -211,17 +211,18 @@ test('only an admin can edit a paid order; bank amount stays fixed, stock and au
     const afterSwap = await db.order.findUnique({ where: { id: variantOrder.id }, include: { items: true } })
     const afterSwapProduct = await db.product.findUnique({ where: { id: variants.id } })
     assert.equal(afterSwapProduct.stock, 6)
-    assert.deepEqual(JSON.parse(afterSwapProduct.specs).dosages.map(item => item.quantity), [2, 4])
-    assert.equal(afterSwap.items[0].dosageStockDeducted, 1)
+    assert.deepEqual(JSON.parse(afterSwapProduct.specs).dosages.map(item => item.quantity), [1, 5])
+    assert.equal(afterSwap.items[0].dosageStockDeducted, 0)
+    assert.equal(afterSwap.items[0].stockDeductedQuantity, 0)
 
     const legacy = await db.product.create({ data: {
-      title: 'Старая партия', slug: 'legacy-dosages', description: '', price: 1000, stock: 4,
-      specs: JSON.stringify({ dosages: [{ dosage: '20 мг', quantity: 5 }, { dosage: '40 мг', quantity: 4 }] })
+      title: 'Старая партия', slug: 'legacy-dosages', description: '', price: 1000, stock: 3,
+      specs: JSON.stringify({ dosages: [{ dosage: '20 мг', quantity: 4 }, { dosage: '40 мг', quantity: 4 }] })
     } })
     const legacyOrder = await db.order.create({ data: {
       customerName: 'Покупатель', customerEmail: 'buyer@example.test', customerPhone: '+79990000000',
       status: 'PROCESSING', paymentStatus: 'PENDING', total: 1000, userId: buyer.id,
-      items: { create: [{ productId: legacy.id, dosage: '20 мг', quantity: 1, price: 1000 }] }
+      items: { create: [{ productId: legacy.id, dosage: '20 мг', quantity: 1, dosageStockDeducted: 1, price: 1000 }] }
     }, include: { items: true } })
     const legacyEditUrl = `http://127.0.0.1:${server.address().port}/api/admin/orders/${legacyOrder.id}`
     const legacyResponse = await fetch(legacyEditUrl, {
@@ -235,7 +236,7 @@ test('only an admin can edit a paid order; bank amount stays fixed, stock and au
     assert.equal(legacyResponse.status, 200, await legacyResponse.text())
     const afterLegacy = await db.product.findUnique({ where: { id: legacy.id } })
     assert.equal(afterLegacy.stock, 4)
-    assert.deepEqual(JSON.parse(afterLegacy.specs).dosages.map(item => item.quantity), [5, 3])
+    assert.deepEqual(JSON.parse(afterLegacy.specs).dosages.map(item => item.quantity), [5, 4])
   } finally {
     await db.$disconnect()
     await new Promise(resolve => server.close(resolve))

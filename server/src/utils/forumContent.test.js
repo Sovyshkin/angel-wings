@@ -23,7 +23,7 @@ test('saved forum copy and profile fields migrate to the giveaway without changi
   saved.form.fields.find(field => field.key === 'topics').visible = false
 
   const restored = sanitizeForumContent(saved)
-  assert.equal(restored.hero.title, 'Разыгрываем\n50 000 ₽')
+  assert.equal(restored.hero.title, 'Разыгрываем\n20 000 ₽')
   assert.equal(restored.hero.penVisible, false)
   assert.equal(restored.hero.secondaryButton, 'Как участвовать')
   assert.equal(restored.advantages.description, 'Свой текст администратора')
@@ -37,6 +37,18 @@ test('saved forum copy and profile fields migrate to the giveaway without changi
   assert.equal(restored.form.fields.find(field => field.key === 'topics').required, true)
   assert.equal(restored.form.formatVersion, 'giveaway-3-step')
   assert.deepEqual(sanitizeForumContent(restored), restored)
+})
+
+test('saved giveaway prize changes to 20 000 ₽ without losing custom copy', () => {
+  const saved = structuredClone(FORUM_DEFAULTS)
+  saved.hero.title = 'Разыгрываем\n50 000 ₽'
+  saved.cta.title = '50 000 ₽ ждут победителя'
+  saved.form.description = 'Приз 50 тысяч рублей. Свой текст администратора.'
+  const result = sanitizeForumContent(saved)
+  assert.equal(result.hero.title, 'Разыгрываем\n20 000 ₽')
+  assert.equal(result.cta.title, '20 000 ₽ ждут победителя')
+  assert.equal(result.form.description, 'Приз 20 тысяч рублей. Свой текст администратора.')
+  assert.deepEqual(sanitizeForumContent(result), result)
 })
 
 test('forum editor settings survive sanitizing and older content gets visible defaults', () => {

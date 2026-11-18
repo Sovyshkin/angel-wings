@@ -16,7 +16,8 @@ import { hasUserUsedSinglePromo } from '../utils/promoUsage.js'
 import { personalPromoError } from '../utils/personalPromo.js'
 import { calculatePromoDiscount } from '../utils/checkoutDiscounts.js'
 import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
-import { applyOrderStockChanges, assertOrderStockAvailable } from '../utils/orderStock.js'
+import { assertOrderStockAvailable } from '../utils/orderStock.js'
+import { deductPaidOrderStock, updatePaymentStatusWithStock } from '../utils/paidOrderStock.js'
 import { getEffectiveDosagePrice } from '../utils/publicProduct.js'
 
 const router = Router()
@@ -720,7 +721,8 @@ router.post('/', authenticate, async (req, res, next) => {
       orderItems.push({
         productId: item.productId,
         dosage: item.selectedDosage || null,
-        dosageStockDeducted: item.selectedDosage ? item.quantity : 0,
+        dosageStockDeducted: 0,
+        stockDeductedQuantity: 0,
         quantity: item.quantity,
         price
       })
@@ -857,10 +859,6 @@ router.post('/', authenticate, async (req, res, next) => {
       if (appliedPromoCode?.partnerId && partnerId && !await isActivePartner(tx, partnerId)) {
         throw createClientError('Партнёр, за которым закреплён клиент, неактивен')
       }
-      await applyOrderStockChanges(tx, orderItems.map(item => ({
-        productId: item.productId, dosage: item.dosage, quantity: -item.quantity
-      })))
-
       if (appliedPromoCode) {
         if (appliedPromoCode.usageType === 'single' && await hasUserUsedSinglePromo(tx, appliedPromoCode.id, req.user.id)) {
           throw createClientError('Вы уже использовали этот промокод')
@@ -973,6 +971,8 @@ router.post('/', authenticate, async (req, res, next) => {
           include: ORDER_INCLUDE
         })
       }
+
+      if (finalOrderTotal <= 0) await deductPaidOrderStock(tx, createdOrder.id)
 
       if (partnerBonusUsed > 0) {
         await tx.partnerPayment.create({
@@ -1149,10 +1149,7 @@ router.get('/my', authenticate, async (req, res, next) => {
             return { id: order.id, paymentStatus, paymentType }
           }
 
-          await prisma.order.update({
-            where: { id: order.id },
-            data: { paymentStatus, ...(paymentType ? { paymentType } : {}) }
-          })
+          await updatePaymentStatusWithStock(prisma, order.id, { paymentStatus, ...(paymentType ? { paymentType } : {}) })
 
           await syncPartnerCommissionForOrder(prisma, order.id)
           if (paymentStatus === 'PAID') {
@@ -1279,9 +1276,6 @@ router.post('/:id/add-items', authenticate, async (req, res, next) => {
     const quote = await buildOrderAdditionQuote(orderId, req.user, req.body?.items)
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      await applyOrderStockChanges(tx, quote.items.map(item => ({
-        productId: item.productId, dosage: item.selectedDosage, quantity: -item.quantity
-      })))
       for (const item of quote.items) {
         const existingItem = quote.order.items.find(orderItem =>
           orderItem.productId === item.productId &&
@@ -1293,7 +1287,8 @@ router.post('/:id/add-items', authenticate, async (req, res, next) => {
             where: { id: existingItem.id },
             data: {
               quantity: { increment: item.quantity },
-              dosageStockDeducted: { increment: item.selectedDosage ? item.quantity : 0 },
+              stockDeductedQuantity: existingItem.stockDeductedQuantity < 0
+                ? existingItem.quantity : existingItem.stockDeductedQuantity,
               price: item.price
             }
           })
@@ -1303,7 +1298,8 @@ router.post('/:id/add-items', authenticate, async (req, res, next) => {
               orderId: quote.order.id,
               productId: item.productId,
               dosage: item.selectedDosage || null,
-              dosageStockDeducted: item.selectedDosage ? item.quantity : 0,
+              dosageStockDeducted: 0,
+              stockDeductedQuantity: 0,
               quantity: item.quantity,
               price: item.price
             }
@@ -1429,6 +1425,13 @@ router.put('/:id/status', authenticate, requireAdmin, async (req, res, next) => 
     
     if (!VALID_STATUSES.includes(status)) {
       return res.status(400).json({ error: 'Неверный статус' })
+    }
+    if (status === 'CANCELLED') {
+      return res.status(410).json({ error: 'Для отмены используйте маршрут администратора с возвратом товара и оплат' })
+    }
+    const previous = await prisma.order.findUnique({ where: { id: parseInt(req.params.id) }, select: { status: true } })
+    if (previous?.status === 'CANCELLED' && status !== 'CANCELLED') {
+      return res.status(409).json({ error: 'Отменённый заказ нельзя возобновить' })
     }
     
     const order = await prisma.order.update({

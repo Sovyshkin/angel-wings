@@ -71,7 +71,7 @@ test('all-orders Excel export includes dosage cost, line cost, order cost and re
     assert.match(summary.getRow(8).getCell(11).numFmt, /₽/)
     assert.equal(summary.getRow(8).getCell(17).numFmt, '0.0%')
     assert.match(summary.getRow(8).getCell(23).value, /Товар, 10 мг — 2 шт/)
-    assert.deepEqual(summary.autoFilter, 'A7:Y7')
+    assert.deepEqual(summary.autoFilter, 'A7:AB7')
     assert.equal(summary.getColumn(7).width, 13)
     assert.deepEqual([summary.getColumn(20).width, summary.getColumn(21).width, summary.getColumn(22).width], [17, 16, 17])
     assert.deepEqual([summary.getColumn(24).width, summary.getColumn(25).width], [17, 18])
@@ -111,13 +111,64 @@ test('all-orders Excel export includes dosage cost, line cost, order cost and re
     assert.equal(partnerSheet.getRow(2).getCell(8).numFmt, undefined)
     assert.match(partnerSheet.getRow(2).getCell(9).numFmt, /₽/)
     assert.match(partnerSheet.getRow(2).getCell(23).value, /Товар, 10 мг × 2/)
-    assert.deepEqual(partnerSheet.autoFilter, 'A1:AA1')
+    assert.deepEqual(partnerSheet.autoFilter, 'A1:AD1')
     assert.equal(partnerSheet.getColumn(8).width, 13)
     assert.deepEqual([partnerSheet.getColumn(20).width, partnerSheet.getColumn(21).width, partnerSheet.getColumn(22).width], [16, 17, 17])
     assert.deepEqual([partnerSheet.getRow(2).getCell(25).value, partnerSheet.getRow(3).getCell(25).value], [10000, 3000])
     assert.deepEqual([partnerSheet.getRow(2).getCell(26).value, partnerSheet.getRow(3).getCell(26).value], [8108.8, 2432.64])
     assert.deepEqual([partnerSheet.getRow(2).getCell(27).value, partnerSheet.getRow(3).getCell(27).value], [4508.8, 1082.64])
     assert.equal(partnerSheet.getRow(1).height, 64)
+
+    const manualProduct = await db.product.create({ data: {
+      title: 'Добавленный товар', slug: 'export-manual-product', description: '', price: 17550, costPrice: 2000
+    } })
+    const manualOrder = await db.order.create({ data: {
+      userId: admin.id, partnerId: partner.id, total: 64395, paymentAmount: 48600,
+      unbilledAdjustment: 15795, discountAmount: 11155, paymentStatus: 'PAID', paymentType: 'card',
+      customerName: 'Admin', customerEmail: admin.email, customerPhone: '+79990000000',
+      items: { create: [
+        { productId: product.id, quantity: 2, price: 16000 },
+        { productId: secondProduct.id, quantity: 1, price: 26000 },
+        { productId: manualProduct.id, quantity: 1, price: 17550, adminAddedById: admin.id, adminAddedAt: new Date(), adminUnbilled: true }
+      ] }
+    } })
+    await db.partnerCommission.create({ data: {
+      partnerId: partner.id, orderId: manualOrder.id, userId: admin.id, amount: 7083.45, percentage: 11
+    } })
+    const reload = async url => {
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` }
+      })
+      assert.equal(response.status, 200)
+      const workbook = new ExcelJS.Workbook()
+      await workbook.xlsx.load(Buffer.from(await response.arrayBuffer()))
+      return workbook.getWorksheet('Заказы')
+    }
+    const allManual = await reload(`http://127.0.0.1:${server.address().port}/api/admin/partners/orders-export/all-orders?format=xlsx`)
+    const manualRows = [...allManual._rows].filter(row => row && row.number > 7 && row.getCell(1).value === manualOrder.id)
+    assert.equal(manualRows.length, 3)
+    const manualRow = manualRows.find(row => row.getCell(6).value === 'Добавленный товар')
+    assert.ok(manualRow)
+    assert.equal(manualRow.getCell(11).value, 64395)
+    assert.equal(manualRow.getCell(12).value, 15795)
+    assert.equal(manualRow.getCell(14).value, 0)
+    assert.equal(manualRow.getCell(26).value, 'Да, администратором')
+    assert.equal(manualRow.getCell(27).value, 0)
+    assert.equal(manualRow.getCell(28).value, 15795)
+    assert.equal(manualRow.getCell(19).value, 'Вне сайта')
+    assert.equal(manualRows.reduce((sum, row) => sum + row.getCell(12).value, 0), 64395)
+    assert.equal(manualRows.reduce((sum, row) => sum + row.getCell(14).value, 0), 1215)
+    assert.equal(allManual.getRow(5).getCell(14).value, 15795)
+
+    const partnerManual = await reload(`http://127.0.0.1:${server.address().port}/api/admin/partners/${partner.id}/orders-export?format=xlsx`)
+    const partnerManualRows = [...partnerManual._rows].filter(row => row && row.number > 1 && row.getCell(1).value === manualOrder.id)
+    assert.equal(partnerManualRows.length, 3)
+    const partnerManualRow = partnerManualRows.find(row => row.getCell(7).value === 'Добавленный товар')
+    assert.equal(partnerManualRow.getCell(16).value, 0)
+    assert.equal(partnerManualRow.getCell(25).value, 15795)
+    assert.equal(partnerManualRow.getCell(28).value, 'Да, администратором')
+    assert.equal(partnerManualRow.getCell(29).value, 0)
+    assert.equal(partnerManualRow.getCell(30).value, 15795)
   } finally {
     await db.$disconnect()
     await new Promise(resolve => server.close(resolve))

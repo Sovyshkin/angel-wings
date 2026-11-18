@@ -68,7 +68,7 @@ test('paid order charges are allocated to products to the kopeck, while order to
   assert.equal(lines.reduce((sum, line) => sum + Math.round(line.profit * 100), 0), Math.round((amounts.balance - 45 - 60) * 100))
 })
 
-test('delivery and unpaid admin additions are spread proportionally without changing source order amounts', () => {
+test('delivery and unpaid adjustments are spread proportionally without changing source order amounts', () => {
   const order = {
     total: 350, unbilledAdjustment: 50, paymentStatus: 'PAID', discountAmount: 30,
     commission: { amount: 32, percentage: 10 },
@@ -89,7 +89,7 @@ test('delivery and unpaid admin additions are spread proportionally without chan
 test('financial columns include only paid orders and label estimated acquiring', () => {
   const paid = getOrderReportAmounts({ total: 10000, paymentStatus: 'PAID', paymentId: 'pay-1', acquiringFee: null })
   assert.deepEqual(paid, {
-    revenue: 10000, tax: 1141.2, acquiring: 250,
+    revenue: 10000, siteRevenue: 10000, externalRevenue: 0, tax: 1141.2, acquiring: 250,
     acquiringSource: 'Оценка: способ оплаты неизвестен, 2.5%', balance: 8608.8
   })
   const unpaid = getOrderReportAmounts({ total: 10000, paymentStatus: 'PENDING', paymentId: 'pay-2', acquiringFee: null })
@@ -103,6 +103,49 @@ test('financial columns include only paid orders and label estimated acquiring',
   assert.equal(editedPaid.revenue, 10000)
   assert.equal(editedPaid.tax, 1141.2)
   assert.equal(editedPaid.acquiring, 250)
+})
+
+test('manual product after bank payment is included without acquiring on its external amount', () => {
+  const order = {
+    total: 64395, paymentAmount: 48600, unbilledAdjustment: 15795,
+    paymentStatus: 'PAID', paymentType: 'card', discountAmount: 11155,
+    commission: { amount: 7083.45, percentage: 11 },
+    items: [
+      { price: 16000, quantity: 2, product: { costPrice: 3000 } },
+      { price: 26000, quantity: 1, product: { costPrice: 4000 } },
+      { price: 17550, quantity: 1, adminUnbilled: true, adminAddedById: 1, product: { costPrice: 2000 } }
+    ]
+  }
+  const amounts = getOrderReportAmounts(order)
+  const lines = allocateOrderFinancials(order, amounts)
+  assert.deepEqual([amounts.siteRevenue, amounts.externalRevenue, amounts.revenue], [48600, 15795, 64395])
+  assert.deepEqual(lines.map(line => line.sitePaid), [26813.79, 21786.21, 0])
+  assert.deepEqual(lines.map(line => line.externalPaid), [0, 0, 15795])
+  assert.equal(lines[2].net, 15795)
+  assert.equal(lines[2].acquiring, 0)
+  assert.ok(lines[2].tax > 0)
+  assert.ok(lines[2].commission > 0)
+  for (const key of ['paid', 'tax', 'acquiring', 'commission', 'balance']) {
+    const total = lines.reduce((sum, line) => sum + Math.round(line[key] * 100), 0) / 100
+    const expected = key === 'paid' ? amounts.revenue : key === 'commission' ? order.commission.amount
+      : key === 'balance' ? amounts.balance - order.commission.amount : amounts[key]
+    assert.equal(total, Math.round(expected * 100) / 100, key)
+  }
+})
+
+test('manual-only addition outside the site has no acquiring estimate', () => {
+  const order = {
+    total: 500, unbilledAdjustment: 500, paymentStatus: 'PAID', paymentType: 'card',
+    items: [{ price: 500, quantity: 1, adminUnbilled: true }]
+  }
+  const amounts = getOrderReportAmounts(order)
+  const [line] = allocateOrderFinancials(order, amounts)
+  assert.equal(amounts.siteRevenue, 0)
+  assert.equal(amounts.externalRevenue, 500)
+  assert.equal(amounts.acquiring, 0)
+  assert.equal(line.sitePaid, 0)
+  assert.equal(line.externalPaid, 500)
+  assert.equal(line.acquiring, 0)
 })
 
 test('partner report distinguishes card and SBP acquiring', () => {

@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
-import { createGiveawayTicketId, GIVEAWAY_MARKER, normalizeGiveawayPhone } from '../src/utils/giveawayTicket.js'
+import { createGiveawayTicketId, GIVEAWAY_MARKERS, normalizeGiveawayPhone } from '../src/utils/giveawayTicket.js'
 const prisma = new PrismaClient()
 try {
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "forum_pages" ("id" INTEGER NOT NULL PRIMARY KEY, "content" TEXT NOT NULL, "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`)
@@ -18,7 +18,10 @@ try {
   if (!columns.some(existing => existing.name === 'ticketEmailAttempts')) await prisma.$executeRawUnsafe('ALTER TABLE "forum_applications" ADD COLUMN "ticketEmailAttempts" INTEGER NOT NULL DEFAULT 0')
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "forum_browser_tickets" ("browserId" TEXT NOT NULL PRIMARY KEY, "applicationId" INTEGER NOT NULL, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY ("applicationId") REFERENCES "forum_applications"("id") ON DELETE CASCADE ON UPDATE CASCADE)`)
   await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS forum_browser_tickets_applicationId_idx ON forum_browser_tickets(applicationId)')
-  const previousEntries = await prisma.$queryRawUnsafe('SELECT id, email, phone, ticketId, giveawayEmail, giveawayPhone FROM forum_applications WHERE message LIKE ? ORDER BY id ASC', `${GIVEAWAY_MARKER}%`)
+  const previousEntries = await prisma.$queryRawUnsafe(
+    `SELECT id, email, phone, ticketId, giveawayEmail, giveawayPhone FROM forum_applications WHERE ${GIVEAWAY_MARKERS.map(() => 'message LIKE ?').join(' OR ')} ORDER BY id ASC`,
+    ...GIVEAWAY_MARKERS.map(marker => `${marker}%`)
+  )
   for (const entry of previousEntries) {
     if (entry.ticketId && entry.giveawayEmail && entry.giveawayPhone) continue
     const email = String(entry.email || '').trim().toLowerCase()

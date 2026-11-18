@@ -8,6 +8,7 @@ import { CLOUD_KASSIR_ORDER_INCLUDE } from '../utils/cloudKassirReceipt.js'
 import { queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
 import { extractTochkaPaymentType, normalizePaymentType } from '../utils/paymentAcquiring.js'
+import { updatePaymentStatusWithStock } from '../utils/paidOrderStock.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -238,9 +239,8 @@ async function createPaymentForOrder(orderId, amount, description, miniApp = fal
       if (statusResult.success) {
         const status = normalizePaymentStatus(statusResult.status)
         if (status === 'PAID') {
-          const updated = await prisma.order.update({
-            where: { id: orderId },
-            data: { paymentStatus: 'PAID', ...(normalizePaymentType(statusResult.paymentType) ? { paymentType: normalizePaymentType(statusResult.paymentType) } : {}) }
+          const updated = await updatePaymentStatusWithStock(prisma, orderId, {
+            paymentStatus: 'PAID', ...(normalizePaymentType(statusResult.paymentType) ? { paymentType: normalizePaymentType(statusResult.paymentType) } : {})
           })
           await syncPartnerCommissionForOrder(prisma, orderId)
           queueCdekWaybillAfterPayment(updated, order.paymentStatus)
@@ -420,19 +420,16 @@ router.get('/status/:paymentId', async (req, res, next) => {
         where: { paymentId: String(paymentId) },
         select: { id: true, userId: true, paymentStatus: true, cdekOrderUuid: true }
       })
-      const updateResult = await prisma.order.updateMany({
-        where: {
-          paymentId: String(paymentId),
-          ...(paymentStatus !== 'PAID' ? { paymentStatus: { not: 'PAID' } } : {})
-        },
-        data: { paymentStatus, ...(paymentType ? { paymentType } : {}) }
-      })
-      if (updateResult.count > 0) {
-        await Promise.all(matchedOrders.map(async (order) => {
+      if (matchedOrders.length) {
+        for (const order of matchedOrders) {
+          const effectiveStatus = order.paymentStatus === 'PAID' ? 'PAID' : paymentStatus
+          await updatePaymentStatusWithStock(prisma, order.id, {
+            paymentStatus: effectiveStatus, ...(paymentType ? { paymentType } : {})
+          })
           await syncPartnerCommissionForOrder(prisma, order.id)
-          queueCdekWaybillAfterPayment({ ...order, paymentStatus }, order.paymentStatus)
-          if (paymentStatus === 'PAID') await grantConsultationRewardsForPaidOrder(prisma, { ...order, paymentStatus })
-        }))
+          queueCdekWaybillAfterPayment({ ...order, paymentStatus: effectiveStatus }, order.paymentStatus)
+          if (effectiveStatus === 'PAID') await grantConsultationRewardsForPaidOrder(prisma, { ...order, paymentStatus: effectiveStatus })
+        }
       }
       res.json({ success: true, status: result.status, paymentStatus })
     } else {
@@ -487,11 +484,8 @@ router.post('/sync-order/:orderId', authenticate, async (req, res, next) => {
       rawStatus: result.status,
       paymentStatus
     }))
-    const updatedOrder = await prisma.order.update({
-      where: { id: order.id },
-      data: { paymentStatus: effectiveStatus, ...(paymentType ? { paymentType } : {}) },
-      select: PAYMENT_SYNC_ORDER_SELECT
-    })
+    const updatedOrder = await updatePaymentStatusWithStock(prisma, order.id,
+      { paymentStatus: effectiveStatus, ...(paymentType ? { paymentType } : {}) }, PAYMENT_SYNC_ORDER_SELECT)
     await syncPartnerCommissionForOrder(prisma, order.id)
     queueCdekWaybillAfterPayment(updatedOrder, order.paymentStatus)
     if (effectiveStatus === 'PAID') await grantConsultationRewardsForPaidOrder(prisma, updatedOrder)
@@ -550,13 +544,10 @@ router.post('/webhook', async (req, res, next) => {
           // of a different (possibly larger) payment as complete.
           if (currentLink && currentPayment) {
             const effectiveStatus = normalizePaymentStatus(existingOrder.paymentStatus) === 'PAID' ? 'PAID' : normalized
-            updatedOrder = await prisma.order.update({
-              where: { id: orderId },
-              data: {
-                paymentStatus: effectiveStatus,
-                ...(paymentId && !existingOrder.paymentId ? { paymentId: String(paymentId) } : {}),
-                ...(effectiveStatus === 'PAID' && paymentType ? { paymentType } : {})
-              }
+            updatedOrder = await updatePaymentStatusWithStock(prisma, orderId, {
+              paymentStatus: effectiveStatus,
+              ...(paymentId && !existingOrder.paymentId ? { paymentId: String(paymentId) } : {}),
+              ...(effectiveStatus === 'PAID' && paymentType ? { paymentType } : {})
             })
             updatedOrder.previousPaymentStatus = existingOrder.paymentStatus
           } else if (normalized === 'PAID') {
@@ -572,12 +563,9 @@ router.post('/webhook', async (req, res, next) => {
         select: { id: true, paymentStatus: true, cdekOrderUuid: true }
       })
       if (found) {
-        updatedOrder = await prisma.order.update({
-          where: { id: found.id },
-          data: {
-            paymentStatus: normalizePaymentStatus(found.paymentStatus) === 'PAID' ? 'PAID' : normalized,
-            ...(normalized === 'PAID' && paymentType ? { paymentType } : {})
-          }
+        updatedOrder = await updatePaymentStatusWithStock(prisma, found.id, {
+          paymentStatus: normalizePaymentStatus(found.paymentStatus) === 'PAID' ? 'PAID' : normalized,
+          ...(normalized === 'PAID' && paymentType ? { paymentType } : {})
         })
         updatedOrder.previousPaymentStatus = found.paymentStatus
       }

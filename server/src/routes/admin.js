@@ -20,6 +20,7 @@ import { grantConsultationRewardsForPaidOrder } from '../utils/consultationRewar
 import { buildOrderWaybill, createOrderWaybillDocx, createOrderWaybillPdf } from '../utils/orderWaybill.js'
 import { applyStockAdjustments, parseStockAdjustmentRequest } from '../utils/stockAdjustments.js'
 import { applyOrderStockChanges } from '../utils/orderStock.js'
+import { deductPaidOrderStock, releaseOrderStock, updatePaymentStatusWithStock } from '../utils/paidOrderStock.js'
 import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiringSettings.js'
 import { calculateEditedOrderDiscount, calculateOrderEditAmounts, getBilledOrderTotal } from '../utils/orderEditAmounts.js'
 import { resolveManualOrderPromo, claimManualOrderPromo } from '../utils/manualOrderPromo.js'
@@ -1118,9 +1119,6 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
       const effectivePartnerId = promo.partnerId
       const total = Math.round((subtotal + siteDelivery - promo.discountAmount) * 100) / 100
       if (paymentStatus === 'PAID' && total <= 0) throw Object.assign(new Error('Для оплаченного заказа сумма должна быть больше нуля'), { status: 400 })
-      await applyOrderStockChanges(tx, normalizedItems.map(item => ({
-        productId: item.productId, dosage: item.dosage, quantity: -item.quantity
-      })))
       if (effectivePartnerId && !user?.partnerUser && !historical) {
         await tx.partnerUser.create({ data: { userId, partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null, referralSource: promo.promoCode?.partnerId ? 'promo_code' : 'admin' } })
       }
@@ -1137,10 +1135,11 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
           deliveryCity: String(req.body.deliveryCity || '').trim() || null,
           deliveryPickupPoint,
           deliveryPickupName: String(req.body.deliveryPickupName || '').trim() || null,
-          items: { create: normalizedItems.map(item => ({ ...item, dosageStockDeducted: item.dosage ? item.quantity : 0 })) }
+          items: { create: normalizedItems.map(item => ({ ...item, stockDeductedQuantity: 0, dosageStockDeducted: 0 })) }
         }
       })
       if (paymentStatus === 'PAID') {
+        await deductPaidOrderStock(tx, created.id)
         await syncPartnerCommissionForOrder(tx, created.id)
       }
       return created
@@ -1388,10 +1387,7 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
           const paymentType = normalized === 'PAID' ? statusResult.paymentType : null
           if (normalized === order.paymentStatus && (!paymentType || order.paymentType === paymentType)) return null
 
-          await prisma.order.update({
-            where: { id: order.id },
-            data: { paymentStatus: normalized, ...(paymentType ? { paymentType } : {}) }
-          })
+          await updatePaymentStatusWithStock(prisma, order.id, { paymentStatus: normalized, ...(paymentType ? { paymentType } : {}) })
           await syncPartnerCommissionForOrder(prisma, order.id)
           queueCdekWaybillAfterPayment({ ...order, paymentStatus: normalized }, order.paymentStatus)
           return { id: order.id, paymentStatus: normalized, paymentType }
@@ -1466,7 +1462,7 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
         select: {
           id: true, userId: true, status: true, createdAt: true,
           userPointsUsed: true, partnerBonusAmount: true, promoCodeId: true,
-          items: { select: { productId: true, dosage: true, quantity: true, dosageStockDeducted: true } }
+          items: { select: { id: true, productId: true, dosage: true, quantity: true, stockDeductedQuantity: true, dosageStockDeducted: true } }
         }
       })
 
@@ -1497,12 +1493,7 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
       }
 
       if (normalizedStatus === 'CANCELLED' && previousOrder.status !== 'CANCELLED') {
-        await applyOrderStockChanges(tx, previousOrder.items.map(item => ({
-          productId: item.productId,
-          dosage: item.dosage,
-          quantity: item.quantity,
-          variantQuantity: item.dosageStockDeducted
-        })))
+        await releaseOrderStock(tx, previousOrder.items)
 
         if (previousOrder.promoCodeId) {
           await tx.promoCode.updateMany({
@@ -1585,10 +1576,7 @@ router.put('/orders/:id/payment-status', authenticate, requireAdmin, async (req,
       select: { paymentStatus: true, cdekOrderUuid: true }
     })
 
-    const order = await prisma.order.update({
-      where: { id: orderId },
-      data: { paymentStatus: normalizedStatus }
-    })
+    const order = await updatePaymentStatusWithStock(prisma, orderId, { paymentStatus: normalizedStatus })
 
     await syncPartnerCommissionForOrder(prisma, order.id)
     queueCdekWaybillAfterPayment(order, previousOrder?.paymentStatus)
@@ -1740,6 +1728,9 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
         throw Object.assign(new Error('Данные доставки уже переданы в СДЭК. Измените их сначала в СДЭК'), { status: 409 })
       }
       if (wantsItems) {
+        if (['CANCELLED', 'RETURNED'].includes(previous.status)) {
+          throw Object.assign(new Error('Состав отменённого или возвращённого заказа менять нельзя'), { status: 409 })
+        }
         if (req.body.items.some(item => !item || typeof item !== 'object' || Array.isArray(item) || item.productId == null || item.quantity == null || item.price == null || item.productId === '' || item.quantity === '' || item.price === '')) {
           throw Object.assign(new Error('Некорректный состав заказа'), { status: 400 })
         }
@@ -1766,20 +1757,17 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
         if (products.length !== productIds.length) throw Object.assign(new Error('Один из товаров не найден'), { status: 400 })
         for (const item of nextItems) {
           const old = item.id === null ? null : previousById.get(item.id)
-          if (old && old.productId === item.productId && old.dosage === item.dosage) {
-            const previouslyDeducted = Math.min(old.quantity, Math.max(0, Number(old.dosageStockDeducted) || 0))
-            item.dosageStockDeducted = item.dosage
-              ? item.quantity >= old.quantity
-                ? previouslyDeducted + item.quantity - old.quantity
-                : Math.max(0, previouslyDeducted - (old.quantity - item.quantity))
-              : 0
-          } else {
-            item.dosageStockDeducted = item.dosage ? item.quantity : 0
-          }
+          const sameVariant = old && old.productId === item.productId && old.dosage === item.dosage
+          const oldDeducted = old ? (old.stockDeductedQuantity < 0 ? old.quantity : old.stockDeductedQuantity) : 0
+          item.stockDeductedQuantity = previous.paymentStatus === 'PAID'
+            ? item.quantity : (sameVariant ? Math.min(item.quantity, oldDeducted) : 0)
+          item.dosageStockDeducted = previous.paymentStatus === 'PAID' && item.dosage
+            ? item.quantity
+            : (sameVariant && item.dosage ? Math.min(item.quantity, Math.max(0, old.dosageStockDeducted || 0)) : 0)
         }
         await applyOrderStockChanges(tx, [
-          ...previous.items.map(item => ({ productId: item.productId, dosage: item.dosage, quantity: item.quantity, variantQuantity: item.dosageStockDeducted || 0 })),
-          ...nextItems.map(item => ({ productId: item.productId, dosage: item.dosage, quantity: -item.quantity, variantQuantity: -item.dosageStockDeducted }))
+          ...previous.items.map(item => ({ productId: item.productId, dosage: item.dosage, quantity: item.stockDeductedQuantity < 0 ? item.quantity : item.stockDeductedQuantity, variantQuantity: Math.max(0, item.dosageStockDeducted || 0) })),
+          ...nextItems.map(item => ({ productId: item.productId, dosage: item.dosage, quantity: -item.stockDeductedQuantity, variantQuantity: -item.dosageStockDeducted }))
         ])
         await tx.orderItem.deleteMany({ where: { orderId } })
         await tx.orderItem.createMany({ data: nextItems.map(({ id, ...item }) => {

@@ -30,8 +30,10 @@ export function assertOrderStockAvailable(product, dosage, quantity) {
   if (product.stock < quantity) throw stockError(`Недостаточно товара «${product.title}» на складе`)
 }
 
-// Negative quantity reserves stock, positive quantity returns it. Call inside the order transaction.
-export async function applyOrderStockChanges(tx, changes) {
+// Negative quantity deducts stock, positive quantity returns it. Call inside the order transaction.
+// A paid order may exceed stock when several customers pay the last unit at once;
+// record the shortage instead of losing a confirmed payment.
+export async function applyOrderStockChanges(tx, changes, { allowOversell = false } = {}) {
   const byProduct = new Map()
   for (const change of changes) {
     const productId = Number(change.productId)
@@ -70,11 +72,11 @@ export async function applyOrderStockChanges(tx, changes) {
         if (matches.length !== 1) throw stockError(`Выберите существующую дозировку товара «${product.title}»`, 400)
         const { item, index } = matches[0]
         const available = Number(item.quantity)
-        if (!Number.isSafeInteger(available) || available < 0 || available > MAX_STOCK) {
+        if (!Number.isSafeInteger(available) || available > MAX_STOCK) {
           throw stockError(`Некорректный остаток «${product.title} · ${dosage}»`)
         }
         const next = available + delta
-        if (next < 0) throw stockError(`Недостаточно товара «${product.title} · ${dosage}» на складе`)
+        if (next < 0 && delta < 0 && !allowOversell) throw stockError(`Недостаточно товара «${product.title} · ${dosage}» на складе`)
         if (next > MAX_STOCK) throw stockError(`Остаток «${product.title} · ${dosage}» превышает допустимый предел`)
         nextDosages[index].quantity = next
       } else if (dosage) {
@@ -82,7 +84,7 @@ export async function applyOrderStockChanges(tx, changes) {
       }
     }
     const nextStock = product.stock + totalDelta
-    if (nextStock < 0) throw stockError(`Недостаточно товара «${product.title}» на складе`)
+    if (nextStock < 0 && totalDelta < 0 && !allowOversell) throw stockError(`Недостаточно товара «${product.title}» на складе`)
     if (nextStock > MAX_STOCK) throw stockError(`Остаток товара «${product.title}» превышает допустимый предел`)
     const result = await tx.product.updateMany({
       where: { id: productId, stock: product.stock, specs: product.specs },

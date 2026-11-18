@@ -48,7 +48,7 @@ const LEGACY_FORUM_DEFAULTS = {
 export const FORUM_DEFAULTS = structuredClone(LEGACY_FORUM_DEFAULTS)
 Object.assign(FORUM_DEFAULTS.hero, {
   eyebrow: 'РОЗЫГРЫШ ANGEL WINGS',
-  title: 'Разыгрываем\n50 000 ₽',
+  title: 'Разыгрываем\n20 000 ₽',
   description: 'Оставьте заявку на участие в розыгрыше денежного приза.',
   button: 'Участвовать в розыгрыше',
   secondaryButton: 'Как участвовать',
@@ -71,7 +71,7 @@ FORUM_DEFAULTS.products.visible = false
 FORUM_DEFAULTS.events.visible = false
 Object.assign(FORUM_DEFAULTS.cta, {
   eyebrow: 'ВАШ ШАНС',
-  title: '50 000 ₽ ждут победителя',
+  title: '20 000 ₽ ждут победителя',
   description: 'Заполните короткую форму и отправьте заявку на участие.',
   button: 'Принять участие'
 })
@@ -155,6 +155,16 @@ function sanitizeValue(raw, fallback, key) {
   }
   return fallback
 }
+function updateGiveawayPrize(value) {
+  if (typeof value === 'string') return value
+    .replace(/(?<!\d)50[\s\u00a0\u202f]*000(?!\d)/g, '20 000')
+    .replace(/(?<!\d)50\s*тысяч/gi, '20 тысяч')
+    .replace(/(?<!\d)50\s*тыс\.?/gi, '20 тыс.')
+    .replace(/(?<!\d)50\s*к(?=$|[^а-яёa-z0-9])/gi, '20к')
+  if (Array.isArray(value)) return value.map(updateGiveawayPrize)
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, updateGiveawayPrize(entry)]))
+  return value
+}
 export function sanitizeForumContent(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Некорректное содержимое страницы')
   const migrated = migrateLegacyDefaults(input, LEGACY_FORUM_DEFAULTS, FORUM_DEFAULTS)
@@ -167,5 +177,7 @@ export function sanitizeForumContent(input) {
     ) : migrated.form.fields
     migrated.form.formatVersion = FORUM_DEFAULTS.form.formatVersion
   }
-  return sanitizeValue(migrated, FORUM_DEFAULTS)
+  const content = sanitizeValue(migrated, FORUM_DEFAULTS)
+  for (const section of ['hero', 'advantages', 'cta', 'form']) content[section] = updateGiveawayPrize(content[section])
+  return content
 }

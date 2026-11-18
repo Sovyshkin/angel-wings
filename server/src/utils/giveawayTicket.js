@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 
-export const GIVEAWAY_MARKER = 'Кампания: Розыгрыш 50 000 ₽'
+export const GIVEAWAY_MARKER = 'Кампания: Розыгрыш 20 000 ₽'
+export const GIVEAWAY_MARKERS = [GIVEAWAY_MARKER, 'Кампания: Розыгрыш 50 000 ₽']
 export const TICKET_STORAGE_FORMAT = /^AW-(?:[A-F0-9]{4}-){3}[A-F0-9]{4}$/
 export const BROWSER_ID_FORMAT = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 export const DUPLICATE_CONTACT_ERROR = { error: 'Для этой почты или телефона уже есть заявка. Укажите прежние контактные данные или свяжитесь с нами.' }

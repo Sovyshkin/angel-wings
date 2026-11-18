@@ -31,7 +31,7 @@
         <div class="hero-neon__assembly hero-neon__assembly--podium" data-assembly="podium" v-show="objectVisible('podium')"><img class="hero-neon__object hero-neon__object--podium hero-neon__object--theme-dark" :src="objectImage('podium', '/hero-assets/neon-lab-podium.webp')" alt="" width="1254" height="1254" loading="eager" decoding="async"><img class="hero-neon__object hero-neon__object--podium hero-neon__object--theme-light" :src="objectLightImage('podium', '/hero-assets/neon-lab-light-podium.webp')" alt="" width="1254" height="1254" loading="eager" decoding="async"></div>
         <div class="hero-neon__energy" aria-hidden="true"></div>
         <div v-show="content.penVisible !== false" class="hero-neon__assembly hero-neon__assembly--pen" data-assembly="pen"><video v-if="content.video" class="hero-neon__object hero-neon__object--pen" :src="content.video" autoplay muted loop playsinline></video><img v-else class="hero-neon__object hero-neon__object--pen" :src="content.image || '/hero-assets/ручка-720.webp'" alt="" width="720" height="1080" loading="eager" decoding="async" fetchpriority="high"></div>
-        <div class="hero-neon__prize-plaque"><span>ГЛАВНЫЙ ПРИЗ</span><strong>50 000 <small>₽</small></strong><i aria-hidden="true"></i></div>
+        <div class="hero-neon__prize-plaque"><span>ГЛАВНЫЙ ПРИЗ</span><strong>20 000 <small>₽</small></strong><i aria-hidden="true"></i></div>
       </div>
       <div class="hero-neon__content">
           <div class="hero-neon__badge"><span class="hero-neon__dot"></span>{{ content.eyebrow }}</div>

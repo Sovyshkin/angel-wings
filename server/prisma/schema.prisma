@@ -387,6 +387,7 @@ model OrderItem {
   dosage    String?
   quantity  Int
   dosageStockDeducted Int @default(0)
+  stockDeductedQuantity Int @default(-1)
   price     Float
   adminAddedAt DateTime?
   adminAddedById Int?

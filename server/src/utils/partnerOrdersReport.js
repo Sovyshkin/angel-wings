@@ -45,14 +45,16 @@ export function allocateOrderItems(order) {
   const grossCents = items.map(item => toCents(item.price) * Math.max(0, Number(item.quantity) || 0))
   const subtotal = grossCents.reduce((sum, value) => sum + value, 0)
   const discount = Math.min(subtotal, Math.max(0, toCents(order.discountAmount)))
-  const exactShares = grossCents.map(value => subtotal > 0 ? discount * value / subtotal : 0)
-  const discounts = exactShares.map(Math.floor)
-  let remaining = discount - discounts.reduce((sum, value) => sum + value, 0)
-  const remainderOrder = exactShares.map((share, index) => ({ index, fraction: share - discounts[index] }))
-    .sort((a, b) => b.fraction - a.fraction || a.index - b.index)
-  for (const { index } of remainderOrder) {
-    if (remaining-- <= 0) break
-    discounts[index]++
+  let discounts = distributeCents(discount, grossCents)
+  const manualGross = grossCents.reduce((sum, value, index) => sum + (items[index].adminUnbilled ? value : 0), 0)
+  const regularGross = subtotal - manualGross
+  const externalAmount = Math.max(0, toCents(order.total) - toCents(getBilledOrderTotal(order)))
+  const manualDiscount = manualGross - externalAmount
+  if (manualGross && regularGross && externalAmount > 0 && manualDiscount >= 0 &&
+      manualDiscount <= manualGross && manualDiscount <= discount && discount - manualDiscount <= regularGross) {
+    const regularShares = distributeCents(discount - manualDiscount, grossCents.map((value, index) => items[index].adminUnbilled ? 0 : value))
+    const manualShares = distributeCents(manualDiscount, grossCents.map((value, index) => items[index].adminUnbilled ? value : 0))
+    discounts = regularShares.map((value, index) => value + manualShares[index])
   }
 
   return items.map((item, index) => {
@@ -77,10 +79,17 @@ export function getOrderProductCost(order) {
 export function allocateOrderFinancials(order, amounts) {
   const items = allocateOrderItems(order)
   const weights = items.map(line => toCents(line.net))
-  const paid = distributeCents(toCents(amounts.revenue), weights)
+  const regularWeights = items.map(line => line.item.adminUnbilled ? 0 : toCents(line.net))
+  const siteWeights = items.some(line => !line.item.adminUnbilled)
+    ? regularWeights.some(Boolean) ? regularWeights : items.map(line => line.item.adminUnbilled ? 0 : 1)
+    : weights
+  const externalWeights = items.map(line => line.item.adminUnbilled ? toCents(line.net) : 0)
+  const sitePaid = distributeCents(toCents(amounts.siteRevenue ?? amounts.revenue), siteWeights)
+  const externalPaid = distributeCents(toCents(amounts.externalRevenue), externalWeights)
+  const paid = sitePaid.map((value, index) => value + externalPaid[index])
   const tax = distributeCents(toCents(amounts.tax), paid)
-  const acquiring = distributeCents(toCents(amounts.acquiring), paid)
-  const commission = distributeCents(toCents(amounts.revenue ? order.commission?.amount : 0), weights)
+  const acquiring = distributeCents(toCents(amounts.acquiring), sitePaid)
+  const commission = distributeCents(toCents(amounts.revenue ? order.commission?.amount : 0), paid)
   const isPaid = String(order.paymentStatus || '').toUpperCase() === 'PAID'
 
   return items.map((line, index) => {
@@ -88,6 +97,8 @@ export function allocateOrderFinancials(order, amounts) {
     return {
       ...line,
       paid: fromCents(paid[index]),
+      sitePaid: fromCents(sitePaid[index]),
+      externalPaid: fromCents(externalPaid[index]),
       tax: fromCents(tax[index]),
       acquiring: fromCents(acquiring[index]),
       commission: fromCents(commission[index]),
@@ -99,13 +110,23 @@ export function allocateOrderFinancials(order, amounts) {
 
 export function getOrderReportAmounts(order, acquiringSettings) {
   const paid = String(order.paymentStatus || '').toUpperCase() === 'PAID'
-  const paidAmount = getBilledOrderTotal(order)
-  const revenue = paid ? fromCents(toCents(paidAmount)) : 0
-  const tax = paid ? fromCents(Math.round(toCents(paidAmount) * PARTNER_REPORT_TAX_RATE)) : 0
+  const orderCents = Math.max(0, toCents(order.total))
+  const siteRevenueCents = paid ? Math.min(orderCents, Math.max(0, toCents(getBilledOrderTotal(order)))) : 0
+  const manualNetCents = allocateOrderItems(order).reduce((sum, line) =>
+    sum + (line.item.adminUnbilled ? toCents(line.net) : 0), 0)
+  const externalRevenueCents = paid
+    ? Math.min(Math.max(0, orderCents - siteRevenueCents), manualNetCents)
+    : 0
+  const revenueCents = siteRevenueCents + externalRevenueCents
+  const siteRevenue = fromCents(siteRevenueCents)
+  const externalRevenue = fromCents(externalRevenueCents)
+  const revenue = fromCents(revenueCents)
+  const tax = fromCents(Math.round(revenueCents * PARTNER_REPORT_TAX_RATE))
   const estimate = getAcquiringEstimate(order, acquiringSettings)
-  const acquiring = estimate.amount
-  const acquiringSource = estimate.source
-  return { revenue, tax, acquiring, acquiringSource, balance: fromCents(toCents(revenue) - toCents(tax) - toCents(acquiring)) }
+  const acquiring = siteRevenueCents ? estimate.amount : 0
+  const acquiringSource = siteRevenueCents ? estimate.source
+    : externalRevenueCents ? 'Вне сайта — эквайринг 0 ₽' : estimate.source
+  return { revenue, siteRevenue, externalRevenue, tax, acquiring, acquiringSource, balance: fromCents(revenueCents - toCents(tax) - toCents(acquiring)) }
 }
 
 export function formatOrderComposition(items = []) {

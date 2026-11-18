@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { uploadDir } from '../utils/fileUpload.js'
 import { FORUM_DEFAULTS, sanitizeForumContent } from '../utils/forumContent.js'
-import { BROWSER_ID_FORMAT, createGiveawayTicketId, DUPLICATE_CONTACT_ERROR, existingTicketResult, GIVEAWAY_MARKER, normalizeGiveawayPhone, TICKET_STORAGE_FORMAT } from '../utils/giveawayTicket.js'
+import { BROWSER_ID_FORMAT, createGiveawayTicketId, DUPLICATE_CONTACT_ERROR, existingTicketResult, GIVEAWAY_MARKER, GIVEAWAY_MARKERS, normalizeGiveawayPhone, TICKET_STORAGE_FORMAT } from '../utils/giveawayTicket.js'
 import { deliverGiveawayTicketEmail } from '../services/giveawayTicketEmail.js'
 
 const router = Router()
@@ -27,7 +27,7 @@ async function findExistingTicket(email, phone) {
 
   // Applications submitted just before the schema upgrade have no ticket yet.
   const previous = await prisma.forumApplication.findFirst({
-    where: { email, message: { startsWith: GIVEAWAY_MARKER } },
+    where: { email, OR: GIVEAWAY_MARKERS.map(marker => ({ message: { startsWith: marker } })) },
     orderBy: { id: 'asc' },
     select: { id: true, phone: true, ticketId: true }
   })
