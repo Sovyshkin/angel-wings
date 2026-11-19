@@ -5,7 +5,8 @@ export const USER_POINT_TYPES = {
   ADMIN_DEBIT: 'ADMIN_DEBIT',
   CONSULTATION_REWARD: 'CONSULTATION_REWARD',
   ORDER_SPEND: 'ORDER_SPEND',
-  ORDER_REFUND: 'ORDER_REFUND'
+  ORDER_REFUND: 'ORDER_REFUND',
+  ORDER_REFUND_REVERSAL: 'ORDER_REFUND_REVERSAL'
 }
 
 export async function debitUserPointsByAdmin(tx, { userId, amount, reset = false, message = null, createdById = null }) {
@@ -196,15 +197,16 @@ export async function refundUserPointsForOrder(tx, { order, createdById = null }
     return { refunded: 0, balanceAfter: null }
   }
 
-  const existingRefund = await tx.userPointTransaction.findFirst({
+  const latestRefundAction = await tx.userPointTransaction.findFirst({
     where: {
       orderId,
-      type: USER_POINT_TYPES.ORDER_REFUND
+      type: { in: [USER_POINT_TYPES.ORDER_REFUND, USER_POINT_TYPES.ORDER_REFUND_REVERSAL] }
     },
-    select: { id: true }
+    orderBy: { id: 'desc' },
+    select: { type: true }
   })
 
-  if (existingRefund) {
+  if (latestRefundAction?.type === USER_POINT_TYPES.ORDER_REFUND) {
     return { refunded: 0, alreadyRefunded: true }
   }
 
@@ -248,6 +250,46 @@ export async function refundUserPointsForOrder(tx, { order, createdById = null }
   })
 
   return { refunded: refundableAmount, balanceAfter: user.pointsBalance, expiredCampaignSpend }
+}
+
+export async function reverseUserPointsRefundForOrder(tx, { order, createdById = null }) {
+  const orderId = Number(order?.id || 0)
+  const userId = Number(order?.userId || 0)
+  if (!orderId || !userId) return { reversed: 0 }
+  const latest = await tx.userPointTransaction.findFirst({
+    where: { orderId, type: { in: [USER_POINT_TYPES.ORDER_REFUND, USER_POINT_TYPES.ORDER_REFUND_REVERSAL] } },
+    orderBy: { id: 'desc' },
+    select: { type: true, amount: true, createdAt: true }
+  })
+  if (latest?.type !== USER_POINT_TYPES.ORDER_REFUND) return { reversed: 0 }
+  const amount = latest.amount
+  const spends = await tx.pointCampaignSpend.findMany({ where: { orderId }, include: { offer: true } })
+  const now = new Date()
+  if (spends.some(spend => spend.offer.expiresAt && spend.offer.expiresAt > latest.createdAt &&
+      (spend.offer.expiredAt || spend.offer.expiresAt <= now))) {
+    throw Object.assign(new Error('Возвращённые подарочные баллы уже сгорели. Для возобновления заказа нужна ручная сверка баланса.'), { status: 409 })
+  }
+  const user = await tx.user.updateMany({
+    where: { id: userId, pointsBalance: { gte: amount } },
+    data: { pointsBalance: { decrement: amount } }
+  })
+  if (user.count !== 1) throw Object.assign(new Error('Клиент уже потратил возвращённые баллы. Сначала восстановите их баланс.'), { status: 409 })
+  for (const spend of spends) {
+    if (!spend.offer.claimedAt || spend.offer.expiredAt || !spend.offer.expiresAt || spend.offer.expiresAt <= now) continue
+    const result = await tx.pointCampaignOffer.updateMany({
+      where: { id: spend.offerId, remainingPoints: { gte: spend.amount } },
+      data: { remainingPoints: { decrement: spend.amount } }
+    })
+    if (result.count !== 1) throw Object.assign(new Error('Возвращённые подарочные баллы уже использованы. Восстановите их перед возобновлением заказа.'), { status: 409 })
+  }
+  const balance = await tx.user.findUnique({ where: { id: userId }, select: { pointsBalance: true } })
+  await tx.userPointTransaction.create({ data: {
+    userId, orderId, amount: -amount, balanceAfter: balance.pointsBalance,
+    type: USER_POINT_TYPES.ORDER_REFUND_REVERSAL,
+    message: `Отмена возврата баллов по заказу #${orderId}`,
+    createdById
+  } })
+  return { reversed: amount, balanceAfter: balance.pointsBalance }
 }
 
 export function createPointBatchId() {

@@ -53,6 +53,7 @@ function getPaymentStatusLabel(status) {
   const labels = {
     PENDING: 'Ожидает оплаты',
     PAID: 'Оплачен',
+    CASH_ON_DELIVERY: 'Наличными при получении',
     FAILED: 'Ошибка оплаты',
     CANCELLED: 'Отменён',
     REFUNDED: 'Возвращён'

@@ -11,7 +11,7 @@ import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { sendCloudKassirIncomeReceiptOnPaidTransition } from '../utils/cloudKassirReceipt.js'
 import { deleteProductForAdmin } from '../utils/productDeletion.js'
-import { refundUserPointsForOrder } from '../utils/userPoints.js'
+import { refundUserPointsForOrder, reverseUserPointsRefundForOrder } from '../utils/userPoints.js'
 import emailService from '../services/email.js'
 import { createReadyCdekWaybill, queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
 import cdek from '../services/cdek.js'
@@ -1460,7 +1460,7 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
       const previousOrder = await tx.order.findUnique({
         where: { id: orderId },
         select: {
-          id: true, userId: true, status: true, createdAt: true,
+          id: true, userId: true, status: true, paymentStatus: true, createdAt: true,
           userPointsUsed: true, partnerBonusAmount: true, promoCodeId: true,
           items: { select: { id: true, productId: true, dosage: true, quantity: true, stockDeductedQuantity: true, dosageStockDeducted: true } }
         }
@@ -1469,8 +1469,27 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
       if (!previousOrder) {
         throw Object.assign(new Error('Заказ не найден'), { status: 404 })
       }
-      if (previousOrder.status === 'CANCELLED' && normalizedStatus !== 'CANCELLED') {
-        throw Object.assign(new Error('Отменённый заказ нельзя возобновить. Создайте новый заказ.'), { status: 409 })
+      const restoringCancelled = previousOrder.status === 'CANCELLED' && normalizedStatus !== 'CANCELLED'
+      if (restoringCancelled) {
+        if (normalizedStatus === 'RETURNED') throw Object.assign(new Error('Сначала возобновите заказ, затем оформите возврат'), { status: 409 })
+        if (['SHIPPED', 'DELIVERED'].includes(normalizedStatus) && previousOrder.paymentStatus !== 'PAID') {
+          throw Object.assign(new Error('Нельзя отправить или доставить неоплаченный заказ. Сначала подтвердите оплату.'), { status: 409 })
+        }
+        await reverseUserPointsRefundForOrder(tx, { order: previousOrder, createdById: req.user.id })
+        if (previousOrder.promoCodeId) {
+          const promo = await tx.promoCode.findUnique({ where: { id: previousOrder.promoCodeId }, select: { usageType: true } })
+          if (promo?.usageType === 'single' && previousOrder.userId) {
+            const anotherUse = await tx.order.count({ where: {
+              id: { not: orderId }, userId: previousOrder.userId, promoCodeId: previousOrder.promoCodeId,
+              status: { notIn: ['CANCELLED', 'RETURNED'] }
+            } })
+            if (anotherUse) throw Object.assign(new Error('Клиент уже использовал этот одноразовый промокод в другом заказе. Сначала отмените тот заказ.'), { status: 409 })
+          }
+          await tx.promoCode.update({
+            where: { id: previousOrder.promoCodeId },
+            data: { activationCount: { increment: 1 } }
+          })
+        }
       }
 
       const updatedOrder = await tx.order.update({
@@ -1545,7 +1564,26 @@ router.put('/orders/:id/status', authenticate, requireAdmin, async (req, res, ne
         }
       }
 
+      if (restoringCancelled && previousOrder.paymentStatus === 'PAID') {
+        await deductPaidOrderStock(tx, orderId)
+      }
+
       await syncPartnerCommissionForOrder(tx, orderId)
+
+      if (restoringCancelled && Number(previousOrder.partnerBonusAmount || 0) > 0) {
+        const spend = await tx.partnerPayment.findUnique({ where: { orderId } })
+        if (!spend || spend.type !== 'ORDER_SPEND' || Number(spend.amount) !== Number(previousOrder.partnerBonusAmount) ||
+            !['ORDER_SPEND_REFUNDED', 'SPENT_ON_ORDER'].includes(spend.status)) {
+          throw Object.assign(new Error('Не удалось найти возврат партнёрского баланса для возобновления заказа'), { status: 409 })
+        }
+        if (spend.status === 'ORDER_SPEND_REFUNDED') {
+          const balance = await calculatePartnerBalance(tx, spend.partnerId)
+          if (balance.availableBalance < spend.amount) {
+            throw Object.assign(new Error('Возвращённый партнёрский баланс уже использован. Пополните его перед возобновлением заказа.'), { status: 409 })
+          }
+          await tx.partnerPayment.update({ where: { id: spend.id }, data: { status: 'SPENT_ON_ORDER', comment: `Списание по возобновлённому заказу #${orderId}` } })
+        }
+      }
 
       return updatedOrder
     })

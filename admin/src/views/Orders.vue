@@ -161,7 +161,7 @@
                 </div>
               </td>
               <td class="order-state-cell">
-                <select :value="order.status" :aria-label="`Статус заказа #${order.id}`" @change="updateStatus(order.id, $event.target.value)" class="status-select">
+                <select :value="order.status" :aria-label="`Статус заказа #${order.id}`" @change="updateStatus(order.id, $event.target.value, $event.target)" class="status-select">
                   <option value="PENDING">Ожидает</option>
                   <option value="PROCESSING">В обработке</option>
                   <option value="SHIPPED">Отправлен</option>
@@ -770,7 +770,7 @@
         <div class="modal-footer">
           <div class="modal-status-select">
             <label class="form-label">Изменить статус:</label>
-            <select :value="selectedOrder.status" @change="updateStatus(selectedOrder.id, $event.target.value)" class="status-select-full">
+            <select :value="selectedOrder.status" @change="updateStatus(selectedOrder.id, $event.target.value, $event.target)" class="status-select-full">
               <option value="PENDING">Ожидает</option>
               <option value="PROCESSING">В обработке</option>
               <option value="SHIPPED">Отправлен</option>
@@ -1331,13 +1331,14 @@ async function toggleOrderFavorite(order) {
   }
 }
 
-async function updateStatus(id, status) {
+async function updateStatus(id, status, selectElement = null) {
+  const previousStatus = orders.value.find(order => order.id === id)?.status || selectedOrder.value?.status
   try {
     let cancelReason = null
     if (status === 'CANCELLED') {
       cancelReason = promptCancelReason()
       if (!cancelReason) {
-        await fetchOrders()
+        if (selectElement) selectElement.value = previousStatus
         return
       }
     }
@@ -1353,7 +1354,8 @@ async function updateStatus(id, status) {
       selectedOrder.value.cancelReason = status === 'CANCELLED' ? cancelReason : null
     }
   } catch (e) {
-    alert('Ошибка обновления статуса')
+    if (selectElement) selectElement.value = previousStatus
+    alert(e.response?.data?.error || 'Ошибка обновления статуса')
   }
 }
 

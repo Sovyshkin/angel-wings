@@ -169,6 +169,21 @@ test('all-orders Excel export includes dosage cost, line cost, order cost and re
     assert.equal(partnerManualRow.getCell(28).value, 'Да, администратором')
     assert.equal(partnerManualRow.getCell(29).value, 0)
     assert.equal(partnerManualRow.getCell(30).value, 15795)
+
+    const cashOrder = await db.order.create({ data: {
+      userId: admin.id, partnerId: partner.id, total: 1000, paymentStatus: 'CASH_ON_DELIVERY',
+      customerName: 'Admin', customerEmail: admin.email, customerPhone: '+79990000000',
+      items: { create: [{ productId: secondProduct.id, quantity: 1, price: 1000 }] }
+    } })
+    await db.partnerCommission.create({ data: {
+      partnerId: partner.id, orderId: cashOrder.id, userId: admin.id, amount: 0, percentage: 0
+    } })
+    const cashAll = await reload(`http://127.0.0.1:${server.address().port}/api/admin/partners/orders-export/all-orders?format=xlsx`)
+    const cashAllRow = cashAll._rows.find(row => row?.number > 7 && row.getCell(1).value === cashOrder.id)
+    assert.equal(cashAllRow.getCell(10).value, 'Наличными при получении')
+    const cashPartner = await reload(`http://127.0.0.1:${server.address().port}/api/admin/partners/${partner.id}/orders-export?format=xlsx`)
+    const cashPartnerRow = cashPartner._rows.find(row => row?.number > 1 && row.getCell(1).value === cashOrder.id)
+    assert.equal(cashPartnerRow.getCell(13).value, 'Наличными при получении')
   } finally {
     await db.$disconnect()
     await new Promise(resolve => server.close(resolve))
