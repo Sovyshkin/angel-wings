@@ -626,6 +626,9 @@ onMounted(async () => {
 <style scoped>
 .partner-applications-page {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
   gap: 1.5rem;
 }
 
@@ -677,12 +680,14 @@ onMounted(async () => {
 .request-type-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
   gap: 0.85rem;
   padding: 0.75rem;
 }
 
 .request-type-tabs button {
   display: grid;
+  min-width: 0;
   gap: 0.35rem;
   min-height: 112px;
   padding: 1rem;
@@ -723,7 +728,8 @@ onMounted(async () => {
 
 .logic-panel {
   display: grid;
-  grid-template-columns: 0.42fr 1fr;
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr);
+  min-width: 0;
   gap: 1.25rem;
   padding: 1.25rem;
 }
@@ -745,6 +751,7 @@ onMounted(async () => {
 .logic-panel__steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
   gap: 0.75rem;
 }
 
@@ -760,11 +767,15 @@ onMounted(async () => {
 .applications-list,
 .contact-requests-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 1rem;
 }
 
 .application-card,
 .contact-request-card {
+  min-width: 0;
+  max-width: 100%;
   padding: 1.25rem;
   overflow: visible;
 }
@@ -777,6 +788,7 @@ onMounted(async () => {
 .application-card__head,
 .contact-request-card__head {
   display: flex;
+  min-width: 0;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
@@ -797,6 +809,7 @@ onMounted(async () => {
 .application-card__head p,
 .contact-request-card__head p {
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }
 
 .application-status {
@@ -845,7 +858,8 @@ onMounted(async () => {
 .application-meta,
 .application-result {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  min-width: 0;
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
@@ -854,6 +868,7 @@ onMounted(async () => {
 .application-result div,
 .admin-note,
 .application-details div {
+  min-width: 0;
   padding: 0.9rem;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -877,10 +892,13 @@ onMounted(async () => {
 .application-result strong {
   color: var(--text-primary);
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .application-details {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
@@ -890,6 +908,7 @@ onMounted(async () => {
   color: var(--text-secondary);
   line-height: 1.6;
   white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .application-result {
@@ -908,6 +927,8 @@ onMounted(async () => {
 
 .application-actions {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 0.75rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border);
@@ -915,6 +936,7 @@ onMounted(async () => {
 
 .application-actions textarea {
   width: 100%;
+  min-width: 0;
   min-height: 72px;
   padding: 0.85rem 1rem;
   border: 1px solid var(--border);
@@ -952,7 +974,7 @@ onMounted(async () => {
   .logic-panel,
   .logic-panel__steps,
   .request-type-tabs {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .application-actions div {
@@ -962,5 +984,26 @@ onMounted(async () => {
   .application-actions .btn {
     width: 100%;
   }
+}
+
+@media (max-width: 600px) {
+  .partner-applications-page { gap: 1rem; }
+  .page-header { min-width: 0; }
+  .status-tabs {
+    flex-wrap: nowrap;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  .status-tabs button { flex: none; }
+  .application-card,
+  .contact-request-card { padding: 1rem; }
+  .application-card__head > div,
+  .contact-request-card__head > div { min-width: 0; }
+  .application-meta,
+  .application-result { grid-template-columns: minmax(0, 1fr); }
+  .application-actions div { min-width: 0; }
 }
 </style>
