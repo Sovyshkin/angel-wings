@@ -90,7 +90,7 @@
         </div>
       </div>
 
-      <div class="orders-table-wrapper card">
+      <div ref="ordersTableWrapper" class="orders-table-wrapper card">
         <table class="data-table orders-table">
           <colgroup>
             <col class="orders-table__favorite-col">
@@ -195,6 +195,7 @@
                     v-if="order.status === 'CANCELLED'"
                     @click="deleteOrder(order)"
                     class="action-btn danger"
+                    :aria-label="`Удалить заказ #${order.id}`"
                     title="Удалить заказ"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -794,7 +795,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import deliveryApi from '../api/delivery'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
@@ -803,13 +805,19 @@ import OrderReportExport from '../components/OrderReportExport.vue'
 import PaymentMethodChip from '../components/PaymentMethodChip.vue'
 
 const API_URL = '/api/admin'
+const route = useRoute()
+const router = useRouter()
+const initialPage = Number(route.query.page)
+const scrollStorageKey = 'admin-orders-list-scroll'
+const allowedOrderStatuses = new Set(['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'RETURNED', 'CANCELLED'])
 
 const orders = ref([])
+const ordersTableWrapper = ref(null)
 const total = ref(0)
 const loading = ref(true)
-const filterStatus = ref('')
-const filterFavorites = ref(false)
-const search = ref('')
+const filterStatus = ref(allowedOrderStatuses.has(String(route.query.status || '')) ? String(route.query.status) : '')
+const filterFavorites = ref(route.query.favorites === '1')
+const search = ref(String(route.query.q || ''))
 const favoriteSavingId = ref(null)
 const selectedOrder = ref(null)
 const cdekRegisterError = ref('')
@@ -908,8 +916,39 @@ const cancelReasonOptions = [
   { value: 'changed_mind', label: 'Передумал принимать пептиды' },
   { value: 'other', label: 'Другое' }
 ]
-const currentPage = ref(1)
+const currentPage = ref(Number.isSafeInteger(initialPage) && initialPage > 0 ? initialPage : 1)
 const ORDERS_PER_PAGE = 10
+const listQuery = computed(() => ({
+  ...(currentPage.value > 1 ? { page: String(currentPage.value) } : {}),
+  ...(search.value.trim() ? { q: search.value.trim() } : {}),
+  ...(filterStatus.value ? { status: filterStatus.value } : {}),
+  ...(filterFavorites.value ? { favorites: '1' } : {})
+}))
+
+function saveScrollPosition() {
+  try {
+    sessionStorage.setItem(scrollStorageKey, JSON.stringify({
+      path: route.fullPath, y: window.scrollY, x: ordersTableWrapper.value?.scrollLeft || 0
+    }))
+  } catch { /* Storage can be disabled by the browser. */ }
+}
+
+async function restoreScrollPosition() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(scrollStorageKey) || 'null')
+    if (saved?.path !== route.fullPath || !Number.isFinite(saved.y)) return
+    await nextTick()
+    requestAnimationFrame(() => {
+      window.scrollTo(0, saved.y)
+      if (ordersTableWrapper.value) ordersTableWrapper.value.scrollLeft = Number(saved.x) || 0
+    })
+  } catch { /* Keep the normal browser scroll position. */ }
+}
+
+function syncListQuery() {
+  const target = router.resolve({ path: '/orders', query: listQuery.value })
+  if (target.fullPath !== route.fullPath) router.replace({ path: '/orders', query: listQuery.value })
+}
 const stats = ref({
   PENDING: 0,
   PROCESSING: 0,
@@ -1279,6 +1318,8 @@ async function fetchOrders() {
     orders.value = data.orders
     total.value = data.total || 0
     stats.value = data.stats || {}
+    const lastPage = Math.max(1, Math.ceil(total.value / ORDERS_PER_PAGE))
+    if (currentPage.value > lastPage) currentPage.value = lastPage
   } catch (e) {
     console.error(e)
   } finally {
@@ -1290,6 +1331,7 @@ function scheduleOrdersSearch() {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
     if (currentPage.value === 1) {
+      syncListQuery()
       fetchOrders()
     } else {
       currentPage.value = 1
@@ -1299,6 +1341,7 @@ function scheduleOrdersSearch() {
 
 function handleStatusFilterChange() {
   if (currentPage.value === 1) {
+    syncListQuery()
     fetchOrders()
   } else {
     currentPage.value = 1
@@ -1308,6 +1351,7 @@ function handleStatusFilterChange() {
 function toggleFavoritesFilter() {
   filterFavorites.value = !filterFavorites.value
   if (currentPage.value === 1) {
+    syncListQuery()
     fetchOrders()
   } else {
     currentPage.value = 1
@@ -1804,9 +1848,22 @@ function isOrderPaid(status) {
   return ['PAID', 'APPROVED', 'SUCCESS', 'SUCCEEDED', 'COMPLETED'].some(code => key.includes(code))
 }
 
-onMounted(fetchOrders)
+onMounted(async () => {
+  window.addEventListener('pagehide', saveScrollPosition)
+  await fetchOrders()
+  await restoreScrollPosition()
+})
 
-watch(currentPage, fetchOrders)
+onUnmounted(() => {
+  clearTimeout(searchTimer)
+  window.removeEventListener('pagehide', saveScrollPosition)
+})
+onBeforeRouteLeave(saveScrollPosition)
+
+watch(currentPage, () => {
+  syncListQuery()
+  fetchOrders()
+})
 watch(search, scheduleOrdersSearch)
 async function loadManualUsers(append = false) {
   const query = manualUserQuery.value.trim()
@@ -1998,16 +2055,16 @@ watch(manualCityQuery, query => {
 }
 
 .orders-table {
-  min-width: 920px;
+  min-width: 1150px;
   table-layout: fixed;
 }
 
 .orders-table__favorite-col { width: 5%; }
-.orders-table__customer-col { width: 24%; }
-.orders-table__delivery-col { width: 23%; }
-.orders-table__amount-col { width: 20%; }
+.orders-table__customer-col { width: 23%; }
+.orders-table__delivery-col { width: 22%; }
+.orders-table__amount-col { width: 18%; }
 .orders-table__status-col { width: 17%; }
-.orders-table__actions-col { width: 11%; }
+.orders-table__actions-col { width: 15%; }
 
 .orders-table th,
 .orders-table td {
@@ -2176,10 +2233,14 @@ watch(manualCityQuery, query => {
   display: flex;
   align-items: center;
   gap: .35rem;
+  white-space: nowrap;
 }
+
+.order-actions-cell__buttons .action-btn { flex: 0 0 36px; }
 
 .order-open-btn {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: .4rem;
   min-height: 36px;
