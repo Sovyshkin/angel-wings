@@ -969,16 +969,17 @@ router.get('/email-campaigns', authenticate, requireAdmin, async (req, res, next
       orderBy: { createdAt: 'desc' }
     })
     const ids = campaigns.map(campaign => campaign.id)
-    const notices = ids.length ? await prisma.marketingNotice.groupBy({ by: ['campaignId', 'telegramStatus', 'siteEnabled'], where: { campaignId: { in: ids } }, _count: { _all: true } }) : []
+    const notices = ids.length ? await prisma.marketingNotice.groupBy({ by: ['campaignId', 'emailStatus', 'telegramStatus', 'siteEnabled'], where: { campaignId: { in: ids } }, _count: { _all: true } }) : []
     const channels = new Map()
     for (const row of notices) {
-      const current = channels.get(row.campaignId) || { site: 0, telegramSent: 0, telegramFailed: 0 }
+      const current = channels.get(row.campaignId) || { site: 0, telegramSent: 0, telegramFailed: 0, processed: 0 }
       if (row.siteEnabled) current.site += row._count._all
       if (row.telegramStatus === 'SENT') current.telegramSent += row._count._all
       if (row.telegramStatus === 'FAILED') current.telegramFailed += row._count._all
+      if (!['PENDING', 'SENDING'].includes(row.emailStatus) && !['PENDING', 'SENDING'].includes(row.telegramStatus)) current.processed += row._count._all
       channels.set(row.campaignId, current)
     }
-    res.json({ campaigns: campaigns.map(campaign => ({ ...campaign, settingsJson: undefined, channels: channels.get(campaign.id) || { site: 0, telegramSent: 0, telegramFailed: 0 } })) })
+    res.set('Cache-Control', 'no-store').json({ campaigns: campaigns.map(campaign => ({ ...campaign, settingsJson: undefined, channels: channels.get(campaign.id) || { site: 0, telegramSent: 0, telegramFailed: 0, processed: campaign.status === 'SENDING' ? 0 : campaign.total } })) })
   } catch (error) {
     next(error)
   }

@@ -90,12 +90,20 @@ test('marketing campaign respects broad-audience consent and delivers direct sel
     const selectedSend = await request('', { ...selectedPayload, expectedCount: 1, expectedAudienceHash: selectedPreviewData.audienceHash })
     assert.equal(selectedSend.status, 202, await selectedSend.text())
     const selectedCampaign = await db.emailCampaign.findFirst({ orderBy: { id: 'desc' } })
+    const pendingHistory = await fetch(base, { headers: { Authorization: `Bearer ${token}` } })
+    const pendingEntry = (await pendingHistory.json()).campaigns.find(campaign => campaign.id === selectedCampaign.id)
+    assert.equal(pendingEntry.status, 'SENDING')
+    assert.equal(pendingEntry.channels.processed, 0)
     const telegram = []
     await processMarketingCampaignBatch(db, selectedCampaign, 20, {
       sendEmail: message => emailService.sendCampaignEmail(message),
       sendTelegram: async (chatId, message) => { telegram.push({ chatId, message }) }
     })
     assert.equal((await db.emailCampaign.findUnique({ where: { id: selectedCampaign.id } })).status, 'SENT')
+    const completedHistory = await fetch(base, { headers: { Authorization: `Bearer ${token}` } })
+    const completedEntry = (await completedHistory.json()).campaigns.find(campaign => campaign.id === selectedCampaign.id)
+    assert.equal(completedEntry.channels.processed, 1)
+    assert.equal(completedEntry.channels.telegramSent, 1)
     assert.equal(sent.length, 2)
     assert.equal(sent[1].to, selectedUser.email)
     assert.equal(telegram.length, 1)

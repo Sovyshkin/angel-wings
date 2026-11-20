@@ -97,9 +97,10 @@
 
           <div v-if="message" :class="['notice', messageType]">{{ message }}</div>
 
-          <button class="btn btn-primary send-btn" type="submit" :disabled="loading || uploadingImage || previewCount === null || previewCount === 0">
+          <button class="btn btn-primary send-btn" type="submit" :disabled="loading || previewLoading || uploadingImage">
             <span v-if="loading" class="spinner"></span>
-            <span v-else>Отправить {{ previewCount ?? '—' }} получателям</span>
+            <span v-if="loading">{{ previewCount === null ? 'Проверяем получателей…' : 'Запускаем рассылку…' }}</span>
+            <span v-else>{{ previewCount > 0 ? `Отправить ${previewCount} получателям` : 'Отправить рассылку' }}</span>
           </button>
         </form>
       </section>
@@ -108,11 +109,12 @@
         <div class="card-heading">
           <span class="card-kicker">История</span>
           <h2>Последние рассылки</h2>
-          <p>Здесь видно, сколько писем отправлено и были ли ошибки.</p>
+          <p>Статусы и счётчики обновляются автоматически.</p>
         </div>
 
-        <div v-if="historyLoading" class="empty-state">Загружаем историю...</div>
-        <div v-else-if="!campaigns.length" class="empty-state">Рассылок пока нет</div>
+        <div class="history-live" role="status" aria-live="polite"><span :class="['history-live__dot', { 'history-live__dot--loading': historyLoading || historyRefreshing }]"></span><span>{{ historyError ? 'Не удалось обновить историю' : historyLoading ? 'Загружаем историю…' : historyRefreshing ? 'Обновляем данные…' : 'Обновление каждые 3 секунды' }}</span><small v-if="historyUpdatedAt && !historyError">· {{ formatHistoryTime(historyUpdatedAt) }}</small><button v-if="historyError" type="button" @click="loadCampaigns()">Повторить</button></div>
+        <div v-if="historyLoading && !campaigns.length" class="history-skeleton" aria-label="Загружаем историю рассылок"><div></div><div></div><div></div></div>
+        <div v-else-if="!campaigns.length" class="empty-state">{{ historyError ? 'Историю пока не удалось загрузить' : 'Рассылок пока нет' }}</div>
 
         <div v-else class="campaign-list">
           <article v-for="campaign in campaigns" :key="campaign.id" class="campaign-item">
@@ -121,10 +123,13 @@
                 <h3>{{ campaign.subject }}</h3>
                 <p>{{ getAudienceLabel(campaign.audience) }} · {{ formatDate(campaign.createdAt) }}</p>
               </div>
-              <span :class="['status-pill', getStatusClass(campaign.status)]">
+              <span :class="['status-pill', getStatusClass(campaign.status), { 'status-pill--active': isCampaignActive(campaign) }]">
+                <span v-if="isCampaignActive(campaign)" class="status-pill__spinner" aria-hidden="true"></span>
                 {{ getStatusLabel(campaign.status) }}
               </span>
             </div>
+
+            <div v-if="isCampaignActive(campaign)" class="campaign-progress"><div class="campaign-progress__label"><span>Обработано {{ campaign.channels?.processed || 0 }} из {{ campaign.total }}</span><strong>{{ campaignProgress(campaign) }}%</strong></div><div class="campaign-progress__track" role="progressbar" :aria-valuenow="campaign.channels?.processed || 0" :aria-valuemax="campaign.total || 1" aria-valuemin="0" aria-label="Обработано получателей"><span :style="{ width: `${campaignProgress(campaign)}%` }"></span></div></div>
 
             <div class="campaign-stats">
               <span>Всего: <strong>{{ campaign.total }}</strong></span>
@@ -287,6 +292,11 @@ const pickerLimit = 20
 let pickerTimer
 let pickerRequest = 0
 const historyLoading = ref(false)
+const historyRefreshing = ref(false)
+const historyError = ref(false)
+const historyUpdatedAt = ref(null)
+let historyTimer
+let historyFetching = false
 const message = ref('')
 const messageType = ref('success')
 const recoverySaving = ref(false)
@@ -472,17 +482,21 @@ function selectProduct(product) {
   applyTemplate(form.value.type, product)
 }
 
+function applyCampaignPreview(data) {
+  previewCount.value = data.count
+  previewSelectedCount.value = data.selectedCount
+  previewExcluded.value = data.excluded || []
+  previewAudienceHash.value = data.audienceHash || ''
+  previewChannels.value = data.channels || { email: data.count, telegram: 0, site: 0 }
+  previewHtml.value = data.sample.html
+}
+
 async function previewCampaign() {
   previewLoading.value = true
   message.value = ''
   try {
     const { data } = await axios.post('/api/admin/email-campaigns/preview', form.value)
-    previewCount.value = data.count
-    previewSelectedCount.value = data.selectedCount
-    previewExcluded.value = data.excluded || []
-    previewAudienceHash.value = data.audienceHash || ''
-    previewChannels.value = data.channels || { email: data.count, telegram: 0, site: 0 }
-    previewHtml.value = data.sample.html
+    applyCampaignPreview(data)
   } catch (error) {
     messageType.value = 'error'
     message.value = error.response?.data?.error || 'Не удалось проверить письмо'
@@ -491,20 +505,39 @@ async function previewCampaign() {
 
 applyTemplate('NEW_PRODUCT')
 
-async function loadCampaigns() {
-  historyLoading.value = true
+async function loadCampaigns({ background = false } = {}) {
+  if (historyFetching) return
+  historyFetching = true
+  if (background) historyRefreshing.value = true
+  else historyLoading.value = true
   try {
     const { data } = await axios.get('/api/admin/email-campaigns?limit=100')
     campaigns.value = data.campaigns || []
+    historyUpdatedAt.value = new Date()
+    historyError.value = false
+  } catch {
+    historyError.value = true
   } finally {
     historyLoading.value = false
+    historyRefreshing.value = false
+    historyFetching = false
   }
 }
 
 function openHistory() {
   activeSection.value = 'history'
-  loadCampaigns()
+  loadCampaigns({ background: campaigns.value.length > 0 })
 }
+
+function isCampaignActive(campaign) { return ['PENDING', 'SENDING'].includes(campaign.status) }
+function campaignProgress(campaign) { return campaign.total ? Math.min(100, Math.round(100 * (campaign.channels?.processed || 0) / campaign.total)) : 0 }
+function formatHistoryTime(date) { return `Обновлено в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` }
+function refreshVisibleHistory() { if (activeSection.value === 'history' && !document.hidden) loadCampaigns({ background: true }) }
+function handleHistoryVisibility() { if (!document.hidden) refreshVisibleHistory() }
+watch(activeSection, section => {
+  clearInterval(historyTimer)
+  if (section === 'history') historyTimer = setInterval(refreshVisibleHistory, 3000)
+})
 
 async function loadRecoverySettings() {
   const { data } = await axios.get('/api/admin/recovery/settings')
@@ -565,11 +598,20 @@ async function scheduleTestEmail() {
 }
 
 async function sendCampaign() {
-  if (previewCount.value === null || previewCount.value === 0) return
+  if (loading.value || previewLoading.value || uploadingImage.value) return
   message.value = ''
   loading.value = true
 
   try {
+    if (previewCount.value === null) {
+      const { data: preview } = await axios.post('/api/admin/email-campaigns/preview', form.value)
+      applyCampaignPreview(preview)
+    }
+    if (previewCount.value === 0) {
+      messageType.value = 'error'
+      message.value = 'Для выбранной аудитории и каналов нет доступных получателей.'
+      return
+    }
     const { data } = await axios.post('/api/admin/email-campaigns', { ...form.value, expectedCount: previewCount.value, expectedAudienceHash: previewAudienceHash.value })
     campaigns.value = [data.campaign, ...campaigns.value]
     selectedProduct.value = null
@@ -586,7 +628,7 @@ async function sendCampaign() {
     previewAudienceHash.value = ''
     previewHtml.value = ''
     messageType.value = 'error'
-    message.value = error.response?.data?.error || 'Не удалось отправить рассылку'
+    message.value = error.response?.data?.error || 'Не удалось проверить получателей или отправить рассылку'
   } finally {
     loading.value = false
   }
@@ -642,8 +684,8 @@ function getRecoveryTypeLabel(type) {
   return labels[type] || type
 }
 
-onMounted(() => Promise.all([loadCampaigns(), loadRecoverySettings()]))
-onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeout(pickerTimer); pickerRequest++ })
+onMounted(() => { loadRecoverySettings(); document.addEventListener('visibilitychange', handleHistoryVisibility) })
+onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeout(pickerTimer); pickerRequest++; clearInterval(historyTimer); document.removeEventListener('visibilitychange', handleHistoryVisibility) })
 </script>
 
 <style scoped>
@@ -985,8 +1027,21 @@ onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeo
   color: var(--text-secondary);
 }
 
+.history-live { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; margin: -.25rem 0 1rem; color: var(--text-secondary); font-size: .82rem; }
+.history-live__dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #45d889; box-shadow: 0 0 0 4px rgba(69, 216, 137, .12); }
+.history-live__dot--loading { background: var(--accent); animation: history-pulse 1.2s ease-in-out infinite; }
+.history-live small { font-size: inherit; }
+.history-live button { margin-left: .3rem; padding: 0; border: 0; background: none; color: var(--accent); text-decoration: underline; cursor: pointer; }
+.history-skeleton { display: grid; gap: .7rem; }
+.history-skeleton div { height: 114px; border: 1px solid var(--border); border-radius: 18px; background: linear-gradient(100deg, rgba(165, 184, 255, .045) 25%, rgba(165, 184, 255, .12) 50%, rgba(165, 184, 255, .045) 75%); background-size: 200% 100%; animation: history-shimmer 1.6s ease-in-out infinite; }
+.history-skeleton div:nth-child(2) { opacity: .7; animation-delay: .15s; }
+.history-skeleton div:nth-child(3) { opacity: .4; animation-delay: .3s; }
+
 .status-pill {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
   padding: 0.4rem 0.75rem;
   border-radius: 999px;
   font-weight: 800;
@@ -1012,6 +1067,15 @@ onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeo
   background: rgba(165, 184, 255, 0.14);
   color: var(--accent);
 }
+
+.status-pill--active { border: 1px solid rgba(165, 184, 255, .25); }
+.status-pill__spinner { width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+.campaign-progress { margin-top: 1rem; }
+.campaign-progress__label { display: flex; justify-content: space-between; gap: .8rem; margin-bottom: .45rem; color: var(--text-secondary); font-size: .82rem; }
+.campaign-progress__label strong { color: var(--accent); }
+.campaign-progress__track { height: 7px; overflow: hidden; border-radius: 999px; background: rgba(165, 184, 255, .13); }
+.campaign-progress__track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7895ef, #a5b8ff); box-shadow: 0 0 12px rgba(165, 184, 255, .6); transition: width .45s ease; }
+.campaign-progress__track::after { content: ''; display: block; width: 28%; height: 100%; margin-top: -7px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .18), transparent); animation: history-scan 1.8s linear infinite; }
 
 .campaign-stats {
   display: flex;
@@ -1051,6 +1115,10 @@ onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeo
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+@keyframes history-pulse { 50% { opacity: .35; transform: scale(.75); } }
+@keyframes history-shimmer { to { background-position-x: -200%; } }
+@keyframes history-scan { from { transform: translateX(-100%); } to { transform: translateX(400%); } }
+@media (prefers-reduced-motion: reduce) { .history-live__dot--loading, .history-skeleton div, .status-pill__spinner, .campaign-progress__track::after { animation: none; } .campaign-progress__track > span { transition: none; } }
 
 @media (max-width: 980px) {
   .email-campaigns-page {
