@@ -109,10 +109,10 @@
         <div class="card-heading">
           <span class="card-kicker">История</span>
           <h2>Последние рассылки</h2>
-          <p>Статусы и счётчики обновляются автоматически.</p>
+          <p>Статусы и счётчики обновляются автоматически во время отправки.</p>
         </div>
 
-        <div class="history-live" role="status" aria-live="polite"><span :class="['history-live__dot', { 'history-live__dot--loading': historyLoading || historyRefreshing }]"></span><span>{{ historyError ? 'Не удалось обновить историю' : historyLoading ? 'Загружаем историю…' : historyRefreshing ? 'Обновляем данные…' : 'Обновление каждые 3 секунды' }}</span><small v-if="historyUpdatedAt && !historyError">· {{ formatHistoryTime(historyUpdatedAt) }}</small><button v-if="historyError" type="button" @click="loadCampaigns()">Повторить</button></div>
+        <div class="history-live" role="status" aria-live="polite"><span :class="['history-live__dot', { 'history-live__dot--loading': historyLoading || historyRefreshing, 'history-live__dot--idle': !hasActiveCampaigns && !historyLoading && !historyRefreshing }]"></span><span>{{ historyError ? 'Не удалось обновить историю' : historyLoading ? 'Загружаем историю…' : historyRefreshing ? 'Обновляем данные…' : hasActiveCampaigns ? 'Обновление каждые 3 секунды' : 'Автообновление не требуется' }}</span><small v-if="historyUpdatedAt && !historyError">· {{ formatHistoryTime(historyUpdatedAt) }}</small><button type="button" :disabled="historyLoading || historyRefreshing" @click="loadCampaigns()">{{ historyError ? 'Повторить' : 'Обновить' }}</button></div>
         <div v-if="historyLoading && !campaigns.length" class="history-skeleton" aria-label="Загружаем историю рассылок"><div></div><div></div><div></div></div>
         <div v-else-if="!campaigns.length" class="empty-state">{{ historyError ? 'Историю пока не удалось загрузить' : 'Рассылок пока нет' }}</div>
 
@@ -530,13 +530,14 @@ function openHistory() {
 }
 
 function isCampaignActive(campaign) { return ['PENDING', 'SENDING'].includes(campaign.status) }
+const hasActiveCampaigns = computed(() => campaigns.value.some(isCampaignActive))
 function campaignProgress(campaign) { return campaign.total ? Math.min(100, Math.round(100 * (campaign.channels?.processed || 0) / campaign.total)) : 0 }
 function formatHistoryTime(date) { return `Обновлено в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` }
-function refreshVisibleHistory() { if (activeSection.value === 'history' && !document.hidden) loadCampaigns({ background: true }) }
+function refreshVisibleHistory() { if (activeSection.value === 'history' && hasActiveCampaigns.value && !document.hidden) loadCampaigns({ background: true }) }
 function handleHistoryVisibility() { if (!document.hidden) refreshVisibleHistory() }
-watch(activeSection, section => {
+watch([activeSection, hasActiveCampaigns], ([section, hasActive]) => {
   clearInterval(historyTimer)
-  if (section === 'history') historyTimer = setInterval(refreshVisibleHistory, 3000)
+  if (section === 'history' && hasActive) historyTimer = setInterval(refreshVisibleHistory, 3000)
 })
 
 async function loadRecoverySettings() {
@@ -1030,8 +1031,10 @@ onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeo
 .history-live { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; margin: -.25rem 0 1rem; color: var(--text-secondary); font-size: .82rem; }
 .history-live__dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #45d889; box-shadow: 0 0 0 4px rgba(69, 216, 137, .12); }
 .history-live__dot--loading { background: var(--accent); animation: history-pulse 1.2s ease-in-out infinite; }
+.history-live__dot--idle { background: var(--text-secondary); box-shadow: none; }
 .history-live small { font-size: inherit; }
 .history-live button { margin-left: .3rem; padding: 0; border: 0; background: none; color: var(--accent); text-decoration: underline; cursor: pointer; }
+.history-live button:disabled { opacity: .5; cursor: default; }
 .history-skeleton { display: grid; gap: .7rem; }
 .history-skeleton div { height: 114px; border: 1px solid var(--border); border-radius: 18px; background: linear-gradient(100deg, rgba(165, 184, 255, .045) 25%, rgba(165, 184, 255, .12) 50%, rgba(165, 184, 255, .045) 75%); background-size: 200% 100%; animation: history-shimmer 1.6s ease-in-out infinite; }
 .history-skeleton div:nth-child(2) { opacity: .7; animation-delay: .15s; }
