@@ -6,6 +6,7 @@ import router from './router.js'
 import { useAuthStore } from './store/auth.js'
 import './assets/main.css'
 import './assets/mini.css'
+import { installCustomSelects } from '../../shared/customSelect.js'
 
 const pinia = createPinia()
 const app = createApp(App)
@@ -24,3 +25,4 @@ axios.interceptors.response.use(response => response, async error => {
 })
 
 app.mount('#app')
+installCustomSelects()
