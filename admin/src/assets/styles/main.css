@@ -107,6 +107,22 @@ input, textarea, select {
   outline: none;
 }
 
+/* Native select menus can use a light popup even when the page has a dark theme. */
+select {
+  color-scheme: light;
+}
+
+select option,
+select optgroup {
+  background-color: #ffffff;
+  color: #171923;
+}
+
+select option:checked {
+  background-color: #1d62c8;
+  color: #ffffff;
+}
+
 .container {
   max-width: 1400px;
   margin: 0 auto;
