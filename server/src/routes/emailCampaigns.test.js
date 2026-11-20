@@ -8,7 +8,7 @@ import express from 'express'
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
 
-test('marketing campaign respects broad-audience consent and delivers direct selections without it', async () => {
+test('marketing campaign includes users without consent while excluding unsubscribed accounts', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'angel-email-campaign-'))
   const databasePath = join(directory, 'test.db')
   process.env.DATABASE_URL = `file:${databasePath}`
@@ -142,7 +142,22 @@ test('marketing campaign respects broad-audience consent and delivers direct sel
     assert.equal(unsubscribe.status, 200)
     assert.equal((await db.user.findUnique({ where: { email: 'anna@campaign.test' } })).marketingUnsubscribedAt != null, true)
     const afterUnsubscribe = await request('/preview', payload)
-    assert.equal((await afterUnsubscribe.json()).count, 0)
+    assert.equal((await afterUnsubscribe.json()).count, 1)
+    const allPayload = { ...payload, audience: 'all', siteEnabled: true, siteBody: 'Новости для {{name}}' }
+    const allPreview = await request('/preview', allPayload)
+    const allPreviewData = await allPreview.json()
+    assert.equal(allPreviewData.count, 4)
+    assert.deepEqual(allPreviewData.channels, { total: 4, email: 3, telegram: 0, site: 4 })
+    const allSend = await request('', { ...allPayload, expectedCount: allPreviewData.count, expectedAudienceHash: allPreviewData.audienceHash })
+    assert.equal(allSend.status, 202, await allSend.text())
+    const allCampaign = await db.emailCampaign.findFirst({ orderBy: { id: 'desc' } })
+    await processMarketingCampaignBatch(db, allCampaign)
+    assert.ok(sent.some(message => message.to === noConsent.email))
+    assert.ok(sent.some(message => message.to === admin.email))
+    assert.equal(sent.some(message => message.to === optedOut.email), false)
+    const broadNotice = await db.marketingNotice.findUnique({ where: { campaignId_userId: { campaignId: allCampaign.id, userId: noConsent.id } } })
+    const broadSiteGet = await fetch(`http://127.0.0.1:${server.address().port}/api/marketing-notices/unseen`, { headers: noConsentAuth })
+    assert.equal((await broadSiteGet.json()).notice.id, broadNotice.id)
   } finally {
     emailService.sendCampaignEmail = originalSend
     await db.$disconnect()

@@ -39,7 +39,7 @@ export async function resolveMarketingAudience(db, settings) {
     where: {
       ...(selectedAudience
         ? { id: { in: settings.targetUserIds } }
-        : { role: settings.audience === 'partners' ? 'PARTNER' : settings.audience === 'clients' ? 'USER' : { in: ['USER', 'PARTNER'] }, marketingConsentAt: { not: null }, marketingUnsubscribedAt: null })
+        : { ...(settings.audience === 'partners' ? { role: 'PARTNER' } : settings.audience === 'clients' ? { role: 'USER' } : {}), marketingUnsubscribedAt: null })
     },
     select: { id: true, name: true, role: true, email: true, emailVerified: true, telegramId: true, marketingConsentAt: true, marketingUnsubscribedAt: true },
     orderBy: { id: 'asc' }
@@ -49,12 +49,10 @@ export async function resolveMarketingAudience(db, settings) {
   const exclude = (user, reason) => excluded.push({ id: user.id, name: user.name, email: user.email, reason })
   let siteCount = 0
   for (const user of users) {
-    if (!selectedAudience && !['USER', 'PARTNER'].includes(user.role)) continue
     if (user.marketingUnsubscribedAt) {
       if (selectedAudience) exclude(user, 'Пользователь отписался от рассылки')
       continue
     }
-    if (!selectedAudience && !user.marketingConsentAt) continue
     const email = clean(user.email).toLowerCase()
     const canEmail = settings.emailEnabled && hasVerifiedCampaignEmail(user) && !seenEmails.has(email)
     const telegramId = clean(user.telegramId)
@@ -93,7 +91,7 @@ export async function processMarketingCampaignBatch(db, campaign, limit = 20, de
   })
   for (const notice of notices) {
     const user = notice.user
-    const allowed = Boolean(!user.marketingUnsubscribedAt && (campaign.audience === 'selected' || user.marketingConsentAt))
+    const allowed = !user.marketingUnsubscribedAt
     if (notice.emailStatus === 'PENDING') {
       const lock = await db.marketingNotice.updateMany({ where: { id: notice.id, emailStatus: 'PENDING' }, data: { emailStatus: 'SENDING' } })
       if (lock.count) {

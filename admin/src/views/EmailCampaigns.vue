@@ -28,17 +28,17 @@
           <label>
             <span>Аудитория</span>
             <select v-model="form.audience" class="input">
-              <option value="all">Пользователи с согласием на рассылку</option>
+              <option value="all">Все пользователи</option>
               <option value="clients">Только клиенты</option>
               <option value="partners">Только партнёры</option>
               <option value="blog">Подписчики блога</option>
               <option value="selected">Выбранные пользователи</option>
             </select>
-            <small>Отписавшиеся исключены из всех каналов. Для выбранных пользователей согласие не требуется. Для email нужна подтверждённая почта, для Telegram — подключённый аккаунт.</small>
+            <small>Согласие не требуется. Отписавшиеся исключены из всех каналов. Для email нужна подтверждённая почта, для Telegram — подключённый аккаунт.</small>
           </label>
 
           <div v-if="form.audience === 'selected'" class="selected-audience">
-            <div><strong>Конкретные получатели</strong><small>Сообщения получат выбранные аккаунты с доступным каналом, даже без согласия на общую рассылку. Отписавшиеся исключены.</small></div>
+            <div><strong>Конкретные получатели</strong><small>Сообщения получат выбранные аккаунты с доступным каналом. Отписавшиеся исключены.</small></div>
             <button class="btn btn-secondary" type="button" @click="openUserPicker">Выбрать из списка</button>
             <div v-if="form.targetUserIds.length" class="selected-audience__chips"><button v-for="id in form.targetUserIds" :key="id" type="button" :title="`Убрать пользователя #${id}`" @click="removeSelectedUser(id)">{{ pickerKnown[id]?.name || pickerKnown[id]?.email || `#${id}` }} <span>×</span></button></div>
             <small v-else>Пользователи пока не выбраны.</small>

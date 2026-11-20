@@ -7,10 +7,10 @@ const prisma = new PrismaClient()
 
 router.get('/unseen', authenticate, async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { marketingConsentAt: true, marketingUnsubscribedAt: true } })
+    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { marketingUnsubscribedAt: true } })
     if (!user || user.marketingUnsubscribedAt) return res.set('Cache-Control', 'no-store').json({ notice: null })
     const notice = await prisma.marketingNotice.findFirst({
-      where: { userId: req.user.id, siteEnabled: true, seenAt: null, ...(!user.marketingConsentAt ? { campaign: { audience: 'selected' } } : {}) },
+      where: { userId: req.user.id, siteEnabled: true, seenAt: null },
       orderBy: { createdAt: 'desc' },
       select: { id: true, title: true, body: true, buttonText: true, buttonUrl: true, imageUrl: true }
     })
