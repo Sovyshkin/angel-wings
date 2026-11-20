@@ -8,7 +8,7 @@ import express from 'express'
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
 
-test('marketing email previews recipients and sends a safe product campaign only to opted-in users', async () => {
+test('marketing campaign respects broad-audience consent and delivers direct selections without it', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'angel-email-campaign-'))
   const databasePath = join(directory, 'test.db')
   process.env.DATABASE_URL = `file:${databasePath}`
@@ -73,6 +73,18 @@ test('marketing email previews recipients and sends a safe product campaign only
     const selectedPreviewData = await selectedPreview.json()
     assert.equal(selectedPreviewData.count, 1)
     assert.deepEqual(selectedPreviewData.channels, { total: 1, email: 1, telegram: 1, site: 1 })
+    assert.equal(selectedPreviewData.selectedCount, 2)
+    assert.deepEqual(selectedPreviewData.excluded, [{ id: optedOut.id, name: optedOut.name, email: optedOut.email, reason: 'Пользователь отписался от рассылки' }])
+    const noConsent = await db.user.create({ data: { email: 'without-consent@campaign.test', password: 'unused', name: 'Без согласия', role: 'USER' } })
+    const detailedPreview = await request('/preview', { ...selectedPayload, targetUserIds: [selectedUser.id, optedOut.id, noConsent.id, admin.id] })
+    const detailedData = await detailedPreview.json()
+    assert.equal(detailedPreview.status, 200)
+    assert.equal(detailedData.selectedCount, 4)
+    assert.equal(detailedData.count, 3)
+    assert.deepEqual(detailedData.channels, { total: 3, email: 3, telegram: 1, site: 3 })
+    assert.deepEqual(detailedData.excluded.map(user => [user.id, user.reason]), [
+      [optedOut.id, 'Пользователь отписался от рассылки']
+    ])
     const staleSelection = await request('', { ...selectedPayload, expectedCount: 1, expectedAudienceHash: 'old-audience' })
     assert.equal(staleSelection.status, 409)
     const selectedSend = await request('', { ...selectedPayload, expectedCount: 1, expectedAudienceHash: selectedPreviewData.audienceHash })
@@ -101,6 +113,18 @@ test('marketing email previews recipients and sends a safe product campaign only
     assert.equal((await seen.json()).seen, true)
     const afterSeen = await fetch(`http://127.0.0.1:${server.address().port}/api/marketing-notices/unseen`, { headers: selectedAuth })
     assert.equal((await afterSeen.json()).notice, null)
+    const directPayload = { ...selectedPayload, targetUserIds: [noConsent.id], expectedCount: 1 }
+    const directPreview = await request('/preview', directPayload)
+    const directPreviewData = await directPreview.json()
+    assert.equal(directPreviewData.count, 1)
+    const directSend = await request('', { ...directPayload, expectedAudienceHash: directPreviewData.audienceHash })
+    assert.equal(directSend.status, 202, await directSend.text())
+    const directCampaign = await db.emailCampaign.findFirst({ orderBy: { id: 'desc' } })
+    await processMarketingCampaignBatch(db, directCampaign, 20, { sendEmail: message => emailService.sendCampaignEmail(message), sendTelegram: async () => {} })
+    assert.equal(sent.at(-1).to, noConsent.email)
+    const noConsentAuth = { Authorization: `Bearer ${jwt.sign({ userId: noConsent.id, purpose: 'session' }, process.env.JWT_SECRET)}` }
+    const directNotice = await fetch(`http://127.0.0.1:${server.address().port}/api/marketing-notices/unseen`, { headers: noConsentAuth })
+    assert.equal((await directNotice.json()).notice.title, 'Новинка')
     const emptySelection = await request('/preview', { ...payload, audience: 'selected', targetUserIds: [] })
     assert.equal(emptySelection.status, 400)
     const unsubscribeUrl = sent[0].text.match(/https:\/\/angel-wings\.ru\/api\/recovery\/unsubscribe\?token=[^\s]+/)?.[0]

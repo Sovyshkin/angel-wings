@@ -995,7 +995,7 @@ router.post('/email-campaigns/preview', authenticate, requireAdmin, async (req, 
   try {
     const settings = validateEmailCampaign(req.body)
     const audience = await resolveMarketingAudience(prisma, settings)
-    res.set('Cache-Control', 'no-store').json({ count: audience.counts.total, channels: audience.counts, audienceHash: marketingAudienceFingerprint(audience), sample: renderEmailCampaign(settings, 'Анна') })
+    res.set('Cache-Control', 'no-store').json({ count: audience.counts.total, channels: audience.counts, selectedCount: audience.selectedCount, excluded: audience.excluded || [], audienceHash: marketingAudienceFingerprint(audience), sample: renderEmailCampaign(settings, 'Анна') })
   } catch (error) { next(error) }
 })
 

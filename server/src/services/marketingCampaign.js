@@ -34,29 +34,46 @@ export async function resolveMarketingAudience(db, settings) {
     return { users: [], emails, telegramIds: new Set(), counts: { total: emails.length, email: emails.length, telegram: 0, site: 0 } }
   }
 
+  const selectedAudience = settings.audience === 'selected'
   const users = await db.user.findMany({
     where: {
-      role: settings.audience === 'partners' ? 'PARTNER' : settings.audience === 'clients' ? 'USER' : { in: ['USER', 'PARTNER'] },
-      marketingConsentAt: { not: null }, marketingUnsubscribedAt: null,
-      ...(settings.audience === 'selected' ? { id: { in: settings.targetUserIds } } : {})
+      ...(selectedAudience
+        ? { id: { in: settings.targetUserIds } }
+        : { role: settings.audience === 'partners' ? 'PARTNER' : settings.audience === 'clients' ? 'USER' : { in: ['USER', 'PARTNER'] }, marketingConsentAt: { not: null }, marketingUnsubscribedAt: null })
     },
-    select: { id: true, name: true, email: true, emailVerified: true, telegramId: true, marketingConsentAt: true, marketingUnsubscribedAt: true },
+    select: { id: true, name: true, role: true, email: true, emailVerified: true, telegramId: true, marketingConsentAt: true, marketingUnsubscribedAt: true },
     orderBy: { id: 'asc' }
   })
   const emails = [], selected = [], seenEmails = new Set(), telegramIds = new Set()
+  const excluded = []
+  const exclude = (user, reason) => excluded.push({ id: user.id, name: user.name, email: user.email, reason })
   let siteCount = 0
   for (const user of users) {
+    if (!selectedAudience && !['USER', 'PARTNER'].includes(user.role)) continue
+    if (user.marketingUnsubscribedAt) {
+      if (selectedAudience) exclude(user, 'Пользователь отписался от рассылки')
+      continue
+    }
+    if (!selectedAudience && !user.marketingConsentAt) continue
     const email = clean(user.email).toLowerCase()
     const canEmail = settings.emailEnabled && hasVerifiedCampaignEmail(user) && !seenEmails.has(email)
     const telegramId = clean(user.telegramId)
     const canTelegram = settings.telegramEnabled && hasTelegramCampaignId(user) && !telegramIds.has(telegramId)
     if (canEmail) { seenEmails.add(email); emails.push(user) }
     if (canTelegram) telegramIds.add(telegramId)
-    if (!canEmail && !canTelegram && !settings.siteEnabled) continue
+    if (!canEmail && !canTelegram && !settings.siteEnabled) {
+      if (selectedAudience) exclude(user, 'Нет доступного выбранного канала: проверьте подтверждение почты и подключение Telegram')
+      continue
+    }
     if (settings.siteEnabled) siteCount++
     selected.push({ user, emailStatus: canEmail ? 'PENDING' : 'SKIPPED', telegramStatus: canTelegram ? 'PENDING' : 'SKIPPED' })
   }
-  return { users: selected, emails, telegramIds, counts: { total: selected.length, email: emails.length, telegram: telegramIds.size, site: siteCount } }
+  if (selectedAudience) {
+    const found = new Set(users.map(user => user.id))
+    for (const id of settings.targetUserIds) if (!found.has(id)) excluded.push({ id, name: '', email: '', reason: 'Аккаунт не найден' })
+    excluded.sort((a, b) => settings.targetUserIds.indexOf(a.id) - settings.targetUserIds.indexOf(b.id))
+  }
+  return { users: selected, emails, telegramIds, excluded, selectedCount: selectedAudience ? settings.targetUserIds.length : null, counts: { total: selected.length, email: emails.length, telegram: telegramIds.size, site: siteCount } }
 }
 
 export async function processMarketingCampaignBatch(db, campaign, limit = 20, delivery = {
@@ -76,13 +93,13 @@ export async function processMarketingCampaignBatch(db, campaign, limit = 20, de
   })
   for (const notice of notices) {
     const user = notice.user
-    const allowed = Boolean(user.marketingConsentAt && !user.marketingUnsubscribedAt)
+    const allowed = Boolean(!user.marketingUnsubscribedAt && (campaign.audience === 'selected' || user.marketingConsentAt))
     if (notice.emailStatus === 'PENDING') {
       const lock = await db.marketingNotice.updateMany({ where: { id: notice.id, emailStatus: 'PENDING' }, data: { emailStatus: 'SENDING' } })
       if (lock.count) {
         try {
           if (!allowed || !hasVerifiedCampaignEmail(user)) {
-            await db.marketingNotice.update({ where: { id: notice.id }, data: { emailStatus: 'SKIPPED', emailError: 'Согласие или подтверждение почты отозвано' } })
+            await db.marketingNotice.update({ where: { id: notice.id }, data: { emailStatus: 'SKIPPED', emailError: 'Пользователь отписался или почта не подтверждена' } })
           } else {
             const unsubscribeUrl = `https://angel-wings.ru/api/recovery/unsubscribe?token=${encodeURIComponent(jwt.sign({ userId: notice.userId, purpose: 'marketing_unsubscribe' }, process.env.JWT_SECRET, { expiresIn: '90d' }))}`
             const content = renderEmailCampaign(settings, user.name || 'клиент')
@@ -99,7 +116,7 @@ export async function processMarketingCampaignBatch(db, campaign, limit = 20, de
       if (lock.count) {
         try {
           if (!allowed || !hasTelegramCampaignId(user)) {
-            await db.marketingNotice.update({ where: { id: notice.id }, data: { telegramStatus: 'SKIPPED', telegramError: 'Согласие или Telegram ID больше не действуют' } })
+            await db.marketingNotice.update({ where: { id: notice.id }, data: { telegramStatus: 'SKIPPED', telegramError: 'Пользователь отписался или Telegram ID больше не действует' } })
           } else {
             await delivery.sendTelegram(user.telegramId, { campaignKey: `news-${campaign.id}`, text: personalize(settings.telegramBody, user.name).slice(0, 1024), buttonText: settings.buttonText || 'Открыть сайт', buttonUrl: settings.buttonUrl || 'https://angel-wings.ru/', ...(telegramImage || {}) })
             await db.marketingNotice.update({ where: { id: notice.id }, data: { telegramStatus: 'SENT', telegramSentAt: new Date() } })

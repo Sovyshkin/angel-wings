@@ -34,11 +34,11 @@
               <option value="blog">Подписчики блога</option>
               <option value="selected">Выбранные пользователи</option>
             </select>
-            <small>Отписавшиеся исключены из всех каналов. Для email нужна подтверждённая почта, для Telegram — подключённый аккаунт.</small>
+            <small>Отписавшиеся исключены из всех каналов. Для выбранных пользователей согласие не требуется. Для email нужна подтверждённая почта, для Telegram — подключённый аккаунт.</small>
           </label>
 
           <div v-if="form.audience === 'selected'" class="selected-audience">
-            <div><strong>Конкретные получатели</strong><small>Сообщения получат только выбранные пользователи с согласием на рассылку и доступным выбранным каналом.</small></div>
+            <div><strong>Конкретные получатели</strong><small>Сообщения получат выбранные аккаунты с доступным каналом, даже без согласия на общую рассылку. Отписавшиеся исключены.</small></div>
             <button class="btn btn-secondary" type="button" @click="openUserPicker">Выбрать из списка</button>
             <div v-if="form.targetUserIds.length" class="selected-audience__chips"><button v-for="id in form.targetUserIds" :key="id" type="button" :title="`Убрать пользователя #${id}`" @click="removeSelectedUser(id)">{{ pickerKnown[id]?.name || pickerKnown[id]?.email || `#${id}` }} <span>×</span></button></div>
             <small v-else>Пользователи пока не выбраны.</small>
@@ -91,7 +91,8 @@
             <img v-if="form.imageUrl" class="campaign-image-preview" :src="imagePreviewUrl" alt="Изображение рассылки">
           </div>
 
-          <div class="campaign-review"><button class="btn btn-secondary" type="button" :disabled="loading || previewLoading || uploadingImage" @click="previewCampaign">{{ previewLoading ? 'Проверяем…' : 'Проверить аудиторию' }}</button><span v-if="previewCount !== null">Получателей: <strong>{{ previewCount }}</strong> · email {{ previewChannels.email }} · Telegram {{ previewChannels.telegram }} · сайт {{ previewChannels.site }}. Проверка ничего не отправляет.</span></div>
+          <div class="campaign-review"><button class="btn btn-secondary" type="button" :disabled="loading || previewLoading || uploadingImage" @click="previewCampaign">{{ previewLoading ? 'Проверяем…' : 'Проверить аудиторию' }}</button><span v-if="previewCount !== null"><template v-if="form.audience === 'selected'">Выбрано: <strong>{{ previewSelectedCount }}</strong> · </template>Получателей: <strong>{{ previewCount }}</strong> · email {{ previewChannels.email }} · Telegram {{ previewChannels.telegram }} · сайт {{ previewChannels.site }}. Проверка ничего не отправляет.</span></div>
+          <div v-if="form.audience === 'selected' && previewExcluded.length" class="campaign-excluded"><strong>Не получат рассылку: {{ previewExcluded.length }}</strong><ul><li v-for="user in previewExcluded" :key="user.id"><span>{{ user.name || user.email || `Аккаунт #${user.id}` }} <small>#{{ user.id }}</small></span><span>{{ user.reason }}</span></li></ul></div>
           <div v-if="previewHtml && form.emailEnabled" class="mail-preview"><div><strong>Так выглядит письмо</strong><small>Пример для получателя по имени Анна</small></div><iframe title="Предпросмотр письма" :srcdoc="previewHtml" sandbox="" loading="lazy"></iframe></div>
 
           <div v-if="message" :class="['notice', messageType]">{{ message }}</div>
@@ -226,14 +227,14 @@
     <PointsCampaigns v-if="activeSection === 'compose'" />
     <div v-if="pickerOpen" class="recipient-picker-backdrop" @click.self="closeUserPicker">
       <div class="recipient-picker" role="dialog" aria-modal="true" aria-labelledby="recipient-picker-title" @keydown.esc="closeUserPicker">
-        <div class="recipient-picker__head"><div><h3 id="recipient-picker-title">Выбрать пользователей</h3><p>Поиск по имени, email, телефону и ID. Отправка зависит от согласия на email.</p></div><button type="button" aria-label="Закрыть" @click="closeUserPicker">×</button></div>
+        <div class="recipient-picker__head"><div><h3 id="recipient-picker-title">Выбрать пользователей</h3><p>Поиск по имени, email, телефону и ID. Выбранным аккаунтам согласие на общую рассылку не требуется.</p></div><button type="button" aria-label="Закрыть" @click="closeUserPicker">×</button></div>
         <div class="recipient-picker__search"><input v-model="pickerQuery" class="input" type="search" placeholder="Поиск пользователей" aria-label="Поиск пользователей"><strong>{{ pickerSelected.length }} выбрано</strong></div>
         <div v-if="pickerSelected.length" class="recipient-picker__selected"><button v-for="id in pickerSelected" :key="id" type="button" @click="togglePickerUser(id)">{{ pickerKnown[id]?.name || pickerKnown[id]?.email || `#${id}` }} <span>×</span></button></div>
         <div class="recipient-picker__list" aria-live="polite">
           <p v-if="pickerLoading">Загрузка пользователей…</p>
           <p v-else-if="pickerError" class="recipient-picker__error">{{ pickerError }}</p>
           <p v-else-if="!pickerUsers.length">Пользователи не найдены</p>
-          <label v-for="user in pickerUsers" :key="user.id" class="recipient-picker__user"><input type="checkbox" :checked="pickerSelected.includes(user.id)" @change="togglePickerUser(user.id)"><span><strong>{{ user.name || `Пользователь #${user.id}` }}</strong><small>{{ user.email || user.phone || 'Контакт не указан' }}<template v-if="user.email && user.phone"> · {{ user.phone }}</template></small></span><small>#{{ user.id }} · {{ user.role === 'PARTNER' ? 'Партнёр' : 'Клиент' }}</small></label>
+          <label v-for="user in pickerUsers" :key="user.id" class="recipient-picker__user"><input type="checkbox" :checked="pickerSelected.includes(user.id)" @change="togglePickerUser(user.id)"><span><strong>{{ user.name || `Пользователь #${user.id}` }}</strong><small>{{ user.email || user.phone || 'Контакт не указан' }}<template v-if="user.email && user.phone"> · {{ user.phone }}</template></small></span><small>#{{ user.id }} · {{ user.role === 'PARTNER' ? 'Партнёр' : user.role === 'USER' ? 'Клиент' : 'Администратор' }}</small></label>
         </div>
         <div class="recipient-picker__bottom"><div><button class="btn btn-secondary" type="button" :disabled="pickerLoading || pickerOffset === 0" @click="pickerOffset = Math.max(0, pickerOffset - pickerLimit)">Назад</button><span>{{ pickerTotal ? `${pickerOffset + 1}–${Math.min(pickerOffset + pickerLimit, pickerTotal)} из ${pickerTotal}` : '0 пользователей' }}</span><button class="btn btn-secondary" type="button" :disabled="pickerLoading || pickerOffset + pickerLimit >= pickerTotal" @click="pickerOffset += pickerLimit">Далее</button></div><div><button class="btn btn-secondary" type="button" @click="closeUserPicker">Отмена</button><button class="btn btn-primary" type="button" @click="applyUserPicker">Применить выбор</button></div></div>
       </div>
@@ -258,6 +259,8 @@ const loading = ref(false)
 const activeSection = ref('compose')
 const previewLoading = ref(false)
 const previewCount = ref(null)
+const previewSelectedCount = ref(null)
+const previewExcluded = ref([])
 const previewAudienceHash = ref('')
 const previewChannels = ref({ email: 0, telegram: 0, site: 0 })
 const previewHtml = ref('')
@@ -375,7 +378,7 @@ function removeCampaignImage() {
   uploadedPreviewUrl.value = ''
 }
 
-watch(form, () => { previewCount.value = null; previewAudienceHash.value = ''; previewHtml.value = ''; previewChannels.value = { email: 0, telegram: 0, site: 0 } }, { deep: true })
+watch(form, () => { previewCount.value = null; previewSelectedCount.value = null; previewExcluded.value = []; previewAudienceHash.value = ''; previewHtml.value = ''; previewChannels.value = { email: 0, telegram: 0, site: 0 } }, { deep: true })
 watch(() => form.value.audience, audience => { if (audience === 'blog') { form.value.telegramEnabled = false; form.value.siteEnabled = false } })
 watch(pickerQuery, () => {
   if (!pickerOpen.value) return
@@ -475,6 +478,8 @@ async function previewCampaign() {
   try {
     const { data } = await axios.post('/api/admin/email-campaigns/preview', form.value)
     previewCount.value = data.count
+    previewSelectedCount.value = data.selectedCount
+    previewExcluded.value = data.excluded || []
     previewAudienceHash.value = data.audienceHash || ''
     previewChannels.value = data.channels || { email: data.count, telegram: 0, site: 0 }
     previewHtml.value = data.sample.html
@@ -830,6 +835,12 @@ onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeo
 .selected-audience__chips, .recipient-picker__selected { display: flex; gap: .4rem; flex-wrap: wrap; }
 .selected-audience__chips button, .recipient-picker__selected button { max-width: 220px; padding: .35rem .65rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid var(--accent); border-radius: 999px; background: rgba(165, 184, 255, .12); color: var(--text-primary); cursor: pointer; }
 .selected-audience__chips span, .recipient-picker__selected span { color: var(--accent); font-weight: 800; }
+.campaign-excluded { padding: .9rem 1rem; border: 1px solid rgba(245, 158, 110, .4); border-radius: 14px; background: rgba(245, 158, 110, .07); }
+.campaign-excluded > strong { color: var(--text-primary); }
+.campaign-excluded ul { display: grid; gap: .55rem; margin: .7rem 0 0; padding: 0; list-style: none; }
+.campaign-excluded li { display: flex; justify-content: space-between; gap: .5rem 1rem; color: var(--text-secondary); font-size: .88rem; }
+.campaign-excluded li span:first-child { color: var(--text-primary); }
+.campaign-excluded li small { color: var(--text-secondary); }
 .campaign-channels { display: grid; gap: .6rem; padding: 1rem; border: 1px solid var(--border); border-radius: 16px; }
 .campaign-channels > strong { color: var(--text-primary); }
 .campaign-form .campaign-channels label { display: flex; align-items: flex-start; gap: .7rem; padding: .65rem; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
@@ -867,6 +878,7 @@ onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeo
 .recipient-picker__user > span { display: grid; gap: .15rem; min-width: 0; flex: 1; }
 .recipient-picker__user strong, .recipient-picker__user small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recipient-picker__user small { color: var(--text-secondary); font-size: .77rem; }
+@media (max-width: 600px) { .campaign-excluded li { flex-direction: column; } }
 .recipient-picker__bottom { flex-wrap: wrap; }
 .recipient-picker__bottom > div { display: flex; align-items: center; gap: .5rem; }
 .recipient-picker__bottom span { color: var(--text-secondary); font-size: .8rem; white-space: nowrap; }
