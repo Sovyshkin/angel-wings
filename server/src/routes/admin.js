@@ -952,10 +952,11 @@ router.get('/email-campaigns', authenticate, requireAdmin, async (req, res, next
   }
 })
 
-async function emailCampaignRecipients(audience) {
+async function emailCampaignRecipients(settings) {
+  const { audience, targetUserIds } = settings
   if (audience === 'blog') return prisma.blogSubscriber.findMany({ where: { active: true }, select: { id: true, email: true }, orderBy: { createdAt: 'desc' } })
   return prisma.user.findMany({
-    where: { role: audience === 'partners' ? 'PARTNER' : audience === 'clients' ? 'USER' : { in: ['USER', 'PARTNER'] }, emailVerified: true, marketingConsentAt: { not: null }, marketingUnsubscribedAt: null },
+    where: { role: audience === 'partners' ? 'PARTNER' : audience === 'clients' ? 'USER' : { in: ['USER', 'PARTNER'] }, emailVerified: true, marketingConsentAt: { not: null }, marketingUnsubscribedAt: null, ...(audience === 'selected' ? { id: { in: targetUserIds } } : {}) },
     select: { id: true, email: true, name: true },
     orderBy: { createdAt: 'desc' }
   })
@@ -974,7 +975,7 @@ function uniqueEmailRecipients(rows) {
 router.post('/email-campaigns/preview', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const settings = validateEmailCampaign(req.body)
-    const recipients = uniqueEmailRecipients(await emailCampaignRecipients(settings.audience))
+    const recipients = uniqueEmailRecipients(await emailCampaignRecipients(settings))
     res.set('Cache-Control', 'no-store').json({ count: recipients.length, sample: renderEmailCampaign(settings, 'Анна') })
   } catch (error) { next(error) }
 })
@@ -983,7 +984,7 @@ router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, nex
   try {
     const settings = validateEmailCampaign(req.body)
     const { subject, body, audience } = settings
-    const recipients = uniqueEmailRecipients(await emailCampaignRecipients(audience))
+    const recipients = uniqueEmailRecipients(await emailCampaignRecipients(settings))
     if (!Number.isInteger(req.body.expectedCount) || req.body.expectedCount !== recipients.length) {
       return res.status(409).json({ error: `Аудитория изменилась: сейчас ${recipients.length} получателей. Проверьте письмо и аудиторию ещё раз.` })
     }
@@ -1059,7 +1060,8 @@ router.post('/orders/promo/validate', authenticate, requireAdmin, async (req, re
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, partnerUser: { select: { partnerId: true } } } })
     if (!user || user.role === 'DELETED') return res.status(404).json({ error: 'Клиент не найден' })
     const historical = !user.partnerUser ? await prisma.order.findFirst({ where: { userId, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
-    const boundPartnerId = user.partnerUser?.partnerId || historical?.partnerId || null
+    const historicalPartner = historical?.partnerId ? await prisma.partner.findUnique({ where: { id: historical.partnerId }, select: { archivedAt: true } }) : null
+    const boundPartnerId = user.partnerUser?.partnerId || (historicalPartner && !historicalPartner.archivedAt ? historical.partnerId : null)
     if (boundPartnerId && requestedPartnerId && boundPartnerId !== requestedPartnerId) return res.status(409).json({ error: 'Клиент уже закреплён за другим партнёром' })
     const result = await resolveManualOrderPromo(prisma, { code: req.body.promoCode, userId, subtotal, boundPartnerId, requestedPartnerId })
     res.set('Cache-Control', 'no-store')
@@ -1103,7 +1105,9 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
     if (requestedPartnerId !== null && (!Number.isInteger(requestedPartnerId) || requestedPartnerId <= 0)) return res.status(400).json({ error: 'Некорректный партнёр' })
     if (requestedPartnerId !== null && !userId) return res.status(400).json({ error: 'Для начисления партнёру выберите зарегистрированного клиента' })
     const historical = user && !user.partnerUser ? await prisma.order.findFirst({ where: { userId, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
-    const boundPartnerId = user?.partnerUser?.partnerId || historical?.partnerId || null
+    const historicalPartner = historical?.partnerId ? await prisma.partner.findUnique({ where: { id: historical.partnerId }, select: { archivedAt: true } }) : null
+    const activeHistorical = historicalPartner && !historicalPartner.archivedAt ? historical : null
+    const boundPartnerId = user?.partnerUser?.partnerId || activeHistorical?.partnerId || null
     if (boundPartnerId && requestedPartnerId && boundPartnerId !== requestedPartnerId) return res.status(409).json({ error: 'Клиент уже закреплён за другим партнёром' })
     const partnerId = boundPartnerId || requestedPartnerId
     if (partnerId) {
@@ -1130,7 +1134,7 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
       const effectivePartnerId = promo.partnerId
       const total = Math.round((subtotal + siteDelivery - promo.discountAmount) * 100) / 100
       if (paymentStatus === 'PAID' && total <= 0) throw Object.assign(new Error('Для оплаченного заказа сумма должна быть больше нуля'), { status: 400 })
-      if (effectivePartnerId && !user?.partnerUser && !historical) {
+      if (effectivePartnerId && !user?.partnerUser && !activeHistorical) {
         await tx.partnerUser.create({ data: { userId, partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null, referralSource: promo.promoCode?.partnerId ? 'promo_code' : 'admin' } })
       }
       await claimManualOrderPromo(tx, promo.promoCode, userId)

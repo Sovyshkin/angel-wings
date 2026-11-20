@@ -19,7 +19,7 @@
     <div class="stats-grid" style="margin-bottom: 2rem;">
       <div class="stat-card card">
         <div class="stat-card__value">{{ stats.partnersCount || 0 }}</div>
-        <div class="stat-card__label">Всего партнёров</div>
+        <div class="stat-card__label">Партнёров в программе</div>
       </div>
       <div class="stat-card card">
         <div class="stat-card__value">{{ stats.promoCodesCount || 0 }}</div>
@@ -33,6 +33,11 @@
         <div class="stat-card__value">{{ formatCurrency(stats.totalCommissions || 0) }}</div>
         <div class="stat-card__label">Всего комиссий</div>
       </div>
+    </div>
+
+    <div class="archive-filter">
+      <button class="btn btn-secondary" type="button" @click="showArchived(false)" :aria-pressed="!archivedView" :disabled="loading">В программе</button>
+      <button class="btn btn-secondary" type="button" @click="showArchived(true)" :aria-pressed="archivedView" :disabled="loading">Архив</button>
     </div>
 
     <AdminSearchPanel
@@ -70,11 +75,12 @@
               <td class="cell-name">{{ partner.user.name }}</td>
               <td class="cell-email">{{ partner.user.email }}</td>
               <td>
-                <div class="percentage-edit">
+                <div v-if="!archivedView" class="percentage-edit">
                   <input type="number" :value="partner.percentage" @blur="updatePercentage(partner.id, $event.target.value)"
                     min="0" max="100" step="0.5" class="input input-sm">
                   <span>%</span>
                 </div>
+                <span v-else>{{ partner.percentage }}%</span>
               </td>
               <td class="cell-num">{{ partner.usersCount }}</td>
               <td class="cell-num">{{ partner.ordersCount }}</td>
@@ -86,13 +92,14 @@
                 </div>
               </td>
               <td>
-                <label class="toggle">
+                <label v-if="!archivedView" class="toggle">
                   <input type="checkbox" :checked="partner.isActive" @change="toggleActive(partner.id, $event.target.checked)">
                   <span class="toggle-slider"></span>
                 </label>
+                <span v-else>В архиве</span>
               </td>
               <td>
-                <button @click.stop="deletePartner(partner.id)" class="action-btn danger" title="Удалить">
+                <button v-if="!archivedView" @click.stop="deletePartner(partner.id)" class="action-btn danger" title="Убрать из программы" aria-label="Убрать партнёра из программы">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                   </svg>
@@ -118,7 +125,7 @@
             <div v-if="getPendingPayouts(partner) > 0"><span>Заморожено:</span><strong>{{ formatCurrency(getPendingPayouts(partner)) }}</strong></div>
           </div>
 
-          <div class="partner-card__controls">
+          <div v-if="!archivedView" class="partner-card__controls">
             <label class="form-label">Процент комиссии</label>
             <div class="percentage-edit">
               <input
@@ -139,9 +146,11 @@
             </label>
           </div>
 
+          <div v-else class="partner-card__archived">В архиве · комиссия {{ partner.percentage }}%</div>
+
           <div class="partner-card__actions">
             <button class="btn btn-secondary btn-sm" @click="goToPartner(partner.id)">Подробнее</button>
-            <button class="btn btn-danger btn-sm" @click="deletePartner(partner.id)">Удалить</button>
+            <button v-if="!archivedView" class="btn btn-danger btn-sm" @click="deletePartner(partner.id)">Убрать</button>
           </div>
         </div>
       </div>
@@ -193,12 +202,13 @@
 
 <script setup>
 import { computed, ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 import OrderReportExport from '../components/OrderReportExport.vue'
 
 const router = useRouter()
+const route = useRoute()
 const API_URL = '/api/admin/partners'
 const STATS_URL = '/api/admin/partners/stats/partner'
 const PARTNERS_PAGE_SIZE = 50
@@ -211,6 +221,16 @@ const error = ref('')
 const loadingForm = ref(false)
 const search = ref('')
 const exportLoading = ref(false)
+const archivedView = ref(route.query.archived === '1')
+
+function showArchived(value) {
+  if (archivedView.value === value) return
+  archivedView.value = value
+  router.replace({ path: route.path, query: value ? { archived: '1' } : {} })
+  search.value = ''
+  loading.value = true
+  fetchPartners()
+}
 
 async function exportAllPartnerOrders(format, period = {}) {
   if (exportLoading.value) return
@@ -243,7 +263,7 @@ const filteredPartners = computed(() => {
   if (!query) return partners.value
 
   return partners.value.filter((partner) => {
-    const status = partner.isActive ? 'активен active' : 'отключён inactive'
+    const status = archivedView.value ? 'в архиве' : partner.isActive ? 'активен active' : 'отключён inactive'
     const haystack = [
       partner.id,
       partner.user?.id,
@@ -269,7 +289,7 @@ async function fetchPartners() {
 
     while (allPartners.length < total) {
       const { data } = await axios.get(API_URL, {
-        params: { limit: PARTNERS_PAGE_SIZE, offset: allPartners.length }
+        params: { limit: PARTNERS_PAGE_SIZE, offset: allPartners.length, archived: archivedView.value }
       })
       const page = Array.isArray(data.partners) ? data.partners : []
       if (!page.length) break
@@ -314,7 +334,7 @@ async function toggleActive(id, isActive) {
 }
 
 async function deletePartner(id) {
-  if (!confirm('Удалить партнёра? Его аккаунт останется обычным пользователем. Неиспользованные промокоды будут отключены.')) return
+  if (!confirm('Убрать партнёра из программы? Он исчезнет из списка, его промокоды отключатся, а клиенты смогут выбрать другого партнёра. История заказов, комиссий и выплат сохранится.')) return
   try {
     await axios.delete(`${API_URL}/${id}`)
     partners.value = partners.value.filter(p => p.id !== id)
@@ -362,7 +382,7 @@ function getPendingPayouts(partner) {
 }
 
 function goToPartner(id) {
-  router.push(`/partners/${id}`)
+  router.push({ path: `/partners/${id}`, query: archivedView.value ? { archived: '1' } : {} })
 }
 
 onMounted(() => {
@@ -385,6 +405,18 @@ onMounted(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.archive-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.archive-filter .btn[aria-pressed="true"] {
+  border-color: var(--primary-color, #a8bafb);
+  color: var(--primary-color, #a8bafb);
 }
 
 .export-picker {
@@ -783,6 +815,11 @@ onMounted(() => {
   flex-direction: column;
   gap: 0.55rem;
   margin-bottom: 0.9rem;
+}
+
+.partner-card__archived {
+  margin-bottom: 0.9rem;
+  color: var(--text-muted);
 }
 
 .partner-card__controls .toggle {

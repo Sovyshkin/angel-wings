@@ -51,6 +51,18 @@ test('marketing email previews recipients and sends a safe product campaign only
     assert.match(sent[0].html, /Здравствуйте, Анна!/)
     assert.match(sent[0].html, /Отписаться от рассылки/)
     assert.match(sent[0].text, /https:\/\/angel-wings.ru\/product\/42/)
+    const selectedUser = await db.user.create({ data: { email: 'selected@campaign.test', password: 'unused', name: 'Выбранный', role: 'PARTNER', marketingConsentAt: new Date() } })
+    const optedOut = await db.user.findUnique({ where: { email: 'unsubscribed@campaign.test' } })
+    const selectedPayload = { ...payload, audience: 'selected', targetUserIds: [selectedUser.id, optedOut.id] }
+    const selectedPreview = await request('/preview', selectedPayload)
+    assert.equal(selectedPreview.status, 200)
+    assert.equal((await selectedPreview.json()).count, 1)
+    const selectedSend = await request('', { ...selectedPayload, expectedCount: 1 })
+    assert.equal(selectedSend.status, 201, await selectedSend.text())
+    assert.equal(sent.length, 2)
+    assert.equal(sent[1].to, selectedUser.email)
+    const emptySelection = await request('/preview', { ...payload, audience: 'selected', targetUserIds: [] })
+    assert.equal(emptySelection.status, 400)
     const unsubscribeUrl = sent[0].text.match(/https:\/\/angel-wings\.ru\/api\/recovery\/unsubscribe\?token=[^\s]+/)?.[0]
     assert.ok(unsubscribeUrl)
     const unsubscribePath = new URL(unsubscribeUrl).pathname + new URL(unsubscribeUrl).search

@@ -535,6 +535,7 @@ model Partner {
   percentage   Float    @default(5.0)
   referralCode String   @unique
   isActive     Boolean  @default(true)
+  archivedAt   DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

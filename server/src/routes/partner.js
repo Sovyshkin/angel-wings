@@ -170,6 +170,11 @@ router.post('/promo-codes', authenticate, requireAdmin, async (req, res, next) =
       return res.status(400).json({ error: 'Промокод уже существует' })
     }
 
+    if (partnerId) {
+      const partner = await prisma.partner.findUnique({ where: { id: Number(partnerId) }, select: { isActive: true, archivedAt: true } })
+      if (!partner?.isActive || partner.archivedAt) return res.status(400).json({ error: 'Нельзя создать промокод для партнёра, убранного из программы' })
+    }
+
     const normalizedMaxActivations = usageType === 'single'
       ? 1
       : Math.max(0, parseInt(maxActivations ?? 0, 10) || 0)
@@ -209,6 +214,15 @@ router.put('/promo-codes/:id', authenticate, requireAdmin, async (req, res, next
       isActive,
       partnerId
     } = req.body
+
+    if (isActive === true || partnerId !== undefined) {
+      const current = await prisma.promoCode.findUnique({ where: { id: Number(req.params.id) }, select: { partnerId: true } })
+      const effectivePartnerId = partnerId !== undefined ? Number(partnerId) || null : current?.partnerId
+      if (effectivePartnerId) {
+        const partner = await prisma.partner.findUnique({ where: { id: effectivePartnerId }, select: { isActive: true, archivedAt: true } })
+        if (!partner?.isActive || partner.archivedAt) return res.status(400).json({ error: 'Промокод партнёра, убранного из программы, нельзя включить повторно' })
+      }
+    }
 
     const data = {}
     if (discountType !== undefined) data.discountType = discountType
@@ -310,11 +324,12 @@ router.put('/partner-users/:userId/partner', authenticate, requireAdmin, async (
     }
 
     const partner = await prisma.partner.findUnique({
-      where: { id: partnerId }
+      where: { id: partnerId },
+      select: { id: true, isActive: true, archivedAt: true }
     })
 
-    if (!partner) {
-      return res.status(404).json({ error: 'Партнёр не найден' })
+    if (!partner || !partner.isActive || partner.archivedAt) {
+      return res.status(400).json({ error: 'Партнёр не найден или больше не активен' })
     }
 
     const partnerUser = await prisma.partnerUser.create({
@@ -803,7 +818,7 @@ router.get('/:id/transactions', authenticate, requireAdmin, async (req, res, nex
 router.get('/stats/partner', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const [partnersCount, promoCodesCount, activeBindings, totalCommissions] = await Promise.all([
-      prisma.partner.count(),
+      prisma.partner.count({ where: { archivedAt: null } }),
       prisma.promoCode.count(),
       prisma.partnerUser.count(),
       prisma.partnerCommission.aggregate({
@@ -829,9 +844,12 @@ router.get('/stats/partner', authenticate, requireAdmin, async (req, res, next) 
 router.get('/', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { limit = 50, offset = 0 } = req.query
+    const archived = req.query.archived === 'true'
+    const archiveFilter = { archivedAt: archived ? { not: null } : null }
 
     const [partners, total] = await Promise.all([
       prisma.partner.findMany({
+        where: archiveFilter,
         include: {
           user: { select: { id: true, email: true, name: true, createdAt: true } },
           _count: { select: { partnerUsers: true, commissions: true } },
@@ -844,7 +862,7 @@ router.get('/', authenticate, requireAdmin, async (req, res, next) => {
         skip: parseInt(offset),
         orderBy: { createdAt: 'desc' }
       }),
-      prisma.partner.count()
+      prisma.partner.count({ where: archiveFilter })
     ])
 
     const balances = new Map()
@@ -928,6 +946,9 @@ router.post('/', authenticate, requireAdmin, async (req, res, next) => {
 router.put('/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const { percentage, isActive } = req.body
+    const existing = await prisma.partner.findUnique({ where: { id: parseInt(req.params.id) }, select: { archivedAt: true } })
+    if (!existing) return res.status(404).json({ error: 'Партнёр не найден' })
+    if (existing.archivedAt) return res.status(409).json({ error: 'Партнёр убран из программы и не может быть включён повторно через этот экран' })
 
     const partner = await prisma.partner.update({
       where: { id: parseInt(req.params.id) },
@@ -1444,38 +1465,21 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
     if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректный ID партнёра' })
 
     const result = await prisma.$transaction(async tx => {
-      const partner = await tx.partner.findUnique({ where: { id }, select: { userId: true } })
+      const partner = await tx.partner.findUnique({ where: { id }, select: { userId: true, archivedAt: true } })
       if (!partner) return { status: 404, error: 'Партнёр не найден' }
+      if (partner.archivedAt) return { message: 'Партнёр уже убран из программы.' }
 
-      const [commissions, payments, bindings, orders, promoCodes] = await Promise.all([
-        tx.partnerCommission.count({ where: { partnerId: id } }),
-        tx.partnerPayment.count({ where: { partnerId: id } }),
-        tx.partnerUser.count({ where: { partnerId: id } }),
-        tx.order.count({ where: { partnerId: id } }),
-        tx.promoCode.findMany({ where: { partnerId: id }, select: { id: true, activationCount: true } })
-      ])
-      const promoOrders = promoCodes.length
-        ? await tx.order.count({ where: { promoCodeId: { in: promoCodes.map(code => code.id) } } })
-        : 0
-      const usedPromoCodes = promoCodes.filter(code => code.activationCount > 0).length
-      const blockers = [
-        commissions && `комиссии (${commissions})`, payments && `операции по балансу и выплатам (${payments})`,
-        bindings && `привязанные пользователи (${bindings})`, orders && `заказы (${orders})`,
-        (promoOrders || usedPromoCodes) && `использованные промокоды (${Math.max(promoOrders, usedPromoCodes)})`
-      ].filter(Boolean)
-      if (blockers.length) return { status: 409, error: `Партнёра нельзя удалить: есть ${blockers.join(', ')}. Чтобы прекратить его работу и сохранить историю, выключите переключатель «Активен».` }
-
-      // Keep unused codes and applications for audit, but remove their link to the deleted partner.
-      await tx.promoCode.updateMany({ where: { partnerId: id }, data: { partnerId: null, isActive: false } })
-      await tx.partnerApplication.updateMany({ where: { partnerId: id }, data: { partnerId: null } })
-      await tx.partner.delete({ where: { id } })
+      // Financial records and used codes keep their partnerId for reports. Only active
+      // client bindings are released so clients can join another partner later.
+      await tx.partner.update({ where: { id }, data: { isActive: false, archivedAt: new Date() } })
+      await tx.promoCode.updateMany({ where: { partnerId: id }, data: { isActive: false } })
+      await tx.partnerUser.deleteMany({ where: { partnerId: id } })
       await tx.user.updateMany({ where: { id: partner.userId, role: 'PARTNER' }, data: { role: 'USER' } })
-      return { message: 'Партнёр удалён. Его аккаунт сохранён как обычный пользователь.' }
+      return { message: 'Партнёр убран из программы. Заказы, комиссии, выплаты и промокоды сохранены в истории.' }
     })
     if (result.status) return res.status(result.status).json({ error: result.error })
     res.json(result)
   } catch (error) {
-    if (error.code === 'P2003') return res.status(409).json({ error: 'Партнёра нельзя удалить из-за связанных записей. Выключите его статус «Активен» или проверьте связанные данные.' })
     next(error)
   }
 })

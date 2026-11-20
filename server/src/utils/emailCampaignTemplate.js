@@ -1,5 +1,5 @@
 const SITE_ORIGIN = 'https://angel-wings.ru'
-const AUDIENCES = new Set(['all', 'clients', 'partners', 'blog'])
+const AUDIENCES = new Set(['all', 'clients', 'partners', 'blog', 'selected'])
 const TYPES = new Set(['NEW_PRODUCT', 'PRODUCT_DISCOUNT', 'SALE', 'NEWS', 'CUSTOM'])
 const TYPE_LABELS = {
   NEW_PRODUCT: 'НОВИНКА',
@@ -24,19 +24,24 @@ export function validateEmailCampaign(input = {}) {
   const subject = String(input.subject || '').trim()
   const body = String(input.body || '').trim()
   const audience = String(input.audience || 'all').trim()
+  const rawTargetUserIds = input.targetUserIds
+  const targetUserIds = audience === 'selected'
+    ? (Array.isArray(rawTargetUserIds) ? rawTargetUserIds : String(rawTargetUserIds || '').split(/[\s,]+/).filter(Boolean)).map(Number)
+    : []
   const type = String(input.type || 'CUSTOM').trim()
   const headline = String(input.headline || subject).trim()
   const buttonText = String(input.buttonText || '').trim()
   const buttonUrl = siteUrl(input.buttonUrl, 'Ссылка кнопки')
   const imageUrl = siteUrl(input.imageUrl, 'Изображение')
   if (!AUDIENCES.has(audience)) bad('Выберите аудиторию рассылки')
+  if (audience === 'selected' && (!targetUserIds.length || targetUserIds.length > 500 || targetUserIds.some(id => !Number.isSafeInteger(id) || id < 1))) bad('Выберите от 1 до 500 пользователей из списка')
   if (!TYPES.has(type)) bad('Выберите тип письма')
   if (subject.length < 3 || subject.length > 200) bad('Тема письма: от 3 до 200 символов')
   if (headline.length < 3 || headline.length > 160) bad('Заголовок письма: от 3 до 160 символов')
   if (body.length < 10 || body.length > 5000) bad('Текст письма: от 10 до 5000 символов')
   if (buttonText.length > 80 || Boolean(buttonText) !== Boolean(buttonUrl)) bad('Для кнопки укажите и текст, и ссылку')
   if (imageUrl && !/\.(png|jpe?g|webp)(\?.*)?$/i.test(new URL(imageUrl).pathname)) bad('Изображение должно быть PNG, JPEG или WebP')
-  return { subject, body, audience, type, headline, buttonText, buttonUrl, imageUrl }
+  return { subject, body, audience, targetUserIds: [...new Set(targetUserIds)], type, headline, buttonText, buttonUrl, imageUrl }
 }
 
 export function renderEmailCampaign(campaign, name = 'клиент') {

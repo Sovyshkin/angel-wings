@@ -27,9 +27,17 @@
               <option value="clients">Только клиенты</option>
               <option value="partners">Только партнёры</option>
               <option value="blog">Подписчики блога</option>
+              <option value="selected">Выбранные пользователи</option>
             </select>
             <small>Клиентам и партнёрам письма уйдут только при подтверждённой почте и согласии на рассылку. Отписавшиеся исключены.</small>
           </label>
+
+          <div v-if="form.audience === 'selected'" class="selected-audience">
+            <div><strong>Конкретные получатели</strong><small>Письмо получат только выбранные пользователи с подтверждённой почтой и согласием на рассылку.</small></div>
+            <button class="btn btn-secondary" type="button" @click="openUserPicker">Выбрать из списка</button>
+            <div v-if="form.targetUserIds.length" class="selected-audience__chips"><button v-for="id in form.targetUserIds" :key="id" type="button" :title="`Убрать пользователя #${id}`" @click="removeSelectedUser(id)">{{ pickerKnown[id]?.name || pickerKnown[id]?.email || `#${id}` }} <span>×</span></button></div>
+            <small v-else>Пользователи пока не выбраны.</small>
+          </div>
 
           <div v-if="['NEW_PRODUCT', 'PRODUCT_DISCOUNT'].includes(form.type)" class="product-search">
             <label><span>Товар для письма</span><input v-model.trim="productQuery" class="input" type="search" placeholder="Найдите товар по названию или артикулу"></label>
@@ -191,11 +199,25 @@
     </section>
 
     <PointsCampaigns />
+    <div v-if="pickerOpen" class="recipient-picker-backdrop" @click.self="closeUserPicker">
+      <div class="recipient-picker" role="dialog" aria-modal="true" aria-labelledby="recipient-picker-title" @keydown.esc="closeUserPicker">
+        <div class="recipient-picker__head"><div><h3 id="recipient-picker-title">Выбрать пользователей</h3><p>Поиск по имени, email, телефону и ID. Отправка зависит от согласия на email.</p></div><button type="button" aria-label="Закрыть" @click="closeUserPicker">×</button></div>
+        <div class="recipient-picker__search"><input v-model="pickerQuery" class="input" type="search" placeholder="Поиск пользователей" aria-label="Поиск пользователей"><strong>{{ pickerSelected.length }} выбрано</strong></div>
+        <div v-if="pickerSelected.length" class="recipient-picker__selected"><button v-for="id in pickerSelected" :key="id" type="button" @click="togglePickerUser(id)">{{ pickerKnown[id]?.name || pickerKnown[id]?.email || `#${id}` }} <span>×</span></button></div>
+        <div class="recipient-picker__list" aria-live="polite">
+          <p v-if="pickerLoading">Загрузка пользователей…</p>
+          <p v-else-if="pickerError" class="recipient-picker__error">{{ pickerError }}</p>
+          <p v-else-if="!pickerUsers.length">Пользователи не найдены</p>
+          <label v-for="user in pickerUsers" :key="user.id" class="recipient-picker__user"><input type="checkbox" :checked="pickerSelected.includes(user.id)" @change="togglePickerUser(user.id)"><span><strong>{{ user.name || `Пользователь #${user.id}` }}</strong><small>{{ user.email || user.phone || 'Контакт не указан' }}<template v-if="user.email && user.phone"> · {{ user.phone }}</template></small></span><small>#{{ user.id }} · {{ user.role === 'PARTNER' ? 'Партнёр' : 'Клиент' }}</small></label>
+        </div>
+        <div class="recipient-picker__bottom"><div><button class="btn btn-secondary" type="button" :disabled="pickerLoading || pickerOffset === 0" @click="pickerOffset = Math.max(0, pickerOffset - pickerLimit)">Назад</button><span>{{ pickerTotal ? `${pickerOffset + 1}–${Math.min(pickerOffset + pickerLimit, pickerTotal)} из ${pickerTotal}` : '0 пользователей' }}</span><button class="btn btn-secondary" type="button" :disabled="pickerLoading || pickerOffset + pickerLimit >= pickerTotal" @click="pickerOffset += pickerLimit">Далее</button></div><div><button class="btn btn-secondary" type="button" @click="closeUserPicker">Отмена</button><button class="btn btn-primary" type="button" @click="applyUserPicker">Применить выбор</button></div></div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import PointsCampaigns from '../components/PointsCampaigns.vue'
 
@@ -217,6 +239,18 @@ const productLoading = ref(false)
 const selectedProduct = ref(null)
 let productTimer
 let productRequest = 0
+const pickerOpen = ref(false)
+const pickerQuery = ref('')
+const pickerUsers = ref([])
+const pickerKnown = ref({})
+const pickerSelected = ref([])
+const pickerLoading = ref(false)
+const pickerError = ref('')
+const pickerTotal = ref(0)
+const pickerOffset = ref(0)
+const pickerLimit = 20
+let pickerTimer
+let pickerRequest = 0
 const historyLoading = ref(false)
 const message = ref('')
 const messageType = ref('success')
@@ -237,6 +271,7 @@ const recoverySettings = ref({
 
 const form = ref({
   audience: 'all',
+  targetUserIds: [],
   type: 'NEW_PRODUCT',
   subject: '',
   headline: '',
@@ -268,6 +303,70 @@ function publicImage(value) {
 }
 
 watch(form, () => { previewCount.value = null; previewHtml.value = '' }, { deep: true })
+watch(pickerQuery, () => {
+  if (!pickerOpen.value) return
+  pickerOffset.value = 0
+  schedulePickerLoad()
+})
+watch(pickerOffset, () => { if (pickerOpen.value) schedulePickerLoad(0) })
+
+function schedulePickerLoad(delay = 250) {
+  clearTimeout(pickerTimer)
+  const request = ++pickerRequest
+  pickerLoading.value = true
+  pickerError.value = ''
+  pickerUsers.value = []
+  pickerTimer = setTimeout(async () => {
+    try {
+      const { data } = await axios.get('/api/admin/users', { params: { q: pickerQuery.value.trim(), limit: pickerLimit, offset: pickerOffset.value } })
+      if (request !== pickerRequest || !pickerOpen.value) return
+      pickerUsers.value = data.users || []
+      pickerTotal.value = data.total || 0
+      for (const user of pickerUsers.value) pickerKnown.value[user.id] = user
+    } catch (error) {
+      if (request !== pickerRequest || !pickerOpen.value) return
+      pickerError.value = error.response?.data?.error || 'Не удалось загрузить пользователей'
+    } finally {
+      if (request === pickerRequest) pickerLoading.value = false
+    }
+  }, delay)
+}
+
+async function openUserPicker() {
+  pickerSelected.value = [...form.value.targetUserIds]
+  pickerQuery.value = ''
+  pickerOffset.value = 0
+  pickerOpen.value = true
+  schedulePickerLoad(0)
+  await nextTick()
+  document.querySelector('.recipient-picker__search input')?.focus()
+}
+
+function closeUserPicker() {
+  pickerOpen.value = false
+  clearTimeout(pickerTimer)
+  pickerRequest++
+}
+
+function togglePickerUser(id) {
+  pickerSelected.value = pickerSelected.value.includes(id)
+    ? pickerSelected.value.filter(selected => selected !== id)
+    : [...pickerSelected.value, id]
+}
+
+function applyUserPicker() {
+  if (pickerSelected.value.length > 500) {
+    pickerError.value = 'Можно выбрать не более 500 пользователей.'
+    return
+  }
+  form.value.targetUserIds = [...pickerSelected.value]
+  closeUserPicker()
+}
+
+function removeSelectedUser(id) {
+  form.value.targetUserIds = form.value.targetUserIds.filter(selected => selected !== id)
+}
+
 watch(productQuery, query => {
   clearTimeout(productTimer)
   const request = ++productRequest
@@ -403,7 +502,8 @@ function getAudienceLabel(audience) {
     all: 'Все пользователи',
     clients: 'Клиенты',
     partners: 'Партнёры',
-    blog: 'Подписчики блога'
+    blog: 'Подписчики блога',
+    selected: 'Выбранные пользователи'
   }
   return labels[audience] || audience || 'Все пользователи'
 }
@@ -448,7 +548,7 @@ function getRecoveryTypeLabel(type) {
 }
 
 onMounted(() => Promise.all([loadCampaigns(), loadRecoverySettings()]))
-onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++ })
+onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeout(pickerTimer); pickerRequest++ })
 </script>
 
 <style scoped>
@@ -626,6 +726,38 @@ onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++ })
 .template-option small { color: var(--text-secondary); line-height: 1.25; }
 .campaign-fields-two { display: grid; grid-template-columns: 1fr 1.35fr; gap: .75rem; }
 .campaign-form label small { color: var(--text-secondary); font-weight: 400; line-height: 1.4; }
+.selected-audience { display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--border); border-radius: 16px; background: rgba(165, 184, 255, .05); }
+.selected-audience > div:first-child { display: grid; gap: .3rem; }
+.selected-audience small { color: var(--text-secondary); font-size: .84rem; line-height: 1.4; }
+.selected-audience > .btn { justify-self: start; }
+.selected-audience__chips, .recipient-picker__selected { display: flex; gap: .4rem; flex-wrap: wrap; }
+.selected-audience__chips button, .recipient-picker__selected button { max-width: 220px; padding: .35rem .65rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid var(--accent); border-radius: 999px; background: rgba(165, 184, 255, .12); color: var(--text-primary); cursor: pointer; }
+.selected-audience__chips span, .recipient-picker__selected span { color: var(--accent); font-weight: 800; }
+.recipient-picker-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: rgba(3, 5, 16, .8); backdrop-filter: blur(8px); }
+.recipient-picker { width: min(680px, 100%); max-height: min(760px, calc(100dvh - 2rem)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: 22px; background: var(--bg-card); box-shadow: 0 28px 80px rgba(0, 0, 0, .45); }
+.recipient-picker__head, .recipient-picker__search, .recipient-picker__bottom { padding: 1rem 1.5rem; }
+.recipient-picker__head, .recipient-picker__search, .recipient-picker__bottom, .recipient-picker__user { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.recipient-picker__head h3 { margin: 0 0 .3rem; font-size: 1.35rem; }
+.recipient-picker__head p { margin: 0; color: var(--text-secondary); font-size: .85rem; line-height: 1.45; }
+.recipient-picker__head > button { align-self: flex-start; flex: none; width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-input); color: var(--text-primary); font-size: 1.5rem; cursor: pointer; }
+.recipient-picker__search { padding-top: 0; }
+.recipient-picker__search input { flex: 1; min-width: 0; }
+.recipient-picker__search strong { flex: none; color: var(--accent); font-size: .85rem; }
+.recipient-picker__selected { flex-wrap: nowrap; overflow-x: auto; padding: 0 1.5rem .8rem; }
+.recipient-picker__selected button { flex: none; }
+.recipient-picker__list { min-height: 180px; overflow: auto; padding: .2rem 1.5rem; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.recipient-picker__list > p { padding: 1.4rem 0; text-align: center; color: var(--text-secondary); }
+.recipient-picker__list .recipient-picker__error { color: #ff8e8e; }
+.recipient-picker__user { justify-content: flex-start; padding: .75rem .35rem; border-bottom: 1px solid var(--border); cursor: pointer; }
+.recipient-picker__user:last-child { border-bottom: 0; }
+.recipient-picker__user:hover { background: rgba(165, 184, 255, .06); }
+.recipient-picker__user input { width: 18px; height: 18px; flex: none; accent-color: var(--accent); }
+.recipient-picker__user > span { display: grid; gap: .15rem; min-width: 0; flex: 1; }
+.recipient-picker__user strong, .recipient-picker__user small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recipient-picker__user small { color: var(--text-secondary); font-size: .77rem; }
+.recipient-picker__bottom { flex-wrap: wrap; }
+.recipient-picker__bottom > div { display: flex; align-items: center; gap: .5rem; }
+.recipient-picker__bottom span { color: var(--text-secondary); font-size: .8rem; white-space: nowrap; }
 .product-search { position: relative; display: grid; gap: .5rem; }
 .product-search-state, .selected-product { margin: 0; color: var(--text-secondary); font-size: .85rem; }
 .product-results { display: grid; max-height: 210px; overflow: auto; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; }
@@ -811,5 +943,15 @@ onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++ })
   .test-email-bar { grid-template-columns: 1fr; }
   .campaign-fields-two { grid-template-columns: 1fr; }
   .mail-preview > div { display: grid; }
+}
+
+@media (max-width: 600px) {
+  .recipient-picker__head, .recipient-picker__search, .recipient-picker__bottom { padding-left: 1rem; padding-right: 1rem; }
+  .recipient-picker__list { padding-left: 1rem; padding-right: 1rem; }
+  .recipient-picker__selected { padding-left: 1rem; padding-right: 1rem; }
+  .recipient-picker__bottom { align-items: stretch; }
+  .recipient-picker__bottom > div { justify-content: space-between; width: 100%; }
+  .recipient-picker__bottom > div:last-child .btn { flex: 1; }
+  .recipient-picker__user > small { max-width: 85px; }
 }
 </style>

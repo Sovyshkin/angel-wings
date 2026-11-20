@@ -15,7 +15,8 @@
       </div>
       <div v-if="partner" class="header-actions">
         <OrderReportExport :loading="exportLoading" button-text="Выгрузить заказы" title="Отчёт по заказам партнёра" description="Выберите период по дате создания" menu-id="single-partner-report-period" @export="exportPartnerOrders" />
-        <label class="toggle">
+        <span v-if="partner.archivedAt" class="toggle-label">В архиве</span>
+        <label v-else class="toggle">
           <input type="checkbox" :checked="partner?.isActive" @change="toggleActive">
           <span class="toggle-slider"></span>
           <span class="toggle-label">{{ partner?.isActive ? 'Активен' : 'Отключён' }}</span>
@@ -91,9 +92,9 @@
           <div class="form-group">
             <label class="form-label">Процент комиссии</label>
             <div class="percentage-edit">
-              <input type="number" v-model.number="percentage" min="0" max="100" step="0.5" class="input">
+              <input type="number" v-model.number="percentage" min="0" max="100" step="0.5" class="input" :disabled="Boolean(partner.archivedAt)">
               <span>%</span>
-              <button @click="updatePercentage" class="btn btn-primary btn-sm">Сохранить</button>
+              <button v-if="!partner.archivedAt" @click="updatePercentage" class="btn btn-primary btn-sm">Сохранить</button>
             </div>
           </div>
         </div>
@@ -710,7 +711,7 @@ function goBack() {
     router.back()
     return
   }
-  router.push('/partners')
+  router.push({ path: '/partners', query: route.query.archived === '1' ? { archived: '1' } : {} })
 }
 
 function formatCurrency(value) {

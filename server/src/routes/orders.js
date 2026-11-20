@@ -101,7 +101,9 @@ async function findExistingPartnerIdForPromo(user) {
     orderBy: { createdAt: 'desc' },
     select: { partnerId: true }
   })
-  return historicalOrder?.partnerId || null
+  if (!historicalOrder?.partnerId) return null
+  const historicalPartner = await prisma.partner.findUnique({ where: { id: historicalOrder.partnerId }, select: { archivedAt: true } })
+  return historicalPartner && !historicalPartner.archivedAt ? historicalOrder.partnerId : null
 }
 
 async function applyPromoCode(code, userId) {
@@ -791,7 +793,10 @@ router.post('/', authenticate, async (req, res, next) => {
         select: { partnerId: true }
       })
 
-      historicalPartnerId = historicalOrder?.partnerId || null
+      if (historicalOrder?.partnerId) {
+        const historicalPartner = await prisma.partner.findUnique({ where: { id: historicalOrder.partnerId }, select: { archivedAt: true } })
+        historicalPartnerId = historicalPartner && !historicalPartner.archivedAt ? historicalOrder.partnerId : null
+      }
     }
 
     if (promoCode) {
