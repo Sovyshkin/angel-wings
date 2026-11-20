@@ -7,12 +7,17 @@
       </div>
     </div>
 
+    <nav class="campaign-tabs" aria-label="Разделы рассылок">
+      <button type="button" :class="{ active: activeSection === 'compose' }" @click="activeSection = 'compose'">Создать рассылку</button>
+      <button type="button" :class="{ active: activeSection === 'history' }" @click="openHistory">История рассылок</button>
+    </nav>
+
     <div class="campaign-layout">
-      <section class="campaign-card">
+      <section v-if="activeSection === 'compose'" class="campaign-card">
         <div class="card-heading">
-          <span class="card-kicker">Email · акции и новости</span>
+          <span class="card-kicker">Акции и новости · email · Telegram · сайт</span>
           <h2>Создать рассылку</h2>
-          <p>Выберите сценарий, дополните текст и проверьте письмо перед отправкой. Имя получателя: <code v-pre>{{name}}</code>.</p>
+          <p>Выберите сценарий, каналы и получателей. Проверьте аудиторию перед запуском. Имя получателя: <code v-pre>{{name}}</code>.</p>
         </div>
 
         <form class="campaign-form" @submit.prevent="sendCampaign">
@@ -23,38 +28,45 @@
           <label>
             <span>Аудитория</span>
             <select v-model="form.audience" class="input">
-              <option value="all">Пользователи с согласием на email</option>
+              <option value="all">Пользователи с согласием на рассылку</option>
               <option value="clients">Только клиенты</option>
               <option value="partners">Только партнёры</option>
               <option value="blog">Подписчики блога</option>
               <option value="selected">Выбранные пользователи</option>
             </select>
-            <small>Клиентам и партнёрам письма уйдут только при подтверждённой почте и согласии на рассылку. Отписавшиеся исключены.</small>
+            <small>Отписавшиеся исключены из всех каналов. Для email нужна подтверждённая почта, для Telegram — подключённый аккаунт.</small>
           </label>
 
           <div v-if="form.audience === 'selected'" class="selected-audience">
-            <div><strong>Конкретные получатели</strong><small>Письмо получат только выбранные пользователи с подтверждённой почтой и согласием на рассылку.</small></div>
+            <div><strong>Конкретные получатели</strong><small>Сообщения получат только выбранные пользователи с согласием на рассылку и доступным выбранным каналом.</small></div>
             <button class="btn btn-secondary" type="button" @click="openUserPicker">Выбрать из списка</button>
             <div v-if="form.targetUserIds.length" class="selected-audience__chips"><button v-for="id in form.targetUserIds" :key="id" type="button" :title="`Убрать пользователя #${id}`" @click="removeSelectedUser(id)">{{ pickerKnown[id]?.name || pickerKnown[id]?.email || `#${id}` }} <span>×</span></button></div>
             <small v-else>Пользователи пока не выбраны.</small>
           </div>
 
+          <div class="campaign-channels">
+            <strong>Каналы рассылки</strong>
+            <label><input v-model="form.emailEnabled" type="checkbox"><span><b>Email</b><small>Письмо на подтверждённый адрес.</small></span></label>
+            <label v-if="form.audience !== 'blog'"><input v-model="form.telegramEnabled" type="checkbox"><span><b>Telegram</b><small>Сообщение пользователям с подключённым Telegram.</small></span></label>
+            <label v-if="form.audience !== 'blog'"><input v-model="form.siteEnabled" type="checkbox"><span><b>Сайт и мини-приложение</b><small>Сообщение появится при входе в аккаунт.</small></span></label>
+          </div>
+
           <div v-if="['NEW_PRODUCT', 'PRODUCT_DISCOUNT'].includes(form.type)" class="product-search">
-            <label><span>Товар для письма</span><input v-model.trim="productQuery" class="input" type="search" placeholder="Найдите товар по названию или артикулу"></label>
+            <label><span>Товар для рассылки</span><input v-model.trim="productQuery" class="input" type="search" placeholder="Найдите товар по названию или артикулу"></label>
             <div v-if="productLoading" class="product-search-state">Ищем товары…</div>
             <div v-else-if="productResults.length" class="product-results"><button v-for="product in productResults" :key="product.id" type="button" @click="selectProduct(product)"><strong>{{ product.title }}</strong><small>#{{ product.id }} · {{ product.price.toLocaleString('ru-RU') }} ₽</small></button></div>
-            <p v-if="selectedProduct" class="selected-product">Выбран: {{ selectedProduct.title }} · ссылка и изображение подставлены в письмо.</p>
+            <p v-if="selectedProduct" class="selected-product">Выбран: {{ selectedProduct.title }} · ссылка и изображение подставлены в рассылку.</p>
           </div>
 
           <label>
-            <span>Тема письма</span>
+            <span>{{ form.emailEnabled ? 'Тема письма' : 'Название рассылки' }}</span>
             <input v-model.trim="form.subject" class="input" type="text" maxlength="200" placeholder="Например: Новые поступления Angel Wings" required>
           </label>
 
-          <label><span>Заголовок внутри письма</span><input v-model.trim="form.headline" class="input" type="text" maxlength="160" required></label>
+          <label><span>Заголовок письма и сообщения на сайте</span><input v-model.trim="form.headline" class="input" type="text" maxlength="160" required></label>
 
           <label>
-            <span>Текст письма</span>
+            <span>{{ form.emailEnabled ? 'Текст письма' : 'Основной текст рассылки' }}</span>
             <textarea
               v-model="form.body"
               class="input textarea"
@@ -65,22 +77,33 @@
             />
           </label>
 
-          <div class="campaign-fields-two"><label><span>Текст кнопки (необязательно)</span><input v-model.trim="form.buttonText" class="input" type="text" maxlength="80" placeholder="Посмотреть товар"></label><label><span>Ссылка кнопки</span><input v-model.trim="form.buttonUrl" class="input" type="url" placeholder="https://angel-wings.ru/product/123"></label></div>
-          <label><span>Ссылка на изображение (необязательно)</span><input v-model.trim="form.imageUrl" class="input" type="url" placeholder="https://angel-wings.ru/uploads/…"><small>Изображение должно быть на сайте Angel Wings. При выборе товара подставится автоматически.</small></label>
+          <label v-if="form.telegramEnabled"><span>Текст для Telegram</span><textarea v-model="form.telegramBody" class="input textarea" rows="4" maxlength="900" required></textarea><small>Имя получателя можно вставить через <code v-pre>{{name}}</code>.</small></label>
+          <label v-if="form.siteEnabled"><span>Текст сообщения на сайте</span><textarea v-model="form.siteBody" class="input textarea" rows="4" maxlength="500" required></textarea></label>
 
-          <div class="campaign-review"><button class="btn btn-secondary" type="button" :disabled="loading || previewLoading" @click="previewCampaign">{{ previewLoading ? 'Проверяем…' : 'Проверить письмо и аудиторию' }}</button><span v-if="previewCount !== null">Получателей: <strong>{{ previewCount }}</strong>. Проверка ничего не отправляет.</span></div>
-          <div v-if="previewHtml" class="mail-preview"><div><strong>Так выглядит письмо</strong><small>Пример для получателя по имени Анна</small></div><iframe title="Предпросмотр письма" :srcdoc="previewHtml" sandbox="" loading="lazy"></iframe></div>
+          <div class="campaign-fields-two"><label><span>Текст кнопки (необязательно)</span><input v-model.trim="form.buttonText" class="input" type="text" maxlength="80" placeholder="Посмотреть товар"></label><label><span>Ссылка кнопки</span><input v-model.trim="form.buttonUrl" class="input" type="url" placeholder="https://angel-wings.ru/product/123"></label></div>
+          <div class="campaign-image-field">
+            <div><strong>Изображение для рассылки</strong><small>PNG, JPEG или WebP до 5 МБ. Для Telegram подойдут PNG и JPEG.</small></div>
+            <div class="campaign-image-actions">
+              <input id="campaign-image-file" class="campaign-image-file" type="file" :accept="form.telegramEnabled ? 'image/png,image/jpeg' : 'image/png,image/jpeg,image/webp'" :disabled="uploadingImage" @change="uploadCampaignImage">
+              <label for="campaign-image-file" class="btn btn-secondary">{{ uploadingImage ? 'Загружаем…' : 'Загрузить изображение' }}</label>
+              <button v-if="form.imageUrl" class="btn btn-secondary" type="button" :disabled="uploadingImage" @click="removeCampaignImage">Убрать</button>
+            </div>
+            <img v-if="form.imageUrl" class="campaign-image-preview" :src="imagePreviewUrl" alt="Изображение рассылки">
+          </div>
+
+          <div class="campaign-review"><button class="btn btn-secondary" type="button" :disabled="loading || previewLoading || uploadingImage" @click="previewCampaign">{{ previewLoading ? 'Проверяем…' : 'Проверить аудиторию' }}</button><span v-if="previewCount !== null">Получателей: <strong>{{ previewCount }}</strong> · email {{ previewChannels.email }} · Telegram {{ previewChannels.telegram }} · сайт {{ previewChannels.site }}. Проверка ничего не отправляет.</span></div>
+          <div v-if="previewHtml && form.emailEnabled" class="mail-preview"><div><strong>Так выглядит письмо</strong><small>Пример для получателя по имени Анна</small></div><iframe title="Предпросмотр письма" :srcdoc="previewHtml" sandbox="" loading="lazy"></iframe></div>
 
           <div v-if="message" :class="['notice', messageType]">{{ message }}</div>
 
-          <button class="btn btn-primary send-btn" type="submit" :disabled="loading || previewCount === null || previewCount === 0">
+          <button class="btn btn-primary send-btn" type="submit" :disabled="loading || uploadingImage || previewCount === null || previewCount === 0">
             <span v-if="loading" class="spinner"></span>
             <span v-else>Отправить {{ previewCount ?? '—' }} получателям</span>
           </button>
         </form>
       </section>
 
-      <section class="campaign-card history-card">
+      <section v-else class="campaign-card history-card">
         <div class="card-heading">
           <span class="card-kicker">История</span>
           <h2>Последние рассылки</h2>
@@ -104,8 +127,10 @@
 
             <div class="campaign-stats">
               <span>Всего: <strong>{{ campaign.total }}</strong></span>
-              <span>Отправлено: <strong>{{ campaign.sent }}</strong></span>
-              <span>Ошибок: <strong>{{ campaign.failed }}</strong></span>
+              <span>Email: <strong>{{ campaign.sent }}</strong></span>
+              <span>Telegram: <strong>{{ campaign.channels?.telegramSent || 0 }}</strong></span>
+              <span>На сайте: <strong>{{ campaign.channels?.site || 0 }}</strong></span>
+              <span>Ошибок: <strong>{{ (campaign.failed || 0) + (campaign.channels?.telegramFailed || 0) }}</strong></span>
             </div>
 
             <details v-if="campaign.errorLog" class="error-details">
@@ -116,7 +141,7 @@
         </div>
       </section>
     </div>
-    <section class="recovery-console">
+    <section v-if="activeSection === 'compose'" class="recovery-console">
       <div class="recovery-console__heading">
         <div>
           <span class="card-kicker">Умные напоминания</span>
@@ -198,7 +223,7 @@
       <div v-if="recoveryMessage" :class="['notice', recoveryMessageType]">{{ recoveryMessage }}</div>
     </section>
 
-    <PointsCampaigns />
+    <PointsCampaigns v-if="activeSection === 'compose'" />
     <div v-if="pickerOpen" class="recipient-picker-backdrop" @click.self="closeUserPicker">
       <div class="recipient-picker" role="dialog" aria-modal="true" aria-labelledby="recipient-picker-title" @keydown.esc="closeUserPicker">
         <div class="recipient-picker__head"><div><h3 id="recipient-picker-title">Выбрать пользователей</h3><p>Поиск по имени, email, телефону и ID. Отправка зависит от согласия на email.</p></div><button type="button" aria-label="Закрыть" @click="closeUserPicker">×</button></div>
@@ -217,7 +242,7 @@
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import PointsCampaigns from '../components/PointsCampaigns.vue'
 
@@ -230,13 +255,20 @@ const templates = [
   { type: 'CUSTOM', label: 'Своё письмо', hint: 'Текст с нуля' }
 ]
 const loading = ref(false)
+const activeSection = ref('compose')
 const previewLoading = ref(false)
 const previewCount = ref(null)
+const previewAudienceHash = ref('')
+const previewChannels = ref({ email: 0, telegram: 0, site: 0 })
 const previewHtml = ref('')
 const productQuery = ref('')
 const productResults = ref([])
 const productLoading = ref(false)
 const selectedProduct = ref(null)
+const uploadingImage = ref(false)
+const uploadedImageUrl = ref('')
+const uploadedPreviewUrl = ref('')
+const imagePreviewUrl = computed(() => form.value.imageUrl === uploadedImageUrl.value && uploadedPreviewUrl.value ? uploadedPreviewUrl.value : form.value.imageUrl)
 let productTimer
 let productRequest = 0
 const pickerOpen = ref(false)
@@ -272,6 +304,11 @@ const recoverySettings = ref({
 const form = ref({
   audience: 'all',
   targetUserIds: [],
+  emailEnabled: true,
+  telegramEnabled: false,
+  siteEnabled: false,
+  telegramBody: '',
+  siteBody: '',
   type: 'NEW_PRODUCT',
   subject: '',
   headline: '',
@@ -291,7 +328,9 @@ function applyTemplate(type, product = selectedProduct.value) {
     NEWS: { subject: 'Новости Angel Wings', headline: 'Есть новости для вас', body: 'Здравствуйте, {{name}}!\n\nРассказываем о важном обновлении Angel Wings. Подробности вы найдёте на нашем сайте.', buttonText: 'Перейти на сайт', buttonUrl: 'https://angel-wings.ru/' },
     CUSTOM: { subject: '', headline: '', body: 'Здравствуйте, {{name}}!\n\n', buttonText: '', buttonUrl: '' }
   }
-  form.value = { ...form.value, type, ...presets[type], imageUrl: product && ['NEW_PRODUCT', 'PRODUCT_DISCOUNT'].includes(type) ? publicImage(product.image || product.images?.[0]) : '' }
+  const preset = presets[type]
+  const productImage = product && ['NEW_PRODUCT', 'PRODUCT_DISCOUNT'].includes(type) ? publicImage(product.image || product.images?.[0]) : ''
+  form.value = { ...form.value, type, ...preset, telegramBody: `${preset.headline}\n\n${preset.body}`.slice(0, 900), siteBody: preset.body.slice(0, 500), imageUrl: productImage || uploadedImageUrl.value || '' }
 }
 
 function publicImage(value) {
@@ -302,7 +341,42 @@ function publicImage(value) {
   } catch { return '' }
 }
 
-watch(form, () => { previewCount.value = null; previewHtml.value = '' }, { deep: true })
+async function uploadCampaignImage(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  const allowed = form.value.telegramEnabled ? ['image/png', 'image/jpeg'] : ['image/png', 'image/jpeg', 'image/webp']
+  if (!allowed.includes(file.type) || file.size > 5 * 1024 * 1024) {
+    messageType.value = 'error'
+    message.value = form.value.telegramEnabled ? 'Для Telegram выберите PNG или JPEG до 5 МБ.' : 'Выберите PNG, JPEG или WebP до 5 МБ.'
+    event.target.value = ''
+    return
+  }
+  uploadingImage.value = true
+  message.value = ''
+  try {
+    const data = new FormData()
+    data.append('image', file)
+    const response = await axios.post('/api/admin/email-campaigns/image', data)
+    uploadedImageUrl.value = response.data.imageUrl
+    uploadedPreviewUrl.value = import.meta.env.DEV ? response.data.previewUrl : response.data.imageUrl
+    form.value.imageUrl = response.data.imageUrl
+  } catch (error) {
+    messageType.value = 'error'
+    message.value = error.response?.data?.error || 'Не удалось загрузить изображение.'
+  } finally {
+    uploadingImage.value = false
+    event.target.value = ''
+  }
+}
+
+function removeCampaignImage() {
+  form.value.imageUrl = ''
+  uploadedImageUrl.value = ''
+  uploadedPreviewUrl.value = ''
+}
+
+watch(form, () => { previewCount.value = null; previewAudienceHash.value = ''; previewHtml.value = ''; previewChannels.value = { email: 0, telegram: 0, site: 0 } }, { deep: true })
+watch(() => form.value.audience, audience => { if (audience === 'blog') { form.value.telegramEnabled = false; form.value.siteEnabled = false } })
 watch(pickerQuery, () => {
   if (!pickerOpen.value) return
   pickerOffset.value = 0
@@ -388,6 +462,10 @@ function selectProduct(product) {
   selectedProduct.value = product
   productQuery.value = product.title
   productResults.value = []
+  if (publicImage(product.image || product.images?.[0])) {
+    uploadedImageUrl.value = ''
+    uploadedPreviewUrl.value = ''
+  }
   applyTemplate(form.value.type, product)
 }
 
@@ -397,6 +475,8 @@ async function previewCampaign() {
   try {
     const { data } = await axios.post('/api/admin/email-campaigns/preview', form.value)
     previewCount.value = data.count
+    previewAudienceHash.value = data.audienceHash || ''
+    previewChannels.value = data.channels || { email: data.count, telegram: 0, site: 0 }
     previewHtml.value = data.sample.html
   } catch (error) {
     messageType.value = 'error'
@@ -414,6 +494,11 @@ async function loadCampaigns() {
   } finally {
     historyLoading.value = false
   }
+}
+
+function openHistory() {
+  activeSection.value = 'history'
+  loadCampaigns()
 }
 
 async function loadRecoverySettings() {
@@ -480,15 +565,20 @@ async function sendCampaign() {
   loading.value = true
 
   try {
-    const { data } = await axios.post('/api/admin/email-campaigns', { ...form.value, expectedCount: previewCount.value })
+    const { data } = await axios.post('/api/admin/email-campaigns', { ...form.value, expectedCount: previewCount.value, expectedAudienceHash: previewAudienceHash.value })
     campaigns.value = [data.campaign, ...campaigns.value]
     selectedProduct.value = null
     productQuery.value = ''
+    uploadedImageUrl.value = ''
+    uploadedPreviewUrl.value = ''
     applyTemplate(form.value.type, null)
     messageType.value = data.campaign.failed > 0 ? 'warning' : 'success'
-    message.value = `Рассылка завершена: отправлено ${data.campaign.sent} из ${data.campaign.total}.`
+    message.value = data.campaign.status === 'SENDING'
+      ? `Рассылка запущена для ${data.campaign.total} получателей. Доставку по каналам смотрите в истории.`
+      : `Рассылка завершена: отправлено ${data.campaign.sent} из ${data.campaign.total}.`
   } catch (error) {
     previewCount.value = null
+    previewAudienceHash.value = ''
     previewHtml.value = ''
     messageType.value = 'error'
     message.value = error.response?.data?.error || 'Не удалось отправить рассылку'
@@ -574,12 +664,19 @@ onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeo
   margin: 0;
 }
 
+.campaign-tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.campaign-tabs button { padding: .75rem 1.1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); color: var(--text-secondary); font: inherit; font-weight: 700; cursor: pointer; }
+.campaign-tabs button.active { border-color: var(--accent); color: var(--accent); background: rgba(165, 184, 255, .1); }
+
 .campaign-layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
+  margin-bottom: 1.5rem;
 }
+
+.campaign-layout > .campaign-card:first-child:not(.history-card) { max-width: 980px; }
 
 .recovery-console {
   position: relative;
@@ -733,6 +830,21 @@ onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeo
 .selected-audience__chips, .recipient-picker__selected { display: flex; gap: .4rem; flex-wrap: wrap; }
 .selected-audience__chips button, .recipient-picker__selected button { max-width: 220px; padding: .35rem .65rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid var(--accent); border-radius: 999px; background: rgba(165, 184, 255, .12); color: var(--text-primary); cursor: pointer; }
 .selected-audience__chips span, .recipient-picker__selected span { color: var(--accent); font-weight: 800; }
+.campaign-channels { display: grid; gap: .6rem; padding: 1rem; border: 1px solid var(--border); border-radius: 16px; }
+.campaign-channels > strong { color: var(--text-primary); }
+.campaign-form .campaign-channels label { display: flex; align-items: flex-start; gap: .7rem; padding: .65rem; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.campaign-channels input { margin-top: .25rem; width: 18px; height: 18px; flex: none; accent-color: var(--accent); }
+.campaign-channels label span { display: grid; gap: .15rem; }
+.campaign-channels label small { color: var(--text-secondary); font-size: .82rem; font-weight: 400; }
+.campaign-image-field { display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--border); border-radius: 16px; }
+.campaign-image-field > div:first-child { display: grid; gap: .25rem; }
+.campaign-image-field strong { color: var(--text-primary); }
+.campaign-image-field small { color: var(--text-secondary); font-size: .84rem; }
+.campaign-image-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+.campaign-form .campaign-image-actions label { display: inline-flex; align-items: center; justify-content: center; color: var(--text-primary); cursor: pointer; }
+.campaign-image-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.campaign-image-file:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 3px; }
+.campaign-image-preview { display: block; max-width: min(100%, 420px); max-height: 280px; object-fit: contain; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-input); }
 .recipient-picker-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: rgba(3, 5, 16, .8); backdrop-filter: blur(8px); }
 .recipient-picker { width: min(680px, 100%); max-height: min(760px, calc(100dvh - 2rem)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: 22px; background: var(--bg-card); box-shadow: 0 28px 80px rgba(0, 0, 0, .45); }
 .recipient-picker__head, .recipient-picker__search, .recipient-picker__bottom { padding: 1rem 1.5rem; }

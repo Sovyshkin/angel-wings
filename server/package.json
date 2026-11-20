@@ -24,6 +24,7 @@
     "db:paid-order-stock": "node scripts/apply-paid-order-stock-schema.mjs",
     "db:manual-order-origin": "node scripts/apply-manual-order-origin-schema.mjs",
     "db:partner-archive": "node scripts/apply-partner-archive-schema.mjs",
+    "db:marketing-notices": "node scripts/apply-marketing-notices-schema.mjs",
     "db:recommendations": "node scripts/apply-product-recommendations-schema.mjs",
     "db:favorite-pickups": "node scripts/apply-favorite-pickup-points-schema.mjs",
     "db:personal-promos": "node scripts/apply-personal-promos-schema.mjs",

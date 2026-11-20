@@ -13,6 +13,7 @@
     >
     <PageLoader />
     <PointsCampaignClaim :enabled="authStore.isAuthenticated" @claimed="checkPointNotifications" />
+    <MarketingNotice :enabled="authStore.isAuthenticated" />
     <CookieConsent />
     <div ref="cursorRoot" class="cursor-goo" aria-hidden="true">
       <svg class="cursor-goo__filter" width="0" height="0" focusable="false">
@@ -512,6 +513,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PointsCampaignClaim from './components/PointsCampaignClaim.vue'
+import MarketingNotice from './components/MarketingNotice.vue'
 import RouteSceneLayout from './components/RouteSceneLayout.vue'
 import axios from 'axios'
 import { useRoute, useRouter } from 'vue-router'

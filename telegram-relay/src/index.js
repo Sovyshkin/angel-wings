@@ -320,18 +320,21 @@ app.post('/telegram/campaign', requireRelayAuth, async (req, res) => {
   const chatId = String(req.body?.chatId || '').trim()
   const key = String(req.body?.campaignKey || '').trim()
   const legacy = key === 'points-4000-2026-10-30' && !req.body?.text
-  if (!/^(?:points-4000-2026-10-30|gift-[0-9-]{10}-[a-f\d]{8})$/.test(key) || !/^[1-9]\d*$/.test(chatId)) {
+  const news = /^news-[1-9]\d*$/.test(key)
+  if (!/^(?:points-4000-2026-10-30|gift-[0-9-]{10}-[a-f\d]{8}|news-[1-9]\d*)$/.test(key) || !/^[1-9]\d*$/.test(chatId)) {
     return res.status(400).json({ ok: false, error: 'Invalid campaign request' })
   }
   const text = legacy ? '🎁 Вам доступны 4 000 баллов Angel Wings!\n\nНажмите «Получить» в мини-приложении — только после этого баллы появятся на балансе. 1 балл = 1 ₽. Неиспользованные баллы сгорят через 1 месяц после получения.' : String(req.body?.text || '').trim()
   const buttonText = legacy ? 'Получить 4 000 баллов' : String(req.body?.buttonText || '').trim()
   if (!text || text.length > 1024 || !buttonText || buttonText.length > 80) return res.status(400).json({ ok: false, error: 'Invalid campaign text' })
+  const newsUrl = String(req.body?.buttonUrl || '').trim()
+  if (news && (!/^https:\/\/angel-wings\.ru(?:\/|$)/.test(newsUrl) || newsUrl.length > 500)) return res.status(400).json({ ok: false, error: 'Invalid campaign link' })
 
   const token = String(process.env.TELEGRAM_MINI_APP_BOT_TOKEN || '').trim()
   if (!token) return res.status(503).json({ ok: false, error: 'Mini App bot is not configured' })
 
   try {
-    const markup = { inline_keyboard: [[{ text: buttonText, web_app: { url: `https://app.angel-wings.ru/catalog?claim=${encodeURIComponent(key)}` } }]] }
+    const markup = { inline_keyboard: [[news ? { text: buttonText, url: newsUrl } : { text: buttonText, web_app: { url: `https://app.angel-wings.ru/catalog?claim=${encodeURIComponent(key)}` } }]] }
     const image = legacy ? await readFile(campaignImagePath) : req.body?.imageBase64 ? Buffer.from(req.body.imageBase64, 'base64') : null
     if (image && image.length > 5 * 1024 * 1024) return res.status(400).json({ ok: false, error: 'Campaign image too large' })
     const imageType = legacy ? 'image/png' : ['image/png', 'image/jpeg', 'image/webp'].includes(req.body?.imageType) ? req.body.imageType : 'image/png'

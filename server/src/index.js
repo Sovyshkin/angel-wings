@@ -19,8 +19,10 @@ import dealerRoutes from './routes/dealers.js'
 import adminDealerRoutes from './routes/adminDealers.js'
 import pointsRoutes from './routes/points.js'
 import pointsCampaignRoutes from './routes/pointsCampaign.js'
+import marketingNoticesRoutes from './routes/marketingNotices.js'
 import adminPointsCampaignsRoutes from './routes/adminPointsCampaigns.js'
 import { startCustomCampaignWorker } from './services/customPointsCampaign.js'
+import { startMarketingCampaignWorker } from './services/marketingCampaign.js'
 import { startGiveawayTicketEmailWorker } from './services/giveawayTicketEmail.js'
 import adminPointsRoutes from './routes/adminPoints.js'
 import contactRequestsRoutes from './routes/contactRequests.js'
@@ -84,6 +86,7 @@ app.use('/api/delivery', deliveryRoutes)
 app.use('/api/dealers', dealerRoutes)
 app.use('/api/points', pointsRoutes)
 app.use('/api/points/campaign', pointsCampaignRoutes)
+app.use('/api/marketing-notices', marketingNoticesRoutes)
 app.use('/api/recovery', recoveryRouter)
 app.use('/api/admin/recovery', adminRecoveryRouter)
 
@@ -96,5 +99,6 @@ app.listen(PORT, () => {
   startRecoveryWorker()
   startCdekRegistrationWorker(prisma)
   startCustomCampaignWorker(prisma)
+  startMarketingCampaignWorker(prisma)
   startGiveawayTicketEmailWorker(prisma)
 })

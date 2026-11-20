@@ -26,6 +26,7 @@ recoveryRouter.put('/cart', authenticate, async (req, res, next) => {
         ? { marketingConsentAt: new Date(), marketingUnsubscribedAt: null }
         : { marketingConsentAt: null }
     })
+    if (!marketingConsent) await prisma.marketingNotice.updateMany({ where: { userId: req.user.id, siteEnabled: true, seenAt: null }, data: { siteEnabled: false } })
 
     const serialized = JSON.stringify(items)
     const cartHash = crypto.createHash('sha256').update(serialized).digest('hex')
@@ -52,7 +53,8 @@ recoveryRouter.get('/unsubscribe', async (req, res) => {
     if (!['recovery_unsubscribe', 'marketing_unsubscribe'].includes(payload.purpose) || !payload.userId) throw new Error('Invalid token')
     await prisma.$transaction([
       prisma.user.update({ where: { id: Number(payload.userId) }, data: { marketingConsentAt: null, marketingUnsubscribedAt: new Date() } }),
-      prisma.recoveryCart.updateMany({ where: { userId: Number(payload.userId) }, data: { active: false, processingAt: null } })
+      prisma.recoveryCart.updateMany({ where: { userId: Number(payload.userId) }, data: { active: false, processingAt: null } }),
+      prisma.marketingNotice.updateMany({ where: { userId: Number(payload.userId), siteEnabled: true, seenAt: null }, data: { siteEnabled: false } })
     ])
     res.type('html').send('<!doctype html><meta charset="utf-8"><title>Angel Wings</title><style>body{font-family:Arial,sans-serif;background:#0f1118;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0}.card{max-width:520px;padding:40px;border:1px solid #303441;border-radius:24px;background:#171a23}p{color:#b8bece;line-height:1.6}</style><div class="card"><h1>Рассылка отключена</h1><p>Мы больше не будем отправлять вам рекламные письма и напоминания о корзине и заказе.</p></div>')
   } catch {

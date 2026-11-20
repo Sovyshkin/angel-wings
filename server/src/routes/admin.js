@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import crypto from 'node:crypto'
+import { readFile, unlink } from 'node:fs/promises'
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
@@ -15,6 +16,7 @@ import { deleteProductForAdmin } from '../utils/productDeletion.js'
 import { refundUserPointsForOrder, reverseUserPointsRefundForOrder } from '../utils/userPoints.js'
 import emailService from '../services/email.js'
 import { renderEmailCampaign, validateEmailCampaign } from '../utils/emailCampaignTemplate.js'
+import { resolveMarketingAudience } from '../services/marketingCampaign.js'
 import { createReadyCdekWaybill, queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
 import cdek from '../services/cdek.js'
 import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
@@ -939,44 +941,61 @@ router.delete('/users/:id', authenticate, requireAdmin, async (req, res, next) =
   }
 })
 
+router.post('/email-campaigns/image', authenticate, requireAdmin, (req, res, next) => {
+  upload.single('image')(req, res, error => {
+    if (error) return res.status(400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'Изображение должно быть не больше 5 МБ' : 'Выберите PNG, JPEG или WebP до 5 МБ' })
+    next()
+  })
+}, async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Выберите изображение PNG, JPEG или WebP до 5 МБ' })
+    const content = await readFile(req.file.path)
+    const isPng = req.file.mimetype === 'image/png' && content.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    const isJpeg = req.file.mimetype === 'image/jpeg' && content[0] === 0xff && content[1] === 0xd8 && content[2] === 0xff
+    const isWebp = req.file.mimetype === 'image/webp' && content.toString('ascii', 0, 4) === 'RIFF' && content.toString('ascii', 8, 12) === 'WEBP'
+    if (!isPng && !isJpeg && !isWebp) {
+      await unlink(req.file.path)
+      return res.status(400).json({ error: 'Файл не является изображением PNG, JPEG или WebP' })
+    }
+    const pathname = `/uploads/${req.file.filename}`
+    res.status(201).json({ imageUrl: `https://angel-wings.ru${pathname}`, previewUrl: pathname })
+  } catch (error) { next(error) }
+})
+
 router.get('/email-campaigns', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const campaigns = await prisma.emailCampaign.findMany({
       take: Math.min(100, Number(req.query.limit) || 50),
       orderBy: { createdAt: 'desc' }
     })
-
-    res.json({ campaigns })
+    const ids = campaigns.map(campaign => campaign.id)
+    const notices = ids.length ? await prisma.marketingNotice.groupBy({ by: ['campaignId', 'telegramStatus', 'siteEnabled'], where: { campaignId: { in: ids } }, _count: { _all: true } }) : []
+    const channels = new Map()
+    for (const row of notices) {
+      const current = channels.get(row.campaignId) || { site: 0, telegramSent: 0, telegramFailed: 0 }
+      if (row.siteEnabled) current.site += row._count._all
+      if (row.telegramStatus === 'SENT') current.telegramSent += row._count._all
+      if (row.telegramStatus === 'FAILED') current.telegramFailed += row._count._all
+      channels.set(row.campaignId, current)
+    }
+    res.json({ campaigns: campaigns.map(campaign => ({ ...campaign, settingsJson: undefined, channels: channels.get(campaign.id) || { site: 0, telegramSent: 0, telegramFailed: 0 } })) })
   } catch (error) {
     next(error)
   }
 })
 
-async function emailCampaignRecipients(settings) {
-  const { audience, targetUserIds } = settings
-  if (audience === 'blog') return prisma.blogSubscriber.findMany({ where: { active: true }, select: { id: true, email: true }, orderBy: { createdAt: 'desc' } })
-  return prisma.user.findMany({
-    where: { role: audience === 'partners' ? 'PARTNER' : audience === 'clients' ? 'USER' : { in: ['USER', 'PARTNER'] }, emailVerified: true, marketingConsentAt: { not: null }, marketingUnsubscribedAt: null, ...(audience === 'selected' ? { id: { in: targetUserIds } } : {}) },
-    select: { id: true, email: true, name: true },
-    orderBy: { createdAt: 'desc' }
-  })
-}
-
-function uniqueEmailRecipients(rows) {
-  const seen = new Set()
-  return rows.filter(row => {
-    const email = String(row.email || '').trim().toLowerCase()
-    if (!email || seen.has(email)) return false
-    seen.add(email)
-    return true
-  })
+function marketingAudienceFingerprint(recipients) {
+  return crypto.createHash('sha256').update(JSON.stringify({
+    emails: recipients.emails.map(item => `${item.id}:${String(item.email).trim().toLowerCase()}`),
+    users: recipients.users.map(item => `${item.user.id}:${item.emailStatus}:${item.telegramStatus}`)
+  })).digest('hex')
 }
 
 router.post('/email-campaigns/preview', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const settings = validateEmailCampaign(req.body)
-    const recipients = uniqueEmailRecipients(await emailCampaignRecipients(settings))
-    res.set('Cache-Control', 'no-store').json({ count: recipients.length, sample: renderEmailCampaign(settings, 'Анна') })
+    const audience = await resolveMarketingAudience(prisma, settings)
+    res.set('Cache-Control', 'no-store').json({ count: audience.counts.total, channels: audience.counts, audienceHash: marketingAudienceFingerprint(audience), sample: renderEmailCampaign(settings, 'Анна') })
   } catch (error) { next(error) }
 })
 
@@ -984,31 +1003,46 @@ router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, nex
   try {
     const settings = validateEmailCampaign(req.body)
     const { subject, body, audience } = settings
-    const recipients = uniqueEmailRecipients(await emailCampaignRecipients(settings))
-    if (!Number.isInteger(req.body.expectedCount) || req.body.expectedCount !== recipients.length) {
-      return res.status(409).json({ error: `Аудитория изменилась: сейчас ${recipients.length} получателей. Проверьте письмо и аудиторию ещё раз.` })
+    const recipients = await resolveMarketingAudience(prisma, settings)
+    if (!Number.isInteger(req.body.expectedCount) || req.body.expectedCount !== recipients.counts.total || (req.body.expectedAudienceHash && req.body.expectedAudienceHash !== marketingAudienceFingerprint(recipients))) {
+      return res.status(409).json({ error: `Аудитория изменилась: сейчас ${recipients.counts.total} получателей. Проверьте письмо и аудиторию ещё раз.` })
     }
 
-    if (!recipients.length) {
+    if (!recipients.counts.total) {
       return res.status(400).json({ error: 'Не найдено получателей для выбранной аудитории' })
     }
 
-    const campaign = await prisma.emailCampaign.create({
-      data: {
-        subject,
-        body,
-        audience,
-        total: recipients.length,
-        status: 'SENDING',
-        createdById: req.user.id
+    const campaign = await prisma.$transaction(async tx => {
+      const created = await tx.emailCampaign.create({
+        data: {
+          subject, body, audience, total: recipients.counts.total, status: 'SENDING',
+          settingsJson: audience === 'blog' ? null : JSON.stringify(settings), createdById: req.user.id
+        }
+      })
+      if (audience !== 'blog') {
+        const notices = recipients.users.map(({ user, emailStatus, telegramStatus }) => ({
+          campaignId: created.id, userId: user.id,
+          title: settings.headline.replace(/\{\{\s*name\s*\}\}/gi, user.name || 'клиент'),
+          body: settings.siteBody.replace(/\{\{\s*name\s*\}\}/gi, user.name || 'клиент'),
+          buttonText: settings.buttonText || 'Открыть сайт', buttonUrl: settings.buttonUrl || 'https://angel-wings.ru/', imageUrl: settings.imageUrl || null,
+          siteEnabled: settings.siteEnabled, emailStatus, telegramStatus
+        }))
+        for (let offset = 0; offset < notices.length; offset += 100) {
+          await tx.marketingNotice.createMany({ data: notices.slice(offset, offset + 100) })
+        }
       }
-    })
+      return created
+    }, { timeout: 30000 })
+
+    if (audience !== 'blog') {
+      return res.status(202).json({ campaign: { ...campaign, settingsJson: undefined, channels: { site: recipients.counts.site, telegramSent: 0, telegramFailed: 0 } } })
+    }
 
     let sent = 0
     let failed = 0
     const errors = []
 
-    for (const recipient of recipients) {
+    for (const recipient of recipients.emails) {
       try {
         const unsubscribeToken = audience === 'blog'
           ? crypto.createHmac('sha256', process.env.JWT_SECRET).update(String(recipient.id)).digest('hex')

@@ -33,7 +33,16 @@ export function validateEmailCampaign(input = {}) {
   const buttonText = String(input.buttonText || '').trim()
   const buttonUrl = siteUrl(input.buttonUrl, 'Ссылка кнопки')
   const imageUrl = siteUrl(input.imageUrl, 'Изображение')
+  const emailEnabled = input.emailEnabled !== false
+  const telegramEnabled = input.telegramEnabled === true
+  const siteEnabled = input.siteEnabled === true
+  const telegramBody = String(input.telegramBody || '').trim()
+  const siteBody = String(input.siteBody || '').trim()
   if (!AUDIENCES.has(audience)) bad('Выберите аудиторию рассылки')
+  if (!emailEnabled && !telegramEnabled && !siteEnabled) bad('Выберите хотя бы один канал рассылки')
+  if (audience === 'blog' && (telegramEnabled || siteEnabled)) bad('Подписчикам блога доступна только email-рассылка')
+  if (telegramEnabled && (telegramBody.length < 3 || telegramBody.length > 900)) bad('Текст Telegram: от 3 до 900 символов')
+  if (siteEnabled && (siteBody.length < 3 || siteBody.length > 500)) bad('Текст сообщения на сайте: от 3 до 500 символов')
   if (audience === 'selected' && (!targetUserIds.length || targetUserIds.length > 500 || targetUserIds.some(id => !Number.isSafeInteger(id) || id < 1))) bad('Выберите от 1 до 500 пользователей из списка')
   if (!TYPES.has(type)) bad('Выберите тип письма')
   if (subject.length < 3 || subject.length > 200) bad('Тема письма: от 3 до 200 символов')
@@ -41,7 +50,8 @@ export function validateEmailCampaign(input = {}) {
   if (body.length < 10 || body.length > 5000) bad('Текст письма: от 10 до 5000 символов')
   if (buttonText.length > 80 || Boolean(buttonText) !== Boolean(buttonUrl)) bad('Для кнопки укажите и текст, и ссылку')
   if (imageUrl && !/\.(png|jpe?g|webp)(\?.*)?$/i.test(new URL(imageUrl).pathname)) bad('Изображение должно быть PNG, JPEG или WebP')
-  return { subject, body, audience, targetUserIds: [...new Set(targetUserIds)], type, headline, buttonText, buttonUrl, imageUrl }
+  if (telegramEnabled && imageUrl && /\.webp$/i.test(new URL(imageUrl).pathname)) bad('Для Telegram выберите изображение PNG или JPEG')
+  return { subject, body, audience, targetUserIds: [...new Set(targetUserIds)], type, headline, buttonText, buttonUrl, imageUrl, emailEnabled, telegramEnabled, siteEnabled, telegramBody, siteBody }
 }
 
 export function renderEmailCampaign(campaign, name = 'клиент') {

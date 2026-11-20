@@ -39,6 +39,7 @@ model User {
   handledConsultations        ConsultationRequest[]  @relation("ConsultationHandler")
   favoritePickupPoints        FavoritePickupPoint[]
   personalPromoCodes          PromoCode[]             @relation("PersonalPromoRecipient")
+  marketingNotices            MarketingNotice[]
 
   @@map("users")
 }
@@ -155,6 +156,7 @@ model EmailCampaign {
   id          Int       @id @default(autoincrement())
   subject     String
   body        String
+  settingsJson String?
   audience    String    @default("all")
   status      String    @default("PENDING")
   total       Int       @default(0)
@@ -164,8 +166,35 @@ model EmailCampaign {
   createdById Int?
   createdAt   DateTime  @default(now())
   sentAt      DateTime?
+  notices     MarketingNotice[]
 
   @@map("email_campaigns")
+}
+
+model MarketingNotice {
+  id             Int           @id @default(autoincrement())
+  campaignId     Int
+  campaign       EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId         Int
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  body           String
+  buttonText     String
+  buttonUrl      String
+  imageUrl       String?
+  siteEnabled    Boolean       @default(false)
+  seenAt         DateTime?
+  emailStatus    String        @default("SKIPPED")
+  emailError     String?
+  emailSentAt    DateTime?
+  telegramStatus String        @default("SKIPPED")
+  telegramError  String?
+  telegramSentAt DateTime?
+  createdAt      DateTime      @default(now())
+
+  @@unique([campaignId, userId])
+  @@index([userId, siteEnabled, seenAt, createdAt])
+  @@map("marketing_notices")
 }
 
 model Category {
