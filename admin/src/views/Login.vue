@@ -19,7 +19,7 @@
               v-model="email" 
               required 
               class="input" 
-              placeholder="Nickkirillov001@gmail.com"
+              placeholder="admin@example.com"
             >
           </div>
           
