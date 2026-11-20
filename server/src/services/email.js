@@ -389,12 +389,12 @@ class EmailService {
     })
   }
 
-  async sendCampaignEmail({ to, subject, body }) {
+  async sendCampaignEmail({ to, subject, body, html, text }) {
     return this.sendMail({
       to,
       subject,
-      text: body,
-      html: textToHtml(body)
+      text: text || body,
+      html: html || textToHtml(body)
     })
   }
 }

@@ -92,7 +92,7 @@
                 </label>
               </td>
               <td>
-                <button @click="deletePartner(partner.id)" class="action-btn danger" title="Удалить">
+                <button @click.stop="deletePartner(partner.id)" class="action-btn danger" title="Удалить">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                   </svg>
@@ -314,13 +314,13 @@ async function toggleActive(id, isActive) {
 }
 
 async function deletePartner(id) {
-  if (!confirm('Удалить партнёра?')) return
+  if (!confirm('Удалить партнёра? Его аккаунт останется обычным пользователем. Неиспользованные промокоды будут отключены.')) return
   try {
     await axios.delete(`${API_URL}/${id}`)
     partners.value = partners.value.filter(p => p.id !== id)
     fetchStats()
   } catch (e) {
-    alert('Ошибка удаления')
+    alert(e.response?.data?.error || 'Не удалось удалить партнёра. Попробуйте ещё раз.')
   }
 }
 
@@ -783,6 +783,33 @@ onMounted(() => {
   flex-direction: column;
   gap: 0.55rem;
   margin-bottom: 0.9rem;
+}
+
+.partner-card__controls .toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: fit-content;
+  max-width: 100%;
+  height: 28px;
+  margin-top: 0.25rem;
+  cursor: pointer;
+}
+
+.partner-card__controls .toggle-slider {
+  position: relative;
+  inset: auto;
+  display: block;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 24px;
+}
+
+.partner-card__controls .toggle-label {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .partner-card__actions {

@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import crypto from 'node:crypto'
+import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
 import { authenticate, requireAdmin } from '../middleware/auth.js'
 import { upload } from '../utils/fileUpload.js'
@@ -13,6 +14,7 @@ import { sendCloudKassirIncomeReceiptOnPaidTransition } from '../utils/cloudKass
 import { deleteProductForAdmin } from '../utils/productDeletion.js'
 import { refundUserPointsForOrder, reverseUserPointsRefundForOrder } from '../utils/userPoints.js'
 import emailService from '../services/email.js'
+import { renderEmailCampaign, validateEmailCampaign } from '../utils/emailCampaignTemplate.js'
 import { createReadyCdekWaybill, queueCdekWaybillAfterPayment } from '../services/cdekWaybill.js'
 import cdek from '../services/cdek.js'
 import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
@@ -950,38 +952,41 @@ router.get('/email-campaigns', authenticate, requireAdmin, async (req, res, next
   }
 })
 
+async function emailCampaignRecipients(audience) {
+  if (audience === 'blog') return prisma.blogSubscriber.findMany({ where: { active: true }, select: { id: true, email: true }, orderBy: { createdAt: 'desc' } })
+  return prisma.user.findMany({
+    where: { role: audience === 'partners' ? 'PARTNER' : audience === 'clients' ? 'USER' : { in: ['USER', 'PARTNER'] }, emailVerified: true, marketingConsentAt: { not: null }, marketingUnsubscribedAt: null },
+    select: { id: true, email: true, name: true },
+    orderBy: { createdAt: 'desc' }
+  })
+}
+
+function uniqueEmailRecipients(rows) {
+  const seen = new Set()
+  return rows.filter(row => {
+    const email = String(row.email || '').trim().toLowerCase()
+    if (!email || seen.has(email)) return false
+    seen.add(email)
+    return true
+  })
+}
+
+router.post('/email-campaigns/preview', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const settings = validateEmailCampaign(req.body)
+    const recipients = uniqueEmailRecipients(await emailCampaignRecipients(settings.audience))
+    res.set('Cache-Control', 'no-store').json({ count: recipients.length, sample: renderEmailCampaign(settings, 'Анна') })
+  } catch (error) { next(error) }
+})
+
 router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const subject = String(req.body.subject || '').trim()
-    const body = String(req.body.body || '').trim()
-    const audience = String(req.body.audience || 'all').trim()
-
-    if (!subject || subject.length < 3) {
-      return res.status(400).json({ error: 'Укажите тему письма' })
+    const settings = validateEmailCampaign(req.body)
+    const { subject, body, audience } = settings
+    const recipients = uniqueEmailRecipients(await emailCampaignRecipients(audience))
+    if (!Number.isInteger(req.body.expectedCount) || req.body.expectedCount !== recipients.length) {
+      return res.status(409).json({ error: `Аудитория изменилась: сейчас ${recipients.length} получателей. Проверьте письмо и аудиторию ещё раз.` })
     }
-
-    if (!body || body.length < 10) {
-      return res.status(400).json({ error: 'Текст письма должен быть не короче 10 символов' })
-    }
-
-    const userWhere = {
-      role: { not: 'DELETED' },
-      emailVerified: true
-    }
-
-    if (audience === 'partners') {
-      userWhere.role = 'PARTNER'
-    } else if (audience === 'clients') {
-      userWhere.role = 'USER'
-    }
-
-    const recipients = audience === 'blog'
-      ? await prisma.blogSubscriber.findMany({ where: { active: true }, select: { id: true, email: true }, orderBy: { createdAt: 'desc' } })
-      : await prisma.user.findMany({
-        where: userWhere,
-        select: { id: true, email: true, name: true },
-        orderBy: { createdAt: 'desc' }
-      })
 
     if (!recipients.length) {
       return res.status(400).json({ error: 'Не найдено получателей для выбранной аудитории' })
@@ -1007,11 +1012,17 @@ router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, nex
         const unsubscribeToken = audience === 'blog'
           ? crypto.createHmac('sha256', process.env.JWT_SECRET).update(String(recipient.id)).digest('hex')
           : null
-        const unsubscribe = unsubscribeToken ? `\n\nОтписаться от рассылки блога: https://angel-wings.ru/blog?unsubscribe=${recipient.id}.${unsubscribeToken}` : ''
+        const unsubscribeUrl = unsubscribeToken
+          ? `https://angel-wings.ru/blog?unsubscribe=${recipient.id}.${unsubscribeToken}`
+          : `https://angel-wings.ru/api/recovery/unsubscribe?token=${encodeURIComponent(jwt.sign({ userId: recipient.id, purpose: 'marketing_unsubscribe' }, process.env.JWT_SECRET, { expiresIn: '90d' }))}`
+        const unsubscribe = `\n\nОтписаться от рассылки: ${unsubscribeUrl}`
+        const content = renderEmailCampaign(settings, recipient.name || 'читатель')
         await emailService.sendCampaignEmail({
           to: recipient.email,
           subject,
-          body: body.replace(/\{\{\s*name\s*\}\}/gi, recipient.name || 'читатель') + unsubscribe
+          body: content.text + unsubscribe,
+          text: content.text + unsubscribe,
+          html: content.html + `<p style="text-align:center;font:12px Arial,sans-serif"><a href="${unsubscribeUrl}">Отписаться от рассылки</a></p>`
         })
         sent += 1
       } catch (error) {

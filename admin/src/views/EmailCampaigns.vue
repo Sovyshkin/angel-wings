@@ -7,8 +7,107 @@
       </div>
     </div>
 
-    <PointsCampaigns />
+    <div class="campaign-layout">
+      <section class="campaign-card">
+        <div class="card-heading">
+          <span class="card-kicker">Email · акции и новости</span>
+          <h2>Создать рассылку</h2>
+          <p>Выберите сценарий, дополните текст и проверьте письмо перед отправкой. Имя получателя: <code v-pre>{{name}}</code>.</p>
+        </div>
 
+        <form class="campaign-form" @submit.prevent="sendCampaign">
+          <div class="template-picker" role="group" aria-label="Шаблон письма">
+            <button v-for="template in templates" :key="template.type" type="button" :class="['template-option', { selected: form.type === template.type }]" @click="applyTemplate(template.type)"><span>{{ template.label }}</span><small>{{ template.hint }}</small></button>
+          </div>
+
+          <label>
+            <span>Аудитория</span>
+            <select v-model="form.audience" class="input">
+              <option value="all">Пользователи с согласием на email</option>
+              <option value="clients">Только клиенты</option>
+              <option value="partners">Только партнёры</option>
+              <option value="blog">Подписчики блога</option>
+            </select>
+            <small>Клиентам и партнёрам письма уйдут только при подтверждённой почте и согласии на рассылку. Отписавшиеся исключены.</small>
+          </label>
+
+          <div v-if="['NEW_PRODUCT', 'PRODUCT_DISCOUNT'].includes(form.type)" class="product-search">
+            <label><span>Товар для письма</span><input v-model.trim="productQuery" class="input" type="search" placeholder="Найдите товар по названию или артикулу"></label>
+            <div v-if="productLoading" class="product-search-state">Ищем товары…</div>
+            <div v-else-if="productResults.length" class="product-results"><button v-for="product in productResults" :key="product.id" type="button" @click="selectProduct(product)"><strong>{{ product.title }}</strong><small>#{{ product.id }} · {{ product.price.toLocaleString('ru-RU') }} ₽</small></button></div>
+            <p v-if="selectedProduct" class="selected-product">Выбран: {{ selectedProduct.title }} · ссылка и изображение подставлены в письмо.</p>
+          </div>
+
+          <label>
+            <span>Тема письма</span>
+            <input v-model.trim="form.subject" class="input" type="text" maxlength="200" placeholder="Например: Новые поступления Angel Wings" required>
+          </label>
+
+          <label><span>Заголовок внутри письма</span><input v-model.trim="form.headline" class="input" type="text" maxlength="160" required></label>
+
+          <label>
+            <span>Текст письма</span>
+            <textarea
+              v-model="form.body"
+              class="input textarea"
+              rows="9"
+              maxlength="5000"
+              placeholder="Здравствуйте, {{name}}!&#10;&#10;Расскажите здесь о новости, акции или важном уведомлении."
+              required
+            />
+          </label>
+
+          <div class="campaign-fields-two"><label><span>Текст кнопки (необязательно)</span><input v-model.trim="form.buttonText" class="input" type="text" maxlength="80" placeholder="Посмотреть товар"></label><label><span>Ссылка кнопки</span><input v-model.trim="form.buttonUrl" class="input" type="url" placeholder="https://angel-wings.ru/product/123"></label></div>
+          <label><span>Ссылка на изображение (необязательно)</span><input v-model.trim="form.imageUrl" class="input" type="url" placeholder="https://angel-wings.ru/uploads/…"><small>Изображение должно быть на сайте Angel Wings. При выборе товара подставится автоматически.</small></label>
+
+          <div class="campaign-review"><button class="btn btn-secondary" type="button" :disabled="loading || previewLoading" @click="previewCampaign">{{ previewLoading ? 'Проверяем…' : 'Проверить письмо и аудиторию' }}</button><span v-if="previewCount !== null">Получателей: <strong>{{ previewCount }}</strong>. Проверка ничего не отправляет.</span></div>
+          <div v-if="previewHtml" class="mail-preview"><div><strong>Так выглядит письмо</strong><small>Пример для получателя по имени Анна</small></div><iframe title="Предпросмотр письма" :srcdoc="previewHtml" sandbox="" loading="lazy"></iframe></div>
+
+          <div v-if="message" :class="['notice', messageType]">{{ message }}</div>
+
+          <button class="btn btn-primary send-btn" type="submit" :disabled="loading || previewCount === null || previewCount === 0">
+            <span v-if="loading" class="spinner"></span>
+            <span v-else>Отправить {{ previewCount ?? '—' }} получателям</span>
+          </button>
+        </form>
+      </section>
+
+      <section class="campaign-card history-card">
+        <div class="card-heading">
+          <span class="card-kicker">История</span>
+          <h2>Последние рассылки</h2>
+          <p>Здесь видно, сколько писем отправлено и были ли ошибки.</p>
+        </div>
+
+        <div v-if="historyLoading" class="empty-state">Загружаем историю...</div>
+        <div v-else-if="!campaigns.length" class="empty-state">Рассылок пока нет</div>
+
+        <div v-else class="campaign-list">
+          <article v-for="campaign in campaigns" :key="campaign.id" class="campaign-item">
+            <div class="campaign-item__top">
+              <div>
+                <h3>{{ campaign.subject }}</h3>
+                <p>{{ getAudienceLabel(campaign.audience) }} · {{ formatDate(campaign.createdAt) }}</p>
+              </div>
+              <span :class="['status-pill', getStatusClass(campaign.status)]">
+                {{ getStatusLabel(campaign.status) }}
+              </span>
+            </div>
+
+            <div class="campaign-stats">
+              <span>Всего: <strong>{{ campaign.total }}</strong></span>
+              <span>Отправлено: <strong>{{ campaign.sent }}</strong></span>
+              <span>Ошибок: <strong>{{ campaign.failed }}</strong></span>
+            </div>
+
+            <details v-if="campaign.errorLog" class="error-details">
+              <summary>Показать ошибки</summary>
+              <pre>{{ campaign.errorLog }}</pre>
+            </details>
+          </article>
+        </div>
+      </section>
+    </div>
     <section class="recovery-console">
       <div class="recovery-console__heading">
         <div>
@@ -91,96 +190,33 @@
       <div v-if="recoveryMessage" :class="['notice', recoveryMessageType]">{{ recoveryMessage }}</div>
     </section>
 
-    <div class="campaign-layout">
-      <section class="campaign-card">
-        <div class="card-heading">
-          <span class="card-kicker">Новое письмо</span>
-          <h2>Создать рассылку</h2>
-          <p>Можно использовать <code v-pre>{{name}}</code>, чтобы подставить имя получателя.</p>
-        </div>
-
-        <form class="campaign-form" @submit.prevent="sendCampaign">
-          <label>
-            <span>Аудитория</span>
-            <select v-model="form.audience" class="input">
-              <option value="all">Все подтверждённые пользователи</option>
-              <option value="clients">Только клиенты</option>
-              <option value="partners">Только партнёры</option>
-              <option value="blog">Подписчики блога</option>
-            </select>
-          </label>
-
-          <label>
-            <span>Тема письма</span>
-            <input v-model="form.subject" class="input" type="text" placeholder="Например: Новые поступления Angel Wings" required>
-          </label>
-
-          <label>
-            <span>Текст письма</span>
-            <textarea
-              v-model="form.body"
-              class="input textarea"
-              rows="9"
-              placeholder="Здравствуйте, {{name}}!&#10;&#10;Расскажите здесь о новости, акции или важном уведомлении."
-              required
-            />
-          </label>
-
-          <div v-if="message" :class="['notice', messageType]">{{ message }}</div>
-
-          <button class="btn btn-primary send-btn" type="submit" :disabled="loading">
-            <span v-if="loading" class="spinner"></span>
-            <span v-else>Отправить рассылку</span>
-          </button>
-        </form>
-      </section>
-
-      <section class="campaign-card history-card">
-        <div class="card-heading">
-          <span class="card-kicker">История</span>
-          <h2>Последние рассылки</h2>
-          <p>Здесь видно, сколько писем отправлено и были ли ошибки.</p>
-        </div>
-
-        <div v-if="historyLoading" class="empty-state">Загружаем историю...</div>
-        <div v-else-if="!campaigns.length" class="empty-state">Рассылок пока нет</div>
-
-        <div v-else class="campaign-list">
-          <article v-for="campaign in campaigns" :key="campaign.id" class="campaign-item">
-            <div class="campaign-item__top">
-              <div>
-                <h3>{{ campaign.subject }}</h3>
-                <p>{{ getAudienceLabel(campaign.audience) }} · {{ formatDate(campaign.createdAt) }}</p>
-              </div>
-              <span :class="['status-pill', getStatusClass(campaign.status)]">
-                {{ getStatusLabel(campaign.status) }}
-              </span>
-            </div>
-
-            <div class="campaign-stats">
-              <span>Всего: <strong>{{ campaign.total }}</strong></span>
-              <span>Отправлено: <strong>{{ campaign.sent }}</strong></span>
-              <span>Ошибок: <strong>{{ campaign.failed }}</strong></span>
-            </div>
-
-            <details v-if="campaign.errorLog" class="error-details">
-              <summary>Показать ошибки</summary>
-              <pre>{{ campaign.errorLog }}</pre>
-            </details>
-          </article>
-        </div>
-      </section>
-    </div>
+    <PointsCampaigns />
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import PointsCampaigns from '../components/PointsCampaigns.vue'
 
 const campaigns = ref([])
+const templates = [
+  { type: 'NEW_PRODUCT', label: 'Новый товар', hint: 'Презентация новинки' },
+  { type: 'PRODUCT_DISCOUNT', label: 'Скидка на товар', hint: 'Акцент на предложении' },
+  { type: 'SALE', label: 'Общая акция', hint: 'Скидки в каталоге' },
+  { type: 'NEWS', label: 'Новость', hint: 'Важное сообщение' },
+  { type: 'CUSTOM', label: 'Своё письмо', hint: 'Текст с нуля' }
+]
 const loading = ref(false)
+const previewLoading = ref(false)
+const previewCount = ref(null)
+const previewHtml = ref('')
+const productQuery = ref('')
+const productResults = ref([])
+const productLoading = ref(false)
+const selectedProduct = ref(null)
+let productTimer
+let productRequest = 0
 const historyLoading = ref(false)
 const message = ref('')
 const messageType = ref('success')
@@ -201,9 +237,75 @@ const recoverySettings = ref({
 
 const form = ref({
   audience: 'all',
+  type: 'NEW_PRODUCT',
   subject: '',
-  body: ''
+  headline: '',
+  body: '',
+  buttonText: '',
+  buttonUrl: '',
+  imageUrl: ''
 })
+
+function applyTemplate(type, product = selectedProduct.value) {
+  const name = product?.title || 'новинка Angel Wings'
+  const productUrl = product ? `https://angel-wings.ru/product/${product.id}` : 'https://angel-wings.ru/catalog'
+  const presets = {
+    NEW_PRODUCT: { subject: `Знакомьтесь: ${name}`, headline: 'Новая позиция в каталоге', body: `Здравствуйте, {{name}}!\n\nУ нас появился новый товар — ${name}. Узнайте о нём подробнее и выберите подходящий вариант в каталоге.`, buttonText: 'Посмотреть товар', buttonUrl: productUrl },
+    PRODUCT_DISCOUNT: { subject: `Специальное предложение: ${name}`, headline: 'На выбранный товар действует скидка', body: `Здравствуйте, {{name}}!\n\nДля ${name} сейчас действует специальная цена. Актуальную стоимость и доступные варианты смотрите на странице товара.`, buttonText: 'Посмотреть предложение', buttonUrl: productUrl },
+    SALE: { subject: 'Специальные предложения Angel Wings', headline: 'В каталоге действуют скидки', body: 'Здравствуйте, {{name}}!\n\nМы подготовили специальные предложения на товары Angel Wings. Посмотрите актуальные цены и выберите то, что вам подходит.', buttonText: 'Открыть каталог', buttonUrl: 'https://angel-wings.ru/catalog' },
+    NEWS: { subject: 'Новости Angel Wings', headline: 'Есть новости для вас', body: 'Здравствуйте, {{name}}!\n\nРассказываем о важном обновлении Angel Wings. Подробности вы найдёте на нашем сайте.', buttonText: 'Перейти на сайт', buttonUrl: 'https://angel-wings.ru/' },
+    CUSTOM: { subject: '', headline: '', body: 'Здравствуйте, {{name}}!\n\n', buttonText: '', buttonUrl: '' }
+  }
+  form.value = { ...form.value, type, ...presets[type], imageUrl: product && ['NEW_PRODUCT', 'PRODUCT_DISCOUNT'].includes(type) ? publicImage(product.image || product.images?.[0]) : '' }
+}
+
+function publicImage(value) {
+  if (!value) return ''
+  try {
+    const url = new URL(value, 'https://angel-wings.ru')
+    return url.origin === 'https://angel-wings.ru' && /\.(png|jpe?g|webp)$/i.test(url.pathname) ? url.href : ''
+  } catch { return '' }
+}
+
+watch(form, () => { previewCount.value = null; previewHtml.value = '' }, { deep: true })
+watch(productQuery, query => {
+  clearTimeout(productTimer)
+  const request = ++productRequest
+  productResults.value = []
+  if (selectedProduct.value?.title === query) { productLoading.value = false; return }
+  selectedProduct.value = null
+  if (query.trim().length < 2) { productLoading.value = false; return }
+  productLoading.value = true
+  productTimer = setTimeout(async () => {
+    try {
+      const { data } = await axios.get('/api/admin/products', { params: { q: query.trim(), active: true, limit: 8 } })
+      if (request === productRequest) productResults.value = data.products || []
+    } catch { if (request === productRequest) productResults.value = [] }
+    finally { if (request === productRequest) productLoading.value = false }
+  }, 250)
+})
+
+function selectProduct(product) {
+  selectedProduct.value = product
+  productQuery.value = product.title
+  productResults.value = []
+  applyTemplate(form.value.type, product)
+}
+
+async function previewCampaign() {
+  previewLoading.value = true
+  message.value = ''
+  try {
+    const { data } = await axios.post('/api/admin/email-campaigns/preview', form.value)
+    previewCount.value = data.count
+    previewHtml.value = data.sample.html
+  } catch (error) {
+    messageType.value = 'error'
+    message.value = error.response?.data?.error || 'Не удалось проверить письмо'
+  } finally { previewLoading.value = false }
+}
+
+applyTemplate('NEW_PRODUCT')
 
 async function loadCampaigns() {
   historyLoading.value = true
@@ -274,17 +376,21 @@ async function scheduleTestEmail() {
 }
 
 async function sendCampaign() {
+  if (previewCount.value === null || previewCount.value === 0) return
   message.value = ''
   loading.value = true
 
   try {
-    const { data } = await axios.post('/api/admin/email-campaigns', form.value)
+    const { data } = await axios.post('/api/admin/email-campaigns', { ...form.value, expectedCount: previewCount.value })
     campaigns.value = [data.campaign, ...campaigns.value]
-    form.value.subject = ''
-    form.value.body = ''
+    selectedProduct.value = null
+    productQuery.value = ''
+    applyTemplate(form.value.type, null)
     messageType.value = data.campaign.failed > 0 ? 'warning' : 'success'
     message.value = `Рассылка завершена: отправлено ${data.campaign.sent} из ${data.campaign.total}.`
   } catch (error) {
+    previewCount.value = null
+    previewHtml.value = ''
     messageType.value = 'error'
     message.value = error.response?.data?.error || 'Не удалось отправить рассылку'
   } finally {
@@ -342,6 +448,7 @@ function getRecoveryTypeLabel(type) {
 }
 
 onMounted(() => Promise.all([loadCampaigns(), loadRecoverySettings()]))
+onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++ })
 </script>
 
 <style scoped>
@@ -511,6 +618,26 @@ onMounted(() => Promise.all([loadCampaigns(), loadRecoverySettings()]))
   display: grid;
   gap: 1rem;
 }
+
+.template-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: .55rem; }
+.template-option { display: grid; gap: .25rem; min-height: 78px; padding: .8rem; text-align: left; color: var(--text-primary); background: var(--bg-input); border: 1px solid var(--border); border-radius: 15px; cursor: pointer; transition: border-color .15s, background .15s; }
+.template-option:hover, .template-option.selected { border-color: var(--accent); background: rgba(165, 184, 255, .12); }
+.template-option span { font-weight: 800; }
+.template-option small { color: var(--text-secondary); line-height: 1.25; }
+.campaign-fields-two { display: grid; grid-template-columns: 1fr 1.35fr; gap: .75rem; }
+.campaign-form label small { color: var(--text-secondary); font-weight: 400; line-height: 1.4; }
+.product-search { position: relative; display: grid; gap: .5rem; }
+.product-search-state, .selected-product { margin: 0; color: var(--text-secondary); font-size: .85rem; }
+.product-results { display: grid; max-height: 210px; overflow: auto; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; }
+.product-results button { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .8rem 1rem; border: 0; border-bottom: 1px solid var(--border); color: var(--text-primary); background: transparent; text-align: left; cursor: pointer; }
+.product-results button:hover { background: rgba(165, 184, 255, .12); }
+.product-results small { white-space: nowrap; color: var(--text-secondary); }
+.campaign-review { display: flex; align-items: center; flex-wrap: wrap; gap: .8rem; }
+.campaign-review span { color: var(--text-secondary); font-size: .86rem; }
+.mail-preview { display: grid; gap: .7rem; padding: .75rem; border: 1px solid var(--border); border-radius: 16px; }
+.mail-preview > div { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.mail-preview small { color: var(--text-secondary); }
+.mail-preview iframe { width: 100%; height: 520px; border: 0; border-radius: 10px; background: white; }
 
 .campaign-form label {
   display: grid;
@@ -682,5 +809,7 @@ onMounted(() => Promise.all([loadCampaigns(), loadRecoverySettings()]))
   .recovery-grid { grid-template-columns: 1fr; }
   .recovery-actions { width: 100%; flex-wrap: wrap; }
   .test-email-bar { grid-template-columns: 1fr; }
+  .campaign-fields-two { grid-template-columns: 1fr; }
+  .mail-preview > div { display: grid; }
 }
 </style>

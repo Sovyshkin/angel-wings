@@ -1440,26 +1440,42 @@ router.get('/:id', authenticate, requireAdmin, async (req, res, next) => {
 
 router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const partner = await prisma.partner.findUnique({
-      where: { id: parseInt(req.params.id) },
-      include: { user: true }
+    const id = Number(req.params.id)
+    if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректный ID партнёра' })
+
+    const result = await prisma.$transaction(async tx => {
+      const partner = await tx.partner.findUnique({ where: { id }, select: { userId: true } })
+      if (!partner) return { status: 404, error: 'Партнёр не найден' }
+
+      const [commissions, payments, bindings, orders, promoCodes] = await Promise.all([
+        tx.partnerCommission.count({ where: { partnerId: id } }),
+        tx.partnerPayment.count({ where: { partnerId: id } }),
+        tx.partnerUser.count({ where: { partnerId: id } }),
+        tx.order.count({ where: { partnerId: id } }),
+        tx.promoCode.findMany({ where: { partnerId: id }, select: { id: true, activationCount: true } })
+      ])
+      const promoOrders = promoCodes.length
+        ? await tx.order.count({ where: { promoCodeId: { in: promoCodes.map(code => code.id) } } })
+        : 0
+      const usedPromoCodes = promoCodes.filter(code => code.activationCount > 0).length
+      const blockers = [
+        commissions && `комиссии (${commissions})`, payments && `операции по балансу и выплатам (${payments})`,
+        bindings && `привязанные пользователи (${bindings})`, orders && `заказы (${orders})`,
+        (promoOrders || usedPromoCodes) && `использованные промокоды (${Math.max(promoOrders, usedPromoCodes)})`
+      ].filter(Boolean)
+      if (blockers.length) return { status: 409, error: `Партнёра нельзя удалить: есть ${blockers.join(', ')}. Чтобы прекратить его работу и сохранить историю, выключите переключатель «Активен».` }
+
+      // Keep unused codes and applications for audit, but remove their link to the deleted partner.
+      await tx.promoCode.updateMany({ where: { partnerId: id }, data: { partnerId: null, isActive: false } })
+      await tx.partnerApplication.updateMany({ where: { partnerId: id }, data: { partnerId: null } })
+      await tx.partner.delete({ where: { id } })
+      await tx.user.updateMany({ where: { id: partner.userId, role: 'PARTNER' }, data: { role: 'USER' } })
+      return { message: 'Партнёр удалён. Его аккаунт сохранён как обычный пользователь.' }
     })
-
-    if (!partner) {
-      return res.status(404).json({ error: 'Партнёр не найден' })
-    }
-
-    await prisma.partner.delete({
-      where: { id: parseInt(req.params.id) }
-    })
-
-    await prisma.user.update({
-      where: { id: partner.userId },
-      data: { role: 'USER' }
-    })
-
-    res.json({ message: 'Partner deleted' })
+    if (result.status) return res.status(result.status).json({ error: result.error })
+    res.json(result)
   } catch (error) {
+    if (error.code === 'P2003') return res.status(409).json({ error: 'Партнёра нельзя удалить из-за связанных записей. Выключите его статус «Активен» или проверьте связанные данные.' })
     next(error)
   }
 })
