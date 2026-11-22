@@ -15,6 +15,20 @@ select.aw-custom-select-source { pointer-events: none !important; }
 [data-theme="light"] select:not([multiple]):not([size]),
 [data-theme="light"] select[size="1"] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%232859b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important; }
 
+@media (max-width: 640px), (pointer: coarse) {
+  select:not([multiple]):not([size]),
+  select[size="1"],
+  [data-theme="light"] select:not([multiple]):not([size]),
+  [data-theme="light"] select[size="1"] {
+    appearance: auto !important;
+    -webkit-appearance: menulist !important;
+    background-image: none !important;
+    padding-right: .85rem !important;
+  }
+  .aw-select-touch-target { display: none !important; }
+  select.aw-custom-select-source { pointer-events: auto !important; }
+}
+
 .aw-select-scrim { position: fixed; inset: 0; z-index: 2147483000; background: transparent; }
 .aw-select-scrim.is-mobile { background: rgba(2, 6, 18, .68); backdrop-filter: blur(5px); }
 .aw-select-menu { --aw-select-accent: var(--accent, #9cc8ff); --aw-select-highlight: var(--accent-dim, rgba(165, 184, 255, .14)); --aw-select-surface: var(--bg-card, #0d1730); --aw-select-input: var(--bg-secondary, #101d38); --aw-select-text: var(--text-primary, #f7faff); --aw-select-muted: var(--text-secondary, #a9b7d0); position: fixed; z-index: 2147483001; display: flex; flex-direction: column; overflow: hidden; padding: .4rem; border: 1px solid var(--border-hover, rgba(165, 184, 255, .28)); border-radius: 16px; background: var(--aw-select-surface); box-shadow: 0 22px 58px rgba(0, 0, 0, .42); color: var(--aw-select-text); font-family: var(--font-body, Manrope, sans-serif); animation: aw-select-enter .16s ease-out; }

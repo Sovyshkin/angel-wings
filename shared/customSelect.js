@@ -11,6 +11,7 @@ let touchSyncScheduled = false
 
 const isSelect = target => target instanceof HTMLSelectElement && !target.multiple && target.size <= 1
 const isMobile = () => window.matchMedia('(max-width: 640px)').matches
+const useNativeSelect = () => window.matchMedia('(max-width: 640px), (pointer: coarse)').matches
 
 function updateTouchTarget(select, button) {
   if (!select.isConnected || !select.parentElement) return
@@ -33,7 +34,7 @@ function updateTouchTarget(select, button) {
 function syncTouchTargets() {
   touchSyncScheduled = false
   for (const [select, entry] of touchTargets) {
-    if (select.isConnected && isSelect(select)) continue
+    if (!useNativeSelect() && select.isConnected && isSelect(select)) continue
     entry.observer.disconnect()
     entry.attributeObserver.disconnect()
     entry.button.remove()
@@ -42,6 +43,7 @@ function syncTouchTargets() {
     select.tabIndex = entry.tabIndex
     touchTargets.delete(select)
   }
+  if (useNativeSelect()) return
   for (const select of document.querySelectorAll('select')) {
     if (!isSelect(select)) continue
     let entry = touchTargets.get(select)
@@ -224,7 +226,7 @@ function moveActive(state, direction) {
 }
 
 function openMenu(select) {
-  if (select.disabled || !select.isConnected) return
+  if (useNativeSelect() || select.disabled || !select.isConnected) return
   if (select === selectedSelect && Date.now() - selectedAt < 500) return
   closeMenu()
   const options = getOptions(select)
@@ -293,6 +295,7 @@ function openMenu(select) {
 }
 
 function onPointerDown(event) {
+  if (useNativeSelect()) return
   if (!isSelect(event.target)) return
   event.preventDefault()
   pointerSelect = event.target
@@ -301,6 +304,7 @@ function onPointerDown(event) {
 }
 
 function onClick(event) {
+  if (useNativeSelect()) return
   const label = event.target instanceof Element ? event.target.closest('label') : null
   const labelSelect = label?.control
   if (isSelect(labelSelect) && touchTargets.has(labelSelect)) {
@@ -314,6 +318,7 @@ function onClick(event) {
 }
 
 function onKeyDown(event) {
+  if (useNativeSelect()) return
   const select = isSelect(event.target) ? event.target : touchButtons.get(event.target) || null
   const state = current
   if (!select && (!state || (event.target !== state.search && !state.menu.contains(event.target)))) return
@@ -361,6 +366,7 @@ export function installCustomSelects() {
   document.addEventListener('click', onClick, true)
   document.addEventListener('keydown', onKeyDown, true)
   document.addEventListener('invalid', event => {
+    if (useNativeSelect()) return
     if (!isSelect(event.target) || !touchTargets.has(event.target)) return
     event.preventDefault()
     openMenu(event.target)
@@ -371,5 +377,13 @@ export function installCustomSelects() {
     else positionMenu(current)
     scheduleTouchTargetSync()
   }, true)
-  window.addEventListener('resize', () => { if (current) positionMenu(current); scheduleTouchTargetSync() })
+  window.addEventListener('resize', () => {
+    if (current && useNativeSelect()) closeMenu()
+    else if (current) positionMenu(current)
+    scheduleTouchTargetSync()
+  })
+  window.matchMedia('(max-width: 640px), (pointer: coarse)').addEventListener('change', () => {
+    if (useNativeSelect()) closeMenu()
+    scheduleTouchTargetSync()
+  })
 }
