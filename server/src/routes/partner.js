@@ -1077,7 +1077,7 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
     // The first sheet follows the supplied per-product orders ledger.
     const summary = workbook.addWorksheet('Заказы', { views: [{ state: 'frozen', ySplit: 1 }] })
     const detail = workbook.addWorksheet('Состав заказов', { views: [{ state: 'frozen', ySplit: 1 }] })
-    summary.addRow(['номер заказа', 'дата/время', 'имя', 'номер', 'почта', 'статус', 'позиции', 'кол-во', 'фулпрайс', 'итого', 'промокод', 'Партнер', '% скидки', 'после скидки', 'Итого заказа', '% комиссии', 'размер комиссии', 'способ оплаты', '% эквайринг', 'размер эквайринг', 'НДС', 'УСН', 'Прибыль грязь', 'себес шт', 'себес х кол-во', 'Прибыль'])
+    summary.addRow(['номер заказа', 'дата/время', 'имя', 'номер', 'почта', 'доставка', 'статус', 'позиции', 'кол-во', 'фулпрайс', 'итого', 'промокод', 'Партнер', '% скидки', 'после скидки', 'Итого заказа', '% комиссии', 'размер комиссии', 'способ оплаты', '% эквайринг', 'размер эквайринг', 'НДС', 'УСН', 'Прибыль грязь', 'себес шт', 'себес х кол-во', 'Прибыль'])
     detail.columns = [
       { header: 'Заказ', width: 12 }, { header: 'Дата', width: 19 }, { header: 'Партнёр', width: 28 },
       { header: 'Товар', width: 44 }, { header: 'Артикул', width: 18 }, { header: 'Количество, шт.', width: 13 },
@@ -1107,17 +1107,17 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
         const productName = item ? `${item.title}${manualNote}` : 'Нет позиций'
         const summaryRow = summary.addRow([
           order.id, order.createdAt, order.customerName, order.customerPhone, order.customerEmail,
-          `${order.status} · ${order.paymentStatus}`, productName, item?.quantity ?? null, item?.price ?? null,
-          item ? { formula: `I${rowNumber}*H${rowNumber}`, result: item.gross } : null,
+          order.status, order.paymentStatus, productName, item?.quantity ?? null, item?.price ?? null,
+          item ? { formula: `J${rowNumber}*I${rowNumber}`, result: item.gross } : null,
           order.promoCode || '—', order.partnerName, discountPercent,
-          item ? { formula: `J${rowNumber}*(1-M${rowNumber})`, result: item.net } : null,
+          item ? { formula: `K${rowNumber}*(1-N${rowNumber})`, result: item.net } : null,
           order.total, commissionPercent, positionAmounts.commission,
           item?.paymentType || order.paymentType, acquiringPercent, positionAmounts.acquiring,
           vat, usn, positionAmounts.balance, item?.unitCost ?? null,
-          item ? { formula: `X${rowNumber}*H${rowNumber}`, result: item.cost } : null,
-          item?.profit == null ? null : { formula: `W${rowNumber}-Y${rowNumber}`, result: item.profit }
+          item ? { formula: `Y${rowNumber}*I${rowNumber}`, result: item.cost } : null,
+          item?.profit == null ? null : { formula: `X${rowNumber}-Z${rowNumber}`, result: item.profit }
         ])
-        summaryRow.getCell(7).alignment = { vertical: 'middle', wrapText: true }
+        summaryRow.getCell(8).alignment = { vertical: 'middle', wrapText: true }
         summaryRow.height = Math.max(20, Math.ceil(productName.length / 35) * 16)
       })
       order.items.forEach((item, index) => {
@@ -1132,7 +1132,7 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
 
     summary.columns = [
       { width: 14 }, { width: 19 }, { width: 27 }, { width: 20 }, { width: 30 },
-      { width: 18 }, { width: 48 }, { width: 11 }, { width: 14 }, { width: 16 },
+      { width: 18 }, { width: 18 }, { width: 48 }, { width: 11 }, { width: 14 }, { width: 16 },
       { width: 18 }, { width: 27 }, { width: 13 }, { width: 17 }, { width: 18 },
       { width: 15 }, { width: 20 }, { width: 19 }, { width: 17 }, { width: 19 },
       { width: 16 }, { width: 16 }, { width: 19 }, { width: 15 }, { width: 18 }, { width: 19 }
@@ -1147,17 +1147,17 @@ router.get(['/orders-export/all', '/orders-export/all-orders'], authenticate, re
       for (let rowIndex = headerRow + 1; rowIndex <= sheet.rowCount; rowIndex++) {
         const row = sheet.getRow(rowIndex)
         row.getCell(2).numFmt = 'dd.mm.yyyy hh:mm'
-        for (const col of sheet === summary ? [9, 10, 14, 15, 17, 20, 21, 22, 23, 24, 25, 26] : [7, 8, 9, 10, 11, 12]) {
+        for (const col of sheet === summary ? [10, 11, 15, 16, 18, 21, 22, 23, 24, 25, 26, 27] : [7, 8, 9, 10, 11, 12]) {
           row.getCell(col).numFmt = '#,##0.00 [$₽-419]'
         }
-        if (sheet === summary) for (const col of [13, 16, 19]) row.getCell(col).numFmt = col === 19 ? '0.00%' : '0.0%'
+        if (sheet === summary) for (const col of [14, 17, 20]) row.getCell(col).numFmt = col === 20 ? '0.00%' : '0.0%'
       }
     }
-    for (const col of [8, 9, 13]) summary.getRow(1).getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCFE2F3' } }
-    for (const col of [16, 19, 24]) summary.getRow(1).getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC9DAF8' } }
+    for (const col of [9, 10, 14]) summary.getRow(1).getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCFE2F3' } }
+    for (const col of [17, 20, 25]) summary.getRow(1).getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC9DAF8' } }
     for (let rowIndex = 2; rowIndex <= summary.rowCount; rowIndex++) {
-      for (const col of [8, 9, 13]) summary.getRow(rowIndex).getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCFE2F3' } }
-      for (const col of [16, 19, 24]) summary.getRow(rowIndex).getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC9DAF8' } }
+      for (const col of [9, 10, 14]) summary.getRow(rowIndex).getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCFE2F3' } }
+      for (const col of [17, 20, 25]) summary.getRow(rowIndex).getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC9DAF8' } }
     }
 
     const fileName = `${allOrders ? 'all-orders' : 'partners-orders'}-${new Date().toISOString().slice(0, 10)}.xlsx`

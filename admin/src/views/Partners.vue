@@ -33,6 +33,10 @@
         <div class="stat-card__value">{{ formatCurrency(stats.totalCommissions || 0) }}</div>
         <div class="stat-card__label">Всего комиссий</div>
       </div>
+      <div class="stat-card card">
+        <div class="stat-card__value">{{ formatCurrency(totalAvailableBalance) }}</div>
+        <div class="stat-card__label">{{ archivedView ? 'Балансы партнёров в архиве' : 'Сумма балансов партнёров' }}</div>
+      </div>
     </div>
 
     <div class="archive-filter">
@@ -281,6 +285,10 @@ const filteredPartners = computed(() => {
     return haystack.includes(query)
   })
 })
+
+const totalAvailableBalance = computed(() =>
+  partners.value.reduce((sum, partner) => sum + Math.round(getAvailableBalance(partner) * 100), 0) / 100
+)
 
 async function fetchPartners() {
   try {
