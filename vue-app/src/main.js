@@ -5,7 +5,6 @@ import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './store/auth'
 import './assets/styles/main.css'
-import { installCustomSelects } from '../../shared/customSelect.js'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -34,4 +33,3 @@ axios.interceptors.response.use(
 )
 
 app.mount('#app')
-installCustomSelects()
