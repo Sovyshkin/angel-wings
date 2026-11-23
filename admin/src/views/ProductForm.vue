@@ -77,6 +77,14 @@
             <small class="field-hint">Через сколько дней после покупки напоминать о повторном заказе. Если пусто, будет 30 дней.</small>
           </div>
         </div>
+        <div v-if="isEdit" class="price-history">
+          <h3>История цен</h3>
+          <p v-if="!priceHistory.length">Изменений цены пока нет.</p>
+          <div v-for="change in priceHistory" :key="change.id" class="price-history__row">
+            <span>{{ new Date(change.createdAt).toLocaleString('ru-RU') }} · {{ change.source === 'BULK' ? 'Массовое изменение' : 'Редактирование' }}<br>Цена: {{ change.before.price }} ₽ → {{ change.after.price }} ₽ · Старая цена: {{ change.before.comparePrice ?? '—' }} → {{ change.after.comparePrice ?? '—' }} · Себестоимость: {{ change.before.costPrice }} → {{ change.after.costPrice }} ₽<small v-if="change.before.dosages.length"> · Цены дозировок сохранены</small></span>
+            <button type="button" class="btn btn-secondary btn-sm" :disabled="loading" @click="restorePrice(change)">Вернуть прежние цены</button>
+          </div>
+        </div>
         
         <fieldset class="form-group category-picker">
           <legend class="form-label">Категории <span>{{ form.categoryIds.length }} выбрано</span></legend>
@@ -392,6 +400,26 @@ const form = ref({
   active: true,
   image: null
 })
+const priceHistory = ref([])
+
+async function fetchPriceHistory() {
+  try {
+    const { data } = await axios.get(`${API_URL}/${route.params.id}/price-history`)
+    priceHistory.value = data.changes || []
+  } catch { priceHistory.value = [] }
+}
+
+async function restorePrice(change) {
+  if (!confirm(`Вернуть прежние цены товара от ${new Date(change.createdAt).toLocaleString('ru-RU')}?`)) return
+  form.value.price = change.before.price
+  form.value.comparePrice = change.before.comparePrice
+  form.value.costPrice = change.before.costPrice
+  for (const variant of dosageVariants.value) {
+    const previous = change.before.dosages.find(item => item.dosage === variant.dosage)
+    if (previous) Object.assign(variant, { price: previous.price, comparePrice: previous.comparePrice, costPrice: previous.costPrice })
+  }
+  await handleSubmit()
+}
 
 const specsArray = ref([])
 const dosageVariants = ref([])
@@ -664,6 +692,7 @@ async function handleSubmit() {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       success.value = 'Товар обновлен!'
+      await fetchPriceHistory()
     } else {
       await axios.post(API_URL, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -681,11 +710,14 @@ async function handleSubmit() {
 onMounted(() => {
   fetchCategories()
   fetchRecommendationOptions()
-  if (isEdit.value) fetchProduct()
+  if (isEdit.value) { fetchProduct(); fetchPriceHistory() }
 })
 </script>
 
 <style scoped>
+.price-history { margin: 1rem 0; padding: 1rem; border: 1px solid var(--border); border-radius: 12px; }
+.price-history__row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 0; border-top: 1px solid var(--border); }
+@media (max-width: 640px) { .price-history__row { flex-direction: column; align-items: stretch; } }
 .page-header {
   margin-bottom: 2rem;
 }

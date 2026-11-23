@@ -184,6 +184,8 @@ model MarketingNotice {
   imageUrl       String?
   siteEnabled    Boolean       @default(false)
   seenAt         DateTime?
+  clickedAt      DateTime?
+  clickCount     Int           @default(0)
   emailStatus    String        @default("SKIPPED")
   emailError     String?
   emailSentAt    DateTime?
@@ -194,6 +196,7 @@ model MarketingNotice {
 
   @@unique([campaignId, userId])
   @@index([userId, siteEnabled, seenAt, createdAt])
+  @@index([campaignId, clickedAt])
   @@map("marketing_notices")
 }
 
@@ -302,12 +305,26 @@ model Product {
   categories       Category[]              @relation("ProductCategories")
   orderItems       OrderItem[]
   analyticsEvents  ProductAnalyticsEvent[]
+  priceChanges     ProductPriceChange[]
   recommendationsFrom ProductRecommendation[] @relation("RecommendationSource")
   recommendationsTo ProductRecommendation[] @relation("RecommendationTarget")
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
 
   @@map("products")
+}
+
+model ProductPriceChange {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  before    String
+  after     String
+  source    String
+  createdAt DateTime @default(now())
+
+  @@index([productId, createdAt])
+  @@map("product_price_changes")
 }
 
 model ProductRecommendation {

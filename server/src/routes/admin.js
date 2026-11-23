@@ -985,6 +985,59 @@ router.get('/email-campaigns', authenticate, requireAdmin, async (req, res, next
   }
 })
 
+router.get('/email-campaigns/analysis-index', authenticate, requireAdmin, async (_req, res, next) => {
+  try {
+    const campaigns = await prisma.emailCampaign.findMany({ select: { id: true, subject: true, createdAt: true }, orderBy: { id: 'desc' } })
+    res.set('Cache-Control', 'no-store').json({ campaigns })
+  } catch (error) { next(error) }
+})
+
+router.get('/email-campaigns/:id/analytics', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректная рассылка' })
+    const campaign = await prisma.emailCampaign.findUnique({ where: { id } })
+    if (!campaign) return res.status(404).json({ error: 'Рассылка не найдена' })
+    const settings = campaign.settingsJson ? JSON.parse(campaign.settingsJson) : {}
+    const notices = await prisma.marketingNotice.findMany({ where: { campaignId: id }, include: { user: { select: { id: true, name: true, email: true } } }, orderBy: { id: 'asc' } })
+    const ids = notices.map(notice => notice.userId)
+    const [orders, promo, offers] = await Promise.all([
+      ids.length ? prisma.order.findMany({ where: { userId: { in: ids }, createdAt: { gte: campaign.createdAt }, paymentStatus: 'PAID', status: { notIn: ['CANCELLED', 'RETURNED'] } }, select: { id: true, userId: true, total: true, createdAt: true, promoCodeId: true } }) : [],
+      settings.promoCode ? prisma.promoCode.findUnique({ where: { code: settings.promoCode }, select: { id: true, code: true } }) : null,
+      ids.length && settings.pointsCampaignKey ? prisma.pointCampaignOffer.findMany({ where: { campaignKey: settings.pointsCampaignKey, userId: { in: ids } }, include: { spends: { include: { order: { select: { paymentStatus: true, status: true } } } } } }) : []
+    ])
+    const offersByUser = new Map(offers.map(offer => [offer.userId, offer]))
+    const ordersByUser = new Map()
+    for (const order of orders) {
+      const items = ordersByUser.get(order.userId) || []
+      items.push(order)
+      ordersByUser.set(order.userId, items)
+    }
+    const recipients = notices.map(notice => {
+      const userOrders = ordersByUser.get(notice.userId) || []
+      const afterClick = notice.clickedAt ? userOrders.filter(order => order.createdAt >= notice.clickedAt) : []
+      const promoOrders = promo ? userOrders.filter(order => order.promoCodeId === promo.id) : []
+      const offer = offersByUser.get(notice.userId)
+      const spentPoints = offer?.spends.filter(spend => spend.createdAt >= campaign.createdAt && spend.order.paymentStatus === 'PAID' && !['CANCELLED', 'RETURNED'].includes(spend.order.status)).reduce((sum, spend) => sum + spend.amount, 0) || 0
+      return {
+        user: notice.user, emailStatus: notice.emailStatus, telegramStatus: notice.telegramStatus,
+        siteSeenAt: notice.seenAt, clickedAt: notice.clickedAt, clickCount: notice.clickCount,
+        paidOrders: userOrders.length, paidTotal: userOrders.reduce((sum, order) => sum + order.total, 0),
+        paidOrdersAfterClick: afterClick.length, paidTotalAfterClick: afterClick.reduce((sum, order) => sum + order.total, 0),
+        promoUses: promoOrders.length, promoTotal: promoOrders.reduce((sum, order) => sum + order.total, 0),
+        pointsClaimed: Boolean(offer?.claimedAt && offer.claimedAt >= campaign.createdAt), spentPoints
+      }
+    })
+    const sum = key => recipients.reduce((total, recipient) => total + recipient[key], 0)
+    res.set('Cache-Control', 'no-store').json({
+      campaign: { id: campaign.id, subject: campaign.subject, audience: campaign.audience, status: campaign.status, createdAt: campaign.createdAt, total: campaign.total, sent: campaign.sent, failed: campaign.failed, trackingAvailable: Boolean(settings.trackingVersion) },
+      promoCode: promo?.code || null, pointsCampaignKey: settings.pointsCampaignKey || null,
+      totals: { recipients: campaign.audience === 'blog' ? campaign.total : recipients.length, emailSent: campaign.audience === 'blog' ? campaign.sent : recipients.filter(row => row.emailStatus === 'SENT').length, telegramSent: recipients.filter(row => row.telegramStatus === 'SENT').length, siteSeen: recipients.filter(row => row.siteSeenAt).length, clicked: recipients.filter(row => row.clickedAt).length, clicks: sum('clickCount'), purchased: recipients.filter(row => row.paidOrders > 0).length, purchasedAfterClick: recipients.filter(row => row.paidOrdersAfterClick > 0).length, paidTotalAfterClick: sum('paidTotalAfterClick'), promoUsers: recipients.filter(row => row.promoUses > 0).length, promoUses: sum('promoUses'), pointsClaimed: recipients.filter(row => row.pointsClaimed).length, pointsSpentUsers: recipients.filter(row => row.spentPoints > 0).length, spentPoints: sum('spentPoints') },
+      recipients
+    })
+  } catch (error) { next(error) }
+})
+
 function marketingAudienceFingerprint(recipients) {
   return crypto.createHash('sha256').update(JSON.stringify({
     emails: recipients.emails.map(item => `${item.id}:${String(item.email).trim().toLowerCase()}`),
@@ -1003,6 +1056,8 @@ router.post('/email-campaigns/preview', authenticate, requireAdmin, async (req, 
 router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const settings = validateEmailCampaign(req.body)
+    if (settings.promoCode && !await prisma.promoCode.findUnique({ where: { code: settings.promoCode } })) return res.status(400).json({ error: 'Промокод для анализа не найден' })
+    if (settings.pointsCampaignKey && !await prisma.pointsCampaign.findUnique({ where: { key: settings.pointsCampaignKey } })) return res.status(400).json({ error: 'Бонусная кампания для анализа не найдена' })
     const { subject, body, audience } = settings
     const recipients = await resolveMarketingAudience(prisma, settings)
     if (!Number.isInteger(req.body.expectedCount) || req.body.expectedCount !== recipients.counts.total || (req.body.expectedAudienceHash && req.body.expectedAudienceHash !== marketingAudienceFingerprint(recipients))) {
@@ -1017,7 +1072,7 @@ router.post('/email-campaigns', authenticate, requireAdmin, async (req, res, nex
       const created = await tx.emailCampaign.create({
         data: {
           subject, body, audience, total: recipients.counts.total, status: 'SENDING',
-          settingsJson: audience === 'blog' ? null : JSON.stringify(settings), createdById: req.user.id
+          settingsJson: audience === 'blog' ? null : JSON.stringify({ ...settings, trackingVersion: 1 }), createdById: req.user.id
         }
       })
       if (audience !== 'blog') {

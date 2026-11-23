@@ -6,6 +6,7 @@
         <p class="page-subtitle">Управление каталогом товаров</p>
       </div>
       <div class="header-actions">
+        <button type="button" class="btn btn-secondary" @click="priceDialogOpen = true">Изменить цены</button>
         <button type="button" class="btn btn-secondary stock-open-btn" @click="openStockDialog">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
             <path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/><path d="M12 6v4m-2-2h4"/>
@@ -42,6 +43,7 @@
         <table class="data-table">
           <thead>
             <tr>
+              <th><input type="checkbox" aria-label="Выбрать товары на странице" :checked="products.length > 0 && products.every(p => selectedPriceIds.includes(p.id))" @change="toggleAllPrices($event.target.checked)"></th>
               <th>ID</th>
               <th>Название</th>
               <th>Категория</th>
@@ -54,6 +56,7 @@
           </thead>
           <tbody>
             <tr v-for="product in products" :key="product.id">
+              <td><input type="checkbox" :aria-label="`Выбрать ${product.title}`" :checked="selectedPriceIds.includes(product.id)" @change="togglePrice(product.id)"></td>
               <td class="cell-id">{{ product.id }}</td>
               <td>
                 <div class="product-cell">
@@ -93,6 +96,7 @@
 
       <div class="products-cards">
         <div v-for="product in products" :key="product.id" class="product-card card">
+          <label class="price-card-select"><input type="checkbox" :checked="selectedPriceIds.includes(product.id)" @change="togglePrice(product.id)"> Выбрать для изменения цены</label>
           <div class="product-card__header">
             <img v-if="product.image" :src="product.image" :alt="product.title" class="product-card__img">
             <div v-else class="product-card__img-placeholder">
@@ -146,6 +150,25 @@
         <router-link :to="{ path: '/products/new', query: listQuery }" class="btn btn-primary btn-sm">Добавить первый</router-link>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="priceDialogOpen" class="stock-overlay" @click.self="priceDialogOpen = false">
+        <section class="stock-dialog price-dialog" role="dialog" aria-modal="true" aria-label="Массовое изменение цен">
+          <div class="stock-dialog__header"><div><h2>Изменить цены</h2><p>Выберите товары в списке. Пустые поля останутся без изменений. Цены отдельных дозировок меняются в карточке товара.</p></div><button type="button" class="stock-icon-button" @click="priceDialogOpen = false">×</button></div>
+          <p>Выбрано: {{ selectedPriceIds.length }}. На этой странице:</p>
+          <div class="price-dialog__products">
+            <label v-for="product in products" :key="product.id"><input type="checkbox" :checked="selectedPriceIds.includes(product.id)" @change="togglePrice(product.id)"> {{ product.title }} · {{ formatPrice(product.price) }}</label>
+          </div>
+          <div class="price-dialog__fields">
+            <label>Новая цена, ₽<input v-model="bulkPrice" type="number" min="0" step="0.01" class="input"></label>
+            <label>Старая цена, ₽<input v-model="bulkComparePrice" type="number" min="0" step="0.01" class="input"></label>
+            <label>Себестоимость, ₽<input v-model="bulkCostPrice" type="number" min="0" step="0.01" class="input"></label>
+          </div>
+          <p v-if="priceError" role="alert" class="stock-save-error">{{ priceError }}</p>
+          <div class="stock-dialog__footer"><span>История прежних цен сохранится у каждого товара.</span><button type="button" class="btn btn-primary" :disabled="priceSaving || !selectedPriceIds.length" @click="saveBulkPrices">{{ priceSaving ? 'Сохраняем…' : 'Сохранить цены' }}</button></div>
+        </section>
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <div v-if="stockDialogOpen" class="stock-overlay" @click.self="closeStockDialog">
@@ -243,6 +266,41 @@ const router = useRouter()
 const initialPage = Number(route.query.page)
 
 const products = ref([])
+const selectedPriceIds = ref([])
+const priceDialogOpen = ref(false)
+const bulkPrice = ref('')
+const bulkComparePrice = ref('')
+const bulkCostPrice = ref('')
+const priceSaving = ref(false)
+const priceError = ref('')
+
+function togglePrice(id) {
+  selectedPriceIds.value = selectedPriceIds.value.includes(id) ? selectedPriceIds.value.filter(value => value !== id) : [...selectedPriceIds.value, id]
+}
+
+function toggleAllPrices(checked) {
+  selectedPriceIds.value = checked
+    ? [...new Set([...selectedPriceIds.value, ...products.value.map(product => product.id)])]
+    : selectedPriceIds.value.filter(id => !products.value.some(product => product.id === id))
+}
+
+async function saveBulkPrices() {
+  const fields = { price: bulkPrice.value, comparePrice: bulkComparePrice.value, costPrice: bulkCostPrice.value }
+  const data = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== ''))
+  if (!Object.keys(data).length) { priceError.value = 'Укажите хотя бы одну цену'; return }
+  priceSaving.value = true
+  priceError.value = ''
+  try {
+    await axios.post(`${API_URL}/prices/bulk`, { entries: selectedPriceIds.value.map(id => ({ id, ...data })) })
+    selectedPriceIds.value = []
+    priceDialogOpen.value = false
+    bulkPrice.value = ''
+    bulkComparePrice.value = ''
+    bulkCostPrice.value = ''
+    await fetchProducts()
+  } catch (error) { priceError.value = error.response?.data?.error || 'Не удалось изменить цены' }
+  finally { priceSaving.value = false }
+}
 const total = ref(0)
 const loading = ref(true)
 const error = ref('')
@@ -501,6 +559,12 @@ watch(search, () => {
 </script>
 
 <style scoped>
+.price-card-select { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; color: var(--text-secondary); }
+.stock-dialog.price-dialog { max-width: 760px; overflow-y: auto; }
+.price-dialog__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.price-dialog__fields label { display: grid; gap: .4rem; }
+.price-dialog__products { display: grid; gap: .35rem; max-height: 180px; overflow: auto; margin: .75rem 0; }
+.price-dialog__products label { display: flex; align-items: center; gap: .5rem; }
 .page-header {
   display: flex;
   justify-content: space-between;

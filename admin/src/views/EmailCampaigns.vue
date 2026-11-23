@@ -10,6 +10,7 @@
     <nav class="campaign-tabs" aria-label="Разделы рассылок">
       <button type="button" :class="{ active: activeSection === 'compose' }" @click="activeSection = 'compose'">Создать рассылку</button>
       <button type="button" :class="{ active: activeSection === 'history' }" @click="openHistory">История рассылок</button>
+      <button type="button" :class="{ active: activeSection === 'analysis' }" @click="openAnalysis()">Результаты рассылок</button>
     </nav>
 
     <div class="campaign-layout">
@@ -81,6 +82,8 @@
           <label v-if="form.siteEnabled"><span>Текст сообщения на сайте</span><textarea v-model="form.siteBody" class="input textarea" rows="4" maxlength="500" required></textarea></label>
 
           <div class="campaign-fields-two"><label><span>Текст кнопки (необязательно)</span><input v-model.trim="form.buttonText" class="input" type="text" maxlength="80" placeholder="Посмотреть товар"></label><label><span>Ссылка кнопки</span><input v-model.trim="form.buttonUrl" class="input" type="url" placeholder="https://angel-wings.ru/product/123"></label></div>
+          <div class="campaign-fields-two"><label><span>Промокод для анализа (необязательно)</span><input v-model.trim="form.promoCode" class="input" placeholder="Код из раздела промокодов"></label><label><span>Ключ бонусной кампании (необязательно)</span><input v-model.trim="form.pointsCampaignKey" class="input" placeholder="Ключ начисления баллов"></label></div>
+          <small>Если укажете существующий промокод или бонусную кампанию, их применения будут видны в результатах этой рассылки.</small>
           <div class="campaign-image-field">
             <div><strong>Изображение для рассылки</strong><small>PNG, JPEG или WebP до 5 МБ. Для Telegram подойдут PNG и JPEG.</small></div>
             <div class="campaign-image-actions">
@@ -105,7 +108,7 @@
         </form>
       </section>
 
-      <section v-else class="campaign-card history-card">
+      <section v-else-if="activeSection === 'history'" class="campaign-card history-card">
         <div class="card-heading">
           <span class="card-kicker">История</span>
           <h2>Последние рассылки</h2>
@@ -138,6 +141,7 @@
               <span>На сайте: <strong>{{ campaign.channels?.site || 0 }}</strong></span>
               <span>Ошибок: <strong>{{ (campaign.failed || 0) + (campaign.channels?.telegramFailed || 0) }}</strong></span>
             </div>
+            <button type="button" class="btn btn-secondary" @click="openAnalysis(campaign.id)">Посмотреть результаты</button>
 
             <details v-if="campaign.errorLog" class="error-details">
               <summary>Показать ошибки</summary>
@@ -145,6 +149,21 @@
             </details>
           </article>
         </div>
+      </section>
+      <section v-else class="campaign-card history-card">
+        <div class="card-heading"><span class="card-kicker">АНАЛИТИКА</span><h2>Результаты рассылок</h2><p>Переходы считаются по персональной ссылке; почтовые фильтры иногда проверяют ссылки автоматически. Покупки после перехода показывают последовательность событий, а не доказанное влияние рассылки.</p></div>
+        <label>Рассылка<select v-model.number="analysisCampaignId" class="input" @change="loadAnalysis"><option :value="null">Выберите рассылку</option><option v-for="campaign in analysisCampaigns" :key="campaign.id" :value="campaign.id">#{{ campaign.id }} · {{ campaign.subject }} · {{ formatDate(campaign.createdAt) }}</option></select></label>
+        <p v-if="analysisLoading">Загружаем результаты…</p><p v-else-if="analysisError" role="alert">{{ analysisError }}</p>
+        <template v-else-if="analysisData">
+          <p v-if="analysisData.campaign.audience === 'blog'">У подписчиков блога нет привязки к аккаунту. Для этой рассылки доступны итоги отправки; персональные переходы и покупки определить нельзя.</p>
+          <p v-else-if="!analysisData.campaign.trackingAvailable">В этой рассылке ещё не было персональных ссылок: старые переходы восстановить нельзя. Покупки и применения промокода показываются по аккаунтам получателей после даты отправки.</p>
+          <div class="campaign-stats analysis-stats"><span>Адресатов: <strong>{{ analysisData.totals.recipients }}</strong></span><span>Перешли: <strong>{{ analysisData.totals.clicked }}</strong></span><span>Покупали после перехода: <strong>{{ analysisData.totals.purchasedAfterClick }}</strong></span><span>Сумма таких заказов: <strong>{{ formatMoney(analysisData.totals.paidTotalAfterClick) }}</strong></span><span v-if="analysisData.promoCode">Применили {{ analysisData.promoCode }}: <strong>{{ analysisData.totals.promoUsers }} чел. / {{ analysisData.totals.promoUses }} заказов</strong></span><span v-if="analysisData.pointsCampaignKey">Получили баллы: <strong>{{ analysisData.totals.pointsClaimed }}</strong></span><span v-if="analysisData.pointsCampaignKey">Потратили баллы: <strong>{{ analysisData.totals.pointsSpentUsers }} чел. / {{ analysisData.totals.spentPoints }} баллов</strong></span></div>
+          <p>Письмо доставлено: {{ analysisData.totals.emailSent }} · Telegram: {{ analysisData.totals.telegramSent }} · увидели на сайте: {{ analysisData.totals.siteSeen }} · всего переходов: {{ analysisData.totals.clicks }}.</p>
+          <div class="analysis-actions"><label>Показать<select v-model="analysisSegment" class="input"><option value="all">Всех получателей</option><option value="clicked">Перешедших</option><option value="purchased">Покупавших после рассылки</option><option value="afterClick">Покупавших после перехода</option><option value="promo">Применивших промокод</option><option value="claimed">Получивших баллы</option><option value="points">Потративших баллы</option></select></label><button type="button" class="btn btn-secondary" :disabled="!filteredAnalysisRecipients.length" @click="useAnalysisAudience">Создать рассылку для выбранной группы</button></div>
+          <p v-if="analysisAudienceError" role="alert">{{ analysisAudienceError }}</p>
+          <div class="analysis-table-wrap"><table class="analysis-table"><thead><tr><th>Получатель</th><th>Каналы</th><th>Переход</th><th>Оплаченные заказы</th><th>После перехода</th><th>Промокод</th><th>Бонус</th></tr></thead><tbody><tr v-for="row in filteredAnalysisRecipients" :key="row.user.id"><td>{{ row.user.name || '—' }}<small>{{ row.user.email }}</small></td><td>Email: {{ row.emailStatus === 'SENT' ? 'отправлен' : '—' }}<br>Telegram: {{ row.telegramStatus === 'SENT' ? 'отправлен' : '—' }}<br>Сайт: {{ row.siteSeenAt ? 'просмотрено' : '—' }}</td><td>{{ row.clickedAt ? formatDate(row.clickedAt) : '—' }}</td><td>{{ row.paidOrders }} · {{ formatMoney(row.paidTotal) }}</td><td>{{ row.paidOrdersAfterClick }} · {{ formatMoney(row.paidTotalAfterClick) }}</td><td>{{ row.promoUses || '—' }}</td><td>{{ row.pointsClaimed ? 'Получен' : '—' }} · потрачено {{ row.spentPoints }}</td></tr></tbody></table></div>
+          <p v-if="!filteredAnalysisRecipients.length">В этой группе пока никого нет.</p>
+        </template>
       </section>
     </div>
     <section v-if="activeSection === 'compose'" class="recovery-console">
@@ -262,6 +281,57 @@ const templates = [
 ]
 const loading = ref(false)
 const activeSection = ref('compose')
+const analysisCampaignId = ref(null)
+const analysisCampaigns = ref([])
+const analysisData = ref(null)
+const analysisLoading = ref(false)
+const analysisError = ref('')
+const analysisAudienceError = ref('')
+const analysisSegment = ref('all')
+const filteredAnalysisRecipients = computed(() => (analysisData.value?.recipients || []).filter(row => {
+  if (analysisSegment.value === 'clicked') return Boolean(row.clickedAt)
+  if (analysisSegment.value === 'purchased') return row.paidOrders > 0
+  if (analysisSegment.value === 'afterClick') return row.paidOrdersAfterClick > 0
+  if (analysisSegment.value === 'promo') return row.promoUses > 0
+  if (analysisSegment.value === 'claimed') return row.pointsClaimed
+  if (analysisSegment.value === 'points') return row.spentPoints > 0
+  return true
+}))
+
+async function openAnalysis(id = null) {
+  activeSection.value = 'analysis'
+  try { analysisCampaigns.value = (await axios.get('/api/admin/email-campaigns/analysis-index')).data.campaigns || [] }
+  catch { analysisError.value = 'Не удалось загрузить список рассылок'; return }
+  analysisCampaignId.value = id || analysisCampaignId.value || analysisCampaigns.value[0]?.id || null
+  await loadAnalysis()
+}
+
+async function loadAnalysis() {
+  analysisData.value = null
+  analysisError.value = ''
+  analysisSegment.value = 'all'
+  if (!analysisCampaignId.value) return
+  analysisLoading.value = true
+  try {
+    const { data } = await axios.get(`/api/admin/email-campaigns/${analysisCampaignId.value}/analytics`)
+    analysisData.value = data
+  } catch (error) { analysisError.value = error.response?.data?.error || 'Не удалось загрузить результаты' }
+  finally { analysisLoading.value = false }
+}
+
+function useAnalysisAudience() {
+  const recipients = filteredAnalysisRecipients.value
+  if (recipients.length > 500) { analysisAudienceError.value = 'Можно выбрать до 500 человек. Уточните группу для следующей рассылки.'; return }
+  analysisAudienceError.value = ''
+  form.value.audience = 'selected'
+  form.value.targetUserIds = recipients.map(row => row.user.id)
+  form.value.promoCode = ''
+  form.value.pointsCampaignKey = ''
+  pickerKnown.value = { ...pickerKnown.value, ...Object.fromEntries(recipients.map(row => [row.user.id, row.user])) }
+  activeSection.value = 'compose'
+}
+
+function formatMoney(value) { return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(value || 0)) }
 const previewLoading = ref(false)
 const previewCount = ref(null)
 const previewSelectedCount = ref(null)
@@ -328,7 +398,9 @@ const form = ref({
   body: '',
   buttonText: '',
   buttonUrl: '',
-  imageUrl: ''
+  imageUrl: '',
+  promoCode: '',
+  pointsCampaignKey: ''
 })
 
 function applyTemplate(type, product = selectedProduct.value) {
@@ -690,6 +762,14 @@ onBeforeUnmount(() => { clearTimeout(productTimer); productRequest++; clearTimeo
 </script>
 
 <style scoped>
+.analysis-stats { margin: 1.3rem 0; }
+.analysis-actions { display: flex; align-items: end; flex-wrap: wrap; gap: .8rem; margin: 1.25rem 0; }
+.analysis-actions label { min-width: min(280px, 100%); }
+.analysis-table-wrap { width: 100%; overflow-x: auto; margin-top: 1rem; border: 1px solid var(--border); border-radius: 12px; }
+.analysis-table { width: 100%; min-width: 780px; border-collapse: collapse; text-align: left; }
+.analysis-table th, .analysis-table td { padding: .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.analysis-table th { color: var(--text-secondary); font-size: .8rem; }
+.analysis-table td small { display: block; color: var(--text-secondary); }
 .email-campaigns-page {
   padding: 2rem;
 }

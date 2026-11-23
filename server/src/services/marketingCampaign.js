@@ -4,6 +4,7 @@ import { basename, join } from 'node:path'
 import emailService from './email.js'
 import { sendPointsCampaignTelegram } from './telegram.js'
 import { renderEmailCampaign } from '../utils/emailCampaignTemplate.js'
+import { campaignClickUrl } from '../utils/campaignTracking.js'
 import { hasTelegramCampaignId, hasVerifiedCampaignEmail } from '../utils/pointsCampaignPreview.js'
 import { uploadDir } from '../utils/fileUpload.js'
 
@@ -100,7 +101,7 @@ export async function processMarketingCampaignBatch(db, campaign, limit = 20, de
             await db.marketingNotice.update({ where: { id: notice.id }, data: { emailStatus: 'SKIPPED', emailError: 'Пользователь отписался или почта не подтверждена' } })
           } else {
             const unsubscribeUrl = `https://angel-wings.ru/api/recovery/unsubscribe?token=${encodeURIComponent(jwt.sign({ userId: notice.userId, purpose: 'marketing_unsubscribe' }, process.env.JWT_SECRET, { expiresIn: '90d' }))}`
-            const content = renderEmailCampaign(settings, user.name || 'клиент')
+            const content = renderEmailCampaign({ ...settings, buttonUrl: settings.buttonUrl ? campaignClickUrl(notice.id) : '' }, user.name || 'клиент')
             await delivery.sendEmail({ to: user.email, subject: settings.subject, body: content.text + `\n\nОтписаться от рассылки: ${unsubscribeUrl}`, text: content.text + `\n\nОтписаться от рассылки: ${unsubscribeUrl}`, html: content.html + `<p style="text-align:center;font:12px Arial,sans-serif"><a href="${escapeHtml(unsubscribeUrl)}">Отписаться от рассылки</a></p>` })
             await db.marketingNotice.update({ where: { id: notice.id }, data: { emailStatus: 'SENT', emailSentAt: new Date() } })
           }
@@ -116,7 +117,7 @@ export async function processMarketingCampaignBatch(db, campaign, limit = 20, de
           if (!allowed || !hasTelegramCampaignId(user)) {
             await db.marketingNotice.update({ where: { id: notice.id }, data: { telegramStatus: 'SKIPPED', telegramError: 'Пользователь отписался или Telegram ID больше не действует' } })
           } else {
-            await delivery.sendTelegram(user.telegramId, { campaignKey: `news-${campaign.id}`, text: personalize(settings.telegramBody, user.name).slice(0, 1024), buttonText: settings.buttonText || 'Открыть сайт', buttonUrl: settings.buttonUrl || 'https://angel-wings.ru/', ...(telegramImage || {}) })
+            await delivery.sendTelegram(user.telegramId, { campaignKey: `news-${campaign.id}`, text: personalize(settings.telegramBody, user.name).slice(0, 1024), buttonText: settings.buttonText || 'Открыть сайт', buttonUrl: campaignClickUrl(notice.id), ...(telegramImage || {}) })
             await db.marketingNotice.update({ where: { id: notice.id }, data: { telegramStatus: 'SENT', telegramSentAt: new Date() } })
           }
         } catch (error) {

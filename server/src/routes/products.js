@@ -7,10 +7,52 @@ import { deleteProductForAdmin } from '../utils/productDeletion.js'
 import { stripInternalProductFields, publicProductSpecs, getEffectiveDosagePrice } from '../utils/publicProduct.js'
 import { isRecommendationAvailable, parseRecommendationIds, publicRecommendationProduct, RECOMMENDATION_LIMIT, saveProductRecommendations } from '../utils/productRecommendations.js'
 import { normalizeSearchText, matchesAnySearchText, needsUnicodeSearch } from '../utils/searchText.js'
+import { recordPriceChange } from '../utils/productPriceHistory.js'
 
 const router = Router()
 const prisma = new PrismaClient()
 const ACTIVE_ORDER_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED']
+
+router.get('/:id/price-history', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const productId = Number(req.params.id)
+    if (!Number.isSafeInteger(productId)) return res.status(400).json({ error: 'Неверный ID товара' })
+    const changes = await prisma.productPriceChange.findMany({ where: { productId }, orderBy: { id: 'desc' }, take: 50 })
+    res.json({ changes: changes.map(change => ({ ...change, before: JSON.parse(change.before), after: JSON.parse(change.after) })) })
+  } catch (error) { next(error) }
+})
+
+router.post('/prices/bulk', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const entries = req.body?.entries
+    if (!Array.isArray(entries) || !entries.length || entries.length > 100) return res.status(400).json({ error: 'Выберите от 1 до 100 товаров' })
+    const ids = entries.map(entry => Number(entry.id))
+    if (new Set(ids).size !== ids.length || ids.some(id => !Number.isSafeInteger(id) || id <= 0)) return res.status(400).json({ error: 'Некорректные товары' })
+    const fields = ['price', 'comparePrice', 'costPrice']
+    for (const entry of entries) {
+      if (!fields.some(field => Object.hasOwn(entry, field))) return res.status(400).json({ error: 'Укажите цену для каждого товара' })
+      for (const field of fields) {
+        if (!Object.hasOwn(entry, field)) continue
+        const value = entry[field]
+        if (field === 'comparePrice' && value === null) continue
+        if (value === '' || value === null || !Number.isFinite(Number(value)) || Number(value) < 0) return res.status(400).json({ error: 'Цена должна быть неотрицательным числом' })
+      }
+    }
+    const changes = await prisma.$transaction(async tx => {
+      const result = []
+      for (const entry of entries) {
+        const before = await tx.product.findUnique({ where: { id: Number(entry.id) } })
+        if (!before) throw Object.assign(new Error(`Товар #${entry.id} не найден`), { status: 404 })
+        const data = Object.fromEntries(fields.filter(field => Object.hasOwn(entry, field)).map(field => [field, entry[field] === null ? null : Number(entry[field])]))
+        const after = await tx.product.update({ where: { id: before.id }, data })
+        await recordPriceChange(tx, before, after, 'BULK')
+        result.push({ id: before.id, price: after.price, comparePrice: after.comparePrice, costPrice: after.costPrice })
+      }
+      return result
+    })
+    res.json({ changes })
+  } catch (error) { next(error) }
+})
 
 function parseImagesField(images) {
   if (!images) return []
@@ -389,6 +431,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
     
     const productId = parseInt(req.params.id, 10)
     const product = await prisma.$transaction(async (tx) => {
+      const before = await tx.product.findUnique({ where: { id: productId } })
       if (featuredSettings.featured) {
         await tx.product.updateMany({
           where: {
@@ -403,6 +446,7 @@ router.put('/:id', authenticate, requireAdmin, upload.fields([
         where: { id: productId },
         data: updateData
       })
+      await recordPriceChange(tx, before, updated, 'EDIT')
       await saveProductRecommendations(tx, productId, recommendationLists)
       return updated
     })

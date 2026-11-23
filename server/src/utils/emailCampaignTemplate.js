@@ -38,6 +38,8 @@ export function validateEmailCampaign(input = {}) {
   const siteEnabled = input.siteEnabled === true
   const telegramBody = String(input.telegramBody || '').trim()
   const siteBody = String(input.siteBody || '').trim()
+  const promoCode = String(input.promoCode || '').trim()
+  const pointsCampaignKey = String(input.pointsCampaignKey || '').trim()
   if (!AUDIENCES.has(audience)) bad('Выберите аудиторию рассылки')
   if (!emailEnabled && !telegramEnabled && !siteEnabled) bad('Выберите хотя бы один канал рассылки')
   if (audience === 'blog' && (telegramEnabled || siteEnabled)) bad('Подписчикам блога доступна только email-рассылка')
@@ -51,7 +53,8 @@ export function validateEmailCampaign(input = {}) {
   if (buttonText.length > 80 || Boolean(buttonText) !== Boolean(buttonUrl)) bad('Для кнопки укажите и текст, и ссылку')
   if (imageUrl && !/\.(png|jpe?g|webp)(\?.*)?$/i.test(new URL(imageUrl).pathname)) bad('Изображение должно быть PNG, JPEG или WebP')
   if (telegramEnabled && imageUrl && /\.webp$/i.test(new URL(imageUrl).pathname)) bad('Для Telegram выберите изображение PNG или JPEG')
-  return { subject, body, audience, targetUserIds: [...new Set(targetUserIds)], type, headline, buttonText, buttonUrl, imageUrl, emailEnabled, telegramEnabled, siteEnabled, telegramBody, siteBody }
+  if (promoCode.length > 80 || pointsCampaignKey.length > 100) bad('Проверьте код акции или бонуса')
+  return { subject, body, audience, targetUserIds: [...new Set(targetUserIds)], type, headline, buttonText, buttonUrl, imageUrl, emailEnabled, telegramEnabled, siteEnabled, telegramBody, siteBody, promoCode, pointsCampaignKey }
 }
 
 export function renderEmailCampaign(campaign, name = 'клиент') {
