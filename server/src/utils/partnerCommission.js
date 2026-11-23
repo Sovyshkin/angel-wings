@@ -22,7 +22,7 @@ export async function ensurePartnerCommissionForPaidOrder(prismaLike, orderId) {
       deliveryTariffCode: true,
       deliveryPickupPoint: true,
       cdekOrderUuid: true,
-      commission: { select: { id: true, percentage: true } }
+      commission: { select: { id: true, partnerId: true, percentage: true } }
     }
   })
 
@@ -31,14 +31,14 @@ export async function ensurePartnerCommissionForPaidOrder(prismaLike, orderId) {
 
   const partner = await prismaLike.partner.findUnique({
     where: { id: order.partnerId },
-    select: { id: true, percentage: true, isActive: true }
+    select: { id: true, percentage: true, isActive: true, archivedAt: true, user: { select: { role: true } } }
   })
 
-  if (!partner || (!partner.isActive && !order.commission)) return null
+  if (!partner || ((!partner.isActive || partner.archivedAt || partner.user?.role === 'DELETED') && !order.commission)) return null
 
-  // Keep the rate assigned when this order first earned commission. A later
-  // partner-rate change must not retroactively reprice an existing order.
-  const percentage = Number(order.commission?.percentage) > 0
+  // Keep the original rate only while the commission belongs to this partner.
+  // An order reassigned to another partner must use the new partner's rate.
+  const percentage = order.commission?.partnerId === partner.id && Number(order.commission.percentage) > 0
     ? Number(order.commission.percentage)
     : (Number(partner.percentage) > 0 ? Number(partner.percentage) : 5.0)
   // CDEK is paid separately and is not included in order.total.
@@ -52,6 +52,8 @@ export async function ensurePartnerCommissionForPaidOrder(prismaLike, orderId) {
   return prismaLike.partnerCommission.upsert({
     where: { orderId: order.id },
     update: {
+      partnerId: partner.id,
+      userId: order.userId,
       amount,
       percentage
     },

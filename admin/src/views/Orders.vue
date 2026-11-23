@@ -133,6 +133,7 @@
                 <div class="order-summary-cell__phone">{{ order.customerPhone }}</div>
                 <div v-if="order.promoCode?.code" class="order-summary-cell__promo">
                   <span class="promo-code-tag" :title="order.promoCode.code">{{ order.promoCode.code }}</span>
+                  <span v-if="order.promoCode.partner?.id">Промокод партнёра:</span>
                   <router-link
                     v-if="order.promoCode.partner?.id"
                     :to="`/partners/${order.promoCode.partner.id}`"
@@ -156,7 +157,7 @@
                 <div class="order-amount-cell__total">{{ formatPrice(order.total) }}</div>
                 <div class="order-amount-cell__items">{{ order.items?.length || 0 }} позиций</div>
                 <div v-if="order.commission || earnedCustomerPoints(order)" class="order-amount-cell__rewards">
-                  <div v-if="order.commission">Партнёру <strong>+{{ formatPrice(order.commission.amount) }}</strong></div>
+                  <div v-if="order.commission">Партнёру <strong>+{{ formatPrice(order.commission.amount) }}</strong><span v-if="order.commission.partner?.id && order.promoCode?.partner?.id && order.commission.partner.id !== order.promoCode.partner.id" :title="`Комиссия начислена партнёру #${order.commission.partner.id}, а промокод принадлежит партнёру #${order.promoCode.partner.id}`"> · партнёр #{{ order.commission.partner.id }}</span></div>
                   <div v-if="earnedCustomerPoints(order)">Клиенту <strong>+{{ earnedCustomerPoints(order).toLocaleString('ru-RU') }} баллов</strong></div>
                 </div>
               </td>
@@ -268,10 +269,14 @@
               <span v-else class="order-card__value">—</span>
             </div>
             <div v-if="order.promoCode?.partner?.id" class="order-card__row">
-              <span class="order-card__label">Партнёр</span>
+              <span class="order-card__label">Владелец промокода</span>
               <router-link :to="`/partners/${order.promoCode.partner.id}`" class="promo-partner-link">
                 {{ order.promoCode.partner.user?.name || `Партнёр #${order.promoCode.partner.id}` }}
               </router-link>
+            </div>
+            <div v-if="order.commission?.partner?.id && order.promoCode?.partner?.id && order.commission.partner.id !== order.promoCode.partner.id" class="order-card__row">
+              <span class="order-card__label">Получатель комиссии</span>
+              <router-link :to="`/partners/${order.commission.partner.id}`" class="promo-partner-link">{{ order.commission.partner.user?.name || `Партнёр #${order.commission.partner.id}` }}</router-link>
             </div>
           </div>
 
@@ -570,7 +575,7 @@
               <span class="detail-value cancel-reason-value">{{ getCancelReasonLabel(selectedOrder.cancelReason) }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">Промокод</span>
+              <span class="detail-label">Промокод и его владелец</span>
               <div class="promo-meta promo-meta--right">
                 <span v-if="selectedOrder.promoCode?.code" class="promo-code-tag">{{ selectedOrder.promoCode.code }}</span>
                 <span v-else class="promo-empty">—</span>
@@ -615,7 +620,8 @@
           <div class="detail-section">
             <h4 class="section-title">Начисления после покупки</h4>
             <div class="detail-row"><span class="detail-label">Партнёру</span><span class="detail-value">{{ selectedOrder.commission ? `+${formatPrice(selectedOrder.commission.amount)} (${selectedOrder.commission.percentage}%)` : 'Нет начисления' }}</span></div>
-            <div v-if="selectedOrder.commission?.partner" class="detail-row"><span class="detail-label">Партнёр</span><span class="detail-value">{{ selectedOrder.commission.partner.user?.name || selectedOrder.commission.partner.user?.email || `#${selectedOrder.commission.partner.id}` }}</span></div>
+            <div v-if="selectedOrder.commission?.partner" class="detail-row"><span class="detail-label">Получатель комиссии</span><router-link :to="`/partners/${selectedOrder.commission.partner.id}`" class="detail-value promo-partner-link" @click="selectedOrder = null">{{ selectedOrder.commission.partner.user?.name || selectedOrder.commission.partner.user?.email || `Партнёр #${selectedOrder.commission.partner.id}` }} (#{{ selectedOrder.commission.partner.id }})</router-link></div>
+            <p v-if="selectedOrder.commission?.partner?.id && selectedOrder.promoCode?.partner?.id && selectedOrder.commission.partner.id !== selectedOrder.promoCode.partner.id" class="edit-notice">Промокод принадлежит другому партнёру. Комиссия начислена получателю, указанному выше: клиент был закреплён за ним при оформлении заказа.</p>
             <div class="detail-row"><span class="detail-label">Клиенту</span><span class="detail-value">{{ earnedCustomerPoints(selectedOrder) ? `+${earnedCustomerPoints(selectedOrder).toLocaleString('ru-RU')} баллов` : 'Нет начисления' }}</span></div>
             <p class="edit-notice">Клиентские баллы начисляются за завершённую консультацию после первой успешной покупки, а не за каждую покупку.</p>
           </div>

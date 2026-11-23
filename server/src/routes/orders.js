@@ -11,7 +11,7 @@ import { decryptMarketingPayload } from '../utils/marketingToken.js'
 import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { normalizePointAmount, spendUserPoints } from '../utils/userPoints.js'
 import { grantConsultationRewardsForPaidOrder } from '../utils/consultationReward.js'
-import { isActivePartner, isOwnPartnerPromoCode } from '../utils/promoEligibility.js'
+import { isActivePartner, isOwnPartnerPromoCode, isRetiredPartner } from '../utils/promoEligibility.js'
 import { hasUserUsedSinglePromo } from '../utils/promoUsage.js'
 import { personalPromoError } from '../utils/personalPromo.js'
 import { calculatePromoDiscount } from '../utils/checkoutDiscounts.js'
@@ -88,11 +88,12 @@ function logPromoCheck(reason, details = {}) {
 }
 
 async function findExistingPartnerIdForPromo(user) {
+  if (user.partnerBindingDisabled) return null
   const binding = await prisma.partnerUser.findUnique({
     where: { userId: user.id },
     select: { partnerId: true }
   })
-  if (binding) return binding.partnerId
+  if (binding && !await isRetiredPartner(prisma, binding.partnerId)) return binding.partnerId
 
   const historicalOr = [{ customerEmail: user.email }]
   if (user.phone) historicalOr.push({ customerPhone: user.phone })
@@ -102,8 +103,7 @@ async function findExistingPartnerIdForPromo(user) {
     select: { partnerId: true }
   })
   if (!historicalOrder?.partnerId) return null
-  const historicalPartner = await prisma.partner.findUnique({ where: { id: historicalOrder.partnerId }, select: { archivedAt: true } })
-  return historicalPartner && !historicalPartner.archivedAt ? historicalOrder.partnerId : null
+  return await isRetiredPartner(prisma, historicalOrder.partnerId) ? null : historicalOrder.partnerId
 }
 
 async function applyPromoCode(code, userId) {
@@ -769,16 +769,20 @@ router.post('/', authenticate, async (req, res, next) => {
       })
     }
 
-    const existingBinding = actualUserId
+    const recordedBinding = actualUserId
       ? await prisma.partnerUser.findUnique({
           where: { userId: actualUserId }
         })
+      : null
+    const partnerBindingDisabled = Boolean(req.user?.partnerBindingDisabled)
+    const existingBinding = !partnerBindingDisabled && recordedBinding && !await isRetiredPartner(prisma, recordedBinding.partnerId)
+      ? recordedBinding
       : null
 
     // Best-effort lifetime protection for re-registrations:
     // if user has no direct binding, try to restore partner by historical email/phone orders.
     let historicalPartnerId = null
-    if (!existingBinding && req.user) {
+    if (!partnerBindingDisabled && !existingBinding && req.user) {
       const historicalOr = [{ customerEmail: req.user.email }]
       if (req.user.phone) {
         historicalOr.push({ customerPhone: req.user.phone })
@@ -794,8 +798,7 @@ router.post('/', authenticate, async (req, res, next) => {
       })
 
       if (historicalOrder?.partnerId) {
-        const historicalPartner = await prisma.partner.findUnique({ where: { id: historicalOrder.partnerId }, select: { archivedAt: true } })
-        historicalPartnerId = historicalPartner && !historicalPartner.archivedAt ? historicalOrder.partnerId : null
+        historicalPartnerId = await isRetiredPartner(prisma, historicalOrder.partnerId) ? null : historicalOrder.partnerId
       }
     }
 
@@ -825,7 +828,7 @@ router.post('/', authenticate, async (req, res, next) => {
       if (appliedPromoCode) {
         promoCodeId = appliedPromoCode.id
 
-        if (appliedPromoCode.partnerId) {
+        if (appliedPromoCode.partnerId && !partnerBindingDisabled) {
           const existingPartnerId = existingBinding?.partnerId || historicalPartnerId
           const promoPartnerId = appliedPromoCode.partnerId
 
@@ -997,7 +1000,12 @@ router.post('/', authenticate, async (req, res, next) => {
           where: { userId: actualUserId }
         })
 
-        if (!existingBindingInTx) {
+        if (existingBindingInTx && await isRetiredPartner(tx, existingBindingInTx.partnerId)) {
+          await tx.partnerUser.update({
+            where: { userId: actualUserId },
+            data: { partnerId, promoCodeId: appliedPromoCode ? promoCodeId : null, referralSource: promoCode ? 'promo_code' : 'link', boundAt: new Date() }
+          })
+        } else if (!existingBindingInTx) {
           const promoCodeForBinding = appliedPromoCode ? promoCodeId : null
           await tx.partnerUser.create({
             data: {

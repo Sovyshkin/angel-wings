@@ -28,6 +28,7 @@ import { deductPaidOrderStock, releaseOrderStock, updatePaymentStatusWithStock }
 import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiringSettings.js'
 import { calculateEditedOrderDiscount, calculateOrderEditAmounts, getBilledOrderTotal } from '../utils/orderEditAmounts.js'
 import { resolveManualOrderPromo, claimManualOrderPromo } from '../utils/manualOrderPromo.js'
+import { isActivePartner, isRetiredPartner } from '../utils/promoEligibility.js'
 import { isCustomAdminRole } from '../utils/adminPermissions.js'
 import { normalizeSearchText, matchesAnySearchText, needsUnicodeSearch } from '../utils/searchText.js'
 
@@ -561,6 +562,56 @@ router.post('/partner-applications/:id/reject', authenticate, requireAdmin, asyn
   }
 })
 
+router.get('/users/partner-options', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const partners = await prisma.partner.findMany({
+      where: { isActive: true, archivedAt: null, user: { role: 'PARTNER' } },
+      select: { id: true, userId: true, user: { select: { name: true, email: true } } },
+      orderBy: { user: { name: 'asc' } }
+    })
+    res.set('Cache-Control', 'no-store')
+    res.json({ partners })
+  } catch (error) { next(error) }
+})
+
+router.put('/users/:id/partner-binding', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const userId = Number(req.params.id)
+    const rawPartnerId = req.body?.partnerId
+    const partnerId = rawPartnerId === null ? null : Number(rawPartnerId)
+    if (!Number.isSafeInteger(userId) || userId <= 0 || (partnerId !== null && (!Number.isSafeInteger(partnerId) || partnerId <= 0))) {
+      return res.status(400).json({ error: 'Некорректный пользователь или партнёр' })
+    }
+    const result = await prisma.$transaction(async tx => {
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { id: true, role: true } })
+      if (!user || user.role === 'DELETED') throw Object.assign(new Error('Пользователь не найден'), { status: 404 })
+      if (partnerId === null) {
+        await tx.partnerUser.deleteMany({ where: { userId } })
+        await tx.user.update({ where: { id: userId }, data: { partnerBindingDisabled: true } })
+        return null
+      }
+      const partner = await tx.partner.findUnique({
+        where: { id: partnerId },
+        select: { id: true, userId: true, isActive: true, archivedAt: true, user: { select: { role: true } } }
+      })
+      if (!partner || !partner.isActive || partner.archivedAt || partner.user?.role !== 'PARTNER') {
+        throw Object.assign(new Error('Партнёр не найден или неактивен'), { status: 400 })
+      }
+      if (partner.userId === userId) throw Object.assign(new Error('Нельзя привязать пользователя к самому себе'), { status: 400 })
+      const binding = await tx.partnerUser.upsert({
+        where: { userId },
+        update: { partnerId, promoCodeId: null, referralSource: 'admin_assignment', boundAt: new Date() },
+        create: { userId, partnerId, referralSource: 'admin_assignment' },
+        select: { partnerId: true, boundAt: true, partner: { select: { id: true, user: { select: { name: true, email: true } } } } }
+      })
+      await tx.user.update({ where: { id: userId }, data: { partnerBindingDisabled: false } })
+      return binding
+    })
+    res.set('Cache-Control', 'no-store')
+    res.json({ partnerUser: result, partnerBindingDisabled: partnerId === null })
+  } catch (error) { next(error) }
+})
+
 router.get('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const userId = Number.parseInt(req.params.id, 10)
@@ -578,6 +629,7 @@ router.get('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
         phone: true,
         address: true,
         pointsBalance: true,
+        partnerBindingDisabled: true,
         createdAt: true,
         partner: {
           select: {
@@ -618,6 +670,20 @@ router.get('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
 
     if (!user || user.role === 'DELETED') {
       return res.status(404).json({ error: 'Пользователь не найден' })
+    }
+
+    if (!user.partnerBindingDisabled && !user.partnerUser) {
+      const historicalOrder = await prisma.order.findFirst({
+        where: { userId, partnerId: { not: null } },
+        orderBy: { createdAt: 'desc' },
+        select: { partnerId: true }
+      })
+      if (historicalOrder?.partnerId && !await isRetiredPartner(prisma, historicalOrder.partnerId)) {
+        user.historicalPartner = await prisma.partner.findUnique({
+          where: { id: historicalOrder.partnerId },
+          select: { id: true, user: { select: { name: true, email: true } } }
+        })
+      }
     }
 
     const promoCodeIds = [...new Set(user.orders.map(order => order.promoCodeId).filter(Boolean))]
@@ -923,16 +989,24 @@ router.delete('/users/:id', authenticate, requireAdmin, async (req, res, next) =
     const archivedEmail = `archived-user-${userId}-${Date.now()}@angel-wings.local`
     const archivedPassword = await bcrypt.hash(`archived-${userId}-${Date.now()}`, 10)
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        email: archivedEmail,
-        password: archivedPassword,
-        name: `Архивный пользователь #${userId}`,
-        role: 'DELETED',
-        phone: null,
-        address: null
+    await prisma.$transaction(async tx => {
+      const partner = await tx.partner.findUnique({ where: { userId }, select: { id: true } })
+      if (partner) {
+        await tx.partner.update({ where: { id: partner.id }, data: { isActive: false, archivedAt: new Date() } })
+        await tx.promoCode.updateMany({ where: { partnerId: partner.id }, data: { isActive: false } })
+        await tx.partnerUser.deleteMany({ where: { partnerId: partner.id } })
       }
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          email: archivedEmail,
+          password: archivedPassword,
+          name: `Архивный пользователь #${userId}`,
+          role: 'DELETED',
+          phone: null,
+          address: null
+        }
+      })
     })
     
     res.json({ message: 'Пользователь архивирован' })
@@ -1147,13 +1221,14 @@ router.post('/orders/promo/validate', authenticate, requireAdmin, async (req, re
     if (!Number.isInteger(userId) || userId <= 0 || !Number.isFinite(subtotal) || subtotal < 0 || (requestedPartnerId !== null && (!Number.isInteger(requestedPartnerId) || requestedPartnerId <= 0))) {
       return res.status(400).json({ error: 'Выберите клиента и проверьте сумму товаров' })
     }
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, partnerUser: { select: { partnerId: true } } } })
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, partnerBindingDisabled: true, partnerUser: { select: { partnerId: true } } } })
     if (!user || user.role === 'DELETED') return res.status(404).json({ error: 'Клиент не найден' })
-    const historical = !user.partnerUser ? await prisma.order.findFirst({ where: { userId, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
-    const historicalPartner = historical?.partnerId ? await prisma.partner.findUnique({ where: { id: historical.partnerId }, select: { archivedAt: true } }) : null
-    const boundPartnerId = user.partnerUser?.partnerId || (historicalPartner && !historicalPartner.archivedAt ? historical.partnerId : null)
+    const activeBindingId = !user.partnerBindingDisabled && user.partnerUser?.partnerId && !await isRetiredPartner(prisma, user.partnerUser.partnerId) ? user.partnerUser.partnerId : null
+    const historical = !user.partnerBindingDisabled && !activeBindingId ? await prisma.order.findFirst({ where: { userId, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
+    const historicalPartnerId = historical?.partnerId && !await isRetiredPartner(prisma, historical.partnerId) ? historical.partnerId : null
+    const boundPartnerId = activeBindingId || historicalPartnerId
     if (boundPartnerId && requestedPartnerId && boundPartnerId !== requestedPartnerId) return res.status(409).json({ error: 'Клиент уже закреплён за другим партнёром' })
-    const result = await resolveManualOrderPromo(prisma, { code: req.body.promoCode, userId, subtotal, boundPartnerId, requestedPartnerId })
+    const result = await resolveManualOrderPromo(prisma, { code: req.body.promoCode, userId, subtotal, boundPartnerId, requestedPartnerId, suppressPartnerAttribution: user.partnerBindingDisabled && !requestedPartnerId })
     res.set('Cache-Control', 'no-store')
     res.json({ promoCode: result.promoCode?.code || null, discountAmount: result.discountAmount, partnerId: result.partnerId })
   } catch (error) {
@@ -1189,20 +1264,19 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
     }
     const deliveryPrice = Number(req.body.deliveryPrice || 0)
     if (!Number.isFinite(deliveryPrice) || deliveryPrice < 0) return res.status(400).json({ error: 'Некорректная стоимость доставки' })
-    const user = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, address: true, role: true, partnerUser: { select: { partnerId: true } } } }) : null
+    const user = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, address: true, role: true, partnerBindingDisabled: true, partnerUser: { select: { partnerId: true } } } }) : null
     if (userId && (!user || user.role === 'DELETED')) return res.status(404).json({ error: 'Клиент не найден' })
     const requestedPartnerId = req.body.partnerId === undefined || req.body.partnerId === null || req.body.partnerId === '' ? null : Number(req.body.partnerId)
     if (requestedPartnerId !== null && (!Number.isInteger(requestedPartnerId) || requestedPartnerId <= 0)) return res.status(400).json({ error: 'Некорректный партнёр' })
     if (requestedPartnerId !== null && !userId) return res.status(400).json({ error: 'Для начисления партнёру выберите зарегистрированного клиента' })
-    const historical = user && !user.partnerUser ? await prisma.order.findFirst({ where: { userId, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
-    const historicalPartner = historical?.partnerId ? await prisma.partner.findUnique({ where: { id: historical.partnerId }, select: { archivedAt: true } }) : null
-    const activeHistorical = historicalPartner && !historicalPartner.archivedAt ? historical : null
-    const boundPartnerId = user?.partnerUser?.partnerId || activeHistorical?.partnerId || null
+    const activeBindingId = !user?.partnerBindingDisabled && user?.partnerUser?.partnerId && !await isRetiredPartner(prisma, user.partnerUser.partnerId) ? user.partnerUser.partnerId : null
+    const historical = user && !user.partnerBindingDisabled && !activeBindingId ? await prisma.order.findFirst({ where: { userId, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
+    const activeHistorical = historical?.partnerId && !await isRetiredPartner(prisma, historical.partnerId) ? historical : null
+    const boundPartnerId = activeBindingId || activeHistorical?.partnerId || null
     if (boundPartnerId && requestedPartnerId && boundPartnerId !== requestedPartnerId) return res.status(409).json({ error: 'Клиент уже закреплён за другим партнёром' })
     const partnerId = boundPartnerId || requestedPartnerId
     if (partnerId) {
-      const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { isActive: true } })
-      if (!partner?.isActive) return res.status(400).json({ error: 'Партнёр не найден или неактивен' })
+      if (!await isActivePartner(prisma, partnerId)) return res.status(400).json({ error: 'Партнёр не найден или неактивен' })
     }
     const productIds = [...new Set(items.map(item => Number(item.productId)))]
     const products = await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true } })
@@ -1220,12 +1294,15 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
     const deliveryPickupPoint = String(req.body.deliveryPickupPoint || '').trim() || null
     const siteDelivery = deliveryTariffCode || deliveryPickupPoint ? 0 : deliveryPrice
     const order = await prisma.$transaction(async tx => {
-      const promo = await resolveManualOrderPromo(tx, { code: promoCode, userId, subtotal, boundPartnerId, requestedPartnerId })
+      const promo = await resolveManualOrderPromo(tx, { code: promoCode, userId, subtotal, boundPartnerId, requestedPartnerId, suppressPartnerAttribution: user?.partnerBindingDisabled && !requestedPartnerId })
       const effectivePartnerId = promo.partnerId
       const total = Math.round((subtotal + siteDelivery - promo.discountAmount) * 100) / 100
       if (paymentStatus === 'PAID' && total <= 0) throw Object.assign(new Error('Для оплаченного заказа сумма должна быть больше нуля'), { status: 400 })
-      if (effectivePartnerId && !user?.partnerUser && !activeHistorical) {
-        await tx.partnerUser.create({ data: { userId, partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null, referralSource: promo.promoCode?.partnerId ? 'promo_code' : 'admin' } })
+      if (effectivePartnerId && !activeBindingId && !activeHistorical) {
+        const bindingData = { partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null, referralSource: promo.promoCode?.partnerId ? 'promo_code' : 'admin', boundAt: new Date() }
+        if (user?.partnerUser) await tx.partnerUser.update({ where: { userId }, data: bindingData })
+        else await tx.partnerUser.create({ data: { userId, ...bindingData } })
+        if (user?.partnerBindingDisabled) await tx.user.update({ where: { id: userId }, data: { partnerBindingDisabled: false } })
       }
       await claimManualOrderPromo(tx, promo.promoCode, userId)
       const created = await tx.order.create({
@@ -1763,17 +1840,17 @@ router.post('/orders/:id/promo', authenticate, requireAdmin, async (req, res, ne
       if ((billingStarted && !paid) || previous.cdekOrderUuid || ['CANCELLED', 'RETURNED', 'SHIPPED', 'DELIVERED'].includes(previous.status)) {
         throw Object.assign(new Error('Промокод нельзя применить к выставленному, отправленному или завершённому заказу. Оплаченный заказ можно скорректировать до отправки.'), { status: 409 })
       }
-      const user = await tx.user.findUnique({ where: { id: previous.userId }, select: { id: true, role: true, partnerUser: { select: { partnerId: true } } } })
+      const user = await tx.user.findUnique({ where: { id: previous.userId }, select: { id: true, role: true, partnerBindingDisabled: true, partnerUser: { select: { partnerId: true } } } })
       if (!user || user.role === 'DELETED') throw Object.assign(new Error('Клиент не найден'), { status: 404 })
-      const historical = !user.partnerUser ? await tx.order.findFirst({ where: { userId: user.id, id: { not: orderId }, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
-      const boundPartnerId = user.partnerUser?.partnerId || historical?.partnerId || previous.partnerId || null
-      if (previous.partnerId && boundPartnerId !== previous.partnerId) throw Object.assign(new Error('Партнёр заказа не совпадает с закреплённым партнёром клиента'), { status: 409 })
+      const historical = !user.partnerBindingDisabled && !user.partnerUser ? await tx.order.findFirst({ where: { userId: user.id, id: { not: orderId }, partnerId: { not: null } }, orderBy: { createdAt: 'desc' }, select: { partnerId: true } }) : null
+      const boundPartnerId = previous.partnerId || (!user.partnerBindingDisabled ? user.partnerUser?.partnerId || historical?.partnerId : null) || null
       const subtotalCents = previous.items.reduce((sum, item) => sum + Math.round(item.price * 100) * item.quantity, 0)
       const existingDiscountCents = Math.round(Number(previous.discountAmount || 0) * 100)
       const promo = await resolveManualOrderPromo(tx, {
         code, userId: user.id, subtotal: subtotalCents / 100, boundPartnerId,
         userPointsUsed: previous.userPointsUsed,
-        requestedPartnerId: previous.partnerId, excludeOrderId: orderId
+        requestedPartnerId: previous.partnerId, excludeOrderId: orderId,
+        suppressPartnerAttribution: user.partnerBindingDisabled && !previous.partnerId
       })
       const promoDiscountCents = Math.min(Math.max(0, subtotalCents - existingDiscountCents), Math.round(promo.discountAmount * 100))
       if (promoDiscountCents < 1) throw Object.assign(new Error('В заказе не осталось суммы товаров для скидки'), { status: 400 })
@@ -1785,7 +1862,7 @@ router.post('/orders/:id/promo', authenticate, requireAdmin, async (req, res, ne
         ? (Math.round(Number(previous.unbilledAdjustment || 0) * 100) - promoDiscountCents) / 100
         : previous.unbilledAdjustment
       await claimManualOrderPromo(tx, promo.promoCode, user.id)
-      if (promo.promoCode.partnerId === nextPartnerId && nextPartnerId && !previous.partnerId && !user.partnerUser && !historical) {
+      if (promo.promoCode.partnerId === nextPartnerId && nextPartnerId && !previous.partnerId && !user.partnerUser && !historical && !user.partnerBindingDisabled) {
         await tx.partnerUser.create({ data: { userId: user.id, partnerId: nextPartnerId, promoCodeId: promo.promoCode.id, referralSource: 'promo_code' } })
       }
       const updated = await tx.order.update({

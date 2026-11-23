@@ -101,6 +101,37 @@
                 {{ isJourneyDetailExpanded(step.id) ? 'Свернуть' : 'Развернуть' }}
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
               </button>
+              <div v-if="step.organization || step.person" class="journey-detail__credentials">
+                <a
+                  v-if="step.organization"
+                  class="journey-detail__partner-mark"
+                  :href="step.organization.href"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span class="journey-detail__partner-copy">
+                    <small>{{ step.organization.role }}</small>
+                    <strong>{{ step.organization.name }}</strong>
+                  </span>
+                  <span class="journey-detail__partner-logo" aria-hidden="true">АТГ</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
+                </a>
+                <a
+                  v-if="step.person"
+                  class="journey-detail__person"
+                  :href="step.person.href"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img :src="step.person.image" :alt="step.person.name" loading="lazy" decoding="async">
+                  <span>
+                    <small>{{ step.person.role }}</small>
+                    <strong>{{ step.person.name }}</strong>
+                    <em>{{ step.person.description }}</em>
+                  </span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
+                </a>
+              </div>
               <div v-if="step.links" class="journey-detail__links">
                 <a v-for="link in step.links" :key="link.href" :href="link.href" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>
               </div>
@@ -389,8 +420,20 @@ const journey = [
     orbWebp: '/about-assets/journey-development-sphere.webp',
     orbDelay: '-3.2s',
     role: 'Экспертиза',
-    detailTitle: 'Развитие ассортимента',
-    text: 'Мы работаем над ассортиментом Angel Wings, уделяя внимание составу, характеристикам и качеству продуктов. Актуальную информацию о каждом товаре публикуем в каталоге.'
+    detailTitle: 'Научная экспертиза',
+    text: 'В научном направлении Angel Wings мы сотрудничаем с биотехнологической компанией «АТГ Сервис Ген» и Ильёй Духовлиновым, кандидатом биологических наук и директором АТГ по науке. Подробнее об их опыте и работе — на их сайтах.',
+    organization: {
+      name: 'АТГ Сервис Ген',
+      role: 'Партнёр · биотехнологическая компания',
+      href: 'https://service-gene.ru/'
+    },
+    person: {
+      name: 'Илья Духовлинов',
+      role: 'Партнёр · директор по науке АТГ',
+      description: 'Кандидат биологических наук',
+      href: 'https://dukhovlinov.com/',
+      image: '/about-assets/ilya-dukhovlinov.jpg'
+    }
   },
   {
     id: 'sales-details',
@@ -1299,11 +1342,13 @@ onBeforeUnmount(() => {
 .journey-detail__expand:focus-visible { outline: 2px solid var(--about-accent); outline-offset: 3px; }
 .journey-detail__expand svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1); }
 .journey-detail__expand[aria-expanded='true'] svg { transform: rotate(180deg); }
+.journey-detail__credentials { display: grid; gap: 0.75rem; max-width: 520px; margin-top: 1.15rem; }
 .journey-detail__partner-mark { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 180px) 18px; align-items: center; gap: 1rem; max-width: 520px; margin-top: 1.1rem; padding: 0.85rem 0.95rem 0.85rem 1.05rem; overflow: hidden; border: 1px solid rgba(158, 183, 255, 0.28); border-radius: 18px; color: var(--text-primary); text-decoration: none; background: linear-gradient(118deg, rgba(124, 153, 235, 0.15), rgba(12, 19, 39, 0.45)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
+.journey-detail__credentials .journey-detail__partner-mark, .journey-detail__credentials .journey-detail__person { max-width: none; margin-top: 0; }
 .journey-detail__partner-copy { display: grid; gap: 0.28rem; min-width: 0; }
 .journey-detail__partner-copy small { color: var(--about-accent); font-family: var(--font-mono); font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
 .journey-detail__partner-copy strong { font-size: 0.91rem; line-height: 1.2; }
-.journey-detail__partner-logo { display: grid; place-items: center; min-height: 54px; padding: 0.38rem 0.7rem; background: transparent; }
+.journey-detail__partner-logo { display: grid; place-items: center; min-height: 54px; padding: 0.38rem 0.7rem; border-left: 1px solid rgba(158, 183, 255, 0.2); color: var(--about-accent); font-family: var(--font-display); font-size: 1.75rem; font-weight: 750; letter-spacing: -0.08em; }
 .journey-detail__partner-logo img { display: block; width: 100%; max-height: 45px; object-fit: contain; }
 .journey-detail__partner-mark > svg { width: 18px; height: 18px; fill: none; stroke: var(--about-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform 180ms ease; }
 .journey-detail__partner-mark:hover { border-color: rgba(158, 183, 255, 0.58); background: linear-gradient(118deg, rgba(124, 153, 235, 0.23), rgba(12, 19, 39, 0.5)); transform: translateY(-2px); }

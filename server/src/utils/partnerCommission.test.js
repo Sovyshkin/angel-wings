@@ -51,7 +51,7 @@ test('repeated recalculation updates one order commission, preserving its origin
           creations++
           commission = { ...create }
         }
-        order.commission = { id: 7, percentage: commission.percentage }
+        order.commission = { id: 7, partnerId: commission.partnerId, percentage: commission.percentage }
         return commission
       }
     }
@@ -66,4 +66,30 @@ test('repeated recalculation updates one order commission, preserving its origin
   assert.equal(creations, 1)
   assert.equal(commission.amount, 180)
   assert.equal(commission.percentage, 12)
+})
+
+test('recalculation moves an existing commission to the partner assigned to the order', async () => {
+  const order = {
+    id: 870, userId: 415, partnerId: 7, status: 'PROCESSING', paymentStatus: 'PAID',
+    total: 45240, deliveryPrice: 690, deliveryTariffCode: null,
+    deliveryPickupPoint: null, cdekOrderUuid: null,
+    commission: { id: 455, partnerId: 3, percentage: 15 }
+  }
+  let saved = { partnerId: 3, userId: 415, percentage: 15, amount: 6682.5 }
+  const db = {
+    order: { findUnique: async () => order },
+    partner: { findUnique: async () => ({ id: 7, percentage: 11, isActive: true }) },
+    partnerCommission: {
+      upsert: async ({ update }) => {
+        saved = { ...saved, ...update }
+        return saved
+      }
+    }
+  }
+
+  await ensurePartnerCommissionForPaidOrder(db, 870)
+  assert.equal(saved.partnerId, 7)
+  assert.equal(saved.userId, 415)
+  assert.equal(saved.percentage, 11)
+  assert.equal(saved.amount, 4900.5)
 })

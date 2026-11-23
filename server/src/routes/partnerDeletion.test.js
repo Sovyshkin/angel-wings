@@ -18,11 +18,13 @@ test('partner removal archives records, releases bindings and preserves financia
   assert.equal(schema.status, 0, schema.stderr)
   const { default: partnerRoutes } = await import('./partner.js')
   const { default: adminRoutes } = await import('./admin.js')
+  const { default: orderRoutes } = await import('./orders.js')
   const db = new PrismaClient()
   const app = express()
   app.use(express.json())
   app.use('/api/admin/partners', partnerRoutes)
   app.use('/api/admin', adminRoutes)
+  app.use('/api/orders', orderRoutes)
   app.use((error, _req, res, _next) => res.status(error.status || 500).json({ error: error.message }))
   const server = await new Promise(resolve => { const listener = app.listen(0, '127.0.0.1', () => resolve(listener)) })
   try {
@@ -85,6 +87,33 @@ test('partner removal archives records, releases bindings and preserves financia
     const archivedList = await archive.json()
     assert.equal(archivedList.total, 2)
     assert.deepEqual(archivedList.partners.map(item => item.id).sort(), [partner.id, usedPartner.id].sort())
+
+    const deletedAccount = await db.user.create({ data: { email: 'deleted-partner@delete.test', password: 'unused', name: 'Old Partner', role: 'PARTNER' } })
+    const deletedPartner = await db.partner.create({ data: { userId: deletedAccount.id, referralCode: 'DELETED-ACCOUNT' } })
+    const deletedPromo = await db.promoCode.create({ data: { code: 'DELETED-PROMO', discountValue: 10, partnerId: deletedPartner.id } })
+    const deletedPartnerBuyer = await db.user.create({ data: { email: 'deleted-partner-buyer@delete.test', password: 'unused', name: 'Buyer', role: 'USER' } })
+    await db.partnerUser.create({ data: { userId: deletedPartnerBuyer.id, partnerId: deletedPartner.id } })
+    const oldOrder = await db.order.create({ data: { userId: deletedPartnerBuyer.id, partnerId: deletedPartner.id, total: 1000, paymentStatus: 'PAID', customerName: 'Buyer', customerEmail: deletedPartnerBuyer.email, customerPhone: '+79990000000' } })
+    const oldCommission = await db.partnerCommission.create({ data: { partnerId: deletedPartner.id, orderId: oldOrder.id, userId: deletedPartnerBuyer.id, amount: 100, percentage: 10 } })
+    const deleteAccount = await fetch(`http://127.0.0.1:${server.address().port}/api/admin/users/${deletedAccount.id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
+    })
+    assert.equal(deleteAccount.status, 200, await deleteAccount.text())
+    const archivedAccountPartner = await db.partner.findUnique({ where: { id: deletedPartner.id } })
+    assert.equal(archivedAccountPartner.isActive, false)
+    assert.ok(archivedAccountPartner.archivedAt)
+    assert.equal((await db.user.findUnique({ where: { id: deletedAccount.id } })).role, 'DELETED')
+    assert.equal((await db.promoCode.findUnique({ where: { id: deletedPromo.id } })).isActive, false)
+    assert.equal(await db.partnerUser.findUnique({ where: { userId: deletedPartnerBuyer.id } }), null)
+    assert.equal((await db.partnerCommission.findUnique({ where: { id: oldCommission.id } })).partnerId, deletedPartner.id)
+
+    const nextPromo = await db.promoCode.create({ data: { code: 'NEXT-AFTER-DELETE', discountValue: 10, partnerId: nextPartner.id } })
+    const siteToken = jwt.sign({ userId: deletedPartnerBuyer.id, purpose: 'session' }, process.env.JWT_SECRET)
+    const sitePreview = await fetch(`http://127.0.0.1:${server.address().port}/api/orders/promo/validate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${siteToken}` },
+      body: JSON.stringify({ code: nextPromo.code, amount: 1000 })
+    })
+    assert.equal(sitePreview.status, 200, await sitePreview.text())
   } finally {
     await db.$disconnect()
     await new Promise(resolve => server.close(resolve))

@@ -107,7 +107,11 @@ export async function linkTelegramAccount(prisma, { sourceId, targetId, telegram
       data: { userId: target.id }
     })
     if (source.partnerUser) {
-      await tx.partnerUser.update({ where: { id: source.partnerUser.id }, data: { userId: target.id } })
+      if (target.partnerBindingDisabled) {
+        await tx.partnerUser.delete({ where: { id: source.partnerUser.id } })
+      } else {
+        await tx.partnerUser.update({ where: { id: source.partnerUser.id }, data: { userId: target.id } })
+      }
     }
 
     const targetPickupCodes = new Set((await tx.favoritePickupPoint.findMany({

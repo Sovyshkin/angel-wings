@@ -154,15 +154,23 @@
     <Teleport to="body">
       <div v-if="priceDialogOpen" class="stock-overlay" @click.self="priceDialogOpen = false">
         <section class="stock-dialog price-dialog" role="dialog" aria-modal="true" aria-label="Массовое изменение цен">
-          <div class="stock-dialog__header"><div><h2>Изменить цены</h2><p>Выберите товары в списке. Пустые поля останутся без изменений. Цены отдельных дозировок меняются в карточке товара.</p></div><button type="button" class="stock-icon-button" @click="priceDialogOpen = false">×</button></div>
-          <p>Выбрано: {{ selectedPriceIds.length }}. На этой странице:</p>
-          <div class="price-dialog__products">
-            <label v-for="product in products" :key="product.id"><input type="checkbox" :checked="selectedPriceIds.includes(product.id)" @change="togglePrice(product.id)"> {{ product.title }} · {{ formatPrice(product.price) }}</label>
-          </div>
-          <div class="price-dialog__fields">
-            <label>Новая цена, ₽<input v-model="bulkPrice" type="number" min="0" step="0.01" class="input"></label>
-            <label>Старая цена, ₽<input v-model="bulkComparePrice" type="number" min="0" step="0.01" class="input"></label>
-            <label>Себестоимость, ₽<input v-model="bulkCostPrice" type="number" min="0" step="0.01" class="input"></label>
+          <div class="stock-dialog__header"><div><h2>Изменить цены</h2><p>Выберите товары и укажите только те цены, которые нужно изменить. Цены отдельных дозировок меняются в карточке товара.</p></div><button type="button" class="stock-icon-button" aria-label="Закрыть" @click="priceDialogOpen = false">×</button></div>
+          <div class="price-dialog__body">
+            <div class="price-dialog__section-head"><strong>Товары на этой странице</strong><span>Выбрано: {{ selectedPriceIds.length }}</span></div>
+            <div class="price-dialog__products">
+              <label v-for="product in products" :key="product.id" :class="['price-dialog__product', { 'is-selected': selectedPriceIds.includes(product.id) }]">
+                <input type="checkbox" :checked="selectedPriceIds.includes(product.id)" @change="togglePrice(product.id)">
+                <span class="price-dialog__product-name">{{ product.title }}</span>
+                <span class="price-dialog__product-price">{{ formatPrice(product.price) }}</span>
+              </label>
+              <p v-if="!products.length" class="price-dialog__empty">На этой странице нет товаров.</p>
+            </div>
+            <div class="price-dialog__section-head price-dialog__section-head--fields"><strong>Новые значения</strong><span>Пустые поля не меняются</span></div>
+            <div class="price-dialog__fields">
+              <label>Новая цена, ₽<input v-model="bulkPrice" type="number" min="0" step="0.01" class="input"></label>
+              <label>Старая цена, ₽<input v-model="bulkComparePrice" type="number" min="0" step="0.01" class="input"></label>
+              <label>Себестоимость, ₽<input v-model="bulkCostPrice" type="number" min="0" step="0.01" class="input"></label>
+            </div>
           </div>
           <p v-if="priceError" role="alert" class="stock-save-error">{{ priceError }}</p>
           <div class="stock-dialog__footer"><span>История прежних цен сохранится у каждого товара.</span><button type="button" class="btn btn-primary" :disabled="priceSaving || !selectedPriceIds.length" @click="saveBulkPrices">{{ priceSaving ? 'Сохраняем…' : 'Сохранить цены' }}</button></div>
@@ -560,11 +568,26 @@ watch(search, () => {
 
 <style scoped>
 .price-card-select { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; color: var(--text-secondary); }
-.stock-dialog.price-dialog { max-width: 760px; overflow-y: auto; }
-.price-dialog__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin: 1rem 0; }
-.price-dialog__fields label { display: grid; gap: .4rem; }
-.price-dialog__products { display: grid; gap: .35rem; max-height: 180px; overflow: auto; margin: .75rem 0; }
-.price-dialog__products label { display: flex; align-items: center; gap: .5rem; }
+.stock-dialog.price-dialog { max-width: 760px; overflow: hidden; border-color: var(--border); background: var(--bg-card); }
+.price-dialog .stock-dialog__header { flex: none; padding-bottom: 22px; }
+.price-dialog .stock-dialog__header h2 { margin-top: 0; }
+.price-dialog .stock-icon-button { border-color: var(--border); color: var(--text-secondary); background: var(--bg-secondary); }
+.price-dialog__body { min-height: 0; overflow-y: auto; padding: 0 30px 8px; scrollbar-width: thin; }
+.price-dialog__section-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 11px; }
+.price-dialog__section-head strong { color: var(--text-primary); font-size: .92rem; }
+.price-dialog__section-head span { color: var(--text-muted); font-size: .8rem; }
+.price-dialog__section-head--fields { margin-top: 23px; }
+.price-dialog__products { display: grid; gap: 4px; max-height: 252px; overflow-y: auto; padding: 6px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-secondary); scrollbar-width: thin; }
+.price-dialog__product { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 43px; padding: 9px 11px; border-radius: 9px; cursor: pointer; transition: background .18s ease; }
+.price-dialog__product:hover, .price-dialog__product.is-selected { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.price-dialog__product input { width: 17px; height: 17px; margin: 0; accent-color: var(--accent); }
+.price-dialog__product-name { min-width: 0; overflow-wrap: anywhere; color: var(--text-primary); font-weight: 650; }
+.price-dialog__product-price { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.price-dialog__empty { margin: 0; padding: 20px; color: var(--text-muted); text-align: center; }
+.price-dialog__fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.price-dialog__fields label { display: grid; gap: 7px; min-width: 0; color: var(--text-secondary); font-size: .8rem; font-weight: 650; }
+.price-dialog__fields input { width: 100%; min-width: 0; }
+.price-dialog .stock-dialog__footer { flex: none; margin-top: 18px; border-color: var(--border); }
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -923,6 +946,8 @@ watch(search, () => {
   .stock-scope-note { margin: 12px 18px 0; }
   .stock-save-error { margin: 10px 18px 0; }
   .stock-dialog__footer { padding: 14px 18px; }
+  .price-dialog__body { padding: 0 18px 8px; }
+  .price-dialog__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   .products-table-wrapper {
     display: none;
@@ -950,5 +975,9 @@ watch(search, () => {
   .stock-mode button { flex: 1; padding: 9px; font-size: 0.82rem; }
   .stock-dialog__footer { flex-direction: column; align-items: stretch; }
   .stock-dialog__footer > div .btn { flex: 1; }
+  .price-dialog__fields { grid-template-columns: 1fr; }
+  .price-dialog__product { grid-template-columns: 18px minmax(0, 1fr); gap: 7px 10px; }
+  .price-dialog__product-price { grid-column: 2; font-size: .8rem; }
+  .price-dialog .stock-dialog__footer .btn { width: 100%; }
 }
 </style>

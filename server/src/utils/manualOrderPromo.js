@@ -7,9 +7,9 @@ function clientError(message, status = 400) {
   return Object.assign(new Error(message), { status })
 }
 
-export async function resolveManualOrderPromo(tx, { code, userId, subtotal, userPointsUsed = 0, boundPartnerId = null, requestedPartnerId = null, excludeOrderId = null }) {
+export async function resolveManualOrderPromo(tx, { code, userId, subtotal, userPointsUsed = 0, boundPartnerId = null, requestedPartnerId = null, excludeOrderId = null, suppressPartnerAttribution = false }) {
   const normalizedCode = String(code || '').trim().toUpperCase()
-  if (!normalizedCode) return { promoCode: null, discountAmount: 0, partnerId: boundPartnerId || requestedPartnerId || null }
+  if (!normalizedCode) return { promoCode: null, discountAmount: 0, partnerId: suppressPartnerAttribution ? null : boundPartnerId || requestedPartnerId || null }
   if (normalizedCode.length > 100) throw clientError('Промокод слишком длинный')
   if (!userId) throw clientError('Для промокода выберите зарегистрированного клиента')
 
@@ -42,7 +42,7 @@ export async function resolveManualOrderPromo(tx, { code, userId, subtotal, user
   }
 
   let partnerId = boundPartnerId || requestedPartnerId || null
-  if (promoCode.partnerId) {
+  if (promoCode.partnerId && !suppressPartnerAttribution) {
     if (boundPartnerId && boundPartnerId !== promoCode.partnerId) {
       if (promoCode.isFirstPurchase) throw clientError('Клиент уже закреплён за другим партнёром')
     } else if (requestedPartnerId && requestedPartnerId !== promoCode.partnerId) {
@@ -56,7 +56,7 @@ export async function resolveManualOrderPromo(tx, { code, userId, subtotal, user
   return {
     promoCode,
     discountAmount: calculatePromoDiscount(subtotal, promoCode, userPointsUsed),
-    partnerId
+    partnerId: suppressPartnerAttribution ? null : partnerId
   }
 }
 

@@ -57,6 +57,36 @@
         </article>
       </section>
 
+      <section class="binding-panel card" aria-labelledby="partner-binding-title">
+        <div class="panel-head">
+          <h2 id="partner-binding-title">Партнёрская привязка</h2>
+          <p>Определяет, кому начислится комиссия за будущие оплаченные заказы. История заказов и начислений не меняется.</p>
+        </div>
+        <div class="binding-panel__current">
+          <span>Сейчас</span>
+          <strong v-if="user.partnerUser?.partner">{{ user.partnerUser.partner.user?.name || user.partnerUser.partner.user?.email || `Партнёр #${user.partnerUser.partner.id}` }} <small>#{{ user.partnerUser.partner.id }}</small></strong>
+          <strong v-else-if="user.historicalPartner">{{ user.historicalPartner.user?.name || user.historicalPartner.user?.email || `Партнёр #${user.historicalPartner.id}` }} <small>#{{ user.historicalPartner.id }} · по истории заказов</small></strong>
+          <strong v-else>{{ user.partnerBindingDisabled ? 'Отвязано вручную' : 'Нет явной привязки' }}</strong>
+        </div>
+        <div class="binding-panel__controls">
+          <label for="user-partner-select">Выбрать партнёра</label>
+          <select id="user-partner-select" v-model="selectedPartnerId" :disabled="bindingBusy || bindingOptionsLoading">
+            <option value="">Выберите партнёра</option>
+            <option v-for="partner in partnerOptions.filter(item => item.userId !== user.id)" :key="partner.id" :value="String(partner.id)">
+              {{ partner.user.name || partner.user.email }} · #{{ partner.id }}
+            </option>
+          </select>
+          <button type="button" class="points-button points-button--primary" :disabled="bindingBusy || !selectedPartnerId || Number(selectedPartnerId) === user.partnerUser?.partner?.id" @click="savePartnerBinding">
+            {{ bindingBusy === 'save' ? 'Сохраняем…' : user.partnerUser || user.historicalPartner ? 'Сменить партнёра' : 'Привязать партнёра' }}
+          </button>
+          <button type="button" class="points-button points-button--danger" :disabled="!!bindingBusy || !user.partnerUser && user.partnerBindingDisabled" @click="removePartnerBinding">
+            {{ bindingBusy === 'remove' ? 'Отвязываем…' : 'Отвязать' }}
+          </button>
+        </div>
+        <p v-if="bindingOptionsError || bindingError" class="points-feedback points-feedback--error" role="alert">{{ bindingOptionsError || bindingError }}</p>
+        <p v-if="bindingSuccess" class="points-feedback points-feedback--success" role="status">{{ bindingSuccess }}</p>
+      </section>
+
       <section v-if="['USER', 'PARTNER'].includes(user.role)" class="points-panel card">
         <div class="panel-head panel-head--row">
           <div>
@@ -125,7 +155,7 @@
             <div><span>Телефон</span><strong>{{ user.phone || 'Не указан' }}</strong></div>
             <div><span>Адрес</span><strong>{{ user.address || 'Не указан' }}</strong></div>
             <div v-if="user.partner"><span>Кабинет партнера</span><strong>Партнер #{{ user.partner.id }} · {{ user.partner.percentage }}%</strong></div>
-            <div v-if="user.partnerUser"><span>Привязан к партнеру</span><strong>{{ user.partnerUser.partner?.user?.name || user.partnerUser.partner?.user?.email }} · {{ formatDate(user.partnerUser.boundAt) }}</strong></div>
+            <div v-if="user.partnerUser"><span>Привязан к партнёру</span><strong>{{ user.partnerUser.partner?.user?.name || user.partnerUser.partner?.user?.email }} · {{ formatDate(user.partnerUser.boundAt) }}</strong></div>
           </div>
         </section>
 
@@ -216,6 +246,56 @@ const pointsTotal = ref(0)
 const historyHasMore = ref(false)
 const historyLoading = ref(false)
 const historyError = ref('')
+const partnerOptions = ref([])
+const selectedPartnerId = ref('')
+const bindingOptionsLoading = ref(false)
+const bindingOptionsError = ref('')
+const bindingBusy = ref('')
+const bindingError = ref('')
+const bindingSuccess = ref('')
+
+async function fetchPartnerOptions() {
+  bindingOptionsLoading.value = true
+  bindingOptionsError.value = ''
+  try {
+    const { data } = await axios.get('/api/admin/users/partner-options')
+    partnerOptions.value = data.partners || []
+  } catch (error) {
+    bindingOptionsError.value = error.response?.data?.error || 'Не удалось загрузить список партнёров'
+  } finally {
+    bindingOptionsLoading.value = false
+  }
+}
+
+async function updatePartnerBinding(partnerId) {
+  bindingBusy.value = partnerId === null ? 'remove' : 'save'
+  bindingError.value = ''
+  bindingSuccess.value = ''
+  try {
+    const { data } = await axios.put(`/api/admin/users/${user.value.id}/partner-binding`, { partnerId })
+    user.value.partnerUser = data.partnerUser
+    user.value.partnerBindingDisabled = data.partnerBindingDisabled
+    user.value.historicalPartner = null
+    selectedPartnerId.value = data.partnerUser ? String(data.partnerUser.partnerId) : ''
+    bindingSuccess.value = partnerId === null ? 'Привязка снята для будущих заказов.' : 'Партнёр для будущих заказов сохранён.'
+  } catch (error) {
+    bindingError.value = error.response?.data?.error || 'Не удалось изменить привязку'
+  } finally {
+    bindingBusy.value = ''
+  }
+}
+
+function savePartnerBinding() {
+  const partnerId = Number(selectedPartnerId.value)
+  if (!Number.isSafeInteger(partnerId) || partnerId <= 0 || bindingBusy.value) return
+  if ((user.value.partnerUser || user.value.historicalPartner) && !window.confirm('Сменить партнёра для будущих заказов этого пользователя? Старые начисления останутся прежними.')) return
+  updatePartnerBinding(partnerId)
+}
+
+function removePartnerBinding() {
+  if (bindingBusy.value || !window.confirm('Отвязать пользователя от партнёра? Новые заказы не будут автоматически возвращать прежнюю привязку.')) return
+  updatePartnerBinding(null)
+}
 
 function formatPoints(value) {
   return Number(value || 0).toLocaleString('ru-RU')
@@ -378,6 +458,7 @@ async function fetchUser() {
   try {
     const { data } = await axios.get(`/api/admin/users/${route.params.id}`)
     user.value = data.user
+    selectedPartnerId.value = data.user.partnerUser?.partner?.id ? String(data.user.partnerUser.partner.id) : ''
     stats.value = data.stats || {}
     if (['USER', 'PARTNER'].includes(data.user?.role)) await fetchPointsHistory(true)
   } finally {
@@ -387,6 +468,7 @@ async function fetchUser() {
 
 onMounted(() => {
   fetchUser()
+  fetchPartnerOptions()
   axios.get('/api/admin/roles').then(({ data }) => {
     roleNames.value = Object.fromEntries((data.roles || []).map(role => [role.code, role.name]))
   }).catch(() => {})
@@ -539,6 +621,17 @@ onMounted(() => {
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
+
+.binding-panel { padding: 1.4rem; }
+.binding-panel__current { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.75rem; margin-bottom: 1rem; }
+.binding-panel__current > span { color: var(--text-muted); font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.binding-panel__current strong { color: var(--text-primary); }
+.binding-panel__current small { color: var(--text-muted); font-weight: 500; }
+.binding-panel__controls { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; }
+.binding-panel__controls label { flex-basis: 100%; color: var(--text-secondary); font-size: 0.84rem; font-weight: 700; }
+.binding-panel__controls select { flex: 1 1 280px; min-width: 0; min-height: 45px; padding: 0.7rem 0.9rem; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-secondary); color: var(--text-primary); font: inherit; }
+.binding-panel__controls select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.binding-panel__controls button { min-height: 45px; }
 
 .points-panel { padding: 1.4rem; }
 .points-balance { color: var(--accent); font-size: 1.25rem; white-space: nowrap; }

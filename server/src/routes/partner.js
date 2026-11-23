@@ -325,23 +325,23 @@ router.put('/partner-users/:userId/partner', authenticate, requireAdmin, async (
 
     const partner = await prisma.partner.findUnique({
       where: { id: partnerId },
-      select: { id: true, isActive: true, archivedAt: true }
+      select: { id: true, userId: true, isActive: true, archivedAt: true, user: { select: { role: true } } }
     })
 
-    if (!partner || !partner.isActive || partner.archivedAt) {
+    if (!partner || !partner.isActive || partner.archivedAt || partner.user?.role !== 'PARTNER' || partner.userId === userId) {
       return res.status(400).json({ error: 'Партнёр не найден или больше не активен' })
     }
 
-    const partnerUser = await prisma.partnerUser.create({
-      data: {
-        userId,
-        partnerId,
-        referralSource: 'admin_assignment'
-      },
-      include: {
-        user: { select: { id: true, email: true, name: true } },
-        partner: { select: { id: true } }
-      }
+    const partnerUser = await prisma.$transaction(async tx => {
+      const binding = await tx.partnerUser.create({
+        data: { userId, partnerId, referralSource: 'admin_assignment' },
+        include: {
+          user: { select: { id: true, email: true, name: true } },
+          partner: { select: { id: true } }
+        }
+      })
+      await tx.user.update({ where: { id: userId }, data: { partnerBindingDisabled: false } })
+      return binding
     })
 
     res.json({ partnerUser })
@@ -352,8 +352,11 @@ router.put('/partner-users/:userId/partner', authenticate, requireAdmin, async (
 
 router.delete('/partner-users/:userId', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    await prisma.partnerUser.delete({
-      where: { userId: parseInt(req.params.userId) }
+    const userId = Number(req.params.userId)
+    if (!Number.isSafeInteger(userId) || userId <= 0) return res.status(400).json({ error: 'Некорректный пользователь' })
+    await prisma.$transaction(async tx => {
+      await tx.partnerUser.deleteMany({ where: { userId } })
+      await tx.user.update({ where: { id: userId }, data: { partnerBindingDisabled: true } })
     })
 
     res.json({ message: 'Partner binding removed' })
