@@ -43,8 +43,11 @@
         <button type="button" :class="['orders-period__preset', { active: periodMode === 'week' }]" @click="showCurrentWeek">Эта неделя</button>
         <button type="button" :class="['orders-period__preset', { active: periodMode === 'all' }]" @click="showAllTime">Всё время</button>
       </div>
-      <label v-if="periodMode !== 'all'">С <input v-model="dateFrom" class="input" type="date" :max="dateTo || undefined" @change="handlePeriodChange"></label>
-      <label v-if="periodMode !== 'all'">По <input v-model="dateTo" class="input" type="date" :min="dateFrom || undefined" @change="handlePeriodChange"></label>
+      <div v-if="periodMode !== 'all'" class="orders-period__range">
+        <label><span>С</span><input v-model="dateFrom" class="input" type="date" :max="dateTo || undefined" @change="handlePeriodChange"></label>
+        <span class="orders-period__range-separator" aria-hidden="true">—</span>
+        <label><span>По</span><input v-model="dateTo" class="input" type="date" :min="dateFrom || undefined" @change="handlePeriodChange"></label>
+      </div>
       <span v-if="periodMode !== 'all'" class="orders-period__hint">По дате создания заказа, МСК</span>
       <span v-else class="orders-period__hint">Заказы за всё время</span>
     </div>
@@ -141,9 +144,9 @@
                   <button type="button" class="order-number-link" @click="viewOrder(order)">#{{ order.id }}</button>
                   <span>{{ formatDate(order.createdAt) }}</span>
                 </div>
-                <div class="order-summary-cell__name">{{ order.customerName }}</div>
+                <router-link v-if="order.userId && authStore.can('ADMIN_ONLY')" :to="`/users/${order.userId}`" class="order-summary-cell__name order-user-link">{{ order.customerName }}</router-link>
+                <div v-else class="order-summary-cell__name">{{ order.customerName }}</div>
                 <div class="order-summary-cell__phone">{{ order.customerPhone }}</div>
-                <router-link v-if="order.userId && authStore.can('ADMIN_ONLY')" :to="`/users/${order.userId}`" class="order-user-link">Пользователь #{{ order.userId }}</router-link>
                 <div v-if="order.promoCode?.code" class="order-summary-cell__promo">
                   <span class="promo-code-tag" :title="order.promoCode.code">{{ order.promoCode.code }}<template v-if="promoDiscountLabel(order.promoCode)"> · {{ promoDiscountLabel(order.promoCode) }}</template></span>
                   <span v-if="order.promoCode.partner?.id">Промокод партнёра:</span>
@@ -255,11 +258,8 @@
           <div class="order-card__body">
             <div class="order-card__row">
               <span class="order-card__label">Клиент</span>
-              <span class="order-card__value">{{ order.customerName }}</span>
-            </div>
-            <div v-if="order.userId && authStore.can('ADMIN_ONLY')" class="order-card__row">
-              <span class="order-card__label">Аккаунт</span>
-              <router-link :to="`/users/${order.userId}`" class="order-card__value order-user-link">Пользователь #{{ order.userId }}</router-link>
+              <router-link v-if="order.userId && authStore.can('ADMIN_ONLY')" :to="`/users/${order.userId}`" class="order-card__value order-user-link">{{ order.customerName }}</router-link>
+              <span v-else class="order-card__value">{{ order.customerName }}</span>
             </div>
             <div class="order-card__row">
               <span class="order-card__label">Телефон</span>
@@ -351,7 +351,11 @@
             <h3 class="modal-title">Новый заказ</h3>
             <p>Выберите клиента, товары и способ доставки.</p>
           </div>
-          <button type="button" class="modal-close" aria-label="Закрыть" @click="closeManualOrder">×</button>
+          <button type="button" class="modal-close" aria-label="Закрыть" @click="closeManualOrder">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
         </div>
         <form class="order-edit-form manual-order-form" @submit.prevent="createManualOrder">
           <section class="manual-order-section">
@@ -581,13 +585,8 @@
             <h4 class="section-title">Клиент</h4>
             <div class="detail-row">
               <span class="detail-label">Имя</span>
-              <span class="detail-value">{{ selectedOrder.customerName }}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Аккаунт</span>
-              <router-link v-if="selectedOrder.userId && authStore.can('ADMIN_ONLY')" :to="`/users/${selectedOrder.userId}`" class="detail-value order-user-link" @click="selectedOrder = null">Открыть пользователя #{{ selectedOrder.userId }}</router-link>
-              <span v-else-if="selectedOrder.userId" class="detail-value">Пользователь #{{ selectedOrder.userId }}</span>
-              <span v-else class="detail-value">Заказ без аккаунта</span>
+              <router-link v-if="selectedOrder.userId && authStore.can('ADMIN_ONLY')" :to="`/users/${selectedOrder.userId}`" class="detail-value order-user-link" @click="selectedOrder = null">{{ selectedOrder.customerName }}</router-link>
+              <span v-else class="detail-value">{{ selectedOrder.customerName }}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">Email</span>
@@ -604,10 +603,12 @@
             <div class="detail-row">
               <span class="detail-label">Оплата</span>
               <div class="payment-control">
-                <span :class="['payment-badge', getPaymentBadge(selectedOrder.paymentStatus)]">
-                  {{ getPaymentLabel(selectedOrder.paymentStatus) }}
-                </span>
-                <span v-if="selectedOrder.origin === 'ADMIN_MANUAL'" class="manual-origin-badge">Вручную</span>
+                <div class="payment-control__badges">
+                  <span :class="['payment-badge', getPaymentBadge(selectedOrder.paymentStatus)]">
+                    {{ getPaymentLabel(selectedOrder.paymentStatus) }}
+                  </span>
+                  <span v-if="selectedOrder.origin === 'ADMIN_MANUAL'" class="manual-origin-badge">Вручную</span>
+                </div>
                 <button
                   v-if="!isOrderPaid(selectedOrder.paymentStatus)"
                   @click="markAsPaid(selectedOrder)"
@@ -2176,37 +2177,57 @@ watch(manualCityQuery, query => {
 }
 
 .orders-period {
-  display: flex;
-  align-items: end;
+  display: inline-flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: .75rem 1rem;
+  max-width: 100%;
+  gap: .5rem .75rem;
   margin-bottom: 1rem;
-  padding: 1rem;
+  padding: .55rem;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg-card);
 }
 
-.orders-period__presets { display: flex; flex-wrap: wrap; gap: .5rem; }
-.orders-period__preset {
-  min-height: 42px;
-  padding: .55rem .9rem;
+.orders-period__presets {
+  display: flex;
+  gap: .2rem;
+  padding: .2rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 9px;
   background: var(--bg-secondary);
+}
+.orders-period__preset {
+  min-height: 40px;
+  padding: .45rem .85rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
   font: inherit;
+  white-space: nowrap;
+  transition: background .15s ease, color .15s ease;
 }
+.orders-period__preset:hover { color: var(--text-primary); }
 .orders-period__preset.active {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-dim);
 }
-.orders-period label { display: grid; gap: .3rem; color: var(--text-secondary); font-size: .8rem; }
-.orders-period input { width: 175px; max-width: 100%; min-height: 42px; color-scheme: dark; }
+.orders-period__range {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding-left: .75rem;
+  border-left: 1px solid var(--border);
+}
+.orders-period__range label { display: flex; align-items: center; gap: .45rem; color: var(--text-secondary); font-size: .8rem; }
+.orders-period__range label > span { white-space: nowrap; }
+.orders-period__range-separator { color: var(--text-muted); }
+.orders-period input { width: 155px; max-width: 100%; min-height: 40px; color-scheme: dark; }
 [data-theme="light"] .orders-period input { color-scheme: light; }
-.orders-period__hint { color: var(--text-muted); font-size: .78rem; line-height: 1.4; }
+.orders-period__hint { padding: 0 .35rem; color: var(--text-muted); font-size: .75rem; line-height: 1.4; }
 .orders-period__error { margin: -.4rem 0 1rem; color: #ef6b73; font-size: .85rem; }
 
 .stat-card {
@@ -2330,12 +2351,6 @@ watch(manualCityQuery, query => {
   text-decoration: underline;
   text-underline-offset: 3px;
   overflow-wrap: anywhere;
-}
-
-.order-summary-cell > .order-user-link {
-  display: inline-block;
-  margin-top: .3rem;
-  font-size: .78rem;
 }
 
 .order-user-link:hover { color: var(--text-primary); }
@@ -2844,6 +2859,15 @@ watch(manualCityQuery, query => {
   display: inline-flex;
   flex-direction: column;
   align-items: flex-end;
+  min-width: 0;
+}
+
+.payment-control__badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .promo-meta {
@@ -3792,9 +3816,13 @@ watch(manualCityQuery, query => {
 }
 
 @media (max-width: 768px) {
-  .orders-period { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .orders-period__presets, .orders-period__hint { grid-column: 1 / -1; }
-  .orders-period label, .orders-period input { min-width: 0; width: 100%; }
+  .orders-period { display: flex; flex-direction: column; align-items: stretch; width: 100%; padding: .65rem; }
+  .orders-period__presets { width: 100%; }
+  .orders-period__preset { flex: 1; }
+  .orders-period__range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; padding: .4rem 0 0; border-left: 0; border-top: 1px solid var(--border); }
+  .orders-period__range label { min-width: 0; }
+  .orders-period__range input { min-width: 0; width: 100%; padding-inline: .4rem; font-size: .85rem; }
+  .orders-period__range-separator { display: none; }
   .page-header {
     flex-direction: column;
     gap: 1rem;

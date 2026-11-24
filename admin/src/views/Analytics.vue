@@ -228,8 +228,9 @@
 
           <div class="metric-cell">
             <strong>{{ item.velocityPerDay }}</strong>
-            <span>уп./день</span>
-            <small>{{ item.velocityPerWeek }} уп./нед.</small>
+            <span>уп./день в среднем за {{ days }} дн.</span>
+            <small>В заказах за {{ days }} дн.: {{ item.periodUnits }} уп.</small>
+            <small>≈ {{ item.velocityPerWeek }} уп./нед. в среднем</small>
             <em :class="['delta', item.velocityDelta >= 0 ? 'positive' : 'negative']">
               {{ item.velocityDelta >= 0 ? '+' : '' }}{{ item.velocityDelta }}%
             </em>
@@ -249,7 +250,7 @@
 
           <div class="metric-cell ltv-cell">
             <strong>{{ formatCurrency(item.ltv) }}</strong>
-            <span>{{ item.successfulUnits }} уп.</span>
+            <span>{{ item.successfulUnits }} уп. в заказах за всё время</span>
           </div>
 
           <div class="stock-cell" :class="{ warning: item.reorderSignal }">
