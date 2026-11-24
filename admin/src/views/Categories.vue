@@ -13,6 +13,12 @@
       </button>
     </div>
 
+    <nav class="product-tabs" aria-label="Разделы товаров">
+      <router-link v-if="authStore.can('PRODUCTS')" to="/products">Товары</router-link>
+      <router-link v-if="authStore.can('PRODUCTS')" to="/products/stock">Склад</router-link>
+      <router-link to="/products/categories" aria-current="page">Категории</router-link>
+    </nav>
+
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
     </div>
@@ -186,8 +192,10 @@
 import { computed, ref, onMounted } from 'vue'
 import axios from 'axios'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
+import { useAuthStore } from '../store/auth'
 
 const API_URL = '/api'
+const authStore = useAuthStore()
 
 const categories = ref([])
 const loading = ref(true)
@@ -332,6 +340,9 @@ onMounted(fetchCategories)
 </script>
 
 <style scoped>
+.product-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: -0.5rem 0 1.5rem; }
+.product-tabs a { padding: 0.7rem 1.1rem; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); color: var(--text-secondary); text-decoration: none; font-weight: 700; }
+.product-tabs a[aria-current='page'] { border-color: var(--accent); color: var(--accent); }
 .page-header {
   display: flex;
   justify-content: space-between;

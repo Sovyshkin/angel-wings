@@ -1090,7 +1090,25 @@ router.patch('/products/:id/price', authenticate, requireAdmin, async (req, res,
 router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const days = Math.max(7, Math.min(365, Number.parseInt(req.query.days, 10) || 30))
-    const periodStart = startOfDaysAgo(days)
+    const requestedEndDate = String(req.query.endDate || '')
+    if (requestedEndDate && !/^\d{4}-\d{2}-\d{2}$/.test(requestedEndDate)) {
+      return res.status(400).json({ error: 'Укажите корректную конечную дату' })
+    }
+    // The admin reports use Moscow dates. The upper bound is exclusive, so the selected day is included in full.
+    const selectedDayStart = requestedEndDate ? new Date(`${requestedEndDate}T00:00:00+03:00`) : null
+    if (selectedDayStart && (
+      Number.isNaN(selectedDayStart.getTime()) ||
+      new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(selectedDayStart) !== requestedEndDate
+    )) {
+      return res.status(400).json({ error: 'Укажите корректную конечную дату' })
+    }
+    if (selectedDayStart && selectedDayStart > new Date()) {
+      return res.status(400).json({ error: 'Конечная дата не может быть в будущем' })
+    }
+    const periodEnd = selectedDayStart ? new Date(selectedDayStart.getTime() + 24 * 60 * 60 * 1000) : new Date()
+    const periodStart = selectedDayStart
+      ? new Date(periodEnd.getTime() - days * 24 * 60 * 60 * 1000)
+      : startOfDaysAgo(days)
     const acquiringSettings = await getAcquiringSettings(prisma)
 
     const [orders, marketingEvents] = await Promise.all([
@@ -1098,7 +1116,7 @@ router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
         where: {
           status: { not: 'CANCELLED' },
           paymentStatus: { in: [...SUCCESS_PAYMENT_STATUSES] },
-          createdAt: { gte: periodStart }
+          createdAt: { gte: periodStart, lt: periodEnd }
         },
         include: {
           commission: { select: { amount: true, percentage: true } },
@@ -1120,7 +1138,7 @@ router.get('/margin', authenticate, requireAdmin, async (req, res, next) => {
         orderBy: { createdAt: 'desc' }
       }),
       prisma.marketingEvent.findMany({
-        where: { eventDate: { gte: periodStart } },
+        where: { eventDate: { gte: periodStart, lt: periodEnd } },
         orderBy: { eventDate: 'desc' }
       })
     ])

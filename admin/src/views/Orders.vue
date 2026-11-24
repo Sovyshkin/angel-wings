@@ -38,6 +38,18 @@
       found-label="заказов найдено"
     />
 
+    <div class="orders-period" aria-label="Период заказов">
+      <div class="orders-period__presets">
+        <button type="button" :class="['orders-period__preset', { active: periodMode === 'week' }]" @click="showCurrentWeek">Эта неделя</button>
+        <button type="button" :class="['orders-period__preset', { active: periodMode === 'all' }]" @click="showAllTime">Всё время</button>
+      </div>
+      <label v-if="periodMode !== 'all'">С <input v-model="dateFrom" class="input" type="date" :max="dateTo || undefined" @change="handlePeriodChange"></label>
+      <label v-if="periodMode !== 'all'">По <input v-model="dateTo" class="input" type="date" :min="dateFrom || undefined" @change="handlePeriodChange"></label>
+      <span v-if="periodMode !== 'all'" class="orders-period__hint">По дате создания заказа, МСК</span>
+      <span v-else class="orders-period__hint">Заказы за всё время</span>
+    </div>
+    <p v-if="periodError" class="orders-period__error" role="alert">{{ periodError }}</p>
+
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
     </div>
@@ -131,8 +143,9 @@
                 </div>
                 <div class="order-summary-cell__name">{{ order.customerName }}</div>
                 <div class="order-summary-cell__phone">{{ order.customerPhone }}</div>
+                <router-link v-if="order.userId && authStore.can('ADMIN_ONLY')" :to="`/users/${order.userId}`" class="order-user-link">Пользователь #{{ order.userId }}</router-link>
                 <div v-if="order.promoCode?.code" class="order-summary-cell__promo">
-                  <span class="promo-code-tag" :title="order.promoCode.code">{{ order.promoCode.code }}</span>
+                  <span class="promo-code-tag" :title="order.promoCode.code">{{ order.promoCode.code }}<template v-if="promoDiscountLabel(order.promoCode)"> · {{ promoDiscountLabel(order.promoCode) }}</template></span>
                   <span v-if="order.promoCode.partner?.id">Промокод партнёра:</span>
                   <router-link
                     v-if="order.promoCode.partner?.id"
@@ -156,6 +169,7 @@
               <td class="order-amount-cell">
                 <div class="order-amount-cell__total">{{ formatPrice(order.total) }}</div>
                 <div class="order-amount-cell__items">{{ order.items?.length || 0 }} позиций</div>
+                <div v-if="order.origin === 'ADMIN_MANUAL' && Number(order.total) === 0" class="order-amount-cell__reason" :title="order.notes || 'Причина не указана'">{{ order.notes || 'Причина нулевой суммы не указана' }}</div>
                 <div v-if="order.commission || earnedCustomerPoints(order)" class="order-amount-cell__rewards">
                   <div v-if="order.commission">Партнёру <strong>+{{ formatPrice(order.commission.amount) }}</strong><span v-if="order.commission.partner?.id && order.promoCode?.partner?.id && order.commission.partner.id !== order.promoCode.partner.id" :title="`Комиссия начислена партнёру #${order.commission.partner.id}, а промокод принадлежит партнёру #${order.promoCode.partner.id}`"> · партнёр #{{ order.commission.partner.id }}</span></div>
                   <div v-if="earnedCustomerPoints(order)">Клиенту <strong>+{{ earnedCustomerPoints(order).toLocaleString('ru-RU') }} баллов</strong></div>
@@ -174,7 +188,9 @@
                   <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
                     {{ getPaymentLabel(order.paymentStatus) }}
                   </span>
-                  <PaymentMethodChip v-if="isOrderPaid(order.paymentStatus) && order.paymentType" :type="order.paymentType" />
+                  <span v-if="order.origin === 'ADMIN_MANUAL'" class="manual-origin-badge">Вручную</span>
+                  <PaymentMethodChip v-if="order.paymentType && (isOrderPaid(order.paymentStatus) || order.origin === 'ADMIN_MANUAL')" :type="order.paymentType" />
+                  <span v-else-if="order.origin === 'ADMIN_MANUAL'" class="manual-method-missing">Способ не указан</span>
                 </div>
                 <button
                   v-if="!isOrderPaid(order.paymentStatus)"
@@ -230,7 +246,9 @@
               <span :class="['payment-badge', getPaymentBadge(order.paymentStatus)]">
                 {{ getPaymentLabel(order.paymentStatus) }}
               </span>
-              <PaymentMethodChip v-if="isOrderPaid(order.paymentStatus) && order.paymentType" :type="order.paymentType" />
+              <span v-if="order.origin === 'ADMIN_MANUAL'" class="manual-origin-badge">Вручную</span>
+              <PaymentMethodChip v-if="order.paymentType && (isOrderPaid(order.paymentStatus) || order.origin === 'ADMIN_MANUAL')" :type="order.paymentType" />
+              <span v-else-if="order.origin === 'ADMIN_MANUAL'" class="manual-method-missing">Способ не указан</span>
             </div>
           </div>
 
@@ -238,6 +256,10 @@
             <div class="order-card__row">
               <span class="order-card__label">Клиент</span>
               <span class="order-card__value">{{ order.customerName }}</span>
+            </div>
+            <div v-if="order.userId && authStore.can('ADMIN_ONLY')" class="order-card__row">
+              <span class="order-card__label">Аккаунт</span>
+              <router-link :to="`/users/${order.userId}`" class="order-card__value order-user-link">Пользователь #{{ order.userId }}</router-link>
             </div>
             <div class="order-card__row">
               <span class="order-card__label">Телефон</span>
@@ -261,13 +283,17 @@
               <span class="order-card__label">Дата</span>
               <span class="order-card__value">{{ formatDate(order.createdAt) }}</span>
             </div>
+            <div v-if="order.origin === 'ADMIN_MANUAL' && Number(order.total) === 0" class="order-card__row"><span class="order-card__label">Почему 0 ₽</span><span class="order-card__value">{{ order.notes || 'Причина не указана' }}</span></div>
             <div class="order-card__row">
               <span class="order-card__label">Промокод</span>
               <span v-if="order.promoCode?.code" class="order-card__value">
-                {{ order.promoCode.code }}
+                {{ order.promoCode.code }}<template v-if="promoDiscountLabel(order.promoCode)"> · {{ promoDiscountLabel(order.promoCode) }}</template>
               </span>
               <span v-else class="order-card__value">—</span>
             </div>
+            <div v-if="getPromoDiscountAmount(order) > 0" class="order-card__row"><span class="order-card__label">Скидка по промокоду</span><span class="order-card__value">−{{ formatPrice(getPromoDiscountAmount(order)) }}</span></div>
+            <div v-if="Number(order.userPointsUsed) > 0" class="order-card__row"><span class="order-card__label">Списано баллов клиента</span><span class="order-card__value">−{{ formatPrice(order.userPointsUsed) }}</span></div>
+            <div v-if="getOtherDiscountAmount(order) > 0" class="order-card__row"><span class="order-card__label">Другая скидка</span><span class="order-card__value">−{{ formatPrice(getOtherDiscountAmount(order)) }}</span></div>
             <div v-if="order.promoCode?.partner?.id" class="order-card__row">
               <span class="order-card__label">Владелец промокода</span>
               <router-link :to="`/partners/${order.promoCode.partner.id}`" class="promo-partner-link">
@@ -444,17 +470,35 @@
               <p v-if="manualPromoError" class="edit-error edit-wide" role="alert">{{ manualPromoError }}</p>
               <p v-else-if="manualAppliedPromo" class="manual-promo-success edit-wide">Промокод {{ manualAppliedPromo.promoCode }} применён · скидка {{ formatPrice(manualAppliedPromo.discountAmount) }}<span v-if="manualAppliedPromo.partnerId"> · партнёр #{{ manualAppliedPromo.partnerId }}</span></p>
               <p v-else-if="manualDraft.promoCode" class="manual-delivery-note edit-wide">Проверьте промокод, чтобы увидеть итоговую сумму. При создании заказа он будет проверен ещё раз.</p>
-              <label>Статус оплаты<select v-model="manualDraft.paymentStatus" class="input"><option value="PENDING">Не оплачен</option><option value="PAID">Оплачен</option><option value="FAILED">Ошибка оплаты</option><option value="CASH_ON_DELIVERY">Наличными курьеру</option></select></label>
+              <label>Списать баллы клиента
+                <input v-model.number="manualDraft.userPointsUsed" class="input" type="number" min="0" step="1" :max="Math.min(manualUserPointsBalance, Math.floor(manualDraftSubtotal))" :disabled="!manualDraft.userId" placeholder="0">
+                <small v-if="manualDraft.userId">Доступно: {{ manualUserPointsBalance.toLocaleString('ru-RU') }} баллов</small>
+              </label>
+              <label>Статус оплаты<select v-model="manualDraft.paymentStatus" class="input" @change="handleManualPaymentStatusChange"><option value="PENDING">Не оплачен</option><option value="PAID">Оплачен</option><option value="FAILED">Ошибка оплаты</option><option value="CASH_ON_DELIVERY">Наличными курьеру</option></select></label>
+              <label>Способ оплаты
+                <select v-model="manualDraft.paymentType" class="input" required>
+                  <option value="" disabled>Выберите способ</option>
+                  <option value="cash">Наличные</option>
+                  <option value="bank_transfer">Банковский перевод</option>
+                  <option value="external_card">Картой вне сайта</option>
+                  <option value="external_sbp">СБП вне сайта</option>
+                  <option value="cash_on_delivery">Наличными курьеру</option>
+                  <option value="prepaid">Оплачено ранее вне сайта</option>
+                  <option value="discount">Баллы и скидки</option>
+                  <option value="no_payment">Без оплаты / подарок</option>
+                  <option value="other">Другой способ</option>
+                </select>
+              </label>
               <label>Статус заказа<select v-model="manualDraft.status" class="input"><option value="PENDING">Ожидает</option><option value="PROCESSING">В обработке</option><option value="SHIPPED">Отправлен</option><option value="DELIVERED">Доставлен</option></select></label>
               <label v-if="manualDraft.userId && !manualBoundPartnerId">ID партнёра (необязательно)<input v-model.number="manualDraft.partnerId" class="input" type="number" min="1" placeholder="Если нужно начисление партнёру"></label>
-              <label class="edit-wide">Комментарий к заказу<textarea v-model.trim="manualDraft.notes" class="input" rows="2" placeholder="Необязательно"></textarea></label>
+              <label class="edit-wide">{{ manualDraftTotal === 0 ? 'Почему сумма заказа 0 ₽' : 'Комментарий к заказу' }}<textarea v-model.trim="manualDraft.notes" class="input" rows="2" maxlength="4000" :required="manualDraftTotal === 0" :placeholder="manualDraftTotal === 0 ? 'Укажите причину нулевой суммы' : 'Необязательно'"></textarea></label>
             </div>
-            <p class="edit-notice">Промокод даёт скидку. Комиссия партнёра начисляется после оплаты по сумме со скидкой. Клиентские баллы за ручной заказ не начисляются.</p>
+            <p class="edit-notice">Промокод и списанные баллы уменьшают сумму заказа. Комиссия партнёра начисляется после оплаты по сумме со скидкой. Клиентские баллы за ручной заказ не начисляются.</p>
           </section>
 
           <p v-if="manualError" class="edit-error" role="alert">{{ manualError }}</p>
           <div class="manual-order-footer">
-            <div><small>Итого по заказу</small><strong>{{ formatPrice(manualDraftTotal) }}</strong><span v-if="manualDeliveryMode === 'cdek'">Без оплаты доставки СДЭК</span></div>
+            <div><small>Итого по заказу</small><strong>{{ formatPrice(manualDraftTotal) }}</strong><span v-if="manualAppliedPromo?.discountAmount">Промокод: −{{ formatPrice(manualAppliedPromo.discountAmount) }}</span><span v-if="Number(manualDraft.userPointsUsed) > 0">Баллы: −{{ formatPrice(manualDraft.userPointsUsed) }}</span><span v-if="manualDeliveryMode === 'cdek'">Без оплаты доставки СДЭК</span></div>
             <div class="manual-order-footer__actions"><button type="button" class="btn btn-secondary" @click="closeManualOrder">Отмена</button><button type="submit" class="btn btn-primary" :disabled="manualSaving || manualCdekCalculating || manualPointsLoading || !manualDraft.items.length">{{ manualSaving ? 'Создаём…' : 'Создать заказ' }}</button></div>
           </div>
         </form>
@@ -503,7 +547,8 @@
             <label>Код ПВЗ<input v-model.trim="orderDraft.deliveryPickupPoint" class="input" maxlength="500" :disabled="!canEditOrderAmount"></label>
             <label class="edit-wide">Название ПВЗ<input v-model.trim="orderDraft.deliveryPickupName" class="input" maxlength="500" :disabled="Boolean(selectedOrder.cdekOrderUuid)"></label>
             <label class="edit-wide">Адрес доставки<input v-model.trim="orderDraft.shippingAddress" class="input" maxlength="500" :disabled="Boolean(selectedOrder.cdekOrderUuid)"></label>
-            <label class="edit-wide">Комментарий<textarea v-model.trim="orderDraft.notes" class="input" rows="3" maxlength="4000"></textarea></label>
+            <label v-if="selectedOrder.origin === 'ADMIN_MANUAL'">Способ оплаты<select v-model="orderDraft.paymentType" class="input" required><option value="" disabled>Выберите способ</option><option value="cash">Наличные</option><option value="bank_transfer">Банковский перевод</option><option value="external_card">Картой вне сайта</option><option value="external_sbp">СБП вне сайта</option><option value="cash_on_delivery">Наличными курьеру</option><option value="prepaid">Оплачено ранее вне сайта</option><option value="discount">Баллы и скидки</option><option value="no_payment">Без оплаты / подарок</option><option value="other">Другой способ</option></select></label>
+            <label class="edit-wide">{{ selectedOrder.origin === 'ADMIN_MANUAL' && Number(selectedOrder.total) === 0 ? 'Почему сумма заказа 0 ₽' : 'Комментарий' }}<textarea v-model.trim="orderDraft.notes" class="input" rows="3" maxlength="4000" :required="selectedOrder.origin === 'ADMIN_MANUAL' && Number(selectedOrder.total) === 0"></textarea></label>
           </div>
           <div class="edit-section-title">Состав заказа</div>
           <p v-if="hasFixedPayment" class="edit-notice">Сумма заказа пересчитается по новому составу. Выставленный счёт, платёж и чек не изменятся; разницу нужно урегулировать отдельно.</p>
@@ -539,6 +584,12 @@
               <span class="detail-value">{{ selectedOrder.customerName }}</span>
             </div>
             <div class="detail-row">
+              <span class="detail-label">Аккаунт</span>
+              <router-link v-if="selectedOrder.userId && authStore.can('ADMIN_ONLY')" :to="`/users/${selectedOrder.userId}`" class="detail-value order-user-link" @click="selectedOrder = null">Открыть пользователя #{{ selectedOrder.userId }}</router-link>
+              <span v-else-if="selectedOrder.userId" class="detail-value">Пользователь #{{ selectedOrder.userId }}</span>
+              <span v-else class="detail-value">Заказ без аккаунта</span>
+            </div>
+            <div class="detail-row">
               <span class="detail-label">Email</span>
               <span class="detail-value">{{ selectedOrder.customerEmail }}</span>
             </div>
@@ -556,6 +607,7 @@
                 <span :class="['payment-badge', getPaymentBadge(selectedOrder.paymentStatus)]">
                   {{ getPaymentLabel(selectedOrder.paymentStatus) }}
                 </span>
+                <span v-if="selectedOrder.origin === 'ADMIN_MANUAL'" class="manual-origin-badge">Вручную</span>
                 <button
                   v-if="!isOrderPaid(selectedOrder.paymentStatus)"
                   @click="markAsPaid(selectedOrder)"
@@ -565,10 +617,11 @@
                 </button>
               </div>
             </div>
-            <div v-if="isOrderPaid(selectedOrder.paymentStatus)" class="detail-row">
+            <div v-if="selectedOrder.origin === 'ADMIN_MANUAL' && Number(selectedOrder.total) === 0" class="detail-row"><span class="detail-label">Почему 0 ₽</span><span class="detail-value">{{ selectedOrder.notes || 'Причина не указана' }}</span></div>
+            <div v-if="isOrderPaid(selectedOrder.paymentStatus) || selectedOrder.origin === 'ADMIN_MANUAL'" class="detail-row">
               <span class="detail-label">Способ оплаты</span>
               <PaymentMethodChip v-if="selectedOrder.paymentType" :type="selectedOrder.paymentType" />
-              <span v-else class="detail-value">Неизвестен</span>
+              <span v-else class="detail-value">Не указан</span>
             </div>
             <div v-if="selectedOrder.status === 'CANCELLED'" class="detail-row">
               <span class="detail-label">Причина отмены</span>
@@ -577,7 +630,7 @@
             <div class="detail-row">
               <span class="detail-label">Промокод и его владелец</span>
               <div class="promo-meta promo-meta--right">
-                <span v-if="selectedOrder.promoCode?.code" class="promo-code-tag">{{ selectedOrder.promoCode.code }}</span>
+                <span v-if="selectedOrder.promoCode?.code" class="promo-code-tag">{{ selectedOrder.promoCode.code }}<template v-if="promoDiscountLabel(selectedOrder.promoCode)"> · {{ promoDiscountLabel(selectedOrder.promoCode) }}</template></span>
                 <span v-else class="promo-empty">—</span>
                 <router-link
                   v-if="selectedOrder.promoCode?.partner?.id"
@@ -746,14 +799,19 @@
               <span>Доставка</span>
               <span>{{ formatPrice(selectedOrder.deliveryPrice) }}</span>
             </div>
-            <div class="total-row" v-if="selectedOrder.discountAmount">
-              <span>Скидка</span>
-              <span class="discount">-{{ formatPrice(selectedOrder.discountAmount) }}</span>
+            <div class="total-row" v-if="getPromoDiscountAmount(selectedOrder) > 0">
+              <span>Промокод {{ selectedOrder.promoCode?.code || '' }}</span>
+              <span class="discount">-{{ formatPrice(getPromoDiscountAmount(selectedOrder)) }}</span>
+            </div>
+            <div class="total-row" v-if="Number(selectedOrder.userPointsUsed) > 0">
+              <span>Списано баллов клиента</span>
+              <span class="discount">-{{ formatPrice(selectedOrder.userPointsUsed) }}</span>
             </div>
             <div class="total-row total-row--bonus" v-if="getPartnerBonusAmount(selectedOrder) > 0">
-              <span>Из них списано баллов</span>
+              <span>Списано баллов партнёра</span>
               <span class="discount">-{{ formatPrice(getPartnerBonusAmount(selectedOrder)) }}</span>
             </div>
+            <div class="total-row" v-if="getOtherDiscountAmount(selectedOrder) > 0"><span>Другая скидка</span><span class="discount">-{{ formatPrice(getOtherDiscountAmount(selectedOrder)) }}</span></div>
             <div class="total-row final">
               <span>{{ isCdekDelivery(selectedOrder) ? 'Итого без доставки СДЭК' : 'Итого' }}</span>
               <span class="total-value">{{ formatPrice(getOrderDetailTotal(selectedOrder)) }}</span>
@@ -809,11 +867,29 @@ import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 import AdminPagination from '../components/AdminPagination.vue'
 import OrderReportExport from '../components/OrderReportExport.vue'
 import PaymentMethodChip from '../components/PaymentMethodChip.vue'
+import { useAuthStore } from '../store/auth'
 
 const API_URL = '/api/admin'
+const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const initialPage = Number(route.query.page)
+function currentMoscowWeek() {
+  const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const day = new Date(`${today}T12:00:00Z`)
+  const monday = new Date(day)
+  monday.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7))
+  const sunday = new Date(monday)
+  sunday.setUTCDate(monday.getUTCDate() + 6)
+  return { from: monday.toISOString().slice(0, 10), to: sunday.toISOString().slice(0, 10) }
+}
+const initialWeek = currentMoscowWeek()
+const validCalendarDay = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) && !Number.isNaN(Date.parse(`${value}T12:00:00Z`)) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value
+const initialDates = validCalendarDay(route.query.dateFrom) && validCalendarDay(route.query.dateTo) && String(route.query.dateFrom) <= String(route.query.dateTo)
+const periodMode = ref(route.query.period === 'all' ? 'all' : initialDates ? 'custom' : 'week')
+const dateFrom = ref(initialDates ? String(route.query.dateFrom) : initialWeek.from)
+const dateTo = ref(initialDates ? String(route.query.dateTo) : initialWeek.to)
+const periodError = ref('')
 const scrollStorageKey = 'admin-orders-list-scroll'
 const allowedOrderStatuses = new Set(['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'RETURNED', 'CANCELLED'])
 
@@ -842,6 +918,7 @@ const manualUserSearchError = ref('')
 const manualProducts = ref([])
 const manualBoundPartnerId = ref(null)
 const manualOwnPartnerId = ref(null)
+const manualUserPointsBalance = ref(0)
 const manualDeliveryMode = ref('cdek')
 const manualCityQuery = ref('')
 const manualCityResults = ref([])
@@ -878,11 +955,11 @@ function normalizeItemPrice(item) {
 }
 
 const manualDraftSubtotal = computed(() => manualDraft.value.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (parseItemPrice(item.price) || 0), 0))
-const manualPromoKey = computed(() => JSON.stringify([String(manualDraft.value.promoCode || '').trim().toUpperCase(), manualDraft.value.userId, manualDraft.value.partnerId || null, Math.round(manualDraftSubtotal.value * 100)]))
+const manualPromoKey = computed(() => JSON.stringify([String(manualDraft.value.promoCode || '').trim().toUpperCase(), manualDraft.value.userId, manualDraft.value.partnerId || null, Math.round(manualDraftSubtotal.value * 100), Number(manualDraft.value.userPointsUsed || 0)]))
 const manualAppliedPromo = computed(() => manualPromoPreview.value?.key === manualPromoKey.value ? manualPromoPreview.value : null)
 const manualDraftTotal = computed(() => {
   const draft = manualDraft.value
-  return Math.round((manualDraftSubtotal.value + (draft.deliveryTariffCode || draft.deliveryPickupPoint ? 0 : (Number(draft.deliveryPrice) || 0)) - Number(manualAppliedPromo.value?.discountAmount || 0)) * 100) / 100
+  return Math.round(Math.max(0, manualDraftSubtotal.value + (draft.deliveryTariffCode || draft.deliveryPickupPoint ? 0 : (Number(draft.deliveryPrice) || 0)) - Number(manualAppliedPromo.value?.discountAmount || 0) - Number(draft.userPointsUsed || 0)) * 100) / 100
 })
 const editingOrder = ref(false)
 const savingOrder = ref(false)
@@ -928,7 +1005,8 @@ const listQuery = computed(() => ({
   ...(currentPage.value > 1 ? { page: String(currentPage.value) } : {}),
   ...(search.value.trim() ? { q: search.value.trim() } : {}),
   ...(filterStatus.value ? { status: filterStatus.value } : {}),
-  ...(filterFavorites.value ? { favorites: '1' } : {})
+  ...(filterFavorites.value ? { favorites: '1' } : {}),
+  ...(periodMode.value === 'all' ? { period: 'all' } : { dateFrom: dateFrom.value, dateTo: dateTo.value })
 }))
 
 function saveScrollPosition() {
@@ -963,6 +1041,7 @@ const stats = ref({
 })
 
 let searchTimer = null
+let ordersRequestId = 0
 let manualSearchTimer = null
 let manualUserSearchRequestId = 0
 let manualCustomerRequestId = 0
@@ -972,7 +1051,12 @@ let manualQuoteRequestId = 0
 
 function emptyManualDraft() {
   return { userId: null, partnerId: '', customerName: '', customerEmail: '', customerPhone: '', status: 'PENDING', paymentStatus: 'PENDING',
-    promoCode: '', items: [], deliveryPrice: 0, deliveryTariffName: '', deliveryTariffCode: '', deliveryCity: '', deliveryPickupPoint: '', deliveryPickupName: '', shippingAddress: '', notes: '' }
+    paymentType: '', promoCode: '', userPointsUsed: 0, items: [], deliveryPrice: 0, deliveryTariffName: '', deliveryTariffCode: '', deliveryCity: '', deliveryPickupPoint: '', deliveryPickupName: '', shippingAddress: '', notes: '' }
+}
+
+function handleManualPaymentStatusChange() {
+  if (manualDraft.value.paymentStatus === 'CASH_ON_DELIVERY') manualDraft.value.paymentType = 'cash_on_delivery'
+  else if (manualDraft.value.paymentType === 'cash_on_delivery') manualDraft.value.paymentType = ''
 }
 
 function earnedCustomerPoints(order) {
@@ -1009,6 +1093,7 @@ async function openManualOrder() {
   manualProducts.value = []
   manualBoundPartnerId.value = null
   manualOwnPartnerId.value = null
+  manualUserPointsBalance.value = 0
   manualCustomerRequestId++
   manualError.value = ''
   showManualOrder.value = true
@@ -1187,6 +1272,8 @@ async function selectManualUser(user) {
   manualBoundPartnerId.value = null
   manualOwnPartnerId.value = null
   manualDraft.value.partnerId = ''
+  manualDraft.value.userPointsUsed = 0
+  manualUserPointsBalance.value = 0
   manualDraft.value.customerName = user.name || ''
   manualDraft.value.customerEmail = user.email || ''
   manualDraft.value.customerPhone = user.phone || ''
@@ -1198,6 +1285,7 @@ async function selectManualUser(user) {
     if (requestId !== manualCustomerRequestId || manualDraft.value.userId !== user.id) return
     manualOwnPartnerId.value = data.user?.partner?.id || null
     manualBoundPartnerId.value = data.user?.partnerUser?.partner?.id || null
+    manualUserPointsBalance.value = Math.max(0, Number(data.user?.pointsBalance || 0))
     manualDraft.value.partnerId = manualBoundPartnerId.value || ''
     if (manualDeliveryMode.value === 'address') manualDraft.value.shippingAddress = data.user?.address || ''
   } catch {
@@ -1209,6 +1297,8 @@ function clearManualUser() {
   manualCustomerRequestId++
   manualDraft.value.userId = null
   manualDraft.value.partnerId = ''
+  manualDraft.value.userPointsUsed = 0
+  manualUserPointsBalance.value = 0
   manualBoundPartnerId.value = null
   manualOwnPartnerId.value = null
   manualSelectedUserLabel.value = ''
@@ -1257,7 +1347,8 @@ async function validateManualPromo() {
       promoCode: manualDraft.value.promoCode,
       userId: manualDraft.value.userId,
       partnerId: manualDraft.value.partnerId || null,
-      subtotal: manualDraftSubtotal.value
+      subtotal: manualDraftSubtotal.value,
+      userPointsUsed: Number(manualDraft.value.userPointsUsed || 0)
     })
     if (key === manualPromoKey.value) manualPromoPreview.value = { ...data, key }
   } catch (error) {
@@ -1270,8 +1361,17 @@ async function validateManualPromo() {
 async function createManualOrder() {
   if (manualSaving.value) return
   manualError.value = ''
+  if (!manualDraft.value.paymentType) {
+    manualError.value = 'Укажите способ оплаты'
+    return
+  }
   if (manualDraft.value.items.some(item => !Number.isFinite(parseItemPrice(item.price)))) {
     manualError.value = 'Проверьте цену товара: укажите сумму в рублях, не более двух знаков после запятой'
+    return
+  }
+  const pointsUsed = Number(manualDraft.value.userPointsUsed || 0)
+  if (!Number.isSafeInteger(pointsUsed) || pointsUsed < 0 || pointsUsed > manualUserPointsBalance.value || pointsUsed > Math.floor(manualDraftSubtotal.value)) {
+    manualError.value = 'Проверьте количество списываемых баллов'
     return
   }
   if (manualDeliveryMode.value === 'cdek') {
@@ -1294,6 +1394,10 @@ async function createManualOrder() {
       return
     }
   }
+  if (manualDraftTotal.value === 0 && !manualDraft.value.notes.trim()) {
+    manualError.value = 'Укажите, почему сумма ручного заказа равна 0 ₽'
+    return
+  }
   manualSaving.value = true
   try {
     const payload = { ...manualDraft.value, items: manualDraft.value.items.map(({ productId, dosage, quantity, price }) => ({ productId, dosage, quantity, price: parseItemPrice(price) })) }
@@ -1311,26 +1415,64 @@ async function createManualOrder() {
 }
 
 async function fetchOrders() {
+  if (periodMode.value !== 'all' && (!dateFrom.value || !dateTo.value || dateFrom.value > dateTo.value)) return
+  const requestId = ++ordersRequestId
   loading.value = true
   try {
     const params = {
       ...(filterStatus.value ? { status: filterStatus.value } : {}),
       ...(filterFavorites.value ? { favorites: 'true' } : {}),
       ...(search.value.trim() ? { q: search.value.trim() } : {}),
+      ...(periodMode.value === 'all' ? {} : { dateFrom: dateFrom.value, dateTo: dateTo.value }),
       limit: ORDERS_PER_PAGE,
       offset: (currentPage.value - 1) * ORDERS_PER_PAGE
     }
     const { data } = await axios.get(`${API_URL}/orders`, { params })
+    if (requestId !== ordersRequestId) return
     orders.value = data.orders
     total.value = data.total || 0
     stats.value = data.stats || {}
     const lastPage = Math.max(1, Math.ceil(total.value / ORDERS_PER_PAGE))
     if (currentPage.value > lastPage) currentPage.value = lastPage
   } catch (e) {
-    console.error(e)
+    if (requestId === ordersRequestId) console.error(e)
   } finally {
-    loading.value = false
+    if (requestId === ordersRequestId) loading.value = false
   }
+}
+
+function applyPeriod() {
+  periodError.value = ''
+  if (currentPage.value === 1) {
+    syncListQuery()
+    fetchOrders()
+  } else {
+    currentPage.value = 1
+  }
+}
+
+function showCurrentWeek() {
+  const week = currentMoscowWeek()
+  dateFrom.value = week.from
+  dateTo.value = week.to
+  periodMode.value = 'week'
+  applyPeriod()
+}
+
+function showAllTime() {
+  periodMode.value = 'all'
+  applyPeriod()
+}
+
+function handlePeriodChange() {
+  if (!dateFrom.value || !dateTo.value || dateFrom.value > dateTo.value) {
+    ordersRequestId += 1
+    loading.value = false
+    periodError.value = 'Укажите корректный период: дата начала должна быть не позже даты окончания'
+    return
+  }
+  periodMode.value = 'custom'
+  applyPeriod()
 }
 
 function scheduleOrdersSearch() {
@@ -1604,7 +1746,7 @@ async function startEditingOrder() {
   const order = selectedOrder.value
   orderDraft.value = {
     customerName: order.customerName || '', customerEmail: order.customerEmail || '', customerPhone: order.customerPhone || '',
-    shippingAddress: order.shippingAddress || '', notes: order.notes || '', deliveryTariffName: order.deliveryTariffName || '',
+    shippingAddress: order.shippingAddress || '', notes: order.notes || '', paymentType: order.paymentType || '', deliveryTariffName: order.deliveryTariffName || '',
     deliveryTariffCode: order.deliveryTariffCode ?? '', deliveryPrice: order.deliveryPrice ?? 0,
     deliveryCity: order.deliveryCity || '', deliveryPickupPoint: order.deliveryPickupPoint || '', deliveryPickupName: order.deliveryPickupName || '',
     items: order.items.map((item, index) => ({ key: `existing-${index}`, id: item.id, productId: item.productId, dosage: item.dosage || '', quantity: item.quantity, price: item.price }))
@@ -1649,6 +1791,10 @@ async function saveOrder() {
   if (!orderDraft.value || savingOrder.value) return
   editError.value = ''
   const draft = orderDraft.value
+  if (selectedOrder.value?.origin === 'ADMIN_MANUAL' && Number(selectedOrder.value.total) === 0 && !draft.notes.trim()) {
+    editError.value = 'Укажите, почему сумма ручного заказа равна 0 ₽'
+    return
+  }
   if (draft.items.some(item => !Number.isFinite(parseItemPrice(item.price)))) {
     editError.value = 'Проверьте цену товара: укажите сумму в рублях, не более двух знаков после запятой'
     return
@@ -1659,6 +1805,7 @@ async function saveOrder() {
     deliveryCity: draft.deliveryCity, deliveryPickupPoint: draft.deliveryPickupPoint, deliveryPickupName: draft.deliveryPickupName,
     deliveryTariffCode: draft.deliveryTariffCode === '' ? null : draft.deliveryTariffCode
   }
+  if (selectedOrder.value?.origin === 'ADMIN_MANUAL') payload.paymentType = draft.paymentType
   if (canEditOrderAmount.value) {
     payload.deliveryPrice = draft.deliveryPrice
   }
@@ -1718,6 +1865,15 @@ function getPartnerBonusAmount(order) {
   return Math.max(0, Number(order?.partnerBonusInfo?.amount ?? order?.partnerBonusAmount ?? 0))
 }
 
+function getPromoDiscountAmount(order) {
+  if (!order?.promoCodeId && !order?.promoCode?.code) return 0
+  return Math.round(Math.max(0, Number(order.discountAmount || 0) - Number(order.userPointsUsed || 0) - getPartnerBonusAmount(order)) * 100) / 100
+}
+
+function getOtherDiscountAmount(order) {
+  return Math.round(Math.max(0, Number(order?.discountAmount || 0) - Number(order?.userPointsUsed || 0) - getPartnerBonusAmount(order) - getPromoDiscountAmount(order)) * 100) / 100
+}
+
 function getPartnerAvailableBalance(order) {
   return Math.max(0, Number(order?.partnerBonusInfo?.balance?.availableBalance ?? 0))
 }
@@ -1775,6 +1931,14 @@ async function syncCdekStatus() {
 
 function formatPrice(val) {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(val)
+}
+
+function promoDiscountLabel(promoCode) {
+  if (!promoCode || promoCode.discountValue == null) return ''
+  const value = Number(promoCode.discountValue)
+  if (!Number.isFinite(value)) return ''
+  if (promoCode.discountType === 'percentage') return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value)}%`
+  return formatPrice(value)
 }
 
 function formatDate(date) {
@@ -2011,6 +2175,40 @@ watch(manualCityQuery, query => {
   margin-bottom: 2rem;
 }
 
+.orders-period {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: .75rem 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+
+.orders-period__presets { display: flex; flex-wrap: wrap; gap: .5rem; }
+.orders-period__preset {
+  min-height: 42px;
+  padding: .55rem .9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+.orders-period__preset.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+.orders-period label { display: grid; gap: .3rem; color: var(--text-secondary); font-size: .8rem; }
+.orders-period input { width: 175px; max-width: 100%; min-height: 42px; color-scheme: dark; }
+[data-theme="light"] .orders-period input { color-scheme: light; }
+.orders-period__hint { color: var(--text-muted); font-size: .78rem; line-height: 1.4; }
+.orders-period__error { margin: -.4rem 0 1rem; color: #ef6b73; font-size: .85rem; }
+
 .stat-card {
   display: flex;
   align-items: center;
@@ -2127,6 +2325,21 @@ watch(manualCityQuery, query => {
   color: var(--text-secondary);
 }
 
+.order-user-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.order-summary-cell > .order-user-link {
+  display: inline-block;
+  margin-top: .3rem;
+  font-size: .78rem;
+}
+
+.order-user-link:hover { color: var(--text-primary); }
+
 .order-summary-cell__promo {
   display: flex;
   align-items: center;
@@ -2196,6 +2409,36 @@ watch(manualCityQuery, query => {
   color: var(--text-muted);
   font-size: .75rem;
 }
+
+.order-amount-cell__reason {
+  max-width: 260px;
+  margin-top: .4rem;
+  color: var(--text-secondary);
+  font-size: .75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.manual-origin-badge,
+.manual-method-missing {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  font-size: .72rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.manual-origin-badge {
+  padding: .3rem .55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: var(--surface, transparent);
+  font-weight: 650;
+}
+
+.manual-method-missing { color: var(--text-muted); }
 
 .order-amount-cell__rewards {
   margin-top: .75rem;
@@ -3549,6 +3792,9 @@ watch(manualCityQuery, query => {
 }
 
 @media (max-width: 768px) {
+  .orders-period { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .orders-period__presets, .orders-period__hint { grid-column: 1 / -1; }
+  .orders-period label, .orders-period input { min-width: 0; width: 100%; }
   .page-header {
     flex-direction: column;
     gap: 1rem;

@@ -17,7 +17,7 @@ export const useAuthStore = defineStore('auth', () => {
   const landingPath = computed(() => {
     const destinations = [
       ['DASHBOARD', '/dashboard'], ['PRODUCTS', '/products'], ['ANALYTICS', '/analytics'],
-      ['CATEGORIES', '/categories'], ['BLOG', '/blog'], ['ORDERS', '/orders'],
+      ['CATEGORIES', '/products/categories'], ['BLOG', '/blog'], ['ORDERS', '/orders'],
       ['CONSULTATIONS', '/consultations'], ['POINTS', '/user-points'],
       ['PARTNERS', '/partners'], ['APPLICATIONS', '/partner-applications'],
       ['PAYOUTS', '/partner-payouts'], ['DEALERS', '/dealers'], ['PROMO', '/promo-codes'],

@@ -62,7 +62,7 @@ test('manual order promo discounts once and credits the partner, but never grant
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ userId: user.id, purpose: 'session' }, process.env.JWT_SECRET)}` },
       body: JSON.stringify(body)
     })
-    const payload = { userId: buyer.id, customerName: 'Buyer', customerEmail: buyer.email, customerPhone: '+79990000001', items: [{ productId: product.id, quantity: 1, price: 1000 }], paymentStatus: 'PAID', promoCode: ' partner10 ' }
+    const payload = { userId: buyer.id, customerName: 'Buyer', customerEmail: buyer.email, customerPhone: '+79990000001', items: [{ productId: product.id, quantity: 1, price: 1000 }], paymentStatus: 'PAID', paymentType: 'bank_transfer', promoCode: ' partner10 ' }
 
     await db.partner.update({ where: { id: partner.id }, data: { isActive: false } })
     const inactiveAdminPreview = await request(admin, '/promo/validate', { userId: buyer.id, subtotal: 1000, promoCode: 'PARTNER10' })
@@ -254,16 +254,16 @@ test('manual order promo discounts once and credits the partner, but never grant
     assert.equal(payCancelled.status, 200)
     assert.equal(await db.partnerCommission.count({ where: { orderId: order.id } }), 0)
     assert.equal((await calculatePartnerBalance(db, partner.id)).totalCommissions, 174.9)
-    assert.equal((await changeStatus(order.id, 'PROCESSING')).status, 409)
-    assert.equal(await db.partnerCommission.count({ where: { orderId: order.id } }), 0)
-    assert.equal((await calculatePartnerBalance(db, partner.id)).totalCommissions, 174.9)
+    assert.equal((await changeStatus(order.id, 'PROCESSING')).status, 200)
+    assert.equal(await db.partnerCommission.count({ where: { orderId: order.id } }), 1)
+    assert.equal((await calculatePartnerBalance(db, partner.id)).totalCommissions, 264.9)
     const otherPreview = await request(admin, '/promo/validate', { userId: otherBuyer.id, subtotal: 1000, promoCode: promo.code })
     assert.equal(otherPreview.status, 200, await otherPreview.text())
     const otherOrderResponse = await request(admin, '', { ...payload, userId: otherBuyer.id, customerName: otherBuyer.name, customerEmail: otherBuyer.email })
     assert.equal(otherOrderResponse.status, 201, await otherOrderResponse.text())
-    assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 1)
+    assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 2)
     const reusedByBuyer = await request(admin, '', payload)
-    assert.equal(reusedByBuyer.status, 201, await reusedByBuyer.text())
+    assert.equal(reusedByBuyer.status, 400, await reusedByBuyer.text())
     assert.equal((await db.promoCode.findUnique({ where: { id: promo.id } })).activationCount, 2)
 
     const applyBuyer = await db.user.create({ data: { email: 'apply-buyer@example.test', password: 'unused', name: 'Apply Buyer' } })
@@ -306,6 +306,21 @@ test('manual order promo discounts once and credits the partner, but never grant
     assert.equal(repricedPaidOrder.unbilledAdjustment, -125.5)
     assert.equal((await db.partnerCommission.findUnique({ where: { orderId: paidWithoutPromo.id } })).amount, 87.45)
     assert.equal((await db.promoCode.findUnique({ where: { id: reusablePromo.id } })).activationCount, 3)
+
+    const freeProduct = await db.product.create({ data: { title: 'Подарок', slug: 'manual-free-product', description: '', price: 0, stock: 2 } })
+    const zeroOrderPayload = {
+      customerName: 'Получатель', customerEmail: 'gift@example.test', customerPhone: '+79990000007',
+      items: [{ productId: freeProduct.id, quantity: 1, price: 0 }], paymentStatus: 'PAID'
+    }
+    assert.equal((await request(admin, '', zeroOrderPayload)).status, 400)
+    assert.equal((await request(admin, '', { ...zeroOrderPayload, paymentType: 'no_payment' })).status, 400)
+    const zeroOrderResponse = await request(admin, '', { ...zeroOrderPayload, paymentType: 'no_payment', notes: 'Подарок клиенту' })
+    assert.equal(zeroOrderResponse.status, 201, await zeroOrderResponse.text())
+    const zeroOrder = await db.order.findFirst({ where: { customerEmail: 'gift@example.test' } })
+    assert.equal(zeroOrder.origin, 'ADMIN_MANUAL')
+    assert.equal(zeroOrder.total, 0)
+    assert.equal(zeroOrder.paymentType, 'no_payment')
+    assert.equal(zeroOrder.notes, 'Подарок клиенту')
   } finally {
     await db.$disconnect()
     await new Promise(resolve => server.close(resolve))

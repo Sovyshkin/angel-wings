@@ -6,8 +6,8 @@ export function normalizePaymentType(value) {
 }
 
 export function getPaymentTypeLabel(value) {
-  const type = normalizePaymentType(value)
-  return ({ sbp: 'СБП', card: 'Карта', tinkoff: 'Т-Pay', dolyame: 'Долями', digitalruble: 'Цифровой рубль' })[type] || 'Неизвестен'
+  const type = String(value || '').trim().toLowerCase()
+  return ({ sbp: 'СБП', card: 'Карта', tinkoff: 'Т-Pay', dolyame: 'Долями', digitalruble: 'Цифровой рубль', cash: 'Наличные', bank_transfer: 'Банковский перевод', external_card: 'Карта вне сайта', external_sbp: 'СБП вне сайта', cash_on_delivery: 'Наличными курьеру', prepaid: 'Оплачено ранее', discount: 'Баллы и скидки', no_payment: 'Без оплаты', other: 'Другой способ' })[type] || 'Неизвестен'
 }
 
 export function extractTochkaPaymentType(payload) {

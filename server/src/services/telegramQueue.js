@@ -74,6 +74,9 @@ async function sendJob(job) {
     throw new Error(`Заказ #${job.orderId} не найден`)
   }
 
+  order.promoCode = order.promoCodeId
+    ? await prisma.promoCode.findUnique({ where: { id: order.promoCodeId }, select: { code: true, discountType: true, discountValue: true } })
+    : null
   return notifyOrderToTelegram(order)
 }
 

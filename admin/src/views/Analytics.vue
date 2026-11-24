@@ -2,10 +2,10 @@
   <div class="analytics-page">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Аналитика препаратов</h1>
-        <p class="page-subtitle">Продажи, скорость расхода склада, воронка и LTV по каждому пептиду</p>
+        <h1 class="page-title">{{ warehouse ? 'Склад' : 'Аналитика препаратов' }}</h1>
+        <p class="page-subtitle">{{ warehouse ? 'Остатки, прогноз закупок и анализ спроса' : 'Продажи, скорость расхода склада, воронка и LTV по каждому пептиду' }}</p>
       </div>
-      <div class="period-switcher">
+      <div v-if="!warehouse" class="period-switcher">
         <button
           v-for="option in periodOptions"
           :key="option.value"
@@ -18,12 +18,22 @@
       </div>
     </div>
 
+    <nav v-if="warehouse" class="product-tabs" aria-label="Разделы товаров">
+      <router-link to="/products">Товары</router-link>
+      <router-link to="/products/stock" aria-current="page">Склад</router-link>
+      <router-link v-if="authStore.can('CATEGORIES')" to="/products/categories">Категории</router-link>
+    </nav>
+
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
     </div>
+    <div v-else-if="warehouse && warehouseError" class="loading-state" role="alert">
+      <p>{{ warehouseError }}</p>
+      <button type="button" class="retry-button" @click="loadWarehouse">Повторить</button>
+    </div>
 
     <template v-else>
-      <nav class="analytics-tabs" aria-label="Разделы аналитики">
+      <nav v-if="!warehouse" class="analytics-tabs" aria-label="Разделы аналитики">
         <button
           v-for="tab in analyticsTabs"
           :key="tab.key"
@@ -36,7 +46,7 @@
         </button>
       </nav>
 
-      <section v-if="activeTab === 'actions'" class="action-analytics">
+      <section v-if="!warehouse && activeTab === 'actions'" class="action-analytics">
         <div class="morning-hero">
           <div class="morning-hero__content">
             <span class="section-kicker">Главный экран утра</span>
@@ -144,7 +154,7 @@
         </article>
       </section>
 
-      <section v-if="activeTab === 'products'" class="product-analytics">
+      <section v-if="!warehouse && activeTab === 'products'" class="product-analytics">
         <div class="summary-grid">
         <article class="summary-card summary-card--accent">
           <span class="summary-label">LTV препаратов</span>
@@ -256,7 +266,7 @@
       </div>
       </section>
 
-      <section v-if="activeTab === 'stock'" class="stock-analytics">
+      <section v-if="warehouse" class="stock-analytics">
         <div class="section-heading">
           <div>
             <span class="section-kicker">Склад и остатки</span>
@@ -373,7 +383,7 @@
         </article>
       </section>
 
-      <section v-if="activeTab === 'cancellations'" class="cancellation-analytics">
+      <section v-if="!warehouse && activeTab === 'cancellations'" class="cancellation-analytics">
         <div class="section-heading">
           <div>
             <span class="section-kicker">Отказы и возвраты</span>
@@ -436,7 +446,7 @@
         </article>
       </section>
 
-      <section v-if="activeTab === 'trends'" class="trend-analytics">
+      <section v-if="!warehouse && activeTab === 'trends'" class="trend-analytics">
         <div class="section-heading">
           <div>
             <span class="section-kicker">Тренды и сезонность</span>
@@ -579,13 +589,21 @@
         </article>
       </section>
 
-      <section v-if="activeTab === 'margin'" class="margin-analytics">
+      <section v-if="!warehouse && activeTab === 'margin'" class="margin-analytics">
         <div class="section-heading">
           <div>
             <span class="section-kicker">Маржинальность</span>
             <h2>Прозрачная прибыль по заказам, каналам и препаратам</h2>
           </div>
           <p>Чистая прибыль считается как выручка минус себестоимость, эквайринг, доставка продавца, партнерские бонусы и комиссии.</p>
+        </div>
+
+        <div class="margin-date-filter">
+          <label for="margin-end-date">Показать за {{ days }} дней по дату включительно</label>
+          <input id="margin-end-date" v-model="marginEndDate" type="date" :max="todayDate" @change="fetchMarginAnalytics" />
+          <button v-if="marginEndDate" type="button" @click="resetMarginEndDate">По сегодня</button>
+          <span v-if="marginLoading" role="status">Обновляем…</span>
+          <span v-if="marginError" class="margin-date-filter__error" role="alert">{{ marginError }}</span>
         </div>
 
         <form class="acquiring-settings" @submit.prevent="saveAcquiringSettings">
@@ -721,7 +739,7 @@
         </article>
       </section>
 
-      <section v-if="activeTab === 'customers'" class="customer-analytics">
+      <section v-if="!warehouse && activeTab === 'customers'" class="customer-analytics">
         <div class="section-heading">
           <div>
             <span class="section-kicker">Клиентская аналитика</span>
@@ -861,10 +879,16 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
+import { useAuthStore } from '../store/auth'
+
+const props = defineProps({ warehouse: { type: Boolean, default: false } })
+const warehouse = computed(() => props.warehouse)
+const authStore = useAuthStore()
 
 const loading = ref(true)
+const warehouseError = ref('')
 const products = ref([])
 const summary = ref({ ltv: 0, orders: 0, units: 0, reorderSignals: 0 })
 const customerSummary = ref({ customers: 0, revenue: 0, coreCustomers: 0, coreRevenue: 0, coreRevenueShare: 0, churnedCustomers: 0, repeatDue: 0 })
@@ -897,6 +921,11 @@ const marginSummary = ref({ revenue: 0, netProfit: 0, productCost: 0, acquiringF
 const marginChannels = ref([])
 const marginProducts = ref([])
 const marginOrders = ref([])
+const marginEndDate = ref('')
+const todayDate = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+const marginLoading = ref(false)
+const marginError = ref('')
+let marginRequestId = 0
 const marginAssumptions = ref({ acquiringFeePercent: 2.5, sellerPaysDelivery: false })
 const acquiringFields = [
   { key: 'sbpPercent', label: 'СБП', hint: 'Оплата через Систему быстрых платежей' },
@@ -933,7 +962,6 @@ const sortState = ref({
 const analyticsTabs = [
   { key: 'actions', label: 'Действия', hint: 'Главный экран утра' },
   { key: 'products', label: 'Препараты', hint: 'Velocity и LTV' },
-  { key: 'stock', label: 'Склад', hint: 'ABC/XYZ и остатки' },
   { key: 'cancellations', label: 'Отказы', hint: 'Причины отмен' },
   { key: 'trends', label: 'Тренды', hint: 'Сезонность' },
   { key: 'customers', label: 'Клиенты', hint: 'Retention' },
@@ -1118,6 +1146,18 @@ async function fetchStockAnalytics() {
   deadStock.value = data.deadStock || []
 }
 
+async function loadWarehouse() {
+  warehouseError.value = ''
+  loading.value = true
+  try {
+    await fetchStockAnalytics()
+  } catch (error) {
+    warehouseError.value = error.response?.data?.error || 'Не удалось загрузить данные склада.'
+  } finally {
+    loading.value = false
+  }
+}
+
 async function fetchCancellationAnalytics() {
   const { data } = await axios.get('/api/admin/analytics/cancellations')
   cancellationSummary.value = data.summary || cancellationSummary.value
@@ -1135,16 +1175,31 @@ async function fetchTrendAnalytics() {
 }
 
 async function fetchMarginAnalytics() {
-  const { data } = await axios.get('/api/admin/analytics/margin', { params: { days: days.value } })
-  marginSummary.value = data.summary || marginSummary.value
-  marginChannels.value = data.channels || []
-  marginProducts.value = data.products || []
-  marginOrders.value = data.orders || []
-  marginAssumptions.value = data.assumptions || marginAssumptions.value
-  if (data.assumptions?.acquiringSettings) {
-    savedAcquiringSettings.value = { ...data.assumptions.acquiringSettings }
-    acquiringDraft.value = { ...savedAcquiringSettings.value }
+  const requestId = ++marginRequestId
+  marginLoading.value = true
+  marginError.value = ''
+  try {
+    const { data } = await axios.get('/api/admin/analytics/margin', { params: { days: days.value, ...(marginEndDate.value ? { endDate: marginEndDate.value } : {}) } })
+    if (requestId !== marginRequestId) return
+    marginSummary.value = data.summary || marginSummary.value
+    marginChannels.value = data.channels || []
+    marginProducts.value = data.products || []
+    marginOrders.value = data.orders || []
+    marginAssumptions.value = data.assumptions || marginAssumptions.value
+    if (data.assumptions?.acquiringSettings) {
+      savedAcquiringSettings.value = { ...data.assumptions.acquiringSettings }
+      acquiringDraft.value = { ...savedAcquiringSettings.value }
+    }
+  } catch (error) {
+    if (requestId === marginRequestId) marginError.value = error.response?.data?.error || 'Не удалось обновить данные по марже.'
+  } finally {
+    if (requestId === marginRequestId) marginLoading.value = false
   }
+}
+
+function resetMarginEndDate() {
+  marginEndDate.value = ''
+  fetchMarginAnalytics()
 }
 
 function resetAcquiringDraft() {
@@ -1182,7 +1237,6 @@ async function fetchAnalytics() {
     const [{ data }] = await Promise.all([
       axios.get('/api/admin/analytics/products', { params: { days: days.value } }),
       fetchCustomerAnalytics(),
-      fetchStockAnalytics(),
       fetchCancellationAnalytics(),
       fetchTrendAnalytics(),
       fetchMarginAnalytics(),
@@ -1282,7 +1336,17 @@ async function applyDeadStockPrice(item) {
   }
 }
 
-onMounted(fetchAnalytics)
+onMounted(() => {
+  if (warehouse.value) {
+    loadWarehouse()
+  } else {
+    fetchAnalytics()
+  }
+})
+watch(warehouse, isWarehouse => {
+  if (isWarehouse) loadWarehouse()
+  else fetchAnalytics()
+})
 </script>
 
 <style scoped>
@@ -1290,6 +1354,36 @@ onMounted(fetchAnalytics)
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.product-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.product-tabs a {
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.product-tabs a[aria-current='page'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.retry-button {
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
 }
 
 .page-header {
@@ -1330,7 +1424,7 @@ onMounted(fetchAnalytics)
 
 .analytics-tabs {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.75rem;
   padding: 0.65rem;
   border: 1px solid var(--border);
@@ -2557,6 +2651,15 @@ onMounted(fetchAnalytics)
   gap: 1rem;
 }
 
+.margin-date-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 0.7rem; padding: 0.85rem 1rem; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); }
+.margin-date-filter label { color: var(--text-primary); font-weight: 700; }
+.margin-date-filter input, .margin-date-filter button { min-height: 42px; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-secondary); color: var(--text-primary); font: inherit; }
+.margin-date-filter input { color-scheme: dark; }
+:global([data-theme="light"]) .margin-date-filter input { color-scheme: light; }
+.margin-date-filter input { cursor: pointer; }
+.margin-date-filter button { cursor: pointer; }
+.margin-date-filter__error { color: #ff8c91; }
+
 .acquiring-settings {
   display: grid;
   gap: 1.25rem;
@@ -2901,7 +3004,7 @@ onMounted(fetchAnalytics)
 
 .insight-card--wide {
   grid-row: span 2;
-  align-self: start;
+  align-self: stretch;
 }
 
 .insight-head {

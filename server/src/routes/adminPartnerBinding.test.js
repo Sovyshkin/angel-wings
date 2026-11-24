@@ -53,7 +53,7 @@ test('admin can unbind and rebind a buyer without changing old commissions', asy
       return { status: response.status, body: await response.json() }
     }
     const bindingPath = `/api/admin/users/${buyer.id}/partner-binding`
-    const orderPayload = { userId: buyer.id, customerName: 'Buyer', customerEmail: buyer.email, customerPhone: '+79990000000', items: [{ productId: product.id, quantity: 1, price: 1000 }], paymentStatus: 'PAID', promoCode: promo.code }
+    const orderPayload = { userId: buyer.id, customerName: 'Buyer', customerEmail: buyer.email, customerPhone: '+79990000000', items: [{ productId: product.id, quantity: 1, price: 1000 }], paymentStatus: 'PAID', paymentType: 'bank_transfer', promoCode: promo.code }
 
     const removed = await request('PUT', bindingPath, { partnerId: null })
     assert.equal(removed.status, 200, JSON.stringify(removed.body))

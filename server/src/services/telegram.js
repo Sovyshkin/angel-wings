@@ -98,6 +98,21 @@ function getPartnerBonusLines(order) {
   return lines
 }
 
+function getDiscountLines(order) {
+  const totalDiscountCents = Math.max(0, Math.round(Number(order?.discountAmount || 0) * 100))
+  const partnerBonusCents = Math.max(0, Math.round(Number(order?.partnerBonusAmount || 0) * 100))
+  const userPointsCents = Math.max(0, Math.round(Number(order?.userPointsUsed || 0) * 100))
+  const promoDiscount = Math.max(0, totalDiscountCents - partnerBonusCents - userPointsCents) / 100
+  const promoCode = order?.promoCode
+  if (!promoCode?.code) {
+    return totalDiscountCents > 0 ? [`<b>Скидка и баллы:</b> −${escapeHtml(formatMoney(totalDiscountCents / 100))}`] : []
+  }
+  return [
+    `<b>Промокод:</b> ${escapeHtml(promoCode.code)}`,
+    `<b>Скидка по промокоду:</b> −${escapeHtml(formatMoney(promoDiscount))}`
+  ]
+}
+
 function buildOrderMessage(order) {
   const items = Array.isArray(order?.items) ? order.items : []
   const lines = []
@@ -115,6 +130,7 @@ function buildOrderMessage(order) {
     `<b>Заказ:</b> #${order.id}`,
     `<b>Дата:</b> ${escapeHtml(formatDateTime(order.createdAt))}`,
     `<b>Сумма:</b> ${escapeHtml(formatMoney(order.total))}`,
+    ...getDiscountLines(order),
     `<b>Статус оплаты:</b> ${escapeHtml(getPaymentLabel(order))}`,
     ...getPartnerBonusLines(order),
     `<b>Доставка:</b> ${escapeHtml(getDeliveryLabel(order))}`,

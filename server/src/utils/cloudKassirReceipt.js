@@ -31,6 +31,11 @@ export async function sendCloudKassirIncomeReceiptForOrder(prisma, orderId, sour
     return null
   }
 
+  if (Number(order.total) <= 0) {
+    console.info('[CLOUDKASSIR] receipt skipped: zero-value order', JSON.stringify({ orderId, source }))
+    return { success: false, skipped: true, reason: 'zero-value-order' }
+  }
+
   const isTochkaReceiptSource = [
     'payment-status',
     'sync-order',

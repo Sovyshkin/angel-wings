@@ -13,7 +13,7 @@ import { syncPartnerCommissionForOrder } from '../utils/partnerCommission.js'
 import { calculatePartnerBalance } from '../utils/partnerBalance.js'
 import { sendCloudKassirIncomeReceiptOnPaidTransition } from '../utils/cloudKassirReceipt.js'
 import { deleteProductForAdmin } from '../utils/productDeletion.js'
-import { refundUserPointsForOrder, reverseUserPointsRefundForOrder } from '../utils/userPoints.js'
+import { refundUserPointsForOrder, reverseUserPointsRefundForOrder, spendUserPoints } from '../utils/userPoints.js'
 import emailService from '../services/email.js'
 import { renderEmailCampaign, validateEmailCampaign } from '../utils/emailCampaignTemplate.js'
 import { resolveMarketingAudience } from '../services/marketingCampaign.js'
@@ -36,6 +36,7 @@ const router = Router()
 const prisma = new PrismaClient()
 const ALLOWED_USER_ROLES = ['USER', 'ADMIN', 'PARTNER']
 const ADMIN_PASSWORD_LENGTH = 18
+const MANUAL_PAYMENT_TYPES = ['cash', 'bank_transfer', 'external_card', 'external_sbp', 'cash_on_delivery', 'prepaid', 'discount', 'no_payment', 'other']
 
 async function isAssignableRole(role) {
   return ALLOWED_USER_ROLES.includes(role) || (isCustomAdminRole(role) && Boolean(await prisma.adminRole.findUnique({ where: { code: role }, select: { id: true } })))
@@ -1228,7 +1229,11 @@ router.post('/orders/promo/validate', authenticate, requireAdmin, async (req, re
     const historicalPartnerId = historical?.partnerId && !await isRetiredPartner(prisma, historical.partnerId) ? historical.partnerId : null
     const boundPartnerId = activeBindingId || historicalPartnerId
     if (boundPartnerId && requestedPartnerId && boundPartnerId !== requestedPartnerId) return res.status(409).json({ error: 'Клиент уже закреплён за другим партнёром' })
-    const result = await resolveManualOrderPromo(prisma, { code: req.body.promoCode, userId, subtotal, boundPartnerId, requestedPartnerId, suppressPartnerAttribution: user.partnerBindingDisabled && !requestedPartnerId })
+    const userPointsUsed = Number(req.body.userPointsUsed || 0)
+    if (!Number.isSafeInteger(userPointsUsed) || userPointsUsed < 0 || userPointsUsed > subtotal || userPointsUsed > Number((await prisma.user.findUnique({ where: { id: userId }, select: { pointsBalance: true } }))?.pointsBalance || 0)) {
+      return res.status(400).json({ error: 'Проверьте количество списываемых баллов' })
+    }
+    const result = await resolveManualOrderPromo(prisma, { code: req.body.promoCode, userId, subtotal, userPointsUsed, boundPartnerId, requestedPartnerId, suppressPartnerAttribution: user.partnerBindingDisabled && !requestedPartnerId })
     res.set('Cache-Control', 'no-store')
     res.json({ promoCode: result.promoCode?.code || null, discountAmount: result.discountAmount, partnerId: result.partnerId })
   } catch (error) {
@@ -1242,7 +1247,7 @@ router.get('/orders/customer/:id', authenticate, requireAdmin, async (req, res, 
     if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректный ID клиента' })
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, address: true, partner: { select: { id: true } }, partnerUser: { select: { partner: { select: { id: true } } } } }
+      select: { id: true, address: true, pointsBalance: true, partner: { select: { id: true } }, partnerUser: { select: { partner: { select: { id: true } } } } }
     })
     if (!user) return res.status(404).json({ error: 'Клиент не найден' })
     res.json({ user })
@@ -1254,10 +1259,13 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
     const rawUserId = req.body.userId
     const userId = rawUserId === null || rawUserId === undefined || rawUserId === '' ? null : Number(rawUserId)
     const paymentStatus = String(req.body.paymentStatus || 'PENDING').toUpperCase()
+    const paymentType = String(req.body.paymentType || '').trim().toLowerCase()
     const status = String(req.body.status || 'PENDING').toUpperCase()
     const items = req.body.items
     if (userId !== null && (!Number.isInteger(userId) || userId <= 0)) return res.status(400).json({ error: 'Некорректный клиент' })
     if (!['PENDING', 'PAID', 'FAILED', 'CASH_ON_DELIVERY'].includes(paymentStatus)) return res.status(400).json({ error: 'Некорректный статус оплаты' })
+    if (!MANUAL_PAYMENT_TYPES.includes(paymentType)) return res.status(400).json({ error: 'Укажите способ оплаты ручного заказа' })
+    if (paymentStatus === 'CASH_ON_DELIVERY' && paymentType !== 'cash_on_delivery') return res.status(400).json({ error: 'Для оплаты курьеру выберите наличные курьеру' })
     if (!['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED'].includes(status)) return res.status(400).json({ error: 'Некорректный статус заказа' })
     if (!Array.isArray(items) || !items.length || items.length > 100 || items.some(item => !item || !Number.isInteger(Number(item.productId)) || !Number.isInteger(Number(item.quantity)) || Number(item.quantity) <= 0 || !Number.isFinite(Number(item.price)) || Number(item.price) < 0 || Math.abs(Math.round(Number(item.price) * 100) - Number(item.price) * 100) > 1e-6 || String(item.dosage || '').length > 200)) {
       return res.status(400).json({ error: 'Проверьте состав заказа' })
@@ -1288,16 +1296,21 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
     if ([customerName, customerEmail, customerPhone].some(value => value.length > 500) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) return res.status(400).json({ error: 'Проверьте данные клиента' })
     const normalizedItems = items.map(item => ({ productId: Number(item.productId), quantity: Number(item.quantity), price: Number(item.price), dosage: String(item.dosage || '').trim() || null }))
     const subtotal = normalizedItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
+    const userPointsUsed = Number(req.body.userPointsUsed || 0)
+    if (!Number.isSafeInteger(userPointsUsed) || userPointsUsed < 0 || userPointsUsed > Math.floor(subtotal) || (userPointsUsed > 0 && !userId)) {
+      return res.status(400).json({ error: 'Проверьте количество списываемых баллов' })
+    }
     const promoCode = String(req.body.promoCode || '').trim()
     const deliveryTariffCode = req.body.deliveryTariffCode === '' || req.body.deliveryTariffCode == null ? null : Number(req.body.deliveryTariffCode)
     if (deliveryTariffCode !== null && (!Number.isInteger(deliveryTariffCode) || deliveryTariffCode < 0)) return res.status(400).json({ error: 'Некорректный тариф доставки' })
     const deliveryPickupPoint = String(req.body.deliveryPickupPoint || '').trim() || null
     const siteDelivery = deliveryTariffCode || deliveryPickupPoint ? 0 : deliveryPrice
     const order = await prisma.$transaction(async tx => {
-      const promo = await resolveManualOrderPromo(tx, { code: promoCode, userId, subtotal, boundPartnerId, requestedPartnerId, suppressPartnerAttribution: user?.partnerBindingDisabled && !requestedPartnerId })
+      const promo = await resolveManualOrderPromo(tx, { code: promoCode, userId, subtotal, userPointsUsed, boundPartnerId, requestedPartnerId, suppressPartnerAttribution: user?.partnerBindingDisabled && !requestedPartnerId })
       const effectivePartnerId = promo.partnerId
-      const total = Math.round((subtotal + siteDelivery - promo.discountAmount) * 100) / 100
-      if (paymentStatus === 'PAID' && total <= 0) throw Object.assign(new Error('Для оплаченного заказа сумма должна быть больше нуля'), { status: 400 })
+      const totalDiscountAmount = Math.round((promo.discountAmount + userPointsUsed) * 100) / 100
+      const total = Math.round((subtotal + siteDelivery - totalDiscountAmount) * 100) / 100
+      if (total <= 0 && !String(req.body.notes || '').trim()) throw Object.assign(new Error('Укажите, почему сумма ручного заказа равна 0 ₽'), { status: 400 })
       if (effectivePartnerId && !activeBindingId && !activeHistorical) {
         const bindingData = { partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null, referralSource: promo.promoCode?.partnerId ? 'promo_code' : 'admin', boundAt: new Date() }
         if (user?.partnerUser) await tx.partnerUser.update({ where: { userId }, data: bindingData })
@@ -1308,10 +1321,11 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
       const created = await tx.order.create({
         data: {
           origin: 'ADMIN_MANUAL', userId, partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null,
-          discountAmount: promo.discountAmount, customerName, customerEmail, customerPhone,
+          discountAmount: totalDiscountAmount, userPointsUsed, customerName, customerEmail, customerPhone,
           shippingAddress: String(req.body.shippingAddress || '').trim() || null,
           notes: String(req.body.notes || '').trim() || null,
           status, paymentStatus, total, paymentAmount: paymentStatus === 'PAID' ? total : null,
+          paymentType, acquiringFee: 0,
           deliveryPrice, deliveryTariffCode,
           deliveryTariffName: String(req.body.deliveryTariffName || '').trim() || null,
           deliveryCity: String(req.body.deliveryCity || '').trim() || null,
@@ -1320,13 +1334,14 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
           items: { create: normalizedItems.map(item => ({ ...item, stockDeductedQuantity: 0, dosageStockDeducted: 0 })) }
         }
       })
+      if (userPointsUsed > 0) await spendUserPoints(tx, { userId, amount: userPointsUsed, orderId: created.id })
       if (paymentStatus === 'PAID') {
         await deductPaidOrderStock(tx, created.id)
         await syncPartnerCommissionForOrder(tx, created.id)
       }
       return created
     })
-    if (paymentStatus === 'PAID') {
+    if (paymentStatus === 'PAID' && order.total > 0) {
       try {
         await sendCloudKassirIncomeReceiptOnPaidTransition(prisma, order.id, 'PENDING', 'PAID', 'admin-manual-order')
       } catch (receiptError) {
@@ -1417,9 +1432,19 @@ router.get('/orders/:id/waybill', authenticate, requireAdmin, async (req, res, n
 
 router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { status, favorites, limit = 50, offset = 0, q = '' } = req.query
+    const { status, favorites, limit = 50, offset = 0, q = '', dateFrom, dateTo } = req.query
     const search = String(q || '').trim()
-    const where = status ? { status } : {}
+    const parseCalendarDate = value => {
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+      const date = new Date(`${value}T00:00:00+03:00`)
+      return Number.isFinite(date.getTime()) && new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow' }).format(date) === value ? date : null
+    }
+    if ((dateFrom && !dateTo) || (dateTo && !dateFrom)) return res.status(400).json({ error: 'Выберите начало и конец периода' })
+    const fromDate = dateFrom ? parseCalendarDate(dateFrom) : null
+    const toDate = dateTo ? parseCalendarDate(dateTo) : null
+    if ((dateFrom && !fromDate) || (dateTo && !toDate) || (fromDate && toDate && fromDate > toDate)) return res.status(400).json({ error: 'Некорректный период заказов' })
+    const dateWhere = fromDate ? { createdAt: { gte: fromDate, lt: new Date(toDate.getTime() + 24 * 60 * 60 * 1000) } } : {}
+    const where = { ...dateWhere, ...(status ? { status } : {}) }
     if (String(favorites || '').toLowerCase() === 'true') where.isFavorite = true
     let unicodeMatches = null
 
@@ -1526,6 +1551,7 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
       unicodeMatches ? Promise.resolve(unicodeMatches.length) : prisma.order.count({ where }),
       prisma.order.groupBy({
         by: ['status'],
+        where: dateWhere,
         _count: { _all: true }
       })
     ])
@@ -1537,6 +1563,8 @@ router.get('/orders', authenticate, requireAdmin, async (req, res, next) => {
           select: {
             id: true,
             code: true,
+            discountType: true,
+            discountValue: true,
             partnerId: true,
             partner: {
               select: {
@@ -1933,6 +1961,13 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
     const order = await prisma.$transaction(async tx => {
       const previous = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } })
       if (!previous) throw Object.assign(new Error('Заказ не найден'), { status: 404 })
+      if (req.body.paymentType !== undefined) {
+        if (previous.origin !== 'ADMIN_MANUAL') throw Object.assign(new Error('Способ оплаты можно менять только у ручного заказа'), { status: 400 })
+        const paymentType = String(req.body.paymentType || '').trim().toLowerCase()
+        if (!MANUAL_PAYMENT_TYPES.includes(paymentType)) throw Object.assign(new Error('Укажите способ оплаты ручного заказа'), { status: 400 })
+        if (previous.paymentStatus === 'CASH_ON_DELIVERY' && paymentType !== 'cash_on_delivery') throw Object.assign(new Error('Для оплаты курьеру выберите наличные курьеру'), { status: 400 })
+        data.paymentType = paymentType
+      }
       if (wantsItems && (previous.editVersion !== req.body.expectedEditVersion || previous.updatedAt.toISOString() !== new Date(req.body.expectedUpdatedAt).toISOString())) {
         throw Object.assign(new Error('Заказ уже изменён другим администратором. Обновите страницу и повторите изменение'), { status: 409 })
       }
@@ -2037,6 +2072,9 @@ router.put('/orders/:id', authenticate, requireAdmin, async (req, res, next) => 
         if (subtotal + siteDelivery < Number(previous.discountAmount || 0)) throw Object.assign(new Error('Скидка и списанные баллы превышают новую стоимость заказа'), { status: 400 })
         data.total = Math.round(Math.max(0, subtotal + siteDelivery - Number(previous.discountAmount || 0)) * 100) / 100
         data.paymentAmount = data.total
+      }
+      if (previous.origin === 'ADMIN_MANUAL' && Number(data.total ?? previous.total) === 0 && !String(data.notes ?? previous.notes ?? '').trim()) {
+        throw Object.assign(new Error('Укажите, почему сумма ручного заказа составляет 0 ₽'), { status: 400 })
       }
       if (wantsItems) data.editVersion = { increment: 1 }
       const updated = await tx.order.update({ where: { id: orderId }, data, include: { items: { include: { product: { select: { title: true, image: true } } } } } })

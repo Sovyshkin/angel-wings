@@ -37,3 +37,15 @@ test('another partner promo discounts the order but keeps commission with the bo
   assert.equal(result.discountAmount, 100)
   assert.equal(result.partnerId, 7)
 })
+
+test('manual promo discounts merchandise after customer points are spent', async () => {
+  const promoCode = {
+    id: 55, code: 'TEN', isActive: true, partnerId: null,
+    discountType: 'percentage', discountValue: 10, usageType: 'multi', activationCount: 0
+  }
+  const result = await resolveManualOrderPromo({ promoCode: { findFirst: async () => promoCode } }, {
+    code: 'TEN', userId: 415, subtotal: 1000, userPointsUsed: 100
+  })
+  assert.equal(result.discountAmount, 90)
+  assert.equal(result.discountAmount + 100, 190)
+})

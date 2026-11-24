@@ -19,10 +19,12 @@ const routes = [
     children: [
       { path: 'dashboard', name: 'Dashboard', component: () => import('../views/DashboardContent.vue') },
       { path: 'products', name: 'AdminProducts', component: () => import('../views/Products.vue') },
+      { path: 'products/stock', name: 'AdminStock', component: () => import('../views/Analytics.vue'), props: { warehouse: true } },
+      { path: 'products/categories', name: 'AdminCategories', component: () => import('../views/Categories.vue') },
       { path: 'products/new', name: 'NewProduct', component: () => import('../views/ProductForm.vue') },
       { path: 'products/:id/edit', name: 'EditProduct', component: () => import('../views/ProductForm.vue') },
       { path: 'analytics', name: 'AdminAnalytics', component: () => import('../views/Analytics.vue') },
-      { path: 'categories', name: 'AdminCategories', component: () => import('../views/Categories.vue') },
+      { path: 'categories', redirect: '/products/categories' },
       { path: 'blog', name: 'AdminBlog', component: () => import('../views/BlogAdmin.vue'), meta: { blogAccess: true } },
       { path: 'blog/new', name: 'AdminBlogNew', component: () => import('../views/BlogEditor.vue'), meta: { blogAccess: true } },
       { path: 'blog/:id/edit', name: 'AdminBlogEdit', component: () => import('../views/BlogEditor.vue'), meta: { blogAccess: true } },
@@ -52,6 +54,7 @@ const router = createRouter({
 
 const sectionForPath = path => {
   if (path === '/roles' || path.startsWith('/users')) return 'ADMIN_ONLY'
+  if (path === '/products/categories') return 'CATEGORIES'
   if (path.startsWith('/products')) return 'PRODUCTS'
   if (path.startsWith('/analytics')) return 'ANALYTICS'
   if (path.startsWith('/categories')) return 'CATEGORIES'

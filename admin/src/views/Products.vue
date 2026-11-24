@@ -22,6 +22,12 @@
       </div>
     </div>
 
+    <nav class="product-tabs" aria-label="Разделы товаров">
+      <router-link to="/products" aria-current="page">Товары</router-link>
+      <router-link to="/products/stock">Склад</router-link>
+      <router-link v-if="authStore.can('CATEGORIES')" to="/products/categories">Категории</router-link>
+    </nav>
+
     <div v-if="stockNotice" class="stock-notice" role="status">{{ stockNotice }}</div>
 
     <div v-if="loading" class="loading-state">
@@ -267,8 +273,10 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import AdminSearchPanel from '../components/AdminSearchPanel.vue'
 import AdminPagination from '../components/AdminPagination.vue'
+import { useAuthStore } from '../store/auth'
 
 const API_URL = '/api/admin/products'
+const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const initialPage = Number(route.query.page)
@@ -597,6 +605,9 @@ watch(search, () => {
 }
 
 .header-actions { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
+.product-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.product-tabs a { padding: 0.7rem 1.1rem; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); color: var(--text-secondary); text-decoration: none; font-weight: 700; }
+.product-tabs a[aria-current='page'] { border-color: var(--accent); color: var(--accent); }
 .header-actions .btn { white-space: nowrap; }
 .stock-open-btn { border: 1px solid var(--border); }
 .stock-notice { margin: -0.7rem 0 1.25rem; padding: 0.85rem 1rem; border: 1px solid #49bb8c66; border-radius: 12px; color: #9fe5c4; background: #14372a88; }

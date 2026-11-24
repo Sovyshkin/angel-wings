@@ -28,6 +28,7 @@ export function sectionsForAdminRequest(url, method = 'GET') {
   if (path === '/api/admin/partners') return method === 'GET' ? ['PARTNERS', 'POINTS', 'PROMO'] : ['PARTNERS']
   if (path.startsWith('/api/admin/contact-requests')) return ['APPLICATIONS']
   if (path.startsWith('/api/forum/admin/')) return ['FORUM']
+  if (path === '/api/admin/analytics/stock' || /^\/api\/admin\/analytics\/products\/\d+\/price$/.test(path)) return ['PRODUCTS', 'ANALYTICS']
   if (path.startsWith('/api/admin/acquiring-settings') || path.startsWith('/api/admin/analytics/') || path.startsWith('/api/analytics/')) return ['ANALYTICS']
   if (path === '/api/admin/stats') return ['DASHBOARD']
   if (path.startsWith('/api/admin/partner-applications')) return ['APPLICATIONS']

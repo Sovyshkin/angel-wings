@@ -20,10 +20,13 @@ test('relay notifications use a scoped TLS 1.2 agent and retain HMAC authenticat
   }
 
   try {
-    const result = await notifyOrderToTelegram({ id: 648, total: 100, items: [] })
+    const result = await notifyOrderToTelegram({ id: 648, total: 100, discountAmount: 600, userPointsUsed: 100, partnerBonusAmount: 200, promoCode: { code: 'SALE10', discountType: 'percentage', discountValue: 10 }, items: [] })
     assert.equal(result.ok, true)
     assert.equal(result.messageId, 123)
     assert.equal(request.url, 'https://relay.example.test/telegram/orders')
+    const message = JSON.parse(request.body).text
+    assert.match(message, /<b>Промокод:<\/b> SALE10/)
+    assert.match(message, /<b>Скидка по промокоду:<\/b> −300 ₽/)
     assert.equal(request.options.httpsAgent.options.family, 4)
     assert.equal(request.options.httpsAgent.options.minVersion, 'TLSv1.2')
     assert.equal(request.options.httpsAgent.options.maxVersion, 'TLSv1.2')

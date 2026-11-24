@@ -29,6 +29,15 @@ const label = computed(() => ({
   tinkoff: 'Т-Pay',
   dolyame: 'Долями',
   digitalruble: 'Цифровой рубль',
+  cash: 'Наличные',
+  bank_transfer: 'Банковский перевод',
+  external_card: 'Карта вне сайта',
+  external_sbp: 'СБП вне сайта',
+  cash_on_delivery: 'Наличными курьеру',
+  prepaid: 'Оплачено ранее',
+  discount: 'Баллы и скидки',
+  no_payment: 'Без оплаты',
+  other: 'Другой способ',
 })[props.type.toLowerCase()] || 'Неизвестен')
 </script>
 

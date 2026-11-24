@@ -64,6 +64,23 @@ test('only an admin can edit a paid order; bank amount stays fixed, stock and au
       body: JSON.stringify(payload)
     })
 
+    await db.order.create({ data: {
+      customerName: 'Старый заказ', customerEmail: 'old@example.test', customerPhone: '+79990000001',
+      status: 'DELIVERED', total: 100, createdAt: new Date('2020-01-01T12:00:00Z')
+    } })
+    const moscowDay = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(order.createdAt)
+    const ordersUrl = `http://127.0.0.1:${server.address().port}/api/admin/orders`
+    const ordersHeaders = { Authorization: `Bearer ${jwt.sign({ userId: admin.id, purpose: 'session' }, process.env.JWT_SECRET)}` }
+    const datedOrders = await fetch(`${ordersUrl}?dateFrom=${moscowDay}&dateTo=${moscowDay}`, { headers: ordersHeaders })
+    assert.equal(datedOrders.status, 200)
+    const datedBody = await datedOrders.json()
+    assert.equal(datedBody.total, 1)
+    assert.equal(datedBody.orders[0].userId, buyer.id)
+    assert.equal(datedBody.stats.PROCESSING, 1)
+    assert.equal(datedBody.stats.DELIVERED, undefined)
+    assert.equal((await fetch(ordersUrl, { headers: ordersHeaders }).then(response => response.json())).total, 2)
+    assert.equal((await fetch(`${ordersUrl}?dateFrom=2026-02-30&dateTo=2026-03-01`, { headers: ordersHeaders })).status, 400)
+
     const cdekUrl = `http://127.0.0.1:${server.address().port}/api/admin/orders/999999/cdek-register`
     assert.equal((await fetch(cdekUrl, { method: 'POST' })).status, 401)
     assert.equal((await fetch(cdekUrl, { method: 'POST', headers: { Authorization: `Bearer ${jwt.sign({ userId: partner.id, purpose: 'session' }, process.env.JWT_SECRET)}` } })).status, 403)
