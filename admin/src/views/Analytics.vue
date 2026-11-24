@@ -599,30 +599,37 @@
           <p>Чистая прибыль считается как выручка минус себестоимость, эквайринг, доставка продавца, партнерские бонусы и комиссии.</p>
         </div>
 
-        <div class="margin-date-filter">
-          <label for="margin-end-date">Показать за {{ days }} дней по дату включительно</label>
-          <input id="margin-end-date" v-model="marginEndDate" type="date" :max="todayDate" @change="fetchMarginAnalytics" />
-          <button v-if="marginEndDate" type="button" @click="resetMarginEndDate">По сегодня</button>
-          <span v-if="marginLoading" role="status">Обновляем…</span>
-          <span v-if="marginError" class="margin-date-filter__error" role="alert">{{ marginError }}</span>
-        </div>
-
         <form class="acquiring-settings" @submit.prevent="saveAcquiringSettings">
           <div class="acquiring-settings__intro">
             <span class="section-kicker">Параметры расчёта</span>
             <h3>Комиссия эквайринга</h3>
-            <p>Ставки для оценки комиссии в отчётах и марже. Если фактическая комиссия по заказу известна, используется она.</p>
+            <p>Укажите ставку для каждого способа оплаты и при необходимости запланируйте следующую. Дата окончания включается; новая ставка начнёт действовать на следующий день по Москве. В оценочных расчётах учитывается дата заказа, а фактическая комиссия всегда имеет приоритет.</p>
           </div>
           <div class="acquiring-settings__fields">
-            <label v-for="field in acquiringFields" :key="field.key" class="acquiring-settings__field">
-              <span>{{ field.label }}</span>
-              <span class="acquiring-settings__input-wrap">
-                <input v-model.number="acquiringDraft[field.key]" type="number" min="0" max="100" step="0.01" required :aria-label="field.label" />
-                <b>%</b>
-              </span>
-              <small>{{ field.hint }}</small>
-            </label>
+            <div v-for="field in acquiringFields" :key="field.key" class="acquiring-settings__field">
+              <div class="acquiring-settings__field-heading"><strong>{{ field.label }}</strong><small>{{ field.hint }}</small></div>
+              <div class="acquiring-settings__rate-grid">
+                <label>Текущая ставка
+                  <span class="acquiring-settings__input-wrap">
+                    <input v-model.number="acquiringDraft[field.key]" type="number" min="0" max="100" step="0.01" required :aria-label="`${field.label}: текущая ставка`" />
+                    <b>%</b>
+                  </span>
+                </label>
+                <label>Действует по
+                  <input v-model="acquiringDraft[field.untilKey]" type="date" :min="todayDate" :aria-label="`${field.label}: действует по`" @change="handleAcquiringUntilChange(field)" />
+                </label>
+                <label>Ставка после даты
+                  <span class="acquiring-settings__input-wrap">
+                    <input v-model.number="acquiringDraft[field.nextKey]" type="number" min="0" max="100" step="0.01" :required="Boolean(acquiringDraft[field.untilKey])" :aria-label="`${field.label}: ставка после даты`" />
+                    <b>%</b>
+                  </span>
+                </label>
+              </div>
+              <small v-if="acquiringDraft[field.untilKey]" class="acquiring-settings__schedule-note">С {{ nextMoscowDate(acquiringDraft[field.untilKey]) }} — {{ acquiringDraft[field.nextKey] === '' || acquiringDraft[field.nextKey] === null ? 'укажите новую ставку' : `${acquiringDraft[field.nextKey]}%` }}.</small>
+              <small v-else class="acquiring-settings__schedule-note">Без даты ставка действует бессрочно.</small>
+            </div>
           </div>
+          <p v-if="marginError" class="acquiring-settings__message is-error" role="alert">{{ marginError }}</p>
           <div class="acquiring-settings__footer">
             <span v-if="acquiringSettingsMessage" :class="['acquiring-settings__message', { 'is-error': acquiringSettingsError }]" role="status">{{ acquiringSettingsMessage }}</span>
             <button type="button" class="acquiring-settings__reset" :disabled="savingAcquiringSettings" @click="resetAcquiringDraft">Сбросить изменения</button>
@@ -922,17 +929,15 @@ const marginSummary = ref({ revenue: 0, netProfit: 0, productCost: 0, acquiringF
 const marginChannels = ref([])
 const marginProducts = ref([])
 const marginOrders = ref([])
-const marginEndDate = ref('')
 const todayDate = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
-const marginLoading = ref(false)
 const marginError = ref('')
 let marginRequestId = 0
 const marginAssumptions = ref({ acquiringFeePercent: 2.5, sellerPaysDelivery: false })
 const acquiringFields = [
-  { key: 'sbpPercent', label: 'СБП', hint: 'Оплата через Систему быстрых платежей' },
-  { key: 'cardPercent', label: 'Банковская карта', hint: 'Оплата картой' }
+  { key: 'sbpPercent', untilKey: 'sbpUntil', nextKey: 'sbpNextPercent', label: 'СБП', hint: 'Оплата через Систему быстрых платежей' },
+  { key: 'cardPercent', untilKey: 'cardUntil', nextKey: 'cardNextPercent', label: 'Банковская карта', hint: 'Оплата картой' }
 ]
-const acquiringDraft = ref({ sbpPercent: 0.4, cardPercent: 2.5 })
+const acquiringDraft = ref({ sbpPercent: 0.4, cardPercent: 2.5, sbpUntil: '', sbpNextPercent: null, cardUntil: '', cardNextPercent: null })
 const savedAcquiringSettings = ref({ ...acquiringDraft.value })
 const savingAcquiringSettings = ref(false)
 const acquiringSettingsMessage = ref('')
@@ -1177,10 +1182,9 @@ async function fetchTrendAnalytics() {
 
 async function fetchMarginAnalytics() {
   const requestId = ++marginRequestId
-  marginLoading.value = true
   marginError.value = ''
   try {
-    const { data } = await axios.get('/api/admin/analytics/margin', { params: { days: days.value, ...(marginEndDate.value ? { endDate: marginEndDate.value } : {}) } })
+    const { data } = await axios.get('/api/admin/analytics/margin', { params: { days: days.value } })
     if (requestId !== marginRequestId) return
     marginSummary.value = data.summary || marginSummary.value
     marginChannels.value = data.channels || []
@@ -1188,19 +1192,34 @@ async function fetchMarginAnalytics() {
     marginOrders.value = data.orders || []
     marginAssumptions.value = data.assumptions || marginAssumptions.value
     if (data.assumptions?.acquiringSettings) {
-      savedAcquiringSettings.value = { ...data.assumptions.acquiringSettings }
+      savedAcquiringSettings.value = toAcquiringDraft(data.assumptions.acquiringSettings)
       acquiringDraft.value = { ...savedAcquiringSettings.value }
     }
   } catch (error) {
     if (requestId === marginRequestId) marginError.value = error.response?.data?.error || 'Не удалось обновить данные по марже.'
-  } finally {
-    if (requestId === marginRequestId) marginLoading.value = false
   }
 }
 
-function resetMarginEndDate() {
-  marginEndDate.value = ''
-  fetchMarginAnalytics()
+function toAcquiringDraft(settings) {
+  return {
+    sbpPercent: settings.sbpPercent,
+    cardPercent: settings.cardPercent,
+    sbpUntil: settings.sbpUntil || '',
+    sbpNextPercent: settings.sbpNextPercent ?? null,
+    cardUntil: settings.cardUntil || '',
+    cardNextPercent: settings.cardNextPercent ?? null
+  }
+}
+
+function nextMoscowDate(date) {
+  if (!date) return ''
+  const next = new Date(`${date}T12:00:00Z`)
+  next.setUTCDate(next.getUTCDate() + 1)
+  return new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow' }).format(next)
+}
+
+function handleAcquiringUntilChange(field) {
+  if (!acquiringDraft.value[field.untilKey]) acquiringDraft.value[field.nextKey] = null
 }
 
 function resetAcquiringDraft() {
@@ -1214,8 +1233,8 @@ async function saveAcquiringSettings() {
   savingAcquiringSettings.value = true
   try {
     const { data } = await axios.put('/api/admin/acquiring-settings', acquiringDraft.value)
-    savedAcquiringSettings.value = { ...data }
-    acquiringDraft.value = { ...data }
+    savedAcquiringSettings.value = toAcquiringDraft(data)
+    acquiringDraft.value = { ...savedAcquiringSettings.value }
     await fetchMarginAnalytics()
     acquiringSettingsMessage.value = 'Ставки сохранены. Расчёты обновлены.'
   } catch (error) {
@@ -2652,15 +2671,6 @@ watch(warehouse, isWarehouse => {
   gap: 1rem;
 }
 
-.margin-date-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 0.7rem; padding: 0.85rem 1rem; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); }
-.margin-date-filter label { color: var(--text-primary); font-weight: 700; }
-.margin-date-filter input, .margin-date-filter button { min-height: 42px; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-secondary); color: var(--text-primary); font: inherit; }
-.margin-date-filter input { color-scheme: dark; }
-:global([data-theme="light"]) .margin-date-filter input { color-scheme: light; }
-.margin-date-filter input { cursor: pointer; }
-.margin-date-filter button { cursor: pointer; }
-.margin-date-filter__error { color: #ff8c91; }
-
 .acquiring-settings {
   display: grid;
   gap: 1.25rem;
@@ -2673,13 +2683,19 @@ watch(warehouse, isWarehouse => {
 .acquiring-settings__intro h3 { margin: 0.3rem 0 0.45rem; font-size: 1.25rem; }
 .acquiring-settings__intro p { margin: 0; color: var(--text-secondary); line-height: 1.5; }
 .acquiring-settings__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
-.acquiring-settings__field { display: grid; gap: 0.45rem; padding: 1rem; border: 1px solid var(--border); border-radius: 15px; background: rgba(8, 13, 29, 0.32); }
-.acquiring-settings__field > span:first-child { font-weight: 700; }
+.acquiring-settings__field { display: grid; align-content: start; gap: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: 15px; background: var(--bg-secondary); }
+.acquiring-settings__field-heading { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: .25rem .75rem; }
+.acquiring-settings__field-heading strong { color: var(--text-primary); }
 .acquiring-settings__field small { color: var(--text-secondary); line-height: 1.35; }
+.acquiring-settings__rate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; }
+.acquiring-settings__rate-grid label { display: grid; align-content: start; gap: .4rem; min-width: 0; color: var(--text-secondary); font-size: .78rem; }
 .acquiring-settings__input-wrap { display: flex; align-items: center; gap: 0.4rem; }
-.acquiring-settings__input-wrap input { width: 100%; min-width: 0; padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); color: var(--text-primary); font: inherit; font-variant-numeric: tabular-nums; }
-.acquiring-settings__input-wrap input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.acquiring-settings__rate-grid input { width: 100%; min-width: 0; min-height: 42px; padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); color: var(--text-primary); font: inherit; font-variant-numeric: tabular-nums; }
+.acquiring-settings__rate-grid input[type="date"] { color-scheme: dark; }
+[data-theme="light"] .acquiring-settings__rate-grid input[type="date"] { color-scheme: light; }
+.acquiring-settings__rate-grid input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 .acquiring-settings__input-wrap b { color: var(--accent); }
+.acquiring-settings__schedule-note { min-height: 1.35em; }
 .acquiring-settings__footer { display: flex; align-items: center; justify-content: flex-end; gap: 0.8rem; flex-wrap: wrap; }
 .acquiring-settings__message { margin-right: auto; color: #62d49d; font-size: 0.9rem; }
 .acquiring-settings__message.is-error { color: #ff8c91; }
@@ -2690,10 +2706,15 @@ watch(warehouse, isWarehouse => {
 .acquiring-settings__reset:not(:disabled):hover { border-color: var(--accent); }
 .acquiring-settings__save:not(:disabled):hover { background: #b3c3ff; }
 
-@media (max-width: 760px) {
+@media (max-width: 1150px) {
   .acquiring-settings__fields { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
   .acquiring-settings__footer { align-items: stretch; }
   .acquiring-settings__message { flex-basis: 100%; }
+}
+@media (max-width: 550px) {
+  .acquiring-settings__rate-grid { grid-template-columns: 1fr; }
 }
 
 .margin-summary-grid {

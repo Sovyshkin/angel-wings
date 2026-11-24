@@ -98,6 +98,18 @@ model AcquiringSettings {
   @@map("acquiring_settings")
 }
 
+model AcquiringRatePeriod {
+  id            Int      @id @default(autoincrement())
+  method        String
+  effectiveFrom DateTime
+  percent       Float
+  createdAt     DateTime @default(now())
+
+  @@unique([method, effectiveFrom])
+  @@index([method, effectiveFrom])
+  @@map("acquiring_rate_periods")
+}
+
 model RecoveryCart {
   id             Int       @id @default(autoincrement())
   userId         Int       @unique

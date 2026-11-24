@@ -25,7 +25,7 @@ import { buildOrderWaybill, createOrderWaybillDocx, createOrderWaybillPdf } from
 import { applyStockAdjustments, parseStockAdjustmentRequest } from '../utils/stockAdjustments.js'
 import { applyOrderStockChanges } from '../utils/orderStock.js'
 import { deductPaidOrderStock, releaseOrderStock, updatePaymentStatusWithStock } from '../utils/paidOrderStock.js'
-import { getAcquiringSettings, parseAcquiringSettings } from '../utils/acquiringSettings.js'
+import { DEFAULT_ACQUIRING_SETTINGS, getAcquiringSettings, parseAcquiringPlan } from '../utils/acquiringSettings.js'
 import { calculateEditedOrderDiscount, calculateOrderEditAmounts, getBilledOrderTotal } from '../utils/orderEditAmounts.js'
 import { resolveManualOrderPromo, claimManualOrderPromo } from '../utils/manualOrderPromo.js'
 import { isActivePartner, isRetiredPartner } from '../utils/promoEligibility.js'
@@ -53,19 +53,32 @@ router.get('/acquiring-settings', authenticate, requireAdmin, async (req, res, n
 
 router.put('/acquiring-settings', authenticate, requireAdmin, async (req, res, next) => {
   try {
-    let rates
+    const now = new Date()
+    let plan
     try {
-      rates = parseAcquiringSettings(req.body)
+      plan = parseAcquiringPlan(req.body, now)
     } catch (error) {
       return res.status(400).json({ error: error.message })
     }
-    const settings = await prisma.acquiringSettings.upsert({
-      where: { id: 1 },
-      create: { id: 1, ...rates },
-      update: rates
+    await prisma.$transaction(async tx => {
+      await tx.acquiringSettings.upsert({
+        where: { id: 1 },
+        create: { id: 1, ...DEFAULT_ACQUIRING_SETTINGS },
+        update: {}
+      })
+      const current = await getAcquiringSettings(tx)
+      for (const [method, key] of [['sbp', 'sbpPercent'], ['card', 'cardPercent']]) {
+        await tx.acquiringRatePeriod.deleteMany({ where: { method, effectiveFrom: { gt: now } } })
+        if (plan.rates[key] !== current[key]) {
+          await tx.acquiringRatePeriod.create({ data: { method, effectiveFrom: now, percent: plan.rates[key] } })
+        }
+        if (plan.schedules[method]) {
+          await tx.acquiringRatePeriod.create({ data: { method, ...plan.schedules[method] } })
+        }
+      }
     })
     res.set('Cache-Control', 'no-store')
-    res.json({ sbpPercent: settings.sbpPercent, cardPercent: settings.cardPercent })
+    res.json(await getAcquiringSettings(prisma))
   } catch (error) {
     next(error)
   }

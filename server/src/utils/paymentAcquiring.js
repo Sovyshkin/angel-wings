@@ -1,4 +1,4 @@
-import { DEFAULT_ACQUIRING_SETTINGS, UNKNOWN_PAYMENT_PERCENT } from './acquiringSettings.js'
+import { DEFAULT_ACQUIRING_SETTINGS, UNKNOWN_PAYMENT_PERCENT, getEffectiveAcquiringPercent } from './acquiringSettings.js'
 
 export function normalizePaymentType(value) {
   const type = String(value || '').trim().toLowerCase()
@@ -30,7 +30,9 @@ export function getAcquiringEstimate(order, rates = DEFAULT_ACQUIRING_SETTINGS) 
 
   const type = normalizePaymentType(order?.paymentType)
   const settings = { ...DEFAULT_ACQUIRING_SETTINGS, ...rates }
-  const percent = type === 'sbp' ? settings.sbpPercent : type === 'card' ? settings.cardPercent : UNKNOWN_PAYMENT_PERCENT
+  const percent = type === 'sbp' || type === 'card'
+    ? getEffectiveAcquiringPercent(settings, type, order?.createdAt || new Date())
+    : UNKNOWN_PAYMENT_PERCENT
   const paymentAmount = order?.paymentAmount === null || order?.paymentAmount === undefined
     ? order?.total : order.paymentAmount
   const cents = Math.max(0, Math.round((Number(paymentAmount) || 0) * 100))
