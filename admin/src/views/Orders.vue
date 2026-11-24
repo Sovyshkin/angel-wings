@@ -40,8 +40,8 @@
 
     <div class="orders-period" aria-label="Период заказов">
       <div class="orders-period__presets">
-        <button type="button" :class="['orders-period__preset', { active: periodMode === 'week' }]" @click="showCurrentWeek">Эта неделя</button>
-        <button type="button" :class="['orders-period__preset', { active: periodMode === 'all' }]" @click="showAllTime">Всё время</button>
+        <button type="button" :class="['orders-period__preset', { active: isCurrentWeek }]" :aria-pressed="isCurrentWeek" @click="showCurrentWeek">Эта неделя</button>
+        <button type="button" :class="['orders-period__preset', { active: periodMode === 'all' }]" :aria-pressed="periodMode === 'all'" @click="showAllTime">Всё время</button>
       </div>
       <div v-if="periodMode !== 'all'" class="orders-period__range">
         <label><span>С</span><input v-model="dateFrom" class="input" type="date" :max="dateTo || undefined" @change="handlePeriodChange"></label>
@@ -890,6 +890,11 @@ const initialDates = validCalendarDay(route.query.dateFrom) && validCalendarDay(
 const periodMode = ref(route.query.period === 'all' ? 'all' : initialDates ? 'custom' : 'week')
 const dateFrom = ref(initialDates ? String(route.query.dateFrom) : initialWeek.from)
 const dateTo = ref(initialDates ? String(route.query.dateTo) : initialWeek.to)
+const isCurrentWeek = computed(() => {
+  if (periodMode.value === 'all') return false
+  const week = currentMoscowWeek()
+  return dateFrom.value === week.from && dateTo.value === week.to
+})
 const periodError = ref('')
 const scrollStorageKey = 'admin-orders-list-scroll'
 const allowedOrderStatuses = new Set(['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'RETURNED', 'CANCELLED'])
