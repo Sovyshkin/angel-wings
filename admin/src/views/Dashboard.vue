@@ -1,5 +1,5 @@
 <template>
-  <div class="admin-layout" :class="{ 'is-collapsed': sidebarCollapsed, 'is-mobile-open': mobileMenuOpen }">
+  <div class="admin-layout" :class="{ 'is-collapsed': sidebarCollapsed, 'is-mobile-open': mobileMenuOpen, 'is-light': !themeStore.isDark }">
     <div v-if="mobileMenuOpen" class="sidebar-backdrop" @click="closeMobileMenu(true)" aria-hidden="true"></div>
     <aside ref="sidebarEl" class="admin-sidebar" aria-label="Навигация админ-панели" :role="mobileMenuOpen ? 'dialog' : undefined" :aria-modal="mobileMenuOpen ? 'true' : undefined" @keydown="handleSidebarKeydown">
       <router-link :to="authStore.landingPath" class="sidebar-brand" @click="closeMobileMenu">
