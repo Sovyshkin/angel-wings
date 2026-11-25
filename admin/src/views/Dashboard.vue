@@ -1,98 +1,83 @@
 <template>
-  <div class="admin-layout">
-    <header class="admin-header">
-      <div class="header-container">
-        <router-link :to="authStore.landingPath" class="header-logo">
-          <img src="../assets/angel-wings-logo-light.svg" alt="Angel Wings" class="logo-img">
-        </router-link>
-
-        <nav
-          ref="adminNav"
-          class="admin-nav"
-          :class="{ 'is-dragging': isNavDragging }"
-          aria-label="Разделы админ-панели"
-          tabindex="0"
-          @wheel="handleNavWheel"
-          @keydown="handleNavKeydown"
-          @pointerdown="handleNavPointerDown"
-          @pointermove="handleNavPointerMove"
-          @pointerup="handleNavPointerUp"
-          @pointercancel="cancelNavDrag"
-          @lostpointercapture="cancelNavDrag"
-          @dragstart.prevent
-          @click.capture="handleNavClick"
-        >
+  <div class="admin-layout" :class="{ 'is-collapsed': sidebarCollapsed, 'is-mobile-open': mobileMenuOpen }">
+    <div v-if="mobileMenuOpen" class="sidebar-backdrop" @click="closeMobileMenu(true)" aria-hidden="true"></div>
+    <aside ref="sidebarEl" class="admin-sidebar" aria-label="Навигация админ-панели" :role="mobileMenuOpen ? 'dialog' : undefined" :aria-modal="mobileMenuOpen ? 'true' : undefined" @keydown="handleSidebarKeydown">
+      <router-link :to="authStore.landingPath" class="sidebar-brand" @click="closeMobileMenu">
+        <img src="../assets/angel-wings-logo-light.svg" alt="" class="sidebar-logo">
+        <span class="sidebar-brand-copy"><strong>ANGEL WINGS</strong><small>Панель управления</small></span>
+      </router-link>
+      <nav class="sidebar-navigation" aria-label="Разделы админ-панели" @mouseover="showNavTooltip" @mouseout="hideNavTooltip" @focusin="showNavTooltip" @focusout="hideNavTooltip">
           <template v-if="authStore.isAdmin || authStore.isStaff">
-          <router-link v-if="authStore.can('DASHBOARD')" to="/dashboard" class="nav-item">
+          <router-link v-if="authStore.can('DASHBOARD')" to="/dashboard" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
             </svg>
             <span class="nav-text">Dashboard</span>
           </router-link>
-          <router-link v-if="authStore.can('PRODUCTS')" to="/products" class="nav-item">
+          <router-link v-if="authStore.can('PRODUCTS')" to="/products" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
             </svg>
             <span class="nav-text">Товары</span>
           </router-link>
-          <router-link v-if="authStore.can('ANALYTICS')" to="/analytics" class="nav-item">
+          <router-link v-if="authStore.can('ANALYTICS')" to="/analytics" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/>
             </svg>
             <span class="nav-text">Аналитика</span>
           </router-link>
-          <router-link v-if="authStore.can('CATEGORIES') && !authStore.can('PRODUCTS')" to="/products/categories" class="nav-item">
+          <router-link v-if="authStore.can('CATEGORIES') && !authStore.can('PRODUCTS')" to="/products/categories" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
             </svg>
             <span class="nav-text">Категории</span>
           </router-link>
           </template>
-          <router-link v-if="authStore.can('BLOG')" to="/blog" class="nav-item">
+          <router-link v-if="authStore.can('BLOG')" to="/blog" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h12a4 4 0 0 1 4 4v14H8a4 4 0 0 0-4-4z"/><path d="M4 3v14a4 4 0 0 1 4 4M8 7h8M8 11h8"/></svg>
             <span class="nav-text">Блог</span>
           </router-link>
-          <router-link v-if="authStore.can('FORUM')" to="/forum" class="nav-item">
+          <router-link v-if="authStore.can('FORUM')" to="/forum" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h7M7 16h5"/></svg>
             <span class="nav-text">Розыгрыш</span>
             <span v-if="forumApplicationsCount" class="nav-badge">{{ forumApplicationsCount }}</span>
           </router-link>
           <template v-if="authStore.isAdmin || authStore.isStaff">
-          <router-link v-if="authStore.can('ORDERS')" to="/orders" class="nav-item">
+          <router-link v-if="authStore.can('ORDERS')" to="/orders" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
             </svg>
             <span class="nav-text">Заказы</span>
           </router-link>
-          <router-link v-if="authStore.can('CONSULTATIONS')" to="/consultations" class="nav-item">
+          <router-link v-if="authStore.can('CONSULTATIONS')" to="/consultations" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11L6 20v-4.1a2.5 2.5 0 0 1-2-2.4v-8Z"/><path d="M8 9h8M8 12h5"/>
             </svg>
             <span class="nav-text">Консультации</span>
           </router-link>
-          <router-link v-if="authStore.isAdmin" to="/users" class="nav-item">
+          <router-link v-if="authStore.isAdmin" to="/users" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
             </svg>
             <span class="nav-text">Пользователи</span>
           </router-link>
-          <router-link v-if="authStore.isAdmin" to="/roles" class="nav-item">
+          <router-link v-if="authStore.isAdmin" to="/roles" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z"/><path d="M9 12h6M12 9v6"/></svg>
             <span class="nav-text">Роли</span>
           </router-link>
-          <router-link v-if="authStore.can('POINTS')" to="/user-points" class="nav-item">
+          <router-link v-if="authStore.can('POINTS')" to="/user-points" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="9"/><path d="M12 7v10M8 11h8"/>
             </svg>
             <span class="nav-text">Баллы</span>
           </router-link>
-          <router-link v-if="authStore.can('PARTNERS')" to="/partners" class="nav-item">
+          <router-link v-if="authStore.can('PARTNERS')" to="/partners" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
             </svg>
             <span class="nav-text">Партнёры</span>
           </router-link>
-          <router-link v-if="authStore.can('APPLICATIONS')" to="/partner-applications" class="nav-item">
+          <router-link v-if="authStore.can('APPLICATIONS')" to="/partner-applications" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
               <path d="M14 2v6h6"/>
@@ -101,13 +86,13 @@
             <span class="nav-text">Заявки</span>
             <span v-if="pendingApplicationsCount" class="nav-badge">{{ pendingApplicationsCount }}</span>
           </router-link>
-          <router-link v-if="authStore.can('PAYOUTS')" to="/partner-payouts" class="nav-item">
+          <router-link v-if="authStore.can('PAYOUTS')" to="/partner-payouts" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M7 15h4"/>
             </svg>
             <span class="nav-text">Выплаты</span>
           </router-link>
-          <router-link v-if="authStore.can('DEALERS')" to="/dealers" class="nav-item">
+          <router-link v-if="authStore.can('DEALERS')" to="/dealers" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 21h18"/>
               <path d="M5 21V7l8-4 6 4v14"/>
@@ -116,185 +101,68 @@
             </svg>
             <span class="nav-text">Дилеры</span>
           </router-link>
-          <router-link v-if="authStore.can('PROMO')" to="/promo-codes" class="nav-item">
+          <router-link v-if="authStore.can('PROMO')" to="/promo-codes" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
             </svg>
             <span class="nav-text">Промокоды</span>
           </router-link>
-          <router-link v-if="authStore.can('EMAIL')" to="/email-campaigns" class="nav-item">
+          <router-link v-if="authStore.can('EMAIL')" to="/email-campaigns" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z"/><polyline points="22,6 12,13 2,6"/>
             </svg>
             <span class="nav-text">Рассылки</span>
           </router-link>
-          <router-link v-if="authStore.can('CDEK')" to="/cdek" class="nav-item">
+          <router-link v-if="authStore.can('CDEK')" to="/cdek" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
             </svg>
             <span class="nav-text">СДЭК</span>
           </router-link>
           </template>
-        </nav>
-
-        <div class="header-actions">
-          <button class="theme-toggle" @click="themeStore.toggle()">
-            <svg v-if="themeStore.isDark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </svg>
-            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
-            </svg>
-          </button>
-
-          <div class="user-menu">
-            <span class="user-name">{{ authStore.user?.name }}</span>
-            <button @click="logout" class="btn btn-secondary btn-sm">Выйти</button>
-          </div>
-
-          <button class="mobile-menu-btn" @click="mobileMenuOpen = !mobileMenuOpen">
-            <svg v-if="!mobileMenuOpen" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
-            </svg>
-            <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <div class="mobile-menu" :class="{ open: mobileMenuOpen }" @click="mobileMenuOpen = false">
-      <nav class="mobile-menu__nav" @click.stop>
-        <button class="mobile-menu__close" @click="mobileMenuOpen = false">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-        <div class="mobile-menu__header">
-          <img src="../assets/angel-wings-logo-light.svg" alt="Angel Wings" class="mobile-logo">
-          <span class="mobile-menu__title">Админ-панель</span>
-        </div>
-        <div class="mobile-menu__links">
-            <template v-if="authStore.isAdmin || authStore.isStaff">
-            <router-link v-if="authStore.can('DASHBOARD')" to="/dashboard" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-              </svg>
-              Dashboard
-            </router-link>
-            <router-link v-if="authStore.can('PRODUCTS')" to="/products" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
-              </svg>
-              Товары
-            </router-link>
-            <router-link v-if="authStore.can('ANALYTICS')" to="/analytics" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="5" width="3" height="12" rx="1"/>
-              </svg>
-              Аналитика
-            </router-link>
-            <router-link v-if="authStore.can('CATEGORIES') && !authStore.can('PRODUCTS')" to="/products/categories" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
-              </svg>
-              Категории
-            </router-link>
-            </template>
-            <router-link v-if="authStore.can('BLOG')" to="/blog" class="nav-link" @click="mobileMenuOpen = false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h12a4 4 0 0 1 4 4v14H8a4 4 0 0 0-4-4z"/><path d="M4 3v14a4 4 0 0 1 4 4"/></svg>Блог</router-link>
-            <router-link v-if="authStore.can('FORUM')" to="/forum" class="nav-link" @click="mobileMenuOpen = false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h7M7 16h5"/></svg>Розыгрыш<span v-if="forumApplicationsCount" class="nav-badge nav-badge--mobile">{{ forumApplicationsCount }}</span></router-link>
-            <template v-if="authStore.isAdmin || authStore.isStaff">
-            <router-link v-if="authStore.can('ORDERS')" to="/orders" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
-              Заказы
-            </router-link>
-            <router-link v-if="authStore.can('CONSULTATIONS')" to="/consultations" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11L6 20v-4.1a2.5 2.5 0 0 1-2-2.4v-8Z"/><path d="M8 9h8M8 12h5"/>
-              </svg>
-              Консультации
-            </router-link>
-            <router-link v-if="authStore.isAdmin" to="/users" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-              </svg>
-              Пользователи
-            </router-link>
-            <router-link v-if="authStore.isAdmin" to="/roles" class="nav-link" @click="mobileMenuOpen = false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z"/><path d="M9 12h6M12 9v6"/></svg>Роли</router-link>
-            <router-link v-if="authStore.can('POINTS')" to="/user-points" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="9"/><path d="M12 7v10M8 11h8"/>
-              </svg>
-              Баллы
-            </router-link>
-            <router-link v-if="authStore.can('PARTNERS')" to="/partners" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
-              </svg>
-              Партнёры
-            </router-link>
-            <router-link v-if="authStore.can('APPLICATIONS')" to="/partner-applications" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                <path d="M14 2v6h6"/>
-                <path d="M9 15h6M9 18h4"/>
-              </svg>
-              Заявки
-              <span v-if="pendingApplicationsCount" class="nav-badge nav-badge--mobile">{{ pendingApplicationsCount }}</span>
-            </router-link>
-            <router-link v-if="authStore.can('PAYOUTS')" to="/partner-payouts" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M7 15h4"/>
-              </svg>
-              Выплаты
-            </router-link>
-            <router-link v-if="authStore.can('DEALERS')" to="/dealers" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 21h18"/>
-                <path d="M5 21V7l8-4 6 4v14"/>
-                <path d="M9 9h1M9 13h1M14 9h1M14 13h1"/>
-                <path d="M10 21v-4h4v4"/>
-              </svg>
-              Дилеры
-            </router-link>
-            <router-link v-if="authStore.can('PROMO')" to="/promo-codes" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
-              </svg>
-              Промокоды
-            </router-link>
-            <router-link v-if="authStore.can('EMAIL')" to="/email-campaigns" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z"/><polyline points="22,6 12,13 2,6"/>
-              </svg>
-              Рассылки
-            </router-link>
-            <router-link v-if="authStore.can('CDEK')" to="/cdek" class="nav-link" @click="mobileMenuOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
-              </svg>
-              СДЭК
-            </router-link>
-            </template>
-            <button @click="logout" class="nav-link logout-link">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-              Выйти
-            </button>
-        </div>
       </nav>
+      <div class="sidebar-footer">
+        <button class="sidebar-collapse" type="button" :aria-label="sidebarCollapsed ? 'Раскрыть меню' : 'Свернуть меню'" :aria-expanded="!sidebarCollapsed" @click="toggleSidebar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 6-6 6 6 6"/></svg>
+          <span class="sidebar-collapse-label">Свернуть меню</span>
+        </button>
+        <button class="sidebar-mobile-close" type="button" aria-label="Закрыть меню" @click="closeMobileMenu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </aside>
+    <div class="admin-workspace">
+      <header class="admin-header">
+        <div class="header-container">
+          <button ref="mobileMenuButton" class="mobile-menu-btn" type="button" :aria-expanded="mobileMenuOpen" aria-label="Открыть меню" @click="openMobileMenu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <span class="header-brand">ANGEL WINGS</span>
+          <div class="header-actions">
+            <button class="theme-toggle" type="button" :aria-label="themeStore.isDark ? 'Включить светлую тему' : 'Включить тёмную тему'" @click="themeStore.toggle()">
+              <svg v-if="themeStore.isDark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+              <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+            </button>
+            <span class="header-divider" aria-hidden="true"></span>
+            <div ref="profileEl" class="profile-wrap">
+              <button class="profile-trigger" type="button" :aria-expanded="profileOpen" aria-haspopup="menu" @click="profileOpen = !profileOpen">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                <span class="user-name">{{ authStore.user?.name || 'Профиль' }}</span>
+                <svg class="profile-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div v-if="profileOpen" class="profile-menu" role="menu">
+                <span class="profile-menu-name">{{ authStore.user?.name || 'Профиль' }}</span>
+                <button type="button" role="menuitem" @click="logout">Выйти из аккаунта</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+      <main class="admin-main"><router-view /></main>
     </div>
-
-    <main class="admin-main">
-      <router-view />
-    </main>
+    <Teleport to="body"><div v-if="tooltip.text && sidebarCollapsed && !mobileMenuOpen" class="sidebar-tooltip" :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }" role="tooltip">{{ tooltip.text }}</div></Teleport>
   </div>
 </template>
-
 <script setup>
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
@@ -306,117 +174,65 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
+const SIDEBAR_STORAGE_KEY = 'angel-wings-admin-sidebar-collapsed'
+let storedCollapsed = false
+try { storedCollapsed = window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true' } catch { /* storage may be blocked */ }
+const sidebarCollapsed = ref(storedCollapsed)
 const mobileMenuOpen = ref(false)
+const profileOpen = ref(false)
+const tooltip = ref({ text: '', x: 0, y: 0 })
 const pendingApplicationsCount = ref(0)
 const forumApplicationsCount = ref(0)
-const adminNav = ref(null)
-const isNavDragging = ref(false)
-let navDrag = null
-let suppressNavClick = false
+const sidebarEl = ref(null)
+const mobileMenuButton = ref(null)
+const profileEl = ref(null)
 let forumCountTimer = null
+let previousBodyOverflow = ''
 
-function handleNavWheel(event) {
-  const nav = adminNav.value
-  if (!nav || event.ctrlKey || nav.scrollWidth <= nav.clientWidth) return
-
-  const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? nav.clientWidth : 1
-  const horizontal = event.deltaX * unit
-  const vertical = event.deltaY * unit
-  const delta = Math.abs(horizontal) > Math.abs(vertical) ? horizontal : vertical
-  const maxScroll = nav.scrollWidth - nav.clientWidth
-  const next = Math.max(0, Math.min(maxScroll, nav.scrollLeft + delta))
-
-  // Let the page scroll normally when the menu has reached either edge.
-  if (next === nav.scrollLeft) return
-  event.preventDefault()
-  nav.scrollLeft = next
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  tooltip.value.text = ''
+  try { window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarCollapsed.value)) } catch { /* storage may be blocked */ }
 }
-
-function handleNavKeydown(event) {
-  const nav = adminNav.value
-  if (!nav || nav.scrollWidth <= nav.clientWidth) return
-
-  const step = Math.max(120, Math.round(nav.clientWidth * 0.7))
-  const directions = {
-    ArrowLeft: -120,
-    ArrowRight: 120,
-    PageUp: -step,
-    PageDown: step
-  }
-  let target = nav.scrollLeft + directions[event.key]
-  if (event.key === 'Home') target = 0
-  if (event.key === 'End') target = nav.scrollWidth - nav.clientWidth
-  if (!Number.isFinite(target)) return
-
-  event.preventDefault()
-  nav.scrollLeft = Math.max(0, Math.min(nav.scrollWidth - nav.clientWidth, target))
+function openMobileMenu() {
+  mobileMenuOpen.value = true
+  profileOpen.value = false
+  nextTick(() => sidebarEl.value?.querySelector('.sidebar-mobile-close')?.focus())
 }
-
-function handleNavPointerDown(event) {
-  const nav = adminNav.value
-  if (!nav || event.pointerType === 'touch' || event.button !== 0) return
-  navDrag = {
-    pointerId: event.pointerId,
-    startX: event.clientX,
-    scrollLeft: nav.scrollLeft,
-    moved: false
-  }
+function closeMobileMenu(restoreFocus = false) {
+  if (!mobileMenuOpen.value) return
+  mobileMenuOpen.value = false
+  if (restoreFocus === true) nextTick(() => mobileMenuButton.value?.focus())
 }
-
-function handleNavPointerMove(event) {
-  const nav = adminNav.value
-  if (!navDrag || !nav || event.pointerId !== navDrag.pointerId) return
-  if (!event.buttons) {
-    cancelNavDrag()
-    return
-  }
-
-  const distance = event.clientX - navDrag.startX
-  if (!navDrag.moved && Math.abs(distance) < 6) return
-  if (!navDrag.moved) {
-    navDrag.moved = true
-    isNavDragging.value = true
-    nav.setPointerCapture(event.pointerId)
-  }
-  event.preventDefault()
-  nav.scrollLeft = navDrag.scrollLeft - distance
+function showNavTooltip(event) {
+  if (!sidebarCollapsed.value || window.matchMedia('(max-width: 1024px)').matches) return
+  const link = event.target.closest?.('.nav-item')
+  if (!link) return
+  const text = link.querySelector('.nav-text')?.textContent?.trim()
+  if (!text) return
+  const box = link.getBoundingClientRect()
+  tooltip.value = { text, x: box.right + 12, y: box.top + box.height / 2 }
 }
-
-function handleNavPointerUp(event) {
-  if (!navDrag || event.pointerId !== navDrag.pointerId) return
-  if (navDrag.moved) {
-    suppressNavClick = true
-    window.setTimeout(() => { suppressNavClick = false }, 0)
-  }
-  cancelNavDrag()
+function hideNavTooltip(event) {
+  if (event.relatedTarget?.closest?.('.nav-item') === event.target.closest?.('.nav-item')) return
+  tooltip.value.text = ''
 }
-
-function cancelNavDrag() {
-  navDrag = null
-  isNavDragging.value = false
+function handleSidebarKeydown(event) {
+  if (!mobileMenuOpen.value || event.key !== 'Tab') return
+  const focusable = Array.from(sidebarEl.value?.querySelectorAll('a[href], button:not([disabled])') || [])
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
 }
-
-function handleNavClick(event) {
-  if (!suppressNavClick) return
-  event.preventDefault()
-  event.stopPropagation()
-  suppressNavClick = false
+function handleWindowKeydown(event) {
+  if (event.key !== 'Escape') return
+  if (mobileMenuOpen.value) closeMobileMenu(true)
+  profileOpen.value = false
 }
-
-function revealActiveNavItem() {
-  const nav = adminNav.value
-  const active = nav?.querySelector('.router-link-active')
-  if (!nav || !active) return
-
-  const navBounds = nav.getBoundingClientRect()
-  const activeBounds = active.getBoundingClientRect()
-  if (activeBounds.left < navBounds.left) {
-    nav.scrollLeft -= navBounds.left - activeBounds.left + 8
-  } else if (activeBounds.right > navBounds.right) {
-    nav.scrollLeft += activeBounds.right - navBounds.right + 8
-  }
+function handleDocumentClick(event) {
+  if (profileOpen.value && !profileEl.value?.contains(event.target)) profileOpen.value = false
 }
-
 async function fetchPendingApplicationsCount() {
   if (!authStore.can('APPLICATIONS')) return
   try {
@@ -474,412 +290,29 @@ onMounted(() => {
   if (authStore.can('FORUM')) forumCountTimer = window.setInterval(fetchForumApplicationsCount, 60_000)
   window.addEventListener('partner-applications-count', handlePartnerApplicationsCount)
   window.addEventListener('forum-applications-count', handleForumApplicationsCount)
-  nextTick(revealActiveNavItem)
+  window.addEventListener('keydown', handleWindowKeydown)
+  document.addEventListener('pointerdown', handleDocumentClick)
 })
-
 onBeforeUnmount(() => {
   if (forumCountTimer) window.clearInterval(forumCountTimer)
   window.removeEventListener('partner-applications-count', handlePartnerApplicationsCount)
   window.removeEventListener('forum-applications-count', handleForumApplicationsCount)
+  window.removeEventListener('keydown', handleWindowKeydown)
+  document.removeEventListener('pointerdown', handleDocumentClick)
+  document.body.style.overflow = previousBodyOverflow
 })
-
+watch(mobileMenuOpen, (open) => {
+  if (open) { previousBodyOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden' }
+  else document.body.style.overflow = previousBodyOverflow
+})
 watch(() => route.fullPath, () => {
+  closeMobileMenu()
+  profileOpen.value = false
+  tooltip.value.text = ''
   fetchPendingApplicationsCount()
   fetchForumApplicationsCount()
-  nextTick(revealActiveNavItem)
 })
 </script>
-
 <style scoped>
-.admin-layout {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.admin-header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(20px);
-}
-
-.header-container {
-  max-width: 1400px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  gap: clamp(0.75rem, 1.5vw, 2rem);
-  min-width: 0;
-}
-
-.header-logo {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.logo-img {
-  height: 36px;
-  width: auto;
-  object-fit: contain;
-}
-
-.admin-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-inline: contain;
-  cursor: grab;
-}
-
-.admin-nav::-webkit-scrollbar {
-  display: none;
-}
-
-.admin-nav.is-dragging,
-.admin-nav.is-dragging * {
-  cursor: grabbing;
-  user-select: none;
-}
-
-.admin-nav:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-  border-radius: var(--radius-sm);
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  transition: var(--transition);
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
-.nav-item:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.nav-item.router-link-active {
-  color: var(--accent);
-  background: var(--accent-dim);
-}
-
-.nav-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 0.4rem;
-  border-radius: 999px;
-  background: #ff6464;
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 800;
-  line-height: 1;
-  box-shadow: 0 0 0 3px rgba(255, 100, 100, 0.14);
-}
-
-.nav-badge--mobile {
-  margin-left: auto;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.5rem, 1vw, 1rem);
-  margin-left: auto;
-  flex: 0 0 auto;
-  min-width: 0;
-}
-
-.theme-toggle {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  transition: var(--transition);
-}
-
-.theme-toggle:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-.user-menu {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-.user-name {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  max-width: clamp(90px, 10vw, 180px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.btn-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.8125rem;
-  flex-shrink: 0;
-}
-
-.admin-main {
-  flex: 1;
-  max-width: 1400px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
-}
-
-@media (max-width: 1024px) {
-  .admin-nav {
-    display: none;
-  }
-
-  .mobile-menu-btn {
-    display: flex;
-  }
-
-  .nav-text {
-    display: none;
-  }
-
-  .nav-item {
-    padding: 0.625rem 0.75rem;
-  }
-}
-
-.mobile-menu-btn {
-  width: 40px;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  transition: var(--transition);
-  flex-shrink: 0;
-}
-
-.mobile-menu-btn:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-@media (min-width: 1025px) {
-  .mobile-menu-btn {
-    display: none;
-  }
-}
-
-.mobile-menu-btn:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-@media (max-width: 768px) {
-  .header-container {
-    padding: 0 1rem;
-    gap: 1rem;
-  }
-
-  .user-name {
-    display: none;
-  }
-
-  .admin-main {
-    padding: 1.5rem 1rem;
-  }
-}
-
-.mobile-menu {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  z-index: 100;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.3s ease;
-  pointer-events: none;
-}
-
-.mobile-menu.open {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-}
-
-@media (min-width: 1025px) {
-  .mobile-menu {
-    display: none;
-  }
-}
-
-.mobile-menu__nav {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 85%;
-  max-width: 320px;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-card);
-  padding: 1rem;
-  transform: translateX(100%);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow-y: auto;
-}
-
-.mobile-menu.open .mobile-menu__nav {
-  transform: translateX(0);
-}
-
-.mobile-menu__close {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  align-self: flex-end;
-}
-
-.mobile-menu__header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 0 1.5rem;
-  margin-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.mobile-logo {
-  height: 40px;
-  width: auto;
-  object-fit: contain;
-}
-
-.mobile-menu__title {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-}
-
-.mobile-menu__links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  flex: 1;
-}
-
-.mobile-menu__nav .nav-link {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  padding: 1rem 1rem;
-  font-size: 1rem;
-  font-weight: 500;
-  border-radius: 12px;
-  color: var(--text-primary);
-  transition: all 0.2s ease;
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-}
-
-.mobile-menu__nav .nav-link:hover {
-  background: var(--bg-hover);
-}
-
-.mobile-menu__nav .nav-link.router-link-active {
-  background: var(--accent-dim);
-  color: var(--accent);
-}
-
-.mobile-menu__nav .nav-link svg {
-  flex-shrink: 0;
-  color: var(--text-muted);
-  transition: color 0.2s ease;
-}
-
-.mobile-menu__nav .nav-link:hover svg,
-.mobile-menu__nav .nav-link.router-link-active svg {
-  color: var(--accent);
-}
-
-.mobile-menu__footer {
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
-  margin-top: auto;
-}
-
-.mobile-menu__nav .logout-link {
-  color: var(--danger);
-  background: transparent;
-  border: 1px dashed var(--border);
-  justify-content: center;
-}
-
-.mobile-menu__nav .logout-link:hover {
-  background: var(--danger);
-  color: white;
-  border-color: var(--danger);
-}
-
-.mobile-menu__nav .logout-link svg {
-  color: var(--danger);
-}
-
-.mobile-menu__nav .logout-link:hover svg {
-  color: white;
-}
-
-@media (max-width: 768px) {
-  .header-actions .theme-toggle,
-  .header-actions .user-menu {
-    display: none;
-  }
-}
+@import "./adminLayout.css";
 </style>
