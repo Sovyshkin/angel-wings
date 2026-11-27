@@ -55,13 +55,13 @@
             </svg>
             <span class="nav-text">Консультации</span>
           </router-link>
-          <router-link v-if="authStore.isAdmin" to="/users" class="nav-item" @click="closeMobileMenu">
+          <router-link v-if="authStore.isAdmin || authStore.isObserver" to="/users" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
             </svg>
             <span class="nav-text">Пользователи</span>
           </router-link>
-          <router-link v-if="authStore.isAdmin" to="/roles" class="nav-item" @click="closeMobileMenu">
+          <router-link v-if="authStore.isAdmin || authStore.isObserver" to="/roles" class="nav-item" @click="closeMobileMenu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z"/><path d="M9 12h6M12 9v6"/></svg>
             <span class="nav-text">Роли</span>
           </router-link>
@@ -158,7 +158,10 @@
           </div>
         </div>
       </header>
-      <main class="admin-main"><router-view /></main>
+      <main class="admin-main" :class="{ 'observer-mode': authStore.isObserver }">
+        <div v-if="authStore.isObserver" class="observer-notice" role="status"><strong>Режим наблюдателя</strong><span>Все разделы доступны только для просмотра. Изменения и сохранение отключены.</span></div>
+        <router-view />
+      </main>
     </div>
     <Teleport to="body"><div v-if="tooltip.text && sidebarCollapsed && !mobileMenuOpen" class="sidebar-tooltip" :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }" role="tooltip">{{ tooltip.text }}</div></Teleport>
   </div>
@@ -315,4 +318,7 @@ watch(() => route.fullPath, () => {
 </script>
 <style scoped>
 @import "./adminLayout.css";
+.observer-notice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:20px 28px 0;padding:12px 18px;border:1px solid rgba(158,181,255,.28);border-radius:12px;background:rgba(158,181,255,.09);color:var(--text-secondary);font-size:14px}
+.observer-notice strong{color:var(--accent);font-weight:700}
+@media(max-width:600px){.observer-notice{margin:16px 16px 0}}
 </style>

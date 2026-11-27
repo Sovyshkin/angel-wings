@@ -311,9 +311,10 @@ class EmailService {
   async sendAdminInvite({ to, name, password, adminUrl, role = 'ADMIN' }) {
     const isCopywriter = role === 'COPYWRITER'
     const isAdmin = role === 'ADMIN'
-    const roleName = isCopywriter ? 'копирайтером' : isAdmin ? 'администратором' : 'сотрудником'
-    const accessDescription = isAdmin ? 'Вам доступна админ-панель Angel Wings.' : 'Вам доступны разделы, назначенные администратором.'
-    const safeName = escapeHtml(name || (isCopywriter ? 'копирайтер' : isAdmin ? 'администратор' : 'сотрудник'))
+    const isObserver = role === 'OBSERVER'
+    const roleName = isCopywriter ? 'копирайтером' : isAdmin ? 'администратором' : isObserver ? 'наблюдателем' : 'сотрудником'
+    const accessDescription = isAdmin ? 'Вам доступна админ-панель Angel Wings.' : isObserver ? 'Вам доступны все разделы админ-панели только для просмотра.' : 'Вам доступны разделы, назначенные администратором.'
+    const safeName = escapeHtml(name || (isCopywriter ? 'копирайтер' : isAdmin ? 'администратор' : isObserver ? 'наблюдатель' : 'сотрудник'))
     const safeEmail = escapeHtml(to)
     const safePassword = escapeHtml(password)
     const safeAdminUrl = escapeHtml(adminUrl)
@@ -322,7 +323,7 @@ class EmailService {
       to,
       subject: `Вас назначили ${roleName} Angel Wings`,
       text: [
-        `Здравствуйте, ${name || (isCopywriter ? 'копирайтер' : isAdmin ? 'администратор' : 'сотрудник')}!`,
+        `Здравствуйте, ${name || (isCopywriter ? 'копирайтер' : isAdmin ? 'администратор' : isObserver ? 'наблюдатель' : 'сотрудник')}!`,
         '',
         `Вас назначили ${roleName} Angel Wings. ${accessDescription}`,
         '',

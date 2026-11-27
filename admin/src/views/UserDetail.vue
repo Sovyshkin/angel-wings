@@ -68,7 +68,7 @@
           <strong v-else-if="user.historicalPartner">{{ user.historicalPartner.user?.name || user.historicalPartner.user?.email || `Партнёр #${user.historicalPartner.id}` }} <small>#{{ user.historicalPartner.id }} · по истории заказов</small></strong>
           <strong v-else>{{ user.partnerBindingDisabled ? 'Отвязано вручную' : 'Нет явной привязки' }}</strong>
         </div>
-        <div class="binding-panel__controls">
+        <div v-if="!authStore.isObserver" class="binding-panel__controls">
           <label for="user-partner-select">Выбрать партнёра</label>
           <select id="user-partner-select" v-model="selectedPartnerId" :disabled="bindingBusy || bindingOptionsLoading">
             <option value="">Выберите партнёра</option>
@@ -96,7 +96,7 @@
           <strong class="points-balance">{{ formatPoints(user.pointsBalance) }} баллов</strong>
         </div>
 
-        <div class="points-actions">
+        <div v-if="!authStore.isObserver" class="points-actions">
           <form class="points-action points-action--credit" @submit.prevent="submitPoints('credit')">
             <h3>Начислить</h3>
             <label :for="'credit-amount'">Количество баллов</label>
@@ -229,7 +229,9 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import { useAuthStore } from '../store/auth'
 
+const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
@@ -399,6 +401,7 @@ function getInitials(value) {
 function getRoleLabel(role) {
   if (roleNames.value[role]) return roleNames.value[role]
   if (role === 'ADMIN') return 'Админ'
+  if (role === 'OBSERVER') return 'Наблюдатель'
   if (role === 'COPYWRITER') return 'Копирайтер'
   if (role === 'PARTNER') return 'Партнер'
   return 'Пользователь'

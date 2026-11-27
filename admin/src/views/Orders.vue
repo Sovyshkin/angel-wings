@@ -416,6 +416,10 @@
                 <input type="radio" name="manual-delivery" value="address" :checked="manualDeliveryMode === 'address'" @change="setManualDeliveryMode('address')">
                 <strong>Доставка по адресу</strong><small>Курьер или другой способ</small>
               </label>
+              <label :class="['manual-delivery-choice', { selected: manualDeliveryMode === 'self_pickup' }]">
+                <input type="radio" name="manual-delivery" value="self_pickup" :checked="manualDeliveryMode === 'self_pickup'" @change="setManualDeliveryMode('self_pickup')">
+                <strong>Самовывоз</strong><small>Без адреса и платы за доставку</small>
+              </label>
             </div>
 
             <div v-if="manualDeliveryMode === 'cdek'" class="manual-cdek-panel">
@@ -455,12 +459,13 @@
               <p class="manual-delivery-note">{{ manualCdekCalculating ? 'Рассчитываем доставку…' : 'Доставка оплачивается клиентом напрямую СДЭКу и не входит в сумму заказа.' }}</p>
               <button v-if="manualSelectedPoint" type="button" class="manual-recalculate" :disabled="manualCdekCalculating" @click="calculateManualCdekPrice">Пересчитать стоимость</button>
             </div>
-            <div v-else class="edit-grid manual-address-fields">
+            <div v-else-if="manualDeliveryMode === 'address'" class="edit-grid manual-address-fields">
               <label>Город<input v-model.trim="manualDraft.deliveryCity" class="input" required placeholder="Город доставки"></label>
               <label>Стоимость доставки, ₽<input v-model.number="manualDraft.deliveryPrice" class="input" type="number" min="0" step="0.01"></label>
               <label class="edit-wide">Адрес доставки<input v-model.trim="manualDraft.shippingAddress" class="input" required placeholder="Улица, дом, квартира"></label>
               <p class="manual-delivery-note edit-wide">Стоимость доставки по адресу включается в сумму заказа.</p>
             </div>
+            <p v-else class="manual-delivery-note manual-pickup-note">Клиент заберёт заказ самостоятельно. Стоимость доставки — 0 ₽.</p>
             <p v-if="manualCdekError" class="edit-error" role="status">{{ manualCdekError }}</p>
           </section>
 
@@ -478,7 +483,7 @@
                 <input v-model.number="manualDraft.userPointsUsed" class="input" type="number" min="0" step="1" :max="Math.min(manualUserPointsBalance, Math.floor(manualDraftSubtotal))" :disabled="!manualDraft.userId" placeholder="0">
                 <small v-if="manualDraft.userId">Доступно: {{ manualUserPointsBalance.toLocaleString('ru-RU') }} баллов</small>
               </label>
-              <label>Статус оплаты<select v-model="manualDraft.paymentStatus" class="input" @change="handleManualPaymentStatusChange"><option value="PENDING">Не оплачен</option><option value="PAID">Оплачен</option><option value="FAILED">Ошибка оплаты</option><option value="CASH_ON_DELIVERY">Наличными курьеру</option></select></label>
+              <label>Статус оплаты<select v-model="manualDraft.paymentStatus" class="input" @change="handleManualPaymentStatusChange"><option value="PENDING">Не оплачен</option><option value="PAID">Оплачен</option><option value="FAILED">Ошибка оплаты</option><option v-if="manualDeliveryMode !== 'self_pickup'" value="CASH_ON_DELIVERY">Наличными курьеру</option></select></label>
               <label>Способ оплаты
                 <select v-model="manualDraft.paymentType" class="input" required>
                   <option value="" disabled>Выберите способ</option>
@@ -486,7 +491,7 @@
                   <option value="bank_transfer">Банковский перевод</option>
                   <option value="external_card">Картой вне сайта</option>
                   <option value="external_sbp">СБП вне сайта</option>
-                  <option value="cash_on_delivery">Наличными курьеру</option>
+                  <option v-if="manualDeliveryMode !== 'self_pickup'" value="cash_on_delivery">Наличными курьеру</option>
                   <option value="prepaid">Оплачено ранее вне сайта</option>
                   <option value="discount">Баллы и скидки</option>
                   <option value="no_payment">Без оплаты / подарок</option>
@@ -502,7 +507,7 @@
 
           <p v-if="manualError" class="edit-error" role="alert">{{ manualError }}</p>
           <div class="manual-order-footer">
-            <div><small>Итого по заказу</small><strong>{{ formatPrice(manualDraftTotal) }}</strong><span v-if="manualAppliedPromo?.discountAmount">Промокод: −{{ formatPrice(manualAppliedPromo.discountAmount) }}</span><span v-if="Number(manualDraft.userPointsUsed) > 0">Баллы: −{{ formatPrice(manualDraft.userPointsUsed) }}</span><span v-if="manualDeliveryMode === 'cdek'">Без оплаты доставки СДЭК</span></div>
+            <div><small>Итого по заказу</small><strong>{{ formatPrice(manualDraftTotal) }}</strong><span v-if="manualAppliedPromo?.discountAmount">Промокод: −{{ formatPrice(manualAppliedPromo.discountAmount) }}</span><span v-if="Number(manualDraft.userPointsUsed) > 0">Баллы: −{{ formatPrice(manualDraft.userPointsUsed) }}</span><span v-if="manualDeliveryMode === 'cdek'">Без оплаты доставки СДЭК</span><span v-else-if="manualDeliveryMode === 'self_pickup'">Самовывоз · бесплатно</span></div>
             <div class="manual-order-footer__actions"><button type="button" class="btn btn-secondary" @click="closeManualOrder">Отмена</button><button type="submit" class="btn btn-primary" :disabled="manualSaving || manualCdekCalculating || manualPointsLoading || !manualDraft.items.length">{{ manualSaving ? 'Создаём…' : 'Создать заказ' }}</button></div>
           </div>
         </form>
@@ -1140,6 +1145,10 @@ function clearManualCdekSelection() {
 function setManualDeliveryMode(mode) {
   if (manualDeliveryMode.value === mode) return
   manualDeliveryMode.value = mode
+  if (mode === 'self_pickup' && (manualDraft.value.paymentStatus === 'CASH_ON_DELIVERY' || manualDraft.value.paymentType === 'cash_on_delivery')) {
+    manualDraft.value.paymentStatus = 'PENDING'
+    manualDraft.value.paymentType = ''
+  }
   manualCdekError.value = ''
   clearManualCdekSelection()
   if (mode === 'cdek') {
@@ -1154,7 +1163,7 @@ function setManualDeliveryMode(mode) {
     manualSelectedCity.value = null
     manualPoints.value = []
     manualDraft.value.deliveryTariffCode = ''
-    manualDraft.value.deliveryTariffName = 'Доставка по адресу'
+    manualDraft.value.deliveryTariffName = mode === 'self_pickup' ? 'Самовывоз' : 'Доставка по адресу'
     manualDraft.value.deliveryCity = ''
   }
 }
@@ -1406,7 +1415,7 @@ async function createManualOrder() {
   }
   manualSaving.value = true
   try {
-    const payload = { ...manualDraft.value, items: manualDraft.value.items.map(({ productId, dosage, quantity, price }) => ({ productId, dosage, quantity, price: parseItemPrice(price) })) }
+    const payload = { ...manualDraft.value, deliveryMode: manualDeliveryMode.value, items: manualDraft.value.items.map(({ productId, dosage, quantity, price }) => ({ productId, dosage, quantity, price: parseItemPrice(price) })) }
     delete payload.partnerId
     if (manualDraft.value.partnerId) payload.partnerId = Number(manualDraft.value.partnerId)
     await axios.post(`${API_URL}/orders`, payload)
@@ -3242,7 +3251,7 @@ watch(manualCityQuery, query => {
 .manual-selected-point > div { display: flex; flex-direction: column; gap: .2rem; }
 .manual-selected-point span { color: var(--text-secondary); }
 
-.manual-delivery-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+.manual-delivery-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; }
 .manual-delivery-choice {
   display: grid;
   grid-template-columns: 18px 1fr;
@@ -3305,6 +3314,7 @@ watch(manualCityQuery, query => {
 .manual-cdek-selected-city { color: var(--text-secondary); font-size: .8rem; }
 .manual-cdek-selected-city strong { color: var(--text-primary); }
 .manual-delivery-note { color: var(--text-muted); font-size: .77rem; line-height: 1.4; }
+.manual-pickup-note { margin-top: 1rem; }
 .manual-address-fields { margin-top: 1rem; }
 .manual-order-section .edit-notice { margin-top: 1rem; }
 

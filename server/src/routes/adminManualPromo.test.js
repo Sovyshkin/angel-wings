@@ -307,6 +307,27 @@ test('manual order promo discounts once and credits the partner, but never grant
     assert.equal((await db.partnerCommission.findUnique({ where: { orderId: paidWithoutPromo.id } })).amount, 87.45)
     assert.equal((await db.promoCode.findUnique({ where: { id: reusablePromo.id } })).activationCount, 3)
 
+    const pickupPayload = {
+      customerName: 'Самовывоз', customerEmail: 'pickup@example.test', customerPhone: '+79990000008',
+      items: [{ productId: product.id, quantity: 1, price: 1000 }], paymentType: 'bank_transfer',
+      deliveryMode: 'self_pickup', deliveryPrice: 690, deliveryTariffCode: 136,
+      deliveryTariffName: 'ПВЗ СДЭК', deliveryCity: 'Москва', deliveryPickupPoint: 'MSK1',
+      deliveryPickupName: 'Старый ПВЗ', shippingAddress: 'Старый адрес'
+    }
+    assert.equal((await request(admin, '', { ...pickupPayload, deliveryMode: 'unknown' })).status, 400)
+    assert.equal((await request(admin, '', { ...pickupPayload, paymentStatus: 'CASH_ON_DELIVERY', paymentType: 'cash_on_delivery' })).status, 400)
+    const pickupResponse = await request(admin, '', pickupPayload)
+    assert.equal(pickupResponse.status, 201, await pickupResponse.text())
+    const pickupOrder = await db.order.findFirst({ where: { customerEmail: pickupPayload.customerEmail } })
+    assert.equal(pickupOrder.deliveryTariffName, 'Самовывоз')
+    assert.equal(pickupOrder.deliveryPrice, 0)
+    assert.equal(pickupOrder.total, 1000)
+    assert.equal(pickupOrder.deliveryTariffCode, null)
+    assert.equal(pickupOrder.deliveryCity, null)
+    assert.equal(pickupOrder.deliveryPickupPoint, null)
+    assert.equal(pickupOrder.deliveryPickupName, null)
+    assert.equal(pickupOrder.shippingAddress, null)
+
     const freeProduct = await db.product.create({ data: { title: 'Подарок', slug: 'manual-free-product', description: '', price: 0, stock: 2 } })
     const zeroOrderPayload = {
       customerName: 'Получатель', customerEmail: 'gift@example.test', customerPhone: '+79990000007',

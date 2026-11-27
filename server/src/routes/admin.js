@@ -34,7 +34,7 @@ import { normalizeSearchText, matchesAnySearchText, needsUnicodeSearch } from '.
 
 const router = Router()
 const prisma = new PrismaClient()
-const ALLOWED_USER_ROLES = ['USER', 'ADMIN', 'PARTNER']
+const ALLOWED_USER_ROLES = ['USER', 'ADMIN', 'OBSERVER', 'PARTNER']
 const ADMIN_PASSWORD_LENGTH = 18
 const MANUAL_PAYMENT_TYPES = ['cash', 'bank_transfer', 'external_card', 'external_sbp', 'cash_on_delivery', 'prepaid', 'discount', 'no_payment', 'other']
 
@@ -767,7 +767,7 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'Некорректная роль пользователя' })
     }
 
-    const generatedStaffPassword = (['ADMIN', 'COPYWRITER'].includes(normalizedRole) || isCustomAdminRole(normalizedRole)) ? generateSecureAdminPassword() : null
+    const generatedStaffPassword = (['ADMIN', 'OBSERVER', 'COPYWRITER'].includes(normalizedRole) || isCustomAdminRole(normalizedRole)) ? generateSecureAdminPassword() : null
     const effectivePassword = generatedStaffPassword || crypto.randomBytes(32).toString('hex')
     
     const existing = await findUserByEmail(prisma, email)
@@ -842,7 +842,7 @@ router.post('/users/:id/resend-admin-invite', authenticate, requireAdmin, async 
       return res.status(404).json({ error: 'Пользователь не найден' })
     }
 
-    if (!['ADMIN', 'COPYWRITER'].includes(user.role) && !isCustomAdminRole(user.role)) {
+    if (!['ADMIN', 'OBSERVER', 'COPYWRITER'].includes(user.role) && !isCustomAdminRole(user.role)) {
       return res.status(400).json({ error: 'Повторная отправка доступна только для сотрудников админки' })
     }
 
@@ -1283,7 +1283,11 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
     if (!Array.isArray(items) || !items.length || items.length > 100 || items.some(item => !item || !Number.isInteger(Number(item.productId)) || !Number.isInteger(Number(item.quantity)) || Number(item.quantity) <= 0 || !Number.isFinite(Number(item.price)) || Number(item.price) < 0 || Math.abs(Math.round(Number(item.price) * 100) - Number(item.price) * 100) > 1e-6 || String(item.dosage || '').length > 200)) {
       return res.status(400).json({ error: 'Проверьте состав заказа' })
     }
-    const deliveryPrice = Number(req.body.deliveryPrice || 0)
+    const deliveryMode = String(req.body.deliveryMode || '').trim()
+    if (!['', 'cdek', 'address', 'self_pickup'].includes(deliveryMode)) return res.status(400).json({ error: 'Некорректный способ доставки' })
+    const isSelfPickup = deliveryMode === 'self_pickup'
+    if (isSelfPickup && (paymentStatus === 'CASH_ON_DELIVERY' || paymentType === 'cash_on_delivery')) return res.status(400).json({ error: 'Для самовывоза выберите другой способ оплаты' })
+    const deliveryPrice = isSelfPickup ? 0 : Number(req.body.deliveryPrice || 0)
     if (!Number.isFinite(deliveryPrice) || deliveryPrice < 0) return res.status(400).json({ error: 'Некорректная стоимость доставки' })
     const user = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, address: true, role: true, partnerBindingDisabled: true, partnerUser: { select: { partnerId: true } } } }) : null
     if (userId && (!user || user.role === 'DELETED')) return res.status(404).json({ error: 'Клиент не найден' })
@@ -1314,9 +1318,9 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'Проверьте количество списываемых баллов' })
     }
     const promoCode = String(req.body.promoCode || '').trim()
-    const deliveryTariffCode = req.body.deliveryTariffCode === '' || req.body.deliveryTariffCode == null ? null : Number(req.body.deliveryTariffCode)
+    const deliveryTariffCode = isSelfPickup || req.body.deliveryTariffCode === '' || req.body.deliveryTariffCode == null ? null : Number(req.body.deliveryTariffCode)
     if (deliveryTariffCode !== null && (!Number.isInteger(deliveryTariffCode) || deliveryTariffCode < 0)) return res.status(400).json({ error: 'Некорректный тариф доставки' })
-    const deliveryPickupPoint = String(req.body.deliveryPickupPoint || '').trim() || null
+    const deliveryPickupPoint = isSelfPickup ? null : String(req.body.deliveryPickupPoint || '').trim() || null
     const siteDelivery = deliveryTariffCode || deliveryPickupPoint ? 0 : deliveryPrice
     const order = await prisma.$transaction(async tx => {
       const promo = await resolveManualOrderPromo(tx, { code: promoCode, userId, subtotal, userPointsUsed, boundPartnerId, requestedPartnerId, suppressPartnerAttribution: user?.partnerBindingDisabled && !requestedPartnerId })
@@ -1335,15 +1339,15 @@ router.post('/orders', authenticate, requireAdmin, async (req, res, next) => {
         data: {
           origin: 'ADMIN_MANUAL', userId, partnerId: effectivePartnerId, promoCodeId: promo.promoCode?.id || null,
           discountAmount: totalDiscountAmount, userPointsUsed, customerName, customerEmail, customerPhone,
-          shippingAddress: String(req.body.shippingAddress || '').trim() || null,
+          shippingAddress: isSelfPickup ? null : String(req.body.shippingAddress || '').trim() || null,
           notes: String(req.body.notes || '').trim() || null,
           status, paymentStatus, total, paymentAmount: paymentStatus === 'PAID' ? total : null,
           paymentType, acquiringFee: 0,
           deliveryPrice, deliveryTariffCode,
-          deliveryTariffName: String(req.body.deliveryTariffName || '').trim() || null,
-          deliveryCity: String(req.body.deliveryCity || '').trim() || null,
+          deliveryTariffName: isSelfPickup ? 'Самовывоз' : String(req.body.deliveryTariffName || '').trim() || null,
+          deliveryCity: isSelfPickup ? null : String(req.body.deliveryCity || '').trim() || null,
           deliveryPickupPoint,
-          deliveryPickupName: String(req.body.deliveryPickupName || '').trim() || null,
+          deliveryPickupName: isSelfPickup ? null : String(req.body.deliveryPickupName || '').trim() || null,
           items: { create: normalizedItems.map(item => ({ ...item, stockDeductedQuantity: 0, dosageStockDeducted: 0 })) }
         }
       })

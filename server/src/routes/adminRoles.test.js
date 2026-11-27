@@ -40,6 +40,22 @@ test('custom roles are scoped and role changes preserve passwords except admin p
   try {
     const admin = await db.user.create({ data: { email: 'admin@roles.test', password: 'unused', name: 'Admin', role: 'ADMIN' } })
     const regular = await db.user.create({ data: { email: 'user@roles.test', password: 'unused', name: 'User', role: 'USER' } })
+    const observer = await db.user.create({ data: { email: 'observer@roles.test', password: 'unused', name: 'Observer', role: 'OBSERVER' } })
+    assert.equal((await send('/api/admin/stats', observer)).status, 200)
+    assert.equal((await send('/api/admin/orders', observer)).status, 200)
+    assert.equal((await send('/api/admin/users', observer)).status, 200)
+    assert.equal((await send(`/api/admin/users/${regular.id}`, observer)).status, 200)
+    assert.equal((await send('/api/admin/roles', observer)).status, 200)
+    assert.equal((await send('/api/blog/admin/posts', observer)).status, 200)
+    assert.equal((await send(`/api/admin/users/${regular.id}`, observer, { method: 'PUT', body: JSON.stringify({ role: 'ADMIN' }) })).status, 403)
+    assert.equal((await send('/api/admin/roles', observer, { method: 'POST', body: JSON.stringify({ name: 'Test', permissions: ['DASHBOARD'] }) })).status, 403)
+    assert.equal((await send('/api/blog/admin/posts', observer, { method: 'POST', body: JSON.stringify({ title: 'Test' }) })).status, 403)
+    assert.equal((await fetch(`${base}/api/admin/users`, { headers: { Authorization: `Bearer ${token(observer, false)}` } })).status, 403)
+    const observerInvite = await send('/api/admin/users', admin, { method: 'POST', body: JSON.stringify({ name: 'New Observer', email: 'new-observer@roles.test', role: 'OBSERVER' }) })
+    assert.equal(observerInvite.status, 201, await observerInvite.text())
+    assert.equal((await db.user.findUnique({ where: { email: 'new-observer@roles.test' } })).role, 'OBSERVER')
+    assert.equal(inviteCount, 1)
+    inviteCount = 0
     const copywriterRole = await db.adminRole.findUnique({ where: { code: 'COPYWRITER' } })
     assert.deepEqual(JSON.parse(copywriterRole.permissions), ['BLOG'])
     const copywriter = await db.user.create({ data: { email: 'copywriter@roles.test', password: 'unused', name: 'Copywriter', role: 'COPYWRITER' } })
@@ -59,7 +75,7 @@ test('custom roles are scoped and role changes preserve passwords except admin p
     const role = createdBody.role
     const roleChangeUser = await db.user.create({ data: { email: 'role-change@roles.test', password: 'existing-password-hash', name: 'Role Change', role: 'USER' } })
     const originalPassword = roleChangeUser.password
-    for (const assignedRole of [role.code, 'PARTNER', 'COPYWRITER']) {
+    for (const assignedRole of [role.code, 'PARTNER', 'COPYWRITER', 'OBSERVER']) {
       const assignment = await send(`/api/admin/users/${roleChangeUser.id}`, admin, { method: 'PUT', body: JSON.stringify({ role: assignedRole }) })
       assert.equal(assignment.status, 200, await assignment.text())
       assert.equal((await db.user.findUnique({ where: { id: roleChangeUser.id } })).password, originalPassword)

@@ -37,6 +37,9 @@ export const authenticate = async (req, res, next) => {
     
     req.user = user
     req.auth = decoded
+    if (user.role === 'OBSERVER' && !['GET', 'HEAD'].includes(req.method)) {
+      return res.status(403).json({ error: 'Наблюдатель может только просматривать данные' })
+    }
     if (isCustomAdminRole(user.role) && decoded.adminPanel === true) {
       const staffRole = await prisma.adminRole.findUnique({ where: { code: user.role }, select: { permissions: true } })
       if (!staffRole) return res.status(401).json({ error: 'Роль больше не доступна' })
@@ -50,6 +53,11 @@ export const authenticate = async (req, res, next) => {
 
 export const requireAdmin = (req, res, next) => {
   if (req.user.role === 'ADMIN') return next()
+  if (req.user.role === 'OBSERVER' && req.auth?.adminPanel === true) {
+    return ['GET', 'HEAD'].includes(req.method)
+      ? next()
+      : res.status(403).json({ error: 'Наблюдатель может только просматривать данные' })
+  }
   const sections = sectionsForAdminRequest(req.originalUrl, req.method)
   if (req.auth?.adminPanel === true && sections.some(section => req.adminPermissions?.includes(section))) return next()
   return res.status(403).json({ error: 'Нет доступа к этому разделу' })
@@ -59,9 +67,14 @@ export const requireSuperAdmin = (req, res, next) => (req.user?.role === 'ADMIN'
   ? next()
   : res.status(403).json({ error: 'Только администратор может управлять ролями' })
 
-export const isAdminPanelRole = role => role === 'ADMIN' || isCustomAdminRole(role)
+export const isAdminPanelRole = role => role === 'ADMIN' || role === 'OBSERVER' || isCustomAdminRole(role)
 
 export const requireBlogEditor = (req, res, next) => {
+  if (req.user?.role === 'OBSERVER' && req.auth?.adminPanel === true) {
+    return ['GET', 'HEAD'].includes(req.method)
+      ? next()
+      : res.status(403).json({ error: 'Наблюдатель может только просматривать данные' })
+  }
   if (req.user?.role !== 'ADMIN' && !(req.auth?.adminPanel === true && req.adminPermissions?.includes('BLOG'))) {
     return res.status(403).json({ error: 'Blog access required' })
   }

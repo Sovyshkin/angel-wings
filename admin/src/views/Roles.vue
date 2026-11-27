@@ -4,9 +4,9 @@
       <div>
         <p class="roles-kicker">ДОСТУП К АДМИН-ПАНЕЛИ</p>
         <h1>Роли и права</h1>
-        <p>Создайте роль, отметьте доступные разделы, затем назначьте её сотруднику в «Пользователях».</p>
+        <p>{{ authStore.isObserver ? 'Системные и настраиваемые роли админ-панели.' : 'Создайте роль, отметьте доступные разделы, затем назначьте её сотруднику в «Пользователях».' }}</p>
       </div>
-      <button class="btn btn-primary" type="button" @click="startCreate">+ Новая роль</button>
+      <button v-if="authStore.isAdmin" class="btn btn-primary" type="button" @click="startCreate">+ Новая роль</button>
     </div>
 
     <p v-if="error" class="roles-alert" role="alert">{{ error }}</p>
@@ -16,6 +16,7 @@
       <aside class="roles-list" aria-label="Список ролей">
         <div class="roles-list__caption">Системная роль</div>
         <div class="roles-system"><strong>Администратор</strong><span>Все разделы · управление ролями</span></div>
+        <div class="roles-system"><strong>Наблюдатель</strong><span>Все разделы · только просмотр</span></div>
         <div class="roles-list__caption">Настраиваемые роли <span>{{ roles.length }}</span></div>
         <p v-if="loading" class="roles-empty">Загрузка ролей…</p>
         <p v-else-if="!roles.length" class="roles-empty">Ролей пока нет. Создайте первую роль для сотрудника.</p>
@@ -25,7 +26,7 @@
         </button>
       </aside>
 
-      <section class="roles-editor" aria-label="Настройка роли">
+      <section v-if="selectedId || authStore.isAdmin" class="roles-editor" aria-label="Настройка роли">
         <div class="roles-editor__top">
           <div>
             <span class="roles-editor__eyebrow">{{ selectedId ? 'НАСТРОЙКА ДОСТУПА' : 'НОВАЯ РОЛЬ' }}</span>
@@ -35,26 +36,27 @@
         </div>
 
         <div class="roles-fields">
-          <label>Название роли<input v-model.trim="form.name" maxlength="60" placeholder="Например, Менеджер заказов"></label>
-          <label>Описание <span>необязательно</span><textarea v-model.trim="form.description" maxlength="240" rows="2" placeholder="Кому и для чего нужен этот доступ"></textarea></label>
+          <label>Название роли<input v-model.trim="form.name" maxlength="60" :readonly="authStore.isObserver" placeholder="Например, Менеджер заказов"></label>
+          <label>Описание <span>необязательно</span><textarea v-model.trim="form.description" maxlength="240" rows="2" :readonly="authStore.isObserver" placeholder="Кому и для чего нужен этот доступ"></textarea></label>
         </div>
 
-        <div class="roles-permissions-heading"><div><h3>Доступные разделы</h3><p>Остальные разделы и их API будут закрыты для этой роли.</p></div><button type="button" @click="clearPermissions">Снять все</button></div>
+        <div class="roles-permissions-heading"><div><h3>Доступные разделы</h3><p>Остальные разделы и их API будут закрыты для этой роли.</p></div><button v-if="authStore.isAdmin" type="button" @click="clearPermissions">Снять все</button></div>
         <div class="roles-permissions">
           <label v-for="section in sections" :key="section.code" class="roles-permission" :class="{ checked: form.permissions.includes(section.code) }">
-            <input v-model="form.permissions" type="checkbox" :value="section.code">
+            <input v-model="form.permissions" type="checkbox" :value="section.code" :disabled="authStore.isObserver">
             <span class="roles-permission__mark" aria-hidden="true">{{ form.permissions.includes(section.code) ? '✓' : '' }}</span>
             <span>{{ section.name }}</span>
           </label>
         </div>
-        <p class="roles-security-note">Пользователи и управление ролями доступны только администратору. Изменения прав применяются к уже вошедшим сотрудникам сразу после сохранения.</p>
+        <p class="roles-security-note">Назначать и изменять роли может только администратор. Наблюдатель видит все разделы без права изменений.</p>
 
-        <div class="roles-actions">
+        <div v-if="authStore.isAdmin" class="roles-actions">
           <button class="btn btn-primary" type="button" :disabled="saving || !form.name || !form.permissions.length" @click="saveRole">{{ saving ? 'Сохранение…' : selectedId ? 'Сохранить изменения' : 'Создать роль' }}</button>
           <button v-if="selectedId" class="btn btn-secondary" type="button" @click="startCreate">Отмена</button>
           <button v-if="selectedId && selectedRole?.code !== 'COPYWRITER'" class="roles-delete" type="button" :disabled="saving || selectedRole?.usersCount > 0" :title="selectedRole?.usersCount ? 'Сначала назначьте сотрудникам другую роль' : ''" @click="deleteRole">Удалить роль</button>
         </div>
       </section>
+      <section v-else class="roles-editor" aria-label="Просмотр ролей"><h2>Просмотр ролей</h2><p>Выберите роль в списке, чтобы увидеть доступные ей разделы.</p></section>
     </div>
   </div>
 </template>
@@ -62,7 +64,9 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
+import { useAuthStore } from '../store/auth'
 
+const authStore = useAuthStore()
 const roles = ref([])
 const sections = ref([])
 const selectedId = ref(null)

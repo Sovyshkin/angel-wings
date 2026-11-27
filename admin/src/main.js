@@ -12,6 +12,16 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
+axios.interceptors.request.use(config => {
+  const authStore = useAuthStore(pinia)
+  if (authStore.isObserver && !['get', 'head', 'options'].includes(String(config.method || 'get').toLowerCase())) {
+    const error = new Error('Наблюдатель может только просматривать данные')
+    error.response = { status: 403, data: { error: error.message } }
+    return Promise.reject(error)
+  }
+  return config
+})
+
 axios.interceptors.response.use(
   response => response,
   error => {

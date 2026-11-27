@@ -5,7 +5,7 @@
         <h1 class="page-title" style="font-size: 1.75rem; margin-bottom: 0.25rem;">Пользователи</h1>
         <p class="page-subtitle">Управление пользователями</p>
       </div>
-      <button @click="openModal()" class="btn btn-primary">
+      <button v-if="authStore.isAdmin" @click="openModal()" class="btn btn-primary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
@@ -56,9 +56,10 @@
               <td class="cell-email">{{ user.email }}</td>
               <td class="cell-phone">{{ user.phone || '—' }}</td>
               <td>
-                <select :value="user.role" @click.stop @change="updateRole(user.id, $event.target.value, $event.target)" class="role-select" :disabled="user.id === currentUserId">
+                <select :value="user.role" @click.stop @change="updateRole(user.id, $event.target.value, $event.target)" class="role-select" :disabled="!authStore.isAdmin || user.id === currentUserId">
                   <option value="USER">Пользователь</option>
                   <option value="ADMIN">Админ</option>
+                  <option value="OBSERVER">Наблюдатель</option>
                   <option value="PARTNER">Партнёр</option>
                   <option v-for="role in staffRoles" :key="role.code" :value="role.code">{{ role.name }}</option>
                 </select>
@@ -68,7 +69,7 @@
               <td class="row-actions">
                 <div class="row-actions__inner">
                   <button
-                    v-if="isStaffRole(user.role) && user.id !== currentUserId"
+                    v-if="authStore.isAdmin && isStaffRole(user.role) && user.id !== currentUserId"
                     @click.stop="resendAdminInvite(user)"
                     class="action-btn mail"
                     :disabled="resendingInviteId === user.id"
@@ -84,7 +85,7 @@
                       <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
                     </svg>
                   </button>
-                  <button @click.stop="deleteUser(user.id)" class="action-btn danger" :disabled="user.id === currentUserId" title="Архивировать">
+                  <button v-if="authStore.isAdmin" @click.stop="deleteUser(user.id)" class="action-btn danger" :disabled="user.id === currentUserId" title="Архивировать">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                     </svg>
@@ -138,20 +139,21 @@
           <div class="user-card__actions">
             <button @click="openUserDetail(user.id)" class="btn btn-secondary btn-sm user-detail-btn">Карточка</button>
             <button
-              v-if="isStaffRole(user.role) && user.id !== currentUserId"
+              v-if="authStore.isAdmin && isStaffRole(user.role) && user.id !== currentUserId"
               @click="resendAdminInvite(user)"
               class="btn btn-secondary btn-sm invite-btn"
               :disabled="resendingInviteId === user.id"
             >
               {{ resendingInviteId === user.id ? 'Отправка...' : 'Письмо' }}
             </button>
-            <select :value="user.role" @change="updateRole(user.id, $event.target.value, $event.target)" class="role-select-full" :disabled="user.id === currentUserId">
+            <select :value="user.role" @change="updateRole(user.id, $event.target.value, $event.target)" class="role-select-full" :disabled="!authStore.isAdmin || user.id === currentUserId">
               <option value="USER">Пользователь</option>
               <option value="ADMIN">Админ</option>
+              <option value="OBSERVER">Наблюдатель</option>
               <option value="PARTNER">Партнёр</option>
               <option v-for="role in staffRoles" :key="role.code" :value="role.code">{{ role.name }}</option>
             </select>
-            <button @click="deleteUser(user.id)" class="btn btn-danger btn-sm" :disabled="user.id === currentUserId">
+            <button v-if="authStore.isAdmin" @click="deleteUser(user.id)" class="btn btn-danger btn-sm" :disabled="user.id === currentUserId">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
               </svg>
@@ -195,6 +197,7 @@
               <option value="USER">Пользователь</option>
               <option value="PARTNER">Партнёр</option>
               <option value="ADMIN">Администратор</option>
+              <option value="OBSERVER">Наблюдатель</option>
               <option v-for="role in staffRoles" :key="role.code" :value="role.code">{{ role.name }}</option>
             </select>
           </div>
@@ -248,7 +251,7 @@ const USERS_PER_PAGE = 20
 let searchTimer = null
 
 const currentUserId = computed(() => authStore.user?.id)
-const isStaffRole = role => ['ADMIN', 'COPYWRITER'].includes(role) || /^STAFF_[A-F0-9]{32}$/.test(role || '')
+const isStaffRole = role => ['ADMIN', 'OBSERVER', 'COPYWRITER'].includes(role) || /^STAFF_[A-F0-9]{32}$/.test(role || '')
 
 async function fetchRoles() {
   try {
@@ -340,6 +343,7 @@ function getRoleLabel(role) {
   const custom = staffRoles.value.find(item => item.code === role)
   if (custom) return custom.name
   if (role === 'ADMIN') return 'Админ'
+  if (role === 'OBSERVER') return 'Наблюдатель'
   if (role === 'COPYWRITER') return 'Копирайтер'
   if (role === 'PARTNER') return 'Партнёр'
   return 'Пользователь'

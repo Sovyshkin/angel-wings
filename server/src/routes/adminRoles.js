@@ -6,7 +6,10 @@ import { ADMIN_SECTIONS, ADMIN_SECTION_CODES, parsePermissions } from '../utils/
 
 const router = Router()
 const prisma = new PrismaClient()
-router.use(authenticate, requireSuperAdmin)
+router.use(authenticate, (req, res, next) => {
+  if (req.user.role === 'OBSERVER' && req.auth?.adminPanel === true && req.method === 'GET' && req.path === '/') return next()
+  return requireSuperAdmin(req, res, next)
+})
 
 const present = (role, count = 0) => ({
   id: role.id, code: role.code, name: role.name, description: role.description,
