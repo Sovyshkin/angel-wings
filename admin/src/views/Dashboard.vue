@@ -318,7 +318,7 @@ watch(() => route.fullPath, () => {
 </script>
 <style scoped>
 @import "./adminLayout.css";
-.observer-notice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:20px 28px 0;padding:12px 18px;border:1px solid rgba(158,181,255,.28);border-radius:12px;background:rgba(158,181,255,.09);color:var(--text-secondary);font-size:14px}
+.observer-notice{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;min-width:0;margin:0 0 24px;padding:12px 18px;border:1px solid rgba(158,181,255,.28);border-radius:12px;background:rgba(158,181,255,.09);color:var(--text-secondary);font-size:14px;line-height:1.45}
 .observer-notice strong{color:var(--accent);font-weight:700}
-@media(max-width:600px){.observer-notice{margin:16px 16px 0}}
+@media(max-width:600px){.observer-notice{margin-bottom:18px;padding:11px 14px}}
 </style>

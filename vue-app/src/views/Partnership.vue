@@ -153,6 +153,7 @@
 import { reactive, ref, onMounted } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../store/auth'
+import { getStoredAttribution } from '../utils/adAttribution'
 
 const authStore = useAuthStore()
 const submitting = ref(false)
@@ -188,7 +189,7 @@ async function submitApplication() {
 
   submitting.value = true
   try {
-    await axios.post('/api/partner-applications', { ...form })
+    await axios.post('/api/partner-applications', { ...form, attribution: getStoredAttribution() })
     success.value = true
     form.audience = ''
     form.experience = ''

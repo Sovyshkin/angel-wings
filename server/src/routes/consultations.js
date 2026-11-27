@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { normalizeEmail } from '../utils/userEmail.js'
 import { authenticate } from '../middleware/auth.js'
+import { normalizeLeadAttribution } from '../utils/directAttribution.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -41,7 +42,8 @@ router.post('/', authenticate, async (req, res, next) => {
         question,
         amount: CONSULTATION_AMOUNT,
         paymentStatus: 'EXTERNAL',
-        status: 'NEW'
+        status: 'NEW',
+        ...normalizeLeadAttribution(req.body?.attribution)
       }
     })
 

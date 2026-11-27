@@ -12,6 +12,72 @@ const router = Router()
 const prisma = new PrismaClient()
 const TRACKABLE_EVENTS = new Set(['view', 'add_to_cart'])
 const SUCCESS_PAYMENT_STATUSES = new Set(['PAID', 'CASH_ON_DELIVERY'])
+const DIRECT_SOURCE = /^(yandex|yandex-direct|ya-direct|ydirect)$/i
+
+// This report counts records in our database, never impressions or clicks reported by an ad platform.
+router.get('/direct-results', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const days = [7, 30, 90].includes(Number(req.query.days)) ? Number(req.query.days) : 30
+    const since = startOfDaysAgo(days)
+    const attributionSelect = {
+      id: true, createdAt: true, utmSource: true, utmCampaign: true,
+      directCampaignId: true, directGroupId: true, directAdId: true,
+      directPhraseId: true, yclid: true
+    }
+    const [orders, contacts, consultations, partners] = await Promise.all([
+      prisma.order.findMany({ where: { createdAt: { gte: since }, origin: 'CHECKOUT' }, select: {
+        ...attributionSelect, status: true, paymentStatus: true, total: true, unbilledAdjustment: true
+      } }),
+      prisma.contactRequest.findMany({ where: { createdAt: { gte: since } }, select: { ...attributionSelect, status: true } }),
+      prisma.consultationRequest.findMany({ where: { createdAt: { gte: since } }, select: { ...attributionSelect, status: true } }),
+      prisma.partnerApplication.findMany({ where: { createdAt: { gte: since } }, select: { ...attributionSelect, status: true } })
+    ])
+    const groups = new Map()
+    const getGroup = record => {
+      if (!DIRECT_SOURCE.test(record.utmSource || '')) return null
+      const key = [record.directCampaignId || record.utmCampaign || '', record.directGroupId || '', record.directAdId || ''].join(':')
+      if (!groups.has(key)) groups.set(key, {
+        key, campaignId: record.directCampaignId || null, campaignLabel: record.utmCampaign || null,
+        groupId: record.directGroupId || null, adId: record.directAdId || null,
+        ordersCreated: 0, paidOrders: 0, paidRevenue: 0, leadsSubmitted: 0,
+        records: []
+      })
+      return groups.get(key)
+    }
+    for (const order of orders) {
+      const group = getGroup(order)
+      if (!group) continue
+      group.ordersCreated++
+      const paid = order.paymentStatus === 'PAID' && !['CANCELLED', 'RETURNED'].includes(order.status)
+      if (paid) {
+        group.paidOrders++
+        group.paidRevenue += getRecognizedOrderRevenue(order)
+      }
+      group.records.push({ kind: 'order', id: order.id, createdAt: order.createdAt, paid,
+        revenue: paid ? getRecognizedOrderRevenue(order) : 0, clickId: order.yclid || null })
+    }
+    for (const [kind, rows] of [['contact', contacts], ['consultation', consultations], ['partner', partners]]) {
+      for (const lead of rows) {
+        const group = getGroup(lead)
+        if (!group) continue
+        group.leadsSubmitted++
+        group.records.push({ kind, id: lead.id, createdAt: lead.createdAt, status: lead.status,
+          clickId: lead.yclid || null })
+      }
+    }
+    const results = [...groups.values()].map(group => ({
+      ...group, paidRevenue: toMoney(group.paidRevenue),
+      records: group.records.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 50)
+    })).sort((a, b) => b.paidRevenue - a.paidRevenue || b.leadsSubmitted - a.leadsSubmitted)
+    res.json({ days, results, summary: {
+      adsIdentified: results.filter(row => row.adId).length,
+      ordersCreated: results.reduce((sum, row) => sum + row.ordersCreated, 0),
+      paidOrders: results.reduce((sum, row) => sum + row.paidOrders, 0),
+      paidRevenue: toMoney(results.reduce((sum, row) => sum + row.paidRevenue, 0)),
+      leadsSubmitted: results.reduce((sum, row) => sum + row.leadsSubmitted, 0)
+    } })
+  } catch (error) { next(error) }
+})
 const DEFAULT_REPEAT_CYCLE_DAYS = 30
 const CANCEL_REASON_META = {
   high_price: {

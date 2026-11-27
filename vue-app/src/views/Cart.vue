@@ -1260,7 +1260,7 @@ const SELF_PICKUP_PRICE = 0
 const SELF_PICKUP_AVAILABLE = true
 const CHECKOUT_REQUEST_KEY = 'peptidi_checkout_request_guard'
 const ATTRIBUTION_STORAGE_KEY = 'angel_wings_attribution'
-const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
+const ATTRIBUTION_KEYS = ['aw_m', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'direct_campaign_id', 'direct_group_id', 'direct_ad_id', 'direct_phrase_id', 'yclid']
 
 function captureAttributionFromUrl() {
   if (typeof window === 'undefined') return
@@ -1288,6 +1288,8 @@ function getStoredAttribution() {
   if (typeof window === 'undefined') return {}
   try {
     const parsed = JSON.parse(localStorage.getItem(ATTRIBUTION_STORAGE_KEY) || '{}')
+    const capturedAt = new Date(parsed.capturedAt).getTime()
+    if (!Number.isFinite(capturedAt) || Date.now() - capturedAt > 30 * 86400000 || capturedAt > Date.now()) return {}
     return ATTRIBUTION_KEYS.reduce((result, key) => {
       if (parsed?.[key]) result[key] = parsed[key]
       return result

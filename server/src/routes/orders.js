@@ -19,6 +19,7 @@ import { ensureCdekOrderRegistered } from '../services/cdekOrderRegistration.js'
 import { assertOrderStockAvailable } from '../utils/orderStock.js'
 import { deductPaidOrderStock, updatePaymentStatusWithStock } from '../utils/paidOrderStock.js'
 import { getEffectiveDosagePrice } from '../utils/publicProduct.js'
+import { normalizeDirectAttribution } from '../utils/directAttribution.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -661,7 +662,8 @@ router.post('/', authenticate, async (req, res, next) => {
       utmMedium: normalizeAttributionField('utm_medium', 'utmMedium', 'medium'),
       utmCampaign: normalizeAttributionField('utm_campaign', 'utmCampaign', 'campaign'),
       utmContent: normalizeAttributionField('utm_content', 'utmContent', 'content'),
-      utmTerm: normalizeAttributionField('utm_term', 'utmTerm', 'term')
+      utmTerm: normalizeAttributionField('utm_term', 'utmTerm', 'term'),
+      ...normalizeDirectAttribution(attributionWithToken)
     }
     const isInternalMoscowCourier =
       normalizedDeliveryType === 'courier_internal_moscow' ||

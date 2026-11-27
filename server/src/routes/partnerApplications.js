@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { findUserByEmail, normalizeEmail } from '../utils/userEmail.js'
+import { normalizeLeadAttribution } from '../utils/directAttribution.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -53,7 +54,8 @@ router.post('/', async (req, res, next) => {
         audience,
         experience,
         message,
-        userId: existingUser?.role === 'DELETED' ? null : existingUser?.id || null
+        userId: existingUser?.role === 'DELETED' ? null : existingUser?.id || null,
+        ...normalizeLeadAttribution(req.body?.attribution)
       },
       select: {
         id: true,

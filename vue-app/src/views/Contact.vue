@@ -212,6 +212,7 @@ import { computed, ref, reactive, watch } from 'vue'
 import axios from 'axios'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../store/auth'
+import { getStoredAttribution } from '../utils/adAttribution'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -291,7 +292,8 @@ async function handleSubmit() {
         phone: form.phone,
         contactFormat: form.contactFormat,
         question: form.message,
-        consent: form.consent
+        consent: form.consent,
+        attribution: getStoredAttribution()
       })
       submitSuccess.value = true
       Object.assign(form, { name: '', email: '', phone: '', goal: '', message: '', contactFormat: 'MESSAGES', consent: false })
@@ -304,7 +306,8 @@ async function handleSubmit() {
       email: form.email,
       phone: form.phone,
       goal: form.goal,
-      message: form.message
+      message: form.message,
+      attribution: getStoredAttribution()
     })
     submitSuccess.value = true
     Object.assign(form, { name: '', email: '', phone: '', goal: '', message: '', contactFormat: 'MESSAGES', consent: false })

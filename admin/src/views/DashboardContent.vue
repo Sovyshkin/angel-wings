@@ -50,7 +50,7 @@
           </div>
         </div>
         
-        <div class="stat-card card hover-lift">
+        <div class="stat-card stat-card--revenue card hover-lift">
           <div class="stat-icon accent">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
@@ -164,7 +164,7 @@ onMounted(fetchStats)
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
@@ -172,6 +172,7 @@ onMounted(fetchStats)
 .stat-card {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 1rem;
   padding: 1.5rem;
 }
@@ -195,11 +196,16 @@ onMounted(fetchStats)
 
 .stat-value {
   display: block;
+  min-width: 0;
   font-family: var(--font-body);
   font-size: 1.75rem;
   font-weight: 700;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
+
+.stat-content { flex: 1; min-width: 0; }
+.stat-card--revenue .stat-value { font-size: clamp(1.15rem, 1.45vw, 1.5rem); font-variant-numeric: tabular-nums; }
 
 .stat-label {
   font-size: 0.875rem;
@@ -350,6 +356,7 @@ onMounted(fetchStats)
 }
 
 @media (max-width: 1024px) {
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
@@ -357,7 +364,7 @@ onMounted(fetchStats)
 
 @media (max-width: 640px) {
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
   }
 

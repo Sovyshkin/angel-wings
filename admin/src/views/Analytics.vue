@@ -46,6 +46,60 @@
         </button>
       </nav>
 
+      <section v-if="!warehouse && activeTab === 'direct'" class="direct-analytics">
+        <div class="direct-heading">
+          <div>
+            <span class="section-kicker">ЯНДЕКС ДИРЕКТ · ДАННЫЕ САЙТА</span>
+            <h2>Результаты объявлений</h2>
+            <p>Считаем созданные заявки и заказы из нашей базы. Выручка включает только оплаченные заказы без отмен и возвратов.</p>
+          </div>
+          <button type="button" class="retry-button" @click="fetchDirectResults">Обновить</button>
+        </div>
+        <div v-if="directError" class="direct-message" role="alert">{{ directError }}</div>
+        <div v-else-if="directLoading" class="direct-message">Загружаем результаты…</div>
+        <template v-else>
+          <div class="direct-metrics">
+            <article><span>Объявлений с ID</span><strong>{{ formatNumber(directSummary.adsIdentified) }}</strong></article>
+            <article><span>Заявок отправлено</span><strong>{{ formatNumber(directSummary.leadsSubmitted) }}</strong></article>
+            <article><span>Заказов оформлено</span><strong>{{ formatNumber(directSummary.ordersCreated) }}</strong></article>
+            <article><span>Оплачено заказов</span><strong>{{ formatNumber(directSummary.paidOrders) }}</strong></article>
+            <article><span>Подтверждённая выручка</span><strong>{{ formatCurrency(directSummary.paidRevenue) }}</strong></article>
+          </div>
+          <p class="direct-note">ID объявления приходит из метки ссылки. Строка без ID означает, что объявление определить нельзя. Показы и клики Яндекса здесь не учитываются; отправка заявки сама по себе не доказывает качество клиента.</p>
+          <div class="direct-tag-guide">
+            <strong>Добавьте параметры в ссылки объявлений Директа</strong>
+            <code>utm_source=yandex&amp;utm_medium=cpc&amp;direct_campaign_id={campaign_id}&amp;direct_group_id={gbid}&amp;direct_ad_id={ad_id}&amp;direct_phrase_id={phrase_id}</code>
+            <span>После знака <code>?</code> в новой ссылке или <code>&amp;</code>, если в ней уже есть параметры. Новые метки начнут работать после обновления ссылок в Директе.</span>
+          </div>
+          <div class="direct-table-wrap">
+            <table class="direct-table">
+              <thead><tr><th>Объявление</th><th>Кампания / группа</th><th>Заявки</th><th>Заказы</th><th>Оплачено</th><th>Выручка</th><th></th></tr></thead>
+              <tbody>
+                <template v-for="row in directResults" :key="row.key">
+                  <tr>
+                    <td><strong>{{ row.adId ? `#${row.adId}` : 'ID не передан' }}</strong></td>
+                    <td>{{ row.campaignId || row.campaignLabel || '—' }}<small>Группа {{ row.groupId || '—' }}</small></td>
+                    <td>{{ row.leadsSubmitted }}</td><td>{{ row.ordersCreated }}</td><td>{{ row.paidOrders }}</td>
+                    <td><strong>{{ formatCurrency(row.paidRevenue) }}</strong></td>
+                    <td><button type="button" class="direct-detail" @click="expandedDirectKey = expandedDirectKey === row.key ? null : row.key">{{ expandedDirectKey === row.key ? 'Скрыть' : 'События' }}</button></td>
+                  </tr>
+                  <tr v-if="expandedDirectKey === row.key" class="direct-records-row"><td colspan="7">
+                    <div v-for="record in row.records" :key="`${record.kind}-${record.id}`" class="direct-record">
+                      <span>{{ record.kind === 'order' ? 'Заказ' : record.kind === 'contact' ? 'Контакт' : record.kind === 'consultation' ? 'Консультация' : 'Партнёрская заявка' }} #{{ record.id }}</span>
+                      <span>{{ formatShortDate(record.createdAt) }}</span>
+                      <span>{{ record.kind === 'order' ? (record.paid ? `Оплачен · ${formatCurrency(record.revenue)}` : 'Без подтверждённой оплаты') : record.status }}</span>
+                      <span v-if="record.clickId" class="direct-click-id">yclid: {{ record.clickId }}</span>
+                      <router-link v-if="record.kind === 'order'" :to="`/orders?period=all&q=${record.id}`">Открыть</router-link>
+                    </div>
+                  </td></tr>
+                </template>
+                <tr v-if="!directResults.length"><td colspan="7" class="direct-empty">За выбранный период действий с меткой Директа не найдено.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </section>
+
       <section v-if="!warehouse && activeTab === 'actions'" class="action-analytics">
         <div class="morning-hero">
           <div class="morning-hero__content">
@@ -957,6 +1011,11 @@ const actionFeedback = ref(null)
 const priceDrafts = ref({})
 const savingPriceId = ref(null)
 const activeTab = ref('actions')
+const directResults = ref([])
+const directSummary = ref({ adsIdentified: 0, ordersCreated: 0, paidOrders: 0, paidRevenue: 0, leadsSubmitted: 0 })
+const directLoading = ref(false)
+const directError = ref('')
+const expandedDirectKey = ref(null)
 const days = ref(30)
 const search = ref('')
 const onlySignals = ref(false)
@@ -971,7 +1030,8 @@ const analyticsTabs = [
   { key: 'cancellations', label: 'Отказы', hint: 'Причины отмен' },
   { key: 'trends', label: 'Тренды', hint: 'Сезонность' },
   { key: 'customers', label: 'Клиенты', hint: 'Retention' },
-  { key: 'margin', label: 'Маржа', hint: 'ROMI и CAC' }
+  { key: 'margin', label: 'Маржа', hint: 'ROMI и CAC' },
+  { key: 'direct', label: 'Реклама', hint: 'Результат объявлений' }
 ]
 const periodOptions = [
   { label: '7 дней', value: 7 },
@@ -1269,6 +1329,20 @@ async function fetchAnalytics() {
   }
 }
 
+async function fetchDirectResults() {
+  directLoading.value = true
+  directError.value = ''
+  try {
+    const { data } = await axios.get('/api/admin/analytics/direct-results', { params: { days: days.value } })
+    directResults.value = data.results || []
+    directSummary.value = data.summary || directSummary.value
+  } catch (error) {
+    directError.value = error.response?.data?.error || 'Не удалось загрузить результаты рекламы'
+  } finally {
+    directLoading.value = false
+  }
+}
+
 async function runAnalyticsAction(action) {
   if (!action?.type) return
   runningActionId.value = action.id
@@ -1294,6 +1368,7 @@ function setPeriod(nextDays) {
   if (days.value === nextDays) return
   days.value = nextDays
   fetchAnalytics()
+  if (activeTab.value === 'direct') fetchDirectResults()
 }
 
 async function createMarketingEvent() {
@@ -1363,6 +1438,9 @@ onMounted(() => {
     fetchAnalytics()
   }
 })
+watch(activeTab, tab => {
+  if (tab === 'direct') fetchDirectResults()
+})
 watch(warehouse, isWarehouse => {
   if (isWarehouse) loadWarehouse()
   else fetchAnalytics()
@@ -1370,6 +1448,35 @@ watch(warehouse, isWarehouse => {
 </script>
 
 <style scoped>
+.direct-analytics { display: grid; gap: 1.25rem; }
+.direct-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; }
+.direct-heading h2 { margin: .35rem 0; font-size: clamp(1.5rem, 2vw, 2rem); }
+.direct-heading p, .direct-note { color: var(--text-secondary); line-height: 1.5; margin: 0; }
+.direct-heading p { max-width: 65rem; }
+.direct-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .8rem; }
+.direct-metrics article { display: grid; gap: .7rem; padding: 1.25rem; border: 1px solid var(--border); border-radius: 20px; background: var(--bg-card); min-width: 0; }
+.direct-metrics span { color: var(--text-secondary); }
+.direct-metrics strong { font-size: clamp(1.3rem, 1.8vw, 1.8rem); overflow-wrap: anywhere; }
+.direct-note { padding: 1rem 1.25rem; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); }
+.direct-tag-guide { display: grid; gap: .65rem; padding: 1.1rem 1.25rem; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); }
+.direct-tag-guide > code { display: block; padding: .8rem; border-radius: 10px; background: var(--bg-primary); color: var(--accent); overflow-wrap: anywhere; }
+.direct-tag-guide span { color: var(--text-secondary); font-size: .9rem; }
+.direct-message { padding: 2rem; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); }
+.direct-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 20px; background: var(--bg-card); }
+.direct-table { width: 100%; border-collapse: collapse; min-width: 800px; }
+.direct-table th, .direct-table td { padding: 1rem; border-bottom: 1px solid var(--border); text-align: left; }
+.direct-table th { color: var(--text-secondary); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+.direct-table td small { display: block; margin-top: .25rem; color: var(--text-secondary); }
+.direct-table tbody tr:last-child td { border-bottom: 0; }
+.direct-detail { padding: .5rem .8rem; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: var(--accent); cursor: pointer; }
+.direct-records-row td { background: rgba(159, 181, 255, .04); }
+.direct-record { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.5rem; padding: .55rem 0; }
+.direct-record + .direct-record { border-top: 1px solid var(--border); }
+.direct-record a { color: var(--accent); }
+.direct-click-id { color: var(--text-secondary); font-family: monospace; overflow-wrap: anywhere; }
+.direct-empty { color: var(--text-secondary); text-align: center !important; }
+@media (max-width: 1180px) { .direct-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .direct-heading { align-items: start; flex-direction: column; } .direct-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .analytics-page {
   display: flex;
   flex-direction: column;
@@ -1444,7 +1551,7 @@ watch(warehouse, isWarehouse => {
 
 .analytics-tabs {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0.75rem;
   padding: 0.65rem;
   border: 1px solid var(--border);

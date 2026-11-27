@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { normalizeEmail } from '../utils/userEmail.js'
+import { normalizeLeadAttribution } from '../utils/directAttribution.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -36,7 +37,8 @@ router.post('/', async (req, res, next) => {
         email,
         phone,
         goal,
-        message
+        message,
+        ...normalizeLeadAttribution(req.body?.attribution)
       },
       select: {
         id: true,

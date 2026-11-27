@@ -29,6 +29,7 @@
     "db:recommendations": "node scripts/apply-product-recommendations-schema.mjs",
     "db:product-price-history": "node scripts/apply-product-price-history-schema.mjs",
     "db:campaign-analytics": "node scripts/apply-campaign-analytics-schema.mjs",
+    "db:lead-attribution": "node scripts/apply-lead-attribution-schema.mjs",
     "db:favorite-pickups": "node scripts/apply-favorite-pickup-points-schema.mjs",
     "db:personal-promos": "node scripts/apply-personal-promos-schema.mjs",
     "db:points-campaign": "node scripts/apply-points-campaign-schema.mjs",

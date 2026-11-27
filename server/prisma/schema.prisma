@@ -389,6 +389,11 @@ model Order {
   utmCampaign            String?
   utmContent             String?
   utmTerm                String?
+  directCampaignId String?
+  directGroupId String?
+  directAdId String?
+  directPhraseId String?
+  yclid String?
   items                  OrderItem[]
   customerName           String
   customerEmail          String
@@ -617,6 +622,14 @@ model PartnerApplication {
   audience     String?
   experience   String?
   message      String?
+  utmSource String?
+  utmMedium String?
+  utmCampaign String?
+  directCampaignId String?
+  directGroupId String?
+  directAdId String?
+  directPhraseId String?
+  yclid String?
   status       String    @default("PENDING")
   adminNote    String?
   userId       Int?
@@ -641,6 +654,14 @@ model ContactRequest {
   phone       String?
   goal        String?
   message     String
+  utmSource String?
+  utmMedium String?
+  utmCampaign String?
+  directCampaignId String?
+  directGroupId String?
+  directAdId String?
+  directPhraseId String?
+  yclid String?
   status      String    @default("NEW")
   adminNote   String?
   handledById Int?
@@ -708,6 +729,14 @@ model ConsultationRequest {
   specialist     String
   contactFormat  String
   question       String
+  utmSource String?
+  utmMedium String?
+  utmCampaign String?
+  directCampaignId String?
+  directGroupId String?
+  directAdId String?
+  directPhraseId String?
+  yclid String?
   amount         Float     @default(4000)
   paymentStatus  String    @default("PENDING")
   paymentId      String?   @unique
